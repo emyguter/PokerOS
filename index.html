@@ -2,355 +2,239 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <title>PokerOS — League Platform</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --bg:#0c0e0b;
-  --surface:#111510;
-  --surface2:#181c16;
-  --surface3:#1a2a1a;
-  --gold:#c9a84c;
-  --gold-dim:rgba(201,168,76,0.45);
-  --gold-faint:rgba(201,168,76,0.1);
-  --gold-border:rgba(201,168,76,0.2);
-  --ivory:#f0ede4;
-  --ivory-dim:rgba(240,237,228,0.55);
-  --ivory-faint:rgba(240,237,228,0.12);
-  --green:#3d6e3d;
-  --green-light:#7dc97d;
-  --red:#e07070;
-  --purple:#afa9ec;
-  --border:rgba(201,168,76,0.18);
-  --border2:rgba(201,168,76,0.07);
-  --sidebar-w:210px;
+  --bg:#0c0e0b;--surface:#111510;--surface2:#181c16;--surface3:#1a2a1a;
+  --gold:#c9a84c;--gold-dim:rgba(201,168,76,0.45);--gold-faint:rgba(201,168,76,0.1);--gold-border:rgba(201,168,76,0.2);
+  --ivory:#f0ede4;--ivory-dim:rgba(240,237,228,0.55);--ivory-faint:rgba(240,237,228,0.12);
+  --green-light:#7dc97d;--red:#e07070;
+  --border:rgba(201,168,76,0.18);--border2:rgba(201,168,76,0.07);
+  --sidebar-w:220px;
 }
+html,body{height:100%;background:var(--bg);color:var(--ivory);font-family:'DM Sans',sans-serif;overflow:hidden;}
+.app{display:flex;flex-direction:column;height:100vh;}
 
-html,body{height:100%;background:var(--bg);color:var(--ivory);font-family:'DM Sans',sans-serif;}
-
-/* ── LAYOUT ── */
-.app{display:grid;grid-template-rows:48px 1fr 36px;height:100vh;max-height:100vh;overflow:hidden;}
-
-/* ── TOPBAR ── */
-.topbar{background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;z-index:10;}
-.topbar-logo{display:flex;align-items:center;gap:8px;min-width:var(--sidebar-w);}
-.logo-icon{width:28px;height:28px;background:var(--surface3);border:1px solid var(--gold);border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.logo-name{font-family:'Playfair Display',serif;font-size:14px;color:var(--gold);letter-spacing:0.5px;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);height:48px;display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;z-index:100;}
+.hamburger{width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:6px;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.topbar-logo{display:flex;align-items:center;gap:7px;flex:1;}
+.logo-icon{width:26px;height:26px;background:var(--surface3);border:1px solid var(--gold);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.logo-name{font-family:'Playfair Display',serif;font-size:14px;color:var(--gold);}
 .logo-sub{font-size:8px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;}
-.topbar-center{flex:1;display:flex;align-items:center;justify-content:center;}
-.breadcrumb{font-size:12px;color:var(--gold);font-weight:500;letter-spacing:0.3px;}
-.topbar-right{display:flex;align-items:center;gap:8px;min-width:var(--sidebar-w);justify-content:flex-end;}
-.avatar{width:26px;height:26px;border-radius:50%;background:var(--surface3);border:1px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--gold);font-weight:500;}
-.user-name{font-size:11px;color:var(--ivory-dim);}
-.user-role{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1px;}
+.topbar-screen{font-size:12px;color:var(--gold);font-weight:500;}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--surface3);border:1px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--gold);font-weight:500;flex-shrink:0;}
 
-/* ── BODY ── */
-.body{display:flex;overflow:hidden;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:200;opacity:0;pointer-events:none;transition:opacity 0.25s;}
+.overlay.open{opacity:1;pointer-events:all;}
 
-/* ── SIDEBAR ── */
-.sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;}
+.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100%;background:var(--surface);border-right:1px solid var(--border);z-index:300;transform:translateX(-100%);transition:transform 0.28s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;overflow-y:auto;}
+.sidebar.open{transform:translateX(0);}
+.sidebar-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);}
+.sidebar-logo{display:flex;align-items:center;gap:8px;}
+.close-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:6px;color:var(--ivory-dim);-webkit-tap-highlight-color:transparent;}
+.nav{flex:1;padding:8px 0;}
 .nav-section{padding:12px 16px 4px;font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;}
-.nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;font-size:12px;color:var(--ivory-dim);cursor:pointer;border-left:2px solid transparent;transition:all 0.12s;user-select:none;}
-.nav-item:hover{background:var(--surface2);color:var(--ivory);}
+.nav-item{display:flex;align-items:center;gap:10px;padding:12px 16px;font-size:13px;color:var(--ivory-dim);cursor:pointer;border-left:2px solid transparent;transition:all 0.12s;-webkit-tap-highlight-color:transparent;}
 .nav-item.active{background:var(--surface2);color:var(--gold);border-left-color:var(--gold);}
-.nav-icon{width:14px;height:14px;flex-shrink:0;opacity:0.6;}
+.nav-icon{width:15px;height:15px;flex-shrink:0;opacity:0.6;}
 .nav-item.active .nav-icon{opacity:1;}
-.nav-badge{margin-left:auto;background:var(--gold-faint);border:1px solid var(--gold-border);color:var(--gold);font-size:9px;padding:1px 6px;border-radius:10px;}
-.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);margin-top:auto;}
-.user-chip{display:flex;align-items:center;gap:8px;}
-.user-chip-info{flex:1;}
+.nav-badge{margin-left:auto;background:var(--gold-faint);border:1px solid var(--gold-border);color:var(--gold);font-size:9px;padding:2px 7px;border-radius:10px;}
+.sidebar-footer{padding:14px 16px;border-top:1px solid var(--border);}
+.user-chip{display:flex;align-items:center;gap:9px;}
+.user-name{font-size:12px;font-weight:500;}
+.user-role{font-size:10px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1px;}
 
-/* ── MAIN ── */
+.main-layout{flex:1;overflow:hidden;display:flex;}
 .main{flex:1;overflow:hidden;display:flex;flex-direction:column;}
-.screen{display:none;flex:1;padding:24px 28px;overflow-y:auto;}
-.screen.active{display:block;}
-.page-header{margin-bottom:20px;}
+.screen{display:none;flex:1;padding:18px 16px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.screen.active{display:block;animation:fadeIn 0.18s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
 .page-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--gold);margin-bottom:3px;}
-.page-sub{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;}
+.page-sub{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:18px;}
 
-/* ── CARDS / METRICS ── */
-.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
-.metric{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;}
-.metric-label{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;}
-.metric-val{font-size:24px;font-weight:500;color:var(--gold);font-family:'Playfair Display',serif;line-height:1;}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:18px;}
+.metric{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:13px 14px;}
+.metric-label{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:5px;}
+.metric-val{font-size:22px;font-weight:500;color:var(--gold);font-family:'Playfair Display',serif;line-height:1;}
 .metric-delta{font-size:10px;margin-top:4px;}
 .delta-up{color:var(--green-light);}
-.delta-down{color:var(--red);}
 
-/* ── TABLE ── */
 .section-label{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;}
-.table-wrap{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;overflow:hidden;margin-bottom:16px;}
-table{width:100%;border-collapse:collapse;font-size:12px;}
-th{padding:10px 14px;text-align:left;font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);font-weight:500;}
-td{padding:10px 14px;border-bottom:1px solid var(--border2);color:var(--ivory);}
+.table-wrap{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;overflow:hidden;margin-bottom:16px;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:320px;}
+th{padding:9px 12px;text-align:left;font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);font-weight:500;white-space:nowrap;}
+td{padding:9px 12px;border-bottom:1px solid var(--border2);color:var(--ivory);}
 tr:last-child td{border-bottom:none;}
-tr:hover td{background:rgba(201,168,76,0.03);}
-.mono{font-family:'DM Mono',monospace;font-size:11px;}
-.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:9px;font-weight:500;}
+.mono{font-family:'DM Mono',monospace;font-size:10px;}
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:500;white-space:nowrap;}
 .pill-ok{background:rgba(61,110,61,0.2);color:var(--green-light);border:1px solid rgba(61,110,61,0.35);}
 .pill-pend{background:var(--gold-faint);color:var(--gold);border:1px solid var(--gold-border);}
 .pill-err{background:rgba(224,112,112,0.1);color:var(--red);border:1px solid rgba(224,112,112,0.3);}
 
-/* ── LOGIN ── */
-.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100%;}
-.login-card{width:320px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:32px 28px;}
-.login-logo-wrap{text-align:center;margin-bottom:24px;}
-.login-logo-icon{width:48px;height:48px;background:var(--surface3);border:1px solid var(--gold);border-radius:10px;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;}
-.login-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--gold);}
-.login-tagline{font-size:11px;color:var(--gold-dim);margin-top:3px;}
-.field{margin-bottom:14px;}
-.field label{display:block;font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:5px;}
-.field input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 13px;font-size:13px;color:var(--ivory);font-family:'DM Sans',sans-serif;outline:none;transition:border-color 0.15s;}
-.field input:focus{border-color:var(--gold);}
-.field input::placeholder{color:var(--ivory-faint);}
-.btn-primary{width:100%;padding:11px;background:var(--gold);color:#0c0e0b;border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:0.3px;margin-bottom:12px;transition:opacity 0.15s;}
-.btn-primary:hover{opacity:0.88;}
-.forgot{text-align:center;font-size:11px;color:var(--gold-dim);cursor:pointer;}
-.forgot:hover{color:var(--gold);}
-
-/* ── UPLOAD ── */
-.upload-zone{border:1.5px dashed var(--border);border-radius:10px;padding:32px;text-align:center;margin-bottom:16px;cursor:pointer;transition:border-color 0.15s;}
-.upload-zone:hover{border-color:var(--gold);}
+.upload-zone{border:1.5px dashed var(--border);border-radius:10px;padding:28px 20px;text-align:center;margin-bottom:16px;}
 .upload-title{font-size:14px;font-weight:500;margin-bottom:5px;}
 .upload-sub{font-size:11px;color:var(--ivory-dim);line-height:1.5;}
-.btn-outline{margin-top:12px;padding:8px 18px;background:transparent;border:1px solid var(--gold);color:var(--gold);border-radius:6px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background 0.15s;}
-.btn-outline:hover{background:var(--gold-faint);}
+.btn-outline{margin-top:12px;padding:9px 20px;background:transparent;border:1px solid var(--gold);color:var(--gold);border-radius:6px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;}
 
-/* ── RULES ── */
-.rules-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-.rule-card{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:16px 18px;}
-.rule-name{font-family:'Playfair Display',serif;font-size:14px;color:var(--ivory);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border2);}
+.rules-list{display:flex;flex-direction:column;gap:12px;}
+.rule-card{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;}
+.rule-name{font-family:'Playfair Display',serif;font-size:14px;color:var(--ivory);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border2);}
 .rule-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border2);}
 .rule-row:last-child{border-bottom:none;}
-.rule-key{font-size:11px;color:var(--ivory-dim);}
-.rule-val{font-size:11px;color:var(--gold);font-weight:500;}
-.rule-add{border:1.5px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:120px;cursor:pointer;font-size:12px;color:var(--ivory-dim);transition:all 0.15s;}
-.rule-add:hover{border-color:var(--gold);color:var(--gold);}
+.rule-key{font-size:12px;color:var(--ivory-dim);}
+.rule-val{font-size:12px;color:var(--gold);font-weight:500;}
+.rule-add{border:1.5px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;padding:20px;font-size:12px;color:var(--ivory-dim);}
 
-/* ── REPORTS ── */
-.report-tabs{display:flex;gap:6px;margin-bottom:16px;}
-.tab{padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--border);color:var(--ivory-dim);background:transparent;font-family:'DM Sans',sans-serif;transition:all 0.15s;}
-.tab:hover{background:var(--surface2);}
+.report-tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;}
+.report-tabs::-webkit-scrollbar{display:none;}
+.tab{padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--border);color:var(--ivory-dim);background:transparent;font-family:'DM Sans',sans-serif;white-space:nowrap;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
 .tab.active{background:var(--gold-faint);color:var(--gold);border-color:rgba(201,168,76,0.35);}
-.report-block{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:6px 18px 14px;margin-bottom:12px;}
-.report-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border2);font-size:12px;}
+.report-block{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:4px 16px 12px;margin-bottom:12px;}
+.report-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border2);font-size:13px;}
 .report-row:last-child{border-bottom:none;}
 .report-lbl{color:var(--ivory-dim);}
 .report-val{font-weight:500;}
 .pos{color:var(--green-light);}
 .neg{color:var(--red);}
-.report-total{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:var(--surface2);border:1px solid var(--gold-border);border-radius:8px;margin-bottom:12px;}
-.report-total-lbl{font-size:13px;font-weight:500;}
-.report-total-val{font-size:22px;font-weight:500;color:var(--gold);font-family:'Playfair Display',serif;}
+.report-total{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--surface2);border:1px solid var(--gold-border);border-radius:8px;margin-bottom:14px;}
+.report-total-lbl{font-size:14px;font-weight:500;}
+.report-total-val{font-size:24px;font-weight:500;color:var(--gold);font-family:'Playfair Display',serif;}
 
-/* ── FOOTER ── */
-.footer{background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 20px;}
+.footer{background:var(--surface);border-top:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .footer-tag{font-family:'Playfair Display',serif;font-style:italic;font-size:10px;color:var(--gold-dim);}
-.suits{display:flex;gap:12px;}
-.suit{font-size:15px;color:var(--gold);opacity:0.3;}
+.suits{display:flex;gap:10px;}
+.suit{font-size:14px;color:var(--gold);opacity:0.3;}
 
-/* ── SCROLLBAR ── */
-::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--gold-border);border-radius:2px;}
 
-/* ── FADE IN ── */
-@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
-.screen.active{animation:fadeIn 0.2s ease;}
+@media(min-width:768px){
+  .overlay{display:none!important;}
+  .sidebar{position:relative;transform:none!important;flex-shrink:0;}
+  .hamburger{display:none;}
+  .close-btn{display:none;}
+  .topbar-screen{display:none;}
+}
 </style>
 </head>
 <body>
-
 <div class="app">
-
-  <!-- TOPBAR -->
   <div class="topbar">
+    <div class="hamburger" onclick="toggleSidebar()">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h14" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </div>
     <div class="topbar-logo">
-      <div class="logo-icon">
-        <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-          <path d="M10 2L3 7v6l7 5 7-5V7L10 2z" stroke="#c9a84c" stroke-width="1.4" stroke-linejoin="round"/>
-          <circle cx="10" cy="10" r="2" fill="#c9a84c"/>
-        </svg>
-      </div>
-      <div>
-        <div class="logo-name">PokerOS</div>
-        <div class="logo-sub">League Platform</div>
-      </div>
+      <div class="logo-icon"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 2L3 7v6l7 5 7-5V7L10 2z" stroke="#c9a84c" stroke-width="1.4" stroke-linejoin="round"/><circle cx="10" cy="10" r="2" fill="#c9a84c"/></svg></div>
+      <div><div class="logo-name">PokerOS</div><div class="logo-sub">League Platform</div></div>
     </div>
-    <div class="topbar-center">
-      <span class="breadcrumb" id="topbar-title">Dashboard</span>
-    </div>
-    <div class="topbar-right">
-      <div class="avatar">EM</div>
-      <div>
-        <div class="user-name">Emilly</div>
-        <div class="user-role">Admin</div>
-      </div>
-    </div>
+    <span class="topbar-screen" id="topbar-title">Dashboard</span>
+    <div class="avatar">EM</div>
   </div>
 
-  <!-- BODY -->
-  <div class="body">
+  <div class="main-layout">
+    <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
 
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-      <div class="nav-section">Principal</div>
-      <div class="nav-item active" onclick="goTo('dashboard',this)">
-        <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/></svg>
-        Dashboard
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <div class="logo-icon"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 2L3 7v6l7 5 7-5V7L10 2z" stroke="#c9a84c" stroke-width="1.4" stroke-linejoin="round"/><circle cx="10" cy="10" r="2" fill="#c9a84c"/></svg></div>
+          <div class="logo-name">PokerOS</div>
+        </div>
+        <div class="close-btn" onclick="closeSidebar()"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4l10 10M14 4L4 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
       </div>
-      <div class="nav-item" onclick="goTo('import',this)">
-        <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-        Importação
-        <span class="nav-badge">1 erro</span>
-      </div>
-
-      <div class="nav-section">Configuração</div>
-      <div class="nav-item" onclick="goTo('rules',this)">
-        <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-        Regras da Liga
-      </div>
-
-      <div class="nav-section">Financeiro</div>
-      <div class="nav-item" onclick="goTo('reports',this)">
-        <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 8h6M5 11h4M5 5h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-        Relatórios
-      </div>
-
+      <nav class="nav">
+        <div class="nav-section">Principal</div>
+        <div class="nav-item active" onclick="goTo('dashboard',this)">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/></svg>
+          Dashboard
+        </div>
+        <div class="nav-item" onclick="goTo('import',this)">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          Importação <span class="nav-badge">1 erro</span>
+        </div>
+        <div class="nav-section">Configuração</div>
+        <div class="nav-item" onclick="goTo('rules',this)">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          Regras da Liga
+        </div>
+        <div class="nav-section">Financeiro</div>
+        <div class="nav-item" onclick="goTo('reports',this)">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 8h6M5 11h4M5 5h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          Relatórios
+        </div>
+      </nav>
       <div class="sidebar-footer">
         <div class="user-chip">
           <div class="avatar">EM</div>
-          <div class="user-chip-info">
-            <div style="font-size:12px;font-weight:500;">Emilly</div>
-            <div style="font-size:10px;color:var(--gold-dim);">Administrador</div>
-          </div>
+          <div><div class="user-name">Emilly</div><div class="user-role">Administrador</div></div>
         </div>
       </div>
     </div>
 
-    <!-- MAIN CONTENT -->
     <div class="main">
-
-      <!-- DASHBOARD -->
       <div class="screen active" id="screen-dashboard">
-        <div class="page-header">
-          <div class="page-title">Dashboard</div>
-          <div class="page-sub">Liga Poker Pro · Semana atual</div>
-        </div>
+        <div class="page-title">Dashboard</div>
+        <div class="page-sub">Liga Poker Pro · Semana atual</div>
         <div class="metrics">
-          <div class="metric">
-            <div class="metric-label">Clubes ativos</div>
-            <div class="metric-val">24</div>
-            <div class="metric-delta delta-up">↑ 2 vs semana anterior</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Rake total</div>
-            <div class="metric-val">R$48k</div>
-            <div class="metric-delta delta-up">↑ 8% vs semana anterior</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Acertos pendentes</div>
-            <div class="metric-val">7</div>
-            <div class="metric-delta" style="color:var(--ivory-dim);">aguardando processamento</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Importações</div>
-            <div class="metric-val">132</div>
-            <div class="metric-delta" style="color:var(--ivory-dim);">este mês</div>
-          </div>
+          <div class="metric"><div class="metric-label">Clubes ativos</div><div class="metric-val">24</div><div class="metric-delta delta-up">↑ 2 esta semana</div></div>
+          <div class="metric"><div class="metric-label">Rake total</div><div class="metric-val">R$48k</div><div class="metric-delta delta-up">↑ 8% vs anterior</div></div>
+          <div class="metric"><div class="metric-label">Pendentes</div><div class="metric-val">7</div><div class="metric-delta" style="color:var(--ivory-dim);">aguardando</div></div>
+          <div class="metric"><div class="metric-label">Importações</div><div class="metric-val">132</div><div class="metric-delta" style="color:var(--ivory-dim);">este mês</div></div>
         </div>
-
         <div class="section-label">Últimas importações</div>
         <div class="table-wrap">
           <table>
-            <thead>
-              <tr><th>Clube</th><th>App</th><th>Período</th><th>Rake</th><th>Status</th></tr>
-            </thead>
+            <thead><tr><th>Clube</th><th>App</th><th>Rake</th><th>Status</th></tr></thead>
             <tbody>
-              <tr><td>Club Royal</td><td>PokerBros</td><td>01–07 Mai</td><td>R$12.400</td><td><span class="pill pill-ok">Processado</span></td></tr>
-              <tr><td>Shark Club</td><td>PPPoker</td><td>01–07 Mai</td><td>R$8.750</td><td><span class="pill pill-ok">Processado</span></td></tr>
-              <tr><td>Ás de Ouro</td><td>ClubGG</td><td>01–07 Mai</td><td>R$6.200</td><td><span class="pill pill-pend">Pendente</span></td></tr>
-              <tr><td>Full House FC</td><td>PokerBros</td><td>28 Abr–04 Mai</td><td>R$3.900</td><td><span class="pill pill-err">Erro</span></td></tr>
+              <tr><td>Club Royal</td><td>PokerBros</td><td>R$12.400</td><td><span class="pill pill-ok">Processado</span></td></tr>
+              <tr><td>Shark Club</td><td>PPPoker</td><td>R$8.750</td><td><span class="pill pill-ok">Processado</span></td></tr>
+              <tr><td>Ás de Ouro</td><td>ClubGG</td><td>R$6.200</td><td><span class="pill pill-pend">Pendente</span></td></tr>
+              <tr><td>Full House FC</td><td>PokerBros</td><td>R$3.900</td><td><span class="pill pill-err">Erro</span></td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- IMPORTAÇÃO -->
       <div class="screen" id="screen-import">
-        <div class="page-header">
-          <div class="page-title">Importação de Dados</div>
-          <div class="page-sub">Upload de arquivo · .xlsx</div>
-        </div>
+        <div class="page-title">Importação</div>
+        <div class="page-sub">Upload de arquivo · .xlsx</div>
         <div class="upload-zone">
-          <svg width="36" height="36" viewBox="0 0 36 36" fill="none" style="margin:0 auto 10px;display:block;">
-            <path d="M18 25V11M11 18l7-7 7 7" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
-            <path d="M6 30h24" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round" opacity="0.35"/>
-          </svg>
-          <div class="upload-title">Arraste o arquivo ou clique para selecionar</div>
-          <div class="upload-sub">Formatos aceitos: .xlsx — compatível com PokerBros, PPPoker, ClubGG e qualquer app que exporte Excel estruturado</div>
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" style="margin:0 auto 10px;display:block;"><path d="M16 24V10M10 16l6-6 6 6" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/><path d="M6 28h20" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round" opacity="0.35"/></svg>
+          <div class="upload-title">Toque para selecionar arquivo</div>
+          <div class="upload-sub">Aceita .xlsx — compatível com PokerBros, PPPoker, ClubGG e outros</div>
           <button class="btn-outline">Selecionar arquivo</button>
         </div>
-
-        <div class="section-label">Histórico de importações</div>
+        <div class="section-label">Histórico</div>
         <div class="table-wrap">
           <table>
-            <thead>
-              <tr><th>Arquivo</th><th>Clube</th><th>Enviado por</th><th>Data</th><th>Status</th></tr>
-            </thead>
+            <thead><tr><th>Arquivo</th><th>Clube</th><th>Status</th></tr></thead>
             <tbody>
-              <tr><td class="mono">lpg_royal_0507.xlsx</td><td>Club Royal</td><td>Emilly</td><td>07/05 09:14</td><td><span class="pill pill-ok">Válido</span></td></tr>
-              <tr><td class="mono">lpg_shark_0507.xlsx</td><td>Shark Club</td><td>Cassio</td><td>07/05 08:55</td><td><span class="pill pill-ok">Válido</span></td></tr>
-              <tr><td class="mono">lpg_fullhouse_0504.xlsx</td><td>Full House FC</td><td>Cassio</td><td>04/05 22:10</td><td><span class="pill pill-err">Coluna inválida: rake_mtt</span></td></tr>
+              <tr><td class="mono">lpg_royal_0507.xlsx</td><td>Club Royal</td><td><span class="pill pill-ok">Válido</span></td></tr>
+              <tr><td class="mono">lpg_shark_0507.xlsx</td><td>Shark Club</td><td><span class="pill pill-ok">Válido</span></td></tr>
+              <tr><td class="mono">lpg_fullhouse.xlsx</td><td>Full House FC</td><td><span class="pill pill-err">Col. inválida</span></td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- REGRAS -->
       <div class="screen" id="screen-rules">
-        <div class="page-header">
-          <div class="page-title">Regras da Liga</div>
-          <div class="page-sub">Configuração por clube</div>
-        </div>
-        <div class="rules-grid">
-          <div class="rule-card">
-            <div class="rule-name">Club Royal</div>
-            <div class="rule-row"><span class="rule-key">Tipo de acerto</span><span class="rule-val">Taxa Dinâmica</span></div>
-            <div class="rule-row"><span class="rule-key">Rake MTT</span><span class="rule-val">8%</span></div>
-            <div class="rule-row"><span class="rule-key">Rake Cash</span><span class="rule-val">Dinâmico</span></div>
-            <div class="rule-row"><span class="rule-key">Spinup Lucro</span><span class="rule-val">5%</span></div>
-            <div class="rule-row"><span class="rule-key">Rebate</span><span class="rule-val">10%</span></div>
-            <div class="rule-row"><span class="rule-key">Security</span><span class="rule-val">R$500</span></div>
-          </div>
-          <div class="rule-card">
-            <div class="rule-name">Shark Club</div>
-            <div class="rule-row"><span class="rule-key">Tipo de acerto</span><span class="rule-val">5%–15%</span></div>
-            <div class="rule-row"><span class="rule-key">Taxa atual</span><span class="rule-val">10%</span></div>
-            <div class="rule-row"><span class="rule-key">Spinup Lucro</span><span class="rule-val">5%</span></div>
-            <div class="rule-row"><span class="rule-key">Security</span><span class="rule-val">R$300</span></div>
-            <div class="rule-row"><span class="rule-key">Rebate</span><span class="rule-val">—</span></div>
-          </div>
-          <div class="rule-card">
-            <div class="rule-name">Ás de Ouro</div>
-            <div class="rule-row"><span class="rule-key">Tipo de acerto</span><span class="rule-val">Taxa Dinâmica</span></div>
-            <div class="rule-row"><span class="rule-key">Rake MTT</span><span class="rule-val">9%</span></div>
-            <div class="rule-row"><span class="rule-key">Rake Cash</span><span class="rule-val">Dinâmico</span></div>
-            <div class="rule-row"><span class="rule-key">Rebate</span><span class="rule-val">10%</span></div>
-            <div class="rule-row"><span class="rule-key">Security</span><span class="rule-val">R$400</span></div>
-          </div>
+        <div class="page-title">Regras da Liga</div>
+        <div class="page-sub">Configuração por clube</div>
+        <div class="rules-list">
+          <div class="rule-card"><div class="rule-name">Club Royal</div><div class="rule-row"><span class="rule-key">Tipo</span><span class="rule-val">Taxa Dinâmica</span></div><div class="rule-row"><span class="rule-key">Rake MTT</span><span class="rule-val">8%</span></div><div class="rule-row"><span class="rule-key">Rake Cash</span><span class="rule-val">Dinâmico</span></div><div class="rule-row"><span class="rule-key">Spinup</span><span class="rule-val">5%</span></div><div class="rule-row"><span class="rule-key">Rebate</span><span class="rule-val">10%</span></div><div class="rule-row"><span class="rule-key">Security</span><span class="rule-val">R$500</span></div></div>
+          <div class="rule-card"><div class="rule-name">Shark Club</div><div class="rule-row"><span class="rule-key">Tipo</span><span class="rule-val">5%–15%</span></div><div class="rule-row"><span class="rule-key">Taxa atual</span><span class="rule-val">10%</span></div><div class="rule-row"><span class="rule-key">Spinup</span><span class="rule-val">5%</span></div><div class="rule-row"><span class="rule-key">Security</span><span class="rule-val">R$300</span></div></div>
+          <div class="rule-card"><div class="rule-name">Ás de Ouro</div><div class="rule-row"><span class="rule-key">Tipo</span><span class="rule-val">Taxa Dinâmica</span></div><div class="rule-row"><span class="rule-key">Rake MTT</span><span class="rule-val">9%</span></div><div class="rule-row"><span class="rule-key">Rebate</span><span class="rule-val">10%</span></div><div class="rule-row"><span class="rule-key">Security</span><span class="rule-val">R$400</span></div></div>
           <div class="rule-add">+ Adicionar clube</div>
         </div>
       </div>
 
-      <!-- RELATÓRIOS -->
       <div class="screen" id="screen-reports">
-        <div class="page-header">
-          <div class="page-title">Relatório de Acerto</div>
-          <div class="page-sub">Club Royal · Semana 01–07 Mai</div>
-        </div>
+        <div class="page-title">Relatório de Acerto</div>
+        <div class="page-sub">Club Royal · 01–07 Mai</div>
         <div class="report-tabs">
           <button class="tab active" onclick="switchTab(this)">LPG Acertos</button>
           <button class="tab" onclick="switchTab(this)">Rake Líquido</button>
@@ -361,7 +245,7 @@ tr:hover td{background:rgba(201,168,76,0.03);}
           <div class="report-row"><span class="report-lbl">Rake Total</span><span class="report-val">R$12.400,00</span></div>
           <div class="report-row"><span class="report-lbl">Rake MTT</span><span class="report-val">R$7.200,00</span></div>
           <div class="report-row"><span class="report-lbl">Rake Cash</span><span class="report-val">R$5.200,00</span></div>
-          <div class="report-row"><span class="report-lbl">Ganhos / Perdas</span><span class="report-val pos">+R$1.240,00</span></div>
+          <div class="report-row"><span class="report-lbl">Ganhos/Perdas</span><span class="report-val pos">+R$1.240,00</span></div>
           <div class="report-row"><span class="report-lbl">Taxa Operacional</span><span class="report-val neg">−R$890,00</span></div>
           <div class="report-row"><span class="report-lbl">Spinup Lucro</span><span class="report-val neg">−R$620,00</span></div>
           <div class="report-row"><span class="report-lbl">Rebate 10%</span><span class="report-val neg">−R$1.240,00</span></div>
@@ -370,48 +254,39 @@ tr:hover td{background:rgba(201,168,76,0.03);}
           <div class="report-row"><span class="report-lbl">Pendências</span><span class="report-val neg">−R$300,00</span></div>
           <div class="report-row"><span class="report-lbl">Indicações</span><span class="report-val pos">+R$500,00</span></div>
         </div>
-        <div class="report-total">
-          <span class="report-total-lbl">Total Acerto</span>
-          <span class="report-total-val">R$10.390,00</span>
-        </div>
+        <div class="report-total"><span class="report-total-lbl">Total Acerto</span><span class="report-total-val">R$10.390,00</span></div>
         <button class="btn-outline">Exportar relatório</button>
       </div>
-
     </div>
   </div>
 
-  <!-- FOOTER -->
   <div class="footer">
     <div class="footer-tag">"From game data to financial settlements — automatically."</div>
-    <div class="suits">
-      <span class="suit">♠</span>
-      <span class="suit">♥</span>
-      <span class="suit">♦</span>
-      <span class="suit">♣</span>
-    </div>
+    <div class="suits"><span class="suit">♠</span><span class="suit">♥</span><span class="suit">♦</span><span class="suit">♣</span></div>
   </div>
-
 </div>
 
 <script>
-function goTo(screen, navEl) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById('screen-' + screen).classList.add('active');
-  if (navEl) {
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    navEl.classList.add('active');
-  }
-  const titles = {
-    dashboard: 'Dashboard',
-    import: 'Importação de Dados',
-    rules: 'Regras da Liga',
-    reports: 'Relatórios de Acerto'
-  };
-  document.getElementById('topbar-title').textContent = titles[screen] || screen;
+function toggleSidebar(){
+  var s=document.getElementById('sidebar'),o=document.getElementById('overlay');
+  if(s.classList.contains('open')){closeSidebar();}
+  else{s.classList.add('open');o.classList.add('open');}
 }
-
-function switchTab(el) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+}
+function goTo(screen,navEl){
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
+  document.getElementById('screen-'+screen).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
+  navEl.classList.add('active');
+  var titles={dashboard:'Dashboard',import:'Importação',rules:'Regras da Liga',reports:'Relatórios'};
+  document.getElementById('topbar-title').textContent=titles[screen]||screen;
+  closeSidebar();
+}
+function switchTab(el){
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
   el.classList.add('active');
 }
 </script>
