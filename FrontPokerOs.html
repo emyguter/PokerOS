@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PokerOS — Importação</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0c0e0b;--surface:#111510;--surface2:#181c16;--surface3:#1a2a1a;
+  --gold:#c9a84c;--gold-dim:rgba(201,168,76,0.45);--gold-faint:rgba(201,168,76,0.1);--gold-border:rgba(201,168,76,0.2);
+  --ivory:#f0ede4;--ivory-dim:rgba(240,237,228,0.55);--ivory-faint:rgba(240,237,228,0.12);
+  --green-light:#7dc97d;--red:#e07070;
+  --border:rgba(201,168,76,0.18);--border2:rgba(201,168,76,0.07);
+}
+html,body{min-height:100%;background:var(--bg);color:var(--ivory);font-family:'DM Sans',sans-serif;}
+
+/* TOPBAR */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);height:48px;display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100;}
+.logo-icon{width:26px;height:26px;background:var(--surface3);border:1px solid var(--gold);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.logo-name{font-family:'Playfair Display',serif;font-size:14px;color:var(--gold);}
+.logo-sub{font-size:8px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;}
+.topbar-title{flex:1;text-align:center;font-size:12px;color:var(--gold);font-weight:500;}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--surface3);border:1px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--gold);font-weight:500;}
+
+/* CONTENT */
+.content{max-width:600px;margin:0 auto;padding:24px 16px 40px;}
+.page-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--gold);margin-bottom:3px;}
+.page-sub{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:20px;}
+
+/* UPLOAD ZONE */
+.upload-zone{border:1.5px dashed var(--border);border-radius:10px;padding:32px 20px;text-align:center;margin-bottom:20px;cursor:pointer;transition:all 0.2s;position:relative;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--gold);background:var(--gold-faint);}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.upload-icon{margin:0 auto 12px;display:block;opacity:0.5;}
+.upload-title{font-size:15px;font-weight:500;margin-bottom:6px;}
+.upload-sub{font-size:11px;color:var(--ivory-dim);line-height:1.6;}
+.upload-formats{display:flex;gap:6px;justify-content:center;margin-top:12px;flex-wrap:wrap;}
+.format-badge{font-size:9px;padding:3px 8px;border-radius:4px;background:var(--gold-faint);border:1px solid var(--gold-border);color:var(--gold);font-family:'DM Mono',monospace;}
+
+/* PROCESSANDO */
+.processing{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:20px;margin-bottom:20px;text-align:center;}
+.processing.show{display:block;}
+.spinner{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.processing-text{font-size:13px;color:var(--ivory-dim);}
+.processing-step{font-size:11px;color:var(--gold-dim);margin-top:4px;}
+
+/* RESULTADO */
+.result{display:none;border-radius:10px;padding:16px 18px;margin-bottom:20px;}
+.result.show{display:block;}
+.result.success{background:rgba(61,110,61,0.1);border:1px solid rgba(125,201,125,0.25);}
+.result.error{background:rgba(224,112,112,0.07);border:1px solid rgba(224,112,112,0.25);}
+.result-title{font-size:14px;font-weight:500;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+.result-title.success{color:var(--green-light);}
+.result-title.error{color:var(--red);}
+.result-items{display:flex;flex-direction:column;gap:5px;}
+.result-item{font-size:12px;color:var(--ivory-dim);display:flex;justify-content:space-between;}
+.result-val{color:var(--ivory);font-weight:500;}
+.error-list{list-style:none;display:flex;flex-direction:column;gap:4px;}
+.error-item{font-size:11px;color:var(--red);display:flex;align-items:flex-start;gap:6px;line-height:1.4;}
+.error-dot{width:4px;height:4px;border-radius:50%;background:var(--red);flex-shrink:0;margin-top:5px;}
+
+/* HISTÓRICO */
+.section-label{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;}
+.table-wrap{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;overflow:hidden;}
+.empty-state{padding:32px;text-align:center;font-size:12px;color:var(--ivory-faint);}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{padding:9px 14px;text-align:left;font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);font-weight:500;white-space:nowrap;}
+td{padding:10px 14px;border-bottom:1px solid var(--border2);color:var(--ivory);}
+tr:last-child td{border-bottom:none;}
+.mono{font-family:'DM Mono',monospace;font-size:10px;color:var(--ivory-dim);}
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:500;white-space:nowrap;}
+.pill-ok{background:rgba(61,110,61,0.2);color:var(--green-light);border:1px solid rgba(61,110,61,0.35);}
+.pill-err{background:rgba(224,112,112,0.1);color:var(--red);border:1px solid rgba(224,112,112,0.3);}
+.pill-pend{background:var(--gold-faint);color:var(--gold);border:1px solid var(--gold-border);}
+
+/* FOOTER */
+.footer{background:var(--surface);border-top:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;}
+.footer-tag{font-family:'Playfair Display',serif;font-style:italic;font-size:10px;color:var(--gold-dim);}
+.suits{display:flex;gap:10px;}
+.suit{font-size:14px;color:var(--gold);opacity:0.3;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 20px;font-size:12px;color:var(--ivory);box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:999;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap;}
+.toast.show{opacity:1;}
+.toast.success{border-color:rgba(125,201,125,0.4);color:var(--green-light);}
+.toast.error{border-color:rgba(224,112,112,0.4);color:var(--red);}
+
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--gold-border);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo-icon">
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+      <path d="M10 2L3 7v6l7 5 7-5V7L10 2z" stroke="#c9a84c" stroke-width="1.4" stroke-linejoin="round"/>
+      <circle cx="10" cy="10" r="2" fill="#c9a84c"/>
+    </svg>
+  </div>
+  <div>
+    <div class="logo-name">PokerOS</div>
+    <div class="logo-sub">League Platform</div>
+  </div>
+  <div class="topbar-title">Importação de Dados</div>
+  <div class="avatar">EM</div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+  <div class="page-title">Importação de Dados</div>
+  <div class="page-sub">Upload de arquivo · .xlsx</div>
+
+  <!-- UPLOAD ZONE -->
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" accept=".xlsx,.xls" id="fileInput" onchange="handleFile(this.files[0])"/>
+    <svg class="upload-icon" width="36" height="36" viewBox="0 0 36 36" fill="none">
+      <path d="M18 26V10M11 17l7-7 7 7" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M6 30h24" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <div class="upload-title">Arraste o arquivo ou toque para selecionar</div>
+    <div class="upload-sub">A plataforma detecta automaticamente o app de origem<br>e valida a estrutura do arquivo</div>
+    <div class="upload-formats">
+      <span class="format-badge">PPPoker</span>
+      <span class="format-badge">PokerBros</span>
+      <span class="format-badge">ClubGG</span>
+      <span class="format-badge">.xlsx</span>
+    </div>
+  </div>
+
+  <!-- PROCESSANDO -->
+  <div class="processing" id="processing">
+    <div class="spinner"></div>
+    <div class="processing-text">Processando arquivo...</div>
+    <div class="processing-step" id="processingStep">Lendo estrutura do Excel</div>
+  </div>
+
+  <!-- RESULTADO SUCESSO -->
+  <div class="result success" id="resultSuccess">
+    <div class="result-title success">✓ Importação realizada com sucesso</div>
+    <div class="result-items">
+      <div class="result-item"><span>Arquivo</span><span class="result-val" id="resFileName">—</span></div>
+      <div class="result-item"><span>App detectado</span><span class="result-val" id="resApp">—</span></div>
+      <div class="result-item"><span>Período</span><span class="result-val" id="resPeriod">—</span></div>
+      <div class="result-item"><span>Clubes importados</span><span class="result-val" id="resClubs">—</span></div>
+      <div class="result-item"><span>Rake total</span><span class="result-val" id="resRake">—</span></div>
+    </div>
+  </div>
+
+  <!-- RESULTADO ERRO -->
+  <div class="result error" id="resultError">
+    <div class="result-title error">✕ Erro na importação</div>
+    <ul class="error-list" id="errorList"></ul>
+  </div>
+
+  <!-- HISTÓRICO -->
+  <div class="section-label">Histórico de importações</div>
+  <div class="table-wrap">
+    <div class="empty-state" id="emptyState">Nenhuma importação ainda</div>
+    <table id="historyTable" style="display:none;">
+      <thead>
+        <tr>
+          <th>Arquivo</th>
+          <th>App</th>
+          <th>Período</th>
+          <th>Clubes</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="historyBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <div class="footer-tag">"From game data to financial settlements — automatically."</div>
+  <div class="suits">
+    <span class="suit">♠</span>
+    <span class="suit">♥</span>
+    <span class="suit">♦</span>
+    <span class="suit">♣</span>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG SUPABASE ──
+const SUPABASE_URL = 'https://gebfitjjeyfogqyjqaij.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_97_5LwcW7aqP1Ux0D8Zzcg_hHLlRH-v';
+const LEAGUE_ID_PLACEHOLDER = null; // será preenchido com o ID real da liga
+
+// ── DRAG & DROP ──
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+
+// ── DETECTA APP ──
+function detectApp(sheetNames, firstCell) {
+  const text = (firstCell || '').toLowerCase();
+  if (text.includes('pppoker')) return 'pppoker';
+  if (text.includes('pokerbros')) return 'pokerbros';
+  if (text.includes('clubgg')) return 'clubgg';
+  // tenta pelo nome da aba
+  const names = sheetNames.join(' ').toLowerCase();
+  if (names.includes('pppoker') || names.includes('geral da liga')) return 'pppoker';
+  if (names.includes('pokerbros')) return 'pokerbros';
+  return 'desconhecido';
+}
+
+// ── EXTRAI PERÍODO ──
+function extractPeriod(firstCell) {
+  if (!firstCell) return { start: null, end: null, label: '—' };
+  const match = firstCell.match(/(\d{4}\/\d{2}\/\d{2})\s*-\s*(\d{4}\/\d{2}\/\d{2})/);
+  if (match) {
+    const start = match[1].replace(/\//g, '-');
+    const end   = match[2].replace(/\//g, '-');
+    const fmt = d => d.split('-').reverse().join('/');
+    return { start, end, label: `${fmt(start)} – ${fmt(end)}` };
+  }
+  return { start: null, end: null, label: '—' };
+}
+
+// ── PROCESSA PPPOKER ──
+function processPPPoker(wb) {
+  const sheetName = wb.SheetNames.find(n =>
+    n.toLowerCase().includes('geral da liga') || n.toLowerCase().includes('liga')
+  ) || wb.SheetNames[0];
+
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+  // linha 0 = aviso, linha 1 = cabeçalho com período, linhas seguintes = dados
+  const firstCell = rows[1] ? String(rows[1][0] || '') : '';
+  const period = extractPeriod(firstCell);
+
+  // encontra linha de cabeçalho de colunas (tem "Nome do Clube")
+  let headerRow = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (String(rows[i][1] || '').toLowerCase().includes('nome do clube')) {
+      headerRow = i; break;
+    }
+  }
+
+  const clubs = [];
+  const errors = [];
+
+  if (headerRow === -1) {
+    errors.push('Não foi possível encontrar o cabeçalho de clubes na planilha');
+    return { clubs, errors, period, app: 'pppoker' };
+  }
+
+  // mapeia índices das colunas
+  const header = rows[headerRow];
+  const idx = {
+    nome:    header.findIndex(h => String(h).toLowerCase().includes('nome do clube')),
+    id:      header.findIndex(h => String(h).toLowerCase().includes('id de clube')),
+    taxa:    header.findIndex(h => String(h).toLowerCase() === 'taxa'),
+    rakeMTT: header.findIndex(h => String(h).toLowerCase().includes('taxa (jogos ppst)')),
+    rakeCash:header.findIndex(h => String(h).toLowerCase().includes('taxa (jogos não ppst)')),
+    spinup:  header.findIndex(h => String(h).toLowerCase().includes('buy-in de spinup')),
+    playerResult: header.findIndex(h => String(h).toLowerCase() === 'geral'),
+  };
+
+  // itera linhas de dados
+  for (let i = headerRow + 2; i < rows.length; i++) {
+    const row = rows[i];
+    const nome = String(row[idx.nome] || '').trim();
+    if (!nome || nome === 'Total' || nome === '') continue;
+
+    const rake = parseFloat(row[idx.taxa]) || 0;
+    if (rake === 0 && !nome) continue;
+
+    clubs.push({
+      club_name:        nome,
+      club_external_id: String(row[idx.id] || '').trim(),
+      rake_total:       Math.abs(rake),
+      rake_mtt:         Math.abs(parseFloat(row[idx.rakeMTT]) || 0),
+      rake_cash:        Math.abs(parseFloat(row[idx.rakeCash]) || 0),
+      rake_spinup:      Math.abs(parseFloat(row[idx.spinup]) || 0),
+      player_result:    parseFloat(row[idx.playerResult]) || 0,
+      raw_data:         JSON.stringify(row),
+    });
+  }
+
+  if (clubs.length === 0) {
+    errors.push('Nenhum clube encontrado na planilha');
+  }
+
+  return { clubs, errors, period, app: 'pppoker' };
+}
+
+// ── SALVA NO SUPABASE ──
+async function saveToSupabase(importData, rows) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_KEY,
+    'Authorization': `Bearer ${SUPABASE_KEY}`,
+    'Prefer': 'return=representation'
+  };
+
+  // busca a liga (usa a primeira por enquanto)
+  const leagueRes = await fetch(`${SUPABASE_URL}/rest/v1/leagues?select=id&limit=1`, { headers });
+  const leagues = await leagueRes.json();
+  if (!leagues.length) throw new Error('Nenhuma liga encontrada no banco');
+  const leagueId = leagues[0].id;
+
+  // cria o registro de importação
+  const impRes = await fetch(`${SUPABASE_URL}/rest/v1/imports`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      league_id:    leagueId,
+      file_name:    importData.fileName,
+      app_source:   importData.app,
+      period_start: importData.period.start,
+      period_end:   importData.period.end,
+      status:       importData.errors.length > 0 ? 'error' : 'valid',
+      error_message: importData.errors.join('; ') || null,
+      uploaded_by:  'Emilly',
+    })
+  });
+  const [imp] = await impRes.json();
+  if (!imp || !imp.id) throw new Error('Falha ao salvar importação');
+
+  // salva as linhas
+  if (rows.length > 0) {
+    const rowsPayload = rows.map(r => ({
+      import_id:        imp.id,
+      club_name:        r.club_name,
+      club_external_id: r.club_external_id,
+      rake_total:       r.rake_total,
+      rake_mtt:         r.rake_mtt,
+      rake_cash:        r.rake_cash,
+      rake_spinup:      r.rake_spinup,
+      player_result:    r.player_result,
+      raw_data:         r.raw_data,
+    }));
+
+    await fetch(`${SUPABASE_URL}/rest/v1/import_rows`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(rowsPayload)
+    });
+  }
+
+  return imp.id;
+}
+
+// ── CARREGA HISTÓRICO ──
+async function loadHistory() {
+  const headers = {
+    'apikey': SUPABASE_KEY,
+    'Authorization': `Bearer ${SUPABASE_KEY}`
+  };
+
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/imports?select=*,import_rows(count)&order=created_at.desc&limit=20`,
+    { headers }
+  );
+  const data = await res.json();
+
+  const tbody = document.getElementById('historyBody');
+  const empty = document.getElementById('emptyState');
+  const table = document.getElementById('historyTable');
+
+  if (!data.length) {
+    empty.style.display = 'block';
+    table.style.display = 'none';
+    return;
+  }
+
+  empty.style.display = 'none';
+  table.style.display = 'table';
+  tbody.innerHTML = '';
+
+  data.forEach(imp => {
+    const date = new Date(imp.created_at);
+    const dateStr = date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+    const period = imp.period_start
+      ? `${imp.period_start.split('-').reverse().join('/')} – ${imp.period_end.split('-').reverse().join('/')}`
+      : '—';
+    const count = imp.import_rows?.[0]?.count || 0;
+    const pill = imp.status === 'valid'
+      ? '<span class="pill pill-ok">Válido</span>'
+      : imp.status === 'error'
+      ? '<span class="pill pill-err">Erro</span>'
+      : '<span class="pill pill-pend">Pendente</span>';
+
+    tbody.innerHTML += `
+      <tr>
+        <td><span class="mono">${imp.file_name}</span><br><span style="font-size:10px;color:var(--ivory-dim)">${dateStr}</span></td>
+        <td style="text-transform:uppercase;font-size:11px;">${imp.app_source}</td>
+        <td style="font-size:11px;">${period}</td>
+        <td style="font-size:13px;color:var(--gold);font-weight:500;">${count}</td>
+        <td>${pill}</td>
+      </tr>
+    `;
+  });
+}
+
+// ── HANDLER PRINCIPAL ──
+async function handleFile(file) {
+  if (!file) return;
+
+  // reset UI
+  document.getElementById('resultSuccess').classList.remove('show');
+  document.getElementById('resultError').classList.remove('show');
+  document.getElementById('processing').classList.add('show');
+  setStep('Lendo estrutura do arquivo...');
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: 'array' });
+
+    setStep('Detectando app de origem...');
+    await delay(300);
+
+    const firstCell = wb.Sheets[wb.SheetNames[0]]?.A1?.v || '';
+    const app = detectApp(wb.SheetNames, firstCell);
+
+    setStep('Processando dados da liga...');
+    await delay(300);
+
+    let result;
+    if (app === 'pppoker') {
+      result = processPPPoker(wb);
+    } else {
+      result = { clubs: [], errors: [`App "${app}" ainda não suportado. Suportados: PPPoker`], period: { start: null, end: null, label: '—' }, app };
+    }
+
+    setStep('Salvando no banco de dados...');
+    await delay(200);
+
+    await saveToSupabase({
+      fileName: file.name,
+      app: result.app,
+      period: result.period,
+      errors: result.errors,
+    }, result.clubs);
+
+    document.getElementById('processing').classList.remove('show');
+
+    if (result.errors.length > 0) {
+      // mostra erros
+      const list = document.getElementById('errorList');
+      list.innerHTML = result.errors.map(e =>
+        `<li class="error-item"><span class="error-dot"></span>${e}</li>`
+      ).join('');
+      document.getElementById('resultError').classList.add('show');
+      showToast('Importação salva com erros', 'error');
+    } else {
+      // mostra sucesso
+      const rake = result.clubs.reduce((s, c) => s + c.rake_total, 0);
+      document.getElementById('resFileName').textContent = file.name;
+      document.getElementById('resApp').textContent = result.app.toUpperCase();
+      document.getElementById('resPeriod').textContent = result.period.label;
+      document.getElementById('resClubs').textContent = result.clubs.length;
+      document.getElementById('resRake').textContent = 'R$ ' + rake.toLocaleString('pt-BR', {minimumFractionDigits:2});
+      document.getElementById('resultSuccess').classList.add('show');
+      showToast('Importação realizada com sucesso! ✓', 'success');
+    }
+
+    // recarrega histórico
+    await loadHistory();
+
+  } catch(err) {
+    document.getElementById('processing').classList.remove('show');
+    const list = document.getElementById('errorList');
+    list.innerHTML = `<li class="error-item"><span class="error-dot"></span>${err.message}</li>`;
+    document.getElementById('resultError').classList.add('show');
+    showToast('Erro ao processar arquivo', 'error');
+    console.error(err);
+  }
+
+  // reset input
+  document.getElementById('fileInput').value = '';
+}
+
+function setStep(text) {
+  document.getElementById('processingStep').textContent = text;
+}
+
+function delay(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── INIT ──
+loadHistory();
+</script>
+</body>
+</html>
