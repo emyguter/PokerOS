@@ -430,7 +430,10 @@ function exportCSV() {
   if(!currentData.length) return;
 
   // Formata número no padrão BR (vírgula decimal, ponto milhar)
-  const br = v => parseFloat(v.toFixed(2)).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const br = v => {
+    const fixed = Math.round(v * 100) / 100; // arredonda corretamente
+    return fixed.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  };
 
   // Cabeçalho — mesmo padrão do LPG original
   const period = document.getElementById('resPeriod').textContent;
