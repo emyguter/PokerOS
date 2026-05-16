@@ -428,14 +428,42 @@ function renderReport(clubs) {
 
 function exportCSV() {
   if(!currentData.length) return;
-  let csv='Clube,Rake Total,Rake MTT,Rake Cash,Ganhos/Perdas,Spinup,Rebate,Security,Total Acerto\n';
-  currentData.forEach(c=>{
-    const a=calcAcerto(c);
-    csv+=`"${c.club_name}",${a.rake},${a.rakeMTT},${a.rakeCash},${a.ganhos},${a.spinup},${a.rebate},${a.security},${a.total}\n`;
+
+  // Formata número no padrão BR (vírgula decimal, ponto milhar)
+  const br = v => parseFloat(v.toFixed(2)).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+  // Cabeçalho — mesmo padrão do LPG original
+  const period = document.getElementById('resPeriod').textContent;
+  let csv = `PokerOS — LPG Acertos\n`;
+  csv += `Período:;${period}\n`;
+  csv += `Exportado em:;${new Date().toLocaleDateString('pt-BR')}\n\n`;
+  csv += `Clube;Rake Total;Rake MTT;Rake Cash;Ganhos/Perdas;Spinup;Rebate ${DEFAULT_RULES.rebate_pct}%;Security;Total Acerto\n`;
+
+  let totRake=0, totMTT=0, totCash=0, totGanhos=0, totSpinup=0, totRebate=0, totSec=0, totTotal=0;
+
+  currentData.forEach(c => {
+    const a = calcAcerto(c);
+    totRake    += a.rake;
+    totMTT     += a.rakeMTT;
+    totCash    += a.rakeCash;
+    totGanhos  += a.ganhos;
+    totSpinup  += a.spinup;
+    totRebate  += a.rebate;
+    totSec     += a.security;
+    totTotal   += a.total;
+
+    csv += `"${c.club_name}";${br(a.rake)};${br(a.rakeMTT)};${br(a.rakeCash)};${br(a.ganhos)};${br(a.spinup)};${br(a.rebate)};${br(a.security)};${br(a.total)}\n`;
   });
-  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  const a=document.createElement('a');
-  a.href=url;a.download='lpg_acertos.csv';a.click();
+
+  // Linha de totais
+  csv += `TOTAL;${br(totRake)};${br(totMTT)};${br(totCash)};${br(totGanhos)};${br(totSpinup)};${br(totRebate)};${br(totSec)};${br(totTotal)}\n`;
+
+  // BOM pra abrir certinho no Excel BR
+  const bom = '\uFEFF';
+  const url = URL.createObjectURL(new Blob([bom+csv], {type:'text/csv;charset=utf-8'}));
+  const a = document.createElement('a');
+  const datePart = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  a.href=url; a.download=`LPG_Acertos_${datePart}.csv`; a.click();
   URL.revokeObjectURL(url);
 }
 
