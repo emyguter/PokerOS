@@ -25,6 +25,8 @@ html,body{min-height:100%;background:var(--bg);color:var(--ivory);font-family:'D
 .content{max-width:680px;margin:0 auto;padding:24px 16px 40px;}
 .page-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--gold);margin-bottom:3px;}
 .page-sub{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:20px;}
+
+/* UPLOAD */
 .upload-zone{border:1.5px dashed var(--border);border-radius:10px;padding:32px 20px;text-align:center;margin-bottom:20px;cursor:pointer;transition:all 0.2s;position:relative;}
 .upload-zone:hover,.upload-zone.drag{border-color:var(--gold);background:var(--gold-faint);}
 .upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
@@ -32,48 +34,66 @@ html,body{min-height:100%;background:var(--bg);color:var(--ivory);font-family:'D
 .upload-sub{font-size:11px;color:var(--ivory-dim);line-height:1.6;}
 .upload-formats{display:flex;gap:6px;justify-content:center;margin-top:12px;flex-wrap:wrap;}
 .format-badge{font-size:9px;padding:3px 8px;border-radius:4px;background:var(--gold-faint);border:1px solid var(--gold-border);color:var(--gold);font-family:'DM Mono',monospace;}
+
+/* PROCESSING */
 .processing{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:20px;margin-bottom:20px;text-align:center;}
 .processing.show{display:block;}
 .spinner{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .processing-text{font-size:13px;color:var(--ivory-dim);}
 .processing-step{font-size:11px;color:var(--gold-dim);margin-top:4px;}
-.result{display:none;border-radius:10px;padding:16px 18px;margin-bottom:20px;}
+
+/* RESULTADO SUCESSO — resumo limpo */
+.result{display:none;border-radius:10px;padding:18px 20px;margin-bottom:16px;}
 .result.show{display:block;}
-.result.success{background:rgba(61,110,61,0.1);border:1px solid rgba(125,201,125,0.25);}
+.result.success{background:rgba(61,110,61,0.08);border:1px solid rgba(125,201,125,0.2);}
 .result.error{background:rgba(224,112,112,0.07);border:1px solid rgba(224,112,112,0.25);}
-.result-title{font-size:14px;font-weight:500;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.result-title{font-size:14px;font-weight:500;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
 .result-title.success{color:var(--green-light);}
 .result-title.error{color:var(--red);}
-.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
-.result-item{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border2);}
-.result-lbl{color:var(--ivory-dim);}
-.result-val{font-weight:500;color:var(--ivory);}
+.result-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.summary-item{display:flex;flex-direction:column;gap:3px;}
+.summary-lbl{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1.5px;}
+.summary-val{font-size:16px;font-weight:500;color:var(--ivory);font-family:'Playfair Display',serif;}
+.summary-val.gold{color:var(--gold);}
+
+/* BOTÃO VER RELATÓRIO */
+.btn-toggle-report{width:100%;padding:11px;background:transparent;border:1px solid var(--gold-border);color:var(--gold-dim);border-radius:7px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;}
+.btn-toggle-report:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-faint);}
+.btn-toggle-report.open{border-color:var(--gold);color:var(--gold);background:var(--gold-faint);}
+.btn-toggle-report .arrow{transition:transform 0.2s;font-size:10px;}
+.btn-toggle-report.open .arrow{transform:rotate(180deg);}
+
+/* RELATÓRIO DETALHADO — colapsável */
+.report-detail{display:none;margin-top:12px;animation:fadeIn 0.2s ease;}
+.report-detail.show{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+.report-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.section-label{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;}
+.btn-export{padding:6px 14px;background:transparent;border:1px solid var(--gold-border);color:var(--gold);border-radius:6px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background 0.15s;}
+.btn-export:hover{background:var(--gold-faint);}
+.report-tabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;}
+.report-tabs::-webkit-scrollbar{display:none;}
+.tab{padding:5px 12px;border-radius:5px;font-size:11px;cursor:pointer;border:1px solid var(--border);color:var(--ivory-dim);background:transparent;font-family:'DM Sans',sans-serif;white-space:nowrap;flex-shrink:0;transition:all 0.15s;}
+.tab.active{background:var(--gold-faint);color:var(--gold);border-color:rgba(201,168,76,0.35);}
+
+/* TABELAS */
+.report-table{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;overflow:hidden;overflow-x:auto;}
+.report-table table{width:100%;border-collapse:collapse;font-size:12px;min-width:600px;}
+.report-table th{padding:9px 14px;text-align:left;font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);font-weight:500;white-space:nowrap;}
+.report-table th.r{text-align:right;}
+.report-table td{padding:9px 14px;border-bottom:1px solid var(--border2);color:var(--ivory);}
+.report-table tr:last-child td{border-bottom:none;}
+.report-table td.r{text-align:right;font-family:'DM Mono',monospace;font-size:11px;}
+.report-table td.pos{color:var(--green-light);}
+.report-table td.neg{color:var(--red);}
+.report-table td.gold{color:var(--gold);font-weight:500;}
+.report-table tr.total-row td{background:rgba(201,168,76,0.05);font-weight:500;border-top:1px solid var(--border);}
+
+/* ERROS */
 .error-list{list-style:none;display:flex;flex-direction:column;gap:4px;}
 .error-item{font-size:11px;color:var(--red);display:flex;align-items:flex-start;gap:6px;line-height:1.4;}
 .error-dot{width:4px;height:4px;border-radius:50%;background:var(--red);flex-shrink:0;margin-top:5px;}
-
-/* RELATÓRIO */
-.report-wrap{display:none;margin-bottom:20px;}
-.report-wrap.show{display:block;}
-.report-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
-.section-label{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;}
-.btn-export{padding:6px 14px;background:transparent;border:1px solid var(--gold);color:var(--gold);border-radius:6px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;}
-.btn-export:hover{background:var(--gold-faint);}
-.report-tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;}
-.report-tabs::-webkit-scrollbar{display:none;}
-.tab{padding:5px 12px;border-radius:5px;font-size:11px;cursor:pointer;border:1px solid var(--border);color:var(--ivory-dim);background:transparent;font-family:'DM Sans',sans-serif;white-space:nowrap;flex-shrink:0;}
-.tab.active{background:var(--gold-faint);color:var(--gold);border-color:rgba(201,168,76,0.35);}
-.report-table{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;overflow:hidden;}
-.report-table table{width:100%;border-collapse:collapse;font-size:12px;}
-.report-table th{padding:9px 14px;text-align:left;font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);font-weight:500;white-space:nowrap;}
-.report-table td{padding:9px 14px;border-bottom:1px solid var(--border2);color:var(--ivory);}
-.report-table tr:last-child td{border-bottom:none;}
-.report-table td.num{text-align:right;font-family:'DM Mono',monospace;font-size:11px;}
-.report-table td.pos{color:var(--green-light);}
-.report-table td.neg{color:var(--red);}
-.report-table td.bold{font-weight:500;color:var(--gold);}
-.report-table tr.total-row td{background:rgba(201,168,76,0.05);font-weight:500;border-top:1px solid var(--border);}
 
 /* HISTÓRICO */
 .hist-label{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;}
@@ -88,6 +108,7 @@ tr:last-child td{border-bottom:none;}
 .pill-ok{background:rgba(61,110,61,0.2);color:var(--green-light);border:1px solid rgba(61,110,61,0.35);}
 .pill-err{background:rgba(224,112,112,0.1);color:var(--red);border:1px solid rgba(224,112,112,0.3);}
 .pill-pend{background:var(--gold-faint);color:var(--gold);border:1px solid var(--gold-border);}
+
 .footer{background:var(--surface);border-top:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;margin-top:20px;}
 .footer-tag{font-family:'Playfair Display',serif;font-style:italic;font-size:10px;color:var(--gold-dim);}
 .suits{display:flex;gap:10px;}
@@ -144,78 +165,89 @@ tr:last-child td{border-bottom:none;}
     <div class="processing-step" id="processingStep">Lendo estrutura</div>
   </div>
 
+  <!-- RESULTADO SUCESSO -->
   <div class="result success" id="resultSuccess">
     <div class="result-title success">✓ Importação realizada com sucesso</div>
-    <div class="result-grid">
-      <div class="result-item"><span class="result-lbl">Arquivo</span><span class="result-val" id="resFileName">—</span></div>
-      <div class="result-item"><span class="result-lbl">App detectado</span><span class="result-val" id="resApp">—</span></div>
-      <div class="result-item"><span class="result-lbl">Período</span><span class="result-val" id="resPeriod">—</span></div>
-      <div class="result-item"><span class="result-lbl">Clubes importados</span><span class="result-val" id="resClubs">—</span></div>
-      <div class="result-item"><span class="result-lbl">Rake total</span><span class="result-val" id="resRake">—</span></div>
-      <div class="result-item"><span class="result-lbl">Rake MTT</span><span class="result-val" id="resRakeMTT">—</span></div>
+    <div class="result-summary">
+      <div class="summary-item">
+        <span class="summary-lbl">Período</span>
+        <span class="summary-val" id="resPeriod">—</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-lbl">App detectado</span>
+        <span class="summary-val" id="resApp">—</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-lbl">Clubes importados</span>
+        <span class="summary-val gold" id="resClubs">—</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-lbl">Rake total da liga</span>
+        <span class="summary-val gold" id="resRake">—</span>
+      </div>
+    </div>
+    <!-- BOTÃO PROGRESSIVO -->
+    <button class="btn-toggle-report" id="btnToggle" onclick="toggleReport()">
+      <span>Ver relatório completo</span>
+      <span class="arrow">▼</span>
+    </button>
+    <!-- RELATÓRIO COLAPSÁVEL -->
+    <div class="report-detail" id="reportDetail">
+      <div style="height:14px;"></div>
+      <div class="report-header">
+        <div class="section-label">Relatório de Acerto — LPG</div>
+        <button class="btn-export" onclick="exportCSV()">Exportar CSV</button>
+      </div>
+      <div class="report-tabs">
+        <button class="tab active" onclick="switchTab(this,'tabLPG')">LPG Acertos</button>
+        <button class="tab" onclick="switchTab(this,'tabRake')">Rake Líquido</button>
+        <button class="tab" onclick="switchTab(this,'tabResumo')">Resumo</button>
+      </div>
+      <div class="report-table" id="tabLPG">
+        <table>
+          <thead>
+            <tr>
+              <th>Clube</th>
+              <th class="r">Rake Total</th>
+              <th class="r">Rake MTT</th>
+              <th class="r">Rake Cash</th>
+              <th class="r">Ganhos/Perdas</th>
+              <th class="r">Spinup</th>
+              <th class="r">Rebate 10%</th>
+              <th class="r">Security</th>
+              <th class="r">Total Acerto</th>
+            </tr>
+          </thead>
+          <tbody id="lpgBody"></tbody>
+        </table>
+      </div>
+      <div class="report-table" id="tabRake" style="display:none;">
+        <table>
+          <thead>
+            <tr>
+              <th>Clube</th>
+              <th class="r">Rake Total</th>
+              <th class="r">Rake MTT</th>
+              <th class="r">Rake Cash</th>
+              <th class="r">Rake Spinup</th>
+            </tr>
+          </thead>
+          <tbody id="rakeBody"></tbody>
+        </table>
+      </div>
+      <div class="report-table" id="tabResumo" style="display:none;">
+        <table>
+          <thead><tr><th>Item</th><th class="r">Valor</th></tr></thead>
+          <tbody id="resumoBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
+  <!-- RESULTADO ERRO -->
   <div class="result error" id="resultError">
     <div class="result-title error">✕ Erro na importação</div>
     <ul class="error-list" id="errorList"></ul>
-  </div>
-
-  <!-- RELATÓRIO CALCULADO -->
-  <div class="report-wrap" id="reportWrap">
-    <div class="report-header">
-      <div class="section-label">Relatório de Acerto — LPG</div>
-      <button class="btn-export" onclick="exportCSV()">Exportar CSV</button>
-    </div>
-    <div class="report-tabs">
-      <button class="tab active" onclick="switchTab(this,'tabLPG')">LPG Acertos</button>
-      <button class="tab" onclick="switchTab(this,'tabRake')">Rake Líquido</button>
-      <button class="tab" onclick="switchTab(this,'tabResumo')">Resumo</button>
-    </div>
-    <div class="report-table" id="tabLPG">
-      <table>
-        <thead>
-          <tr>
-            <th>Clube</th>
-            <th style="text-align:right">Rake Total</th>
-            <th style="text-align:right">Rake MTT</th>
-            <th style="text-align:right">Rake Cash</th>
-            <th style="text-align:right">Ganhos/Perdas</th>
-            <th style="text-align:right">Taxa Op.</th>
-            <th style="text-align:right">Spinup</th>
-            <th style="text-align:right">Rebate</th>
-            <th style="text-align:right">Security</th>
-            <th style="text-align:right">Total Acerto</th>
-          </tr>
-        </thead>
-        <tbody id="lpgBody"></tbody>
-      </table>
-    </div>
-    <div class="report-table" id="tabRake" style="display:none;">
-      <table>
-        <thead>
-          <tr>
-            <th>Clube</th>
-            <th style="text-align:right">Rake Total</th>
-            <th style="text-align:right">Rake MTT</th>
-            <th style="text-align:right">Rake Cash</th>
-            <th style="text-align:right">Rake Spinup</th>
-          </tr>
-        </thead>
-        <tbody id="rakeBody"></tbody>
-      </table>
-    </div>
-    <div class="report-table" id="tabResumo" style="display:none;">
-      <table>
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th style="text-align:right">Valor</th>
-          </tr>
-        </thead>
-        <tbody id="resumoBody"></tbody>
-      </table>
-    </div>
   </div>
 
   <!-- HISTÓRICO -->
@@ -235,281 +267,219 @@ tr:last-child td{border-bottom:none;}
   <div class="footer-tag">"From game data to financial settlements — automatically."</div>
   <div class="suits"><span class="suit">♠</span><span class="suit">♥</span><span class="suit">♦</span><span class="suit">♣</span></div>
 </div>
-
 <div class="toast" id="toast"></div>
 
 <script>
 const SUPABASE_URL = 'https://gebfitjjeyfogqyjqaij.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_97_5LwcW7aqP1Ux0D8Zzcg_hHLlRH-v';
-
-// Regras padrão (configuráveis por clube futuramente)
-const DEFAULT_RULES = {
-  taxa_operacional_pct: 0,   // % sobre rake total
-  rebate_pct: 10,            // % de rebate
-  security: 500,             // valor fixo
-  spinup_lucro_pct: 5,       // % sobre spinup
-};
+const DEFAULT_RULES = { rebate_pct:10, security:500, spinup_lucro_pct:5 };
 
 let currentData = [];
+let reportOpen = false;
 
 // Drag & drop
 const zone = document.getElementById('uploadZone');
-zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
-zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
-zone.addEventListener('drop', e => {
-  e.preventDefault();
-  zone.classList.remove('drag');
-  const f = e.dataTransfer.files[0];
-  if(f) handleFile(f);
+zone.addEventListener('dragover', e=>{e.preventDefault();zone.classList.add('drag');});
+zone.addEventListener('dragleave', ()=>zone.classList.remove('drag'));
+zone.addEventListener('drop', e=>{
+  e.preventDefault();zone.classList.remove('drag');
+  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
 });
 
-// Extrai período do texto da célula A0 do PPPoker
+function toggleReport() {
+  reportOpen = !reportOpen;
+  const btn = document.getElementById('btnToggle');
+  const detail = document.getElementById('reportDetail');
+  btn.classList.toggle('open', reportOpen);
+  detail.classList.toggle('show', reportOpen);
+  btn.querySelector('span').textContent = reportOpen ? 'Ocultar relatório' : 'Ver relatório completo';
+}
+
 function extractPeriod(cellText) {
-  if(!cellText) return { start: null, end: null, label: '—' };
+  if(!cellText) return {start:null,end:null,label:'—'};
   const clean = String(cellText).replace(/\n/g,' ').replace(/\s+/g,' ');
   const m = clean.match(/(\d{4}\/\d{2}\/\d{2})\s*-\s*(\d{4}\/\d{2}\/\d{2})/);
-  if(m) {
-    const start = m[1].replace(/\//g,'-');
-    const end   = m[2].replace(/\//g,'-');
-    const fmt = d => d.split('-').reverse().join('/');
-    return { start, end, label: `${fmt(start)} – ${fmt(end)}` };
+  if(m){
+    const start=m[1].replace(/\//g,'-'), end=m[2].replace(/\//g,'-');
+    const fmt=d=>d.split('-').reverse().join('/');
+    return {start,end,label:`${fmt(start)} – ${fmt(end)}`};
   }
-  return { start: null, end: null, label: '—' };
+  return {start:null,end:null,label:'—'};
 }
 
-// Formata moeda
-function fmt(v) {
-  return 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+function fmtMoney(v){
+  return 'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
-function fmtSigned(v) {
-  const s = v >= 0 ? '+' : '-';
-  return s + ' R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+function fmtSigned(v){
+  return (v>=0?'+ ':'- ')+'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 
-// Processa PPPoker — índices mapeados exatamente
 function processPPPoker(wb) {
   const ws = wb.Sheets['Geral da liga'] || wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null });
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
 
-  // Linha 2 (idx 2) = header principal, linha 3 (idx 3) = subheader
-  // período na célula A2 (idx 2, col 0)
-  const period = extractPeriod(rows[2] ? rows[2][0] : '');
+  const period = extractPeriod(rows[2]?rows[2][0]:'');
+  const clubs = [], errors = [];
 
-  // Índices fixos confirmados:
-  // col 1 = Nome do Clube
-  // col 2 = ID de clube
-  // col 22 = Taxa (rake total)
-  // col 23 = Taxa MTT (PPST)
-  // col 24 = Taxa Cash (não PPST)
-  // col 27 = Buy-in de SPINUP
-  // col 9  = Ring Games (ganhos jogador)
-  // col 10 = MTT SitNGo (ganhos jogador)
-
-  const clubs = [];
-  const errors = [];
-
-  // Dados começam na linha 4 (idx 4)
-  for(let i = 4; i < rows.length; i++) {
+  // col 1=nome, 2=id, 22=taxa total, 23=MTT(PPST), 24=cash(não PPST), 27=spinup, 9=ganho RG, 10=ganho MTT
+  for(let i=4; i<rows.length; i++){
     const row = rows[i];
     if(!row) continue;
-    const nome = row[1] ? String(row[1]).trim() : '';
-    if(!nome || nome === '' || nome.toLowerCase() === 'total') continue;
+    const nome = row[1]?String(row[1]).trim():'';
+    if(!nome||nome.toLowerCase()==='total') continue;
 
-    const rakeTotal  = Math.abs(parseFloat(row[22]) || 0);
-    const rakeMTT    = Math.abs(parseFloat(row[23]) || 0);
-    const rakeCash   = Math.abs(parseFloat(row[24]) || 0);
-    const spinup     = Math.abs(parseFloat(row[27]) || 0);
-    const ganhoRG    = parseFloat(row[9]) || 0;
-    const ganhoMTT   = parseFloat(row[10]) || 0;
-    const ganhoTotal = ganhoRG + ganhoMTT;
+    const taxaTotal = Math.abs(parseFloat(row[22])||0);
+    const rakeMTT   = Math.abs(parseFloat(row[23])||0);
+    const rakeCash  = Math.abs(parseFloat(row[24])||0);
+    const spinup    = Math.abs(parseFloat(row[27])||0);
+    const ganhoRG   = parseFloat(row[9])||0;
+    const ganhoMTT  = parseFloat(row[10])||0;
+
+    // Se taxa total vier zerada, soma MTT + Cash
+    const rakeTotal = taxaTotal > 0 ? taxaTotal : rakeMTT + rakeCash;
 
     clubs.push({
-      club_name:        nome,
-      club_external_id: String(row[2] || '').trim(),
-      rake_total:       rakeTotal,
-      rake_mtt:         rakeMTT,
-      rake_cash:        rakeCash,
-      rake_spinup:      spinup,
-      player_result:    ganhoTotal,
-      raw_data:         JSON.stringify(row),
+      club_name: nome,
+      club_external_id: String(row[2]||'').trim(),
+      rake_total: rakeTotal,
+      rake_mtt: rakeMTT,
+      rake_cash: rakeCash,
+      rake_spinup: spinup,
+      player_result: ganhoRG + ganhoMTT,
+      raw_data: JSON.stringify(row),
     });
   }
 
-  if(clubs.length === 0) errors.push('Nenhum clube encontrado na planilha');
-
-  return { clubs, errors, period, app: 'pppoker' };
+  if(clubs.length===0) errors.push('Nenhum clube encontrado na planilha');
+  return {clubs, errors, period, app:'pppoker'};
 }
 
-// Calcula acerto por clube usando regras padrão
 function calcAcerto(club) {
   const r = DEFAULT_RULES;
-  const rakeTotal = club.rake_total;
-  const taxaOp    = rakeTotal * (r.taxa_operacional_pct / 100);
-  const rebate    = rakeTotal * (r.rebate_pct / 100);
-  const spinupLuc = club.rake_spinup * (r.spinup_lucro_pct / 100);
-  const security  = r.security;
-  const total = rakeTotal - taxaOp - rebate - spinupLuc - security;
-  return { rakeTotal, rakeMTT: club.rake_mtt, rakeCash: club.rake_cash,
-           ganhos: club.player_result, taxaOp, spinup: spinupLuc,
-           rebate, security, total };
+  const rake = club.rake_total;
+  const rebate  = rake * (r.rebate_pct/100);
+  const spinupL = club.rake_spinup * (r.spinup_lucro_pct/100);
+  const security = r.security;
+  const total = rake - rebate - spinupL - security;
+  return {rake, rakeMTT:club.rake_mtt, rakeCash:club.rake_cash,
+          ganhos:club.player_result, spinup:spinupL, rebate, security, total};
 }
 
-// Renderiza relatório LPG
 function renderReport(clubs) {
   currentData = clubs;
-  document.getElementById('reportWrap').classList.add('show');
 
   // LPG
-  const lpgBody = document.getElementById('lpgBody');
-  lpgBody.innerHTML = '';
   let totRake=0, totTotal=0;
-  clubs.forEach(c => {
-    const a = calcAcerto(c);
-    totRake += a.rakeTotal;
-    totTotal += a.total;
-    const row = `<tr>
+  const lpg = clubs.map(c=>{
+    const a=calcAcerto(c);
+    totRake+=a.rake; totTotal+=a.total;
+    return `<tr>
       <td>${c.club_name}</td>
-      <td class="num">${fmt(a.rakeTotal)}</td>
-      <td class="num">${fmt(a.rakeMTT)}</td>
-      <td class="num">${fmt(a.rakeCash)}</td>
-      <td class="num ${a.ganhos>=0?'pos':'neg'}">${fmtSigned(a.ganhos)}</td>
-      <td class="num neg">- ${fmt(a.taxaOp)}</td>
-      <td class="num neg">- ${fmt(a.spinup)}</td>
-      <td class="num neg">- ${fmt(a.rebate)}</td>
-      <td class="num neg">- ${fmt(a.security)}</td>
-      <td class="num bold ${a.total>=0?'pos':'neg'}">${fmtSigned(a.total)}</td>
+      <td class="r">${fmtMoney(a.rake)}</td>
+      <td class="r">${fmtMoney(a.rakeMTT)}</td>
+      <td class="r">${fmtMoney(a.rakeCash)}</td>
+      <td class="r ${a.ganhos>=0?'pos':'neg'}">${fmtSigned(a.ganhos)}</td>
+      <td class="r neg">- ${fmtMoney(a.spinup)}</td>
+      <td class="r neg">- ${fmtMoney(a.rebate)}</td>
+      <td class="r neg">- ${fmtMoney(a.security)}</td>
+      <td class="r gold ${a.total>=0?'pos':'neg'}">${fmtSigned(a.total)}</td>
     </tr>`;
-    lpgBody.innerHTML += row;
-  });
-  lpgBody.innerHTML += `<tr class="total-row">
-    <td><strong>TOTAL</strong></td>
-    <td class="num bold">${fmt(totRake)}</td>
-    <td class="num" colspan="7"></td>
-    <td class="num bold ${totTotal>=0?'pos':'neg'}">${fmtSigned(totTotal)}</td>
-  </tr>`;
+  }).join('');
+  document.getElementById('lpgBody').innerHTML = lpg + `
+    <tr class="total-row">
+      <td><strong>TOTAL</strong></td>
+      <td class="r gold">${fmtMoney(totRake)}</td>
+      <td class="r" colspan="6"></td>
+      <td class="r gold ${totTotal>=0?'pos':'neg'}">${fmtSigned(totTotal)}</td>
+    </tr>`;
 
   // Rake líquido
-  const rakeBody = document.getElementById('rakeBody');
-  rakeBody.innerHTML = '';
-  let tR=0, tM=0, tC=0, tS=0;
-  clubs.forEach(c => {
-    tR+=c.rake_total; tM+=c.rake_mtt; tC+=c.rake_cash; tS+=c.rake_spinup;
-    rakeBody.innerHTML += `<tr>
+  let tR=0,tM=0,tC=0,tS=0;
+  const rake = clubs.map(c=>{
+    tR+=c.rake_total;tM+=c.rake_mtt;tC+=c.rake_cash;tS+=c.rake_spinup;
+    return `<tr>
       <td>${c.club_name}</td>
-      <td class="num">${fmt(c.rake_total)}</td>
-      <td class="num">${fmt(c.rake_mtt)}</td>
-      <td class="num">${fmt(c.rake_cash)}</td>
-      <td class="num">${fmt(c.rake_spinup)}</td>
+      <td class="r">${fmtMoney(c.rake_total)}</td>
+      <td class="r">${fmtMoney(c.rake_mtt)}</td>
+      <td class="r">${fmtMoney(c.rake_cash)}</td>
+      <td class="r">${fmtMoney(c.rake_spinup)}</td>
     </tr>`;
-  });
-  rakeBody.innerHTML += `<tr class="total-row">
-    <td><strong>TOTAL</strong></td>
-    <td class="num bold">${fmt(tR)}</td>
-    <td class="num bold">${fmt(tM)}</td>
-    <td class="num bold">${fmt(tC)}</td>
-    <td class="num bold">${fmt(tS)}</td>
-  </tr>`;
+  }).join('');
+  document.getElementById('rakeBody').innerHTML = rake + `
+    <tr class="total-row">
+      <td><strong>TOTAL</strong></td>
+      <td class="r gold">${fmtMoney(tR)}</td>
+      <td class="r gold">${fmtMoney(tM)}</td>
+      <td class="r gold">${fmtMoney(tC)}</td>
+      <td class="r gold">${fmtMoney(tS)}</td>
+    </tr>`;
 
   // Resumo
   const totRebate = clubs.reduce((s,c)=>s+calcAcerto(c).rebate,0);
-  const totSec = clubs.length * DEFAULT_RULES.security;
+  const totSec    = clubs.length * DEFAULT_RULES.security;
   const totSpinup = clubs.reduce((s,c)=>s+calcAcerto(c).spinup,0);
   document.getElementById('resumoBody').innerHTML = `
-    <tr><td>Rake Total da Liga</td><td class="num bold">${fmt(totRake)}</td></tr>
-    <tr><td>(-) Rebate ${DEFAULT_RULES.rebate_pct}%</td><td class="num neg">- ${fmt(totRebate)}</td></tr>
-    <tr><td>(-) Security (${clubs.length} clubes)</td><td class="num neg">- ${fmt(totSec)}</td></tr>
-    <tr><td>(-) Spinup Lucro ${DEFAULT_RULES.spinup_lucro_pct}%</td><td class="num neg">- ${fmt(totSpinup)}</td></tr>
-    <tr class="total-row"><td><strong>Total Acerto Liga</strong></td><td class="num bold ${totTotal>=0?'pos':'neg'}">${fmtSigned(totTotal)}</td></tr>
-  `;
+    <tr><td>Rake Total da Liga</td><td class="r">${fmtMoney(totRake)}</td></tr>
+    <tr><td>(-) Rebate ${DEFAULT_RULES.rebate_pct}%</td><td class="r neg">- ${fmtMoney(totRebate)}</td></tr>
+    <tr><td>(-) Security (${clubs.length} clubes × R$ ${DEFAULT_RULES.security})</td><td class="r neg">- ${fmtMoney(totSec)}</td></tr>
+    <tr><td>(-) Spinup Lucro ${DEFAULT_RULES.spinup_lucro_pct}%</td><td class="r neg">- ${fmtMoney(totSpinup)}</td></tr>
+    <tr class="total-row"><td><strong>Total Acerto Liga</strong></td><td class="r gold ${totTotal>=0?'pos':'neg'}">${fmtSigned(totTotal)}</td></tr>`;
 }
 
-// Export CSV
 function exportCSV() {
   if(!currentData.length) return;
-  let csv = 'Clube,Rake Total,Rake MTT,Rake Cash,Ganhos/Perdas,Taxa Op.,Spinup,Rebate,Security,Total Acerto\n';
-  currentData.forEach(c => {
-    const a = calcAcerto(c);
-    csv += `"${c.club_name}",${a.rakeTotal},${a.rakeMTT},${a.rakeCash},${a.ganhos},${a.taxaOp},${a.spinup},${a.rebate},${a.security},${a.total}\n`;
+  let csv='Clube,Rake Total,Rake MTT,Rake Cash,Ganhos/Perdas,Spinup,Rebate,Security,Total Acerto\n';
+  currentData.forEach(c=>{
+    const a=calcAcerto(c);
+    csv+=`"${c.club_name}",${a.rake},${a.rakeMTT},${a.rakeCash},${a.ganhos},${a.spinup},${a.rebate},${a.security},${a.total}\n`;
   });
-  const blob = new Blob([csv], {type:'text/csv'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'lpg_acertos.csv'; a.click();
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  const a=document.createElement('a');
+  a.href=url;a.download='lpg_acertos.csv';a.click();
   URL.revokeObjectURL(url);
 }
 
-// Salva no Supabase
 async function saveToSupabase(importData, rows) {
-  const headers = {
-    'Content-Type':'application/json',
-    'apikey': SUPABASE_KEY,
-    'Authorization': `Bearer ${SUPABASE_KEY}`,
-    'Prefer':'return=representation'
-  };
-  const leagueRes = await fetch(`${SUPABASE_URL}/rest/v1/leagues?select=id&limit=1`, {headers});
-  const leagues = await leagueRes.json();
+  const h={'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Prefer':'return=representation'};
+  const lr=await fetch(`${SUPABASE_URL}/rest/v1/leagues?select=id&limit=1`,{headers:h});
+  const leagues=await lr.json();
   if(!leagues.length) throw new Error('Nenhuma liga encontrada no banco');
-  const leagueId = leagues[0].id;
-
-  const impRes = await fetch(`${SUPABASE_URL}/rest/v1/imports`, {
-    method:'POST', headers,
-    body: JSON.stringify({
-      league_id: leagueId,
-      file_name: importData.fileName,
-      app_source: importData.app,
-      period_start: importData.period.start,
-      period_end: importData.period.end,
-      status: importData.errors.length > 0 ? 'error' : 'valid',
-      error_message: importData.errors.join('; ') || null,
-      uploaded_by: 'Emilly',
-    })
-  });
-  const [imp] = await impRes.json();
-  if(!imp || !imp.id) throw new Error('Falha ao salvar importação');
-
-  if(rows.length > 0) {
-    await fetch(`${SUPABASE_URL}/rest/v1/import_rows`, {
-      method:'POST', headers,
-      body: JSON.stringify(rows.map(r => ({
-        import_id: imp.id,
-        club_name: r.club_name,
-        club_external_id: r.club_external_id,
-        rake_total: r.rake_total,
-        rake_mtt: r.rake_mtt,
-        rake_cash: r.rake_cash,
-        rake_spinup: r.rake_spinup,
-        player_result: r.player_result,
-        raw_data: r.raw_data,
-      })))
-    });
+  const lid=leagues[0].id;
+  const ir=await fetch(`${SUPABASE_URL}/rest/v1/imports`,{method:'POST',headers:h,body:JSON.stringify({
+    league_id:lid,file_name:importData.fileName,app_source:importData.app,
+    period_start:importData.period.start,period_end:importData.period.end,
+    status:importData.errors.length>0?'error':'valid',
+    error_message:importData.errors.join('; ')||null,uploaded_by:'Emilly'
+  })});
+  const [imp]=await ir.json();
+  if(!imp?.id) throw new Error('Falha ao salvar importação');
+  if(rows.length>0){
+    await fetch(`${SUPABASE_URL}/rest/v1/import_rows`,{method:'POST',headers:h,body:JSON.stringify(rows.map(r=>({
+      import_id:imp.id,club_name:r.club_name,club_external_id:r.club_external_id,
+      rake_total:r.rake_total,rake_mtt:r.rake_mtt,rake_cash:r.rake_cash,
+      rake_spinup:r.rake_spinup,player_result:r.player_result,raw_data:r.raw_data
+    })))});
   }
   return imp.id;
 }
 
 async function loadHistory() {
-  const headers = {'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`};
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/imports?select=*,import_rows(count)&order=created_at.desc&limit=20`, {headers});
-  const data = await res.json();
-  const tbody = document.getElementById('historyBody');
-  const empty = document.getElementById('emptyState');
-  const table = document.getElementById('historyTable');
-  if(!data.length){empty.style.display='block';table.style.display='none';return;}
-  empty.style.display='none';
-  table.style.display='table';
-  tbody.innerHTML='';
-  data.forEach(imp => {
-    const date = new Date(imp.created_at);
-    const ds = date.toLocaleDateString('pt-BR')+' '+date.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-    const period = imp.period_start
-      ? `${imp.period_start.split('-').reverse().join('/')} – ${imp.period_end.split('-').reverse().join('/')}`
-      : '—';
-    const count = imp.import_rows?.[0]?.count || 0;
-    const pill = imp.status==='valid'
-      ? '<span class="pill pill-ok">Válido</span>'
-      : imp.status==='error'
-      ? '<span class="pill pill-err">Erro</span>'
-      : '<span class="pill pill-pend">Pendente</span>';
-    tbody.innerHTML += `<tr>
+  const h={'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`};
+  const res=await fetch(`${SUPABASE_URL}/rest/v1/imports?select=*,import_rows(count)&order=created_at.desc&limit=20`,{headers:h});
+  const data=await res.json();
+  const tbody=document.getElementById('historyBody');
+  const empty=document.getElementById('emptyState');
+  const table=document.getElementById('historyTable');
+  if(!Array.isArray(data)||!data.length){empty.style.display='block';table.style.display='none';return;}
+  empty.style.display='none';table.style.display='table';tbody.innerHTML='';
+  data.forEach(imp=>{
+    const d=new Date(imp.created_at);
+    const ds=d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const period=imp.period_start
+      ?`${imp.period_start.split('-').reverse().join('/')} – ${imp.period_end.split('-').reverse().join('/')}`:'—';
+    const count=imp.import_rows?.[0]?.count||0;
+    const pill=imp.status==='valid'?'<span class="pill pill-ok">Válido</span>':imp.status==='error'?'<span class="pill pill-err">Erro</span>':'<span class="pill pill-pend">Pendente</span>';
+    tbody.innerHTML+=`<tr>
       <td><span class="mono">${imp.file_name}</span><br><span style="font-size:10px;color:var(--ivory-dim)">${ds}</span></td>
       <td style="text-transform:uppercase;font-size:11px">${imp.app_source}</td>
       <td style="font-size:11px">${period}</td>
@@ -523,81 +493,68 @@ async function handleFile(file) {
   if(!file) return;
   document.getElementById('resultSuccess').classList.remove('show');
   document.getElementById('resultError').classList.remove('show');
-  document.getElementById('reportWrap').classList.remove('show');
+  document.getElementById('reportDetail').classList.remove('show');
+  reportOpen=false;
+  document.getElementById('btnToggle').classList.remove('open');
+  document.getElementById('btnToggle').querySelector('span').textContent='Ver relatório completo';
   document.getElementById('processing').classList.add('show');
   setStep('Lendo estrutura do arquivo...');
 
   try {
-    const buffer = await file.arrayBuffer();
-    const wb = XLSX.read(buffer, {type:'array'});
-
-    setStep('Detectando app de origem...');
-    await delay(300);
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    setStep('Detectando app de origem...'); await delay(300);
 
     let result;
-    const sheetNames = wb.SheetNames.join(' ').toLowerCase();
-    if(sheetNames.includes('geral da liga') || sheetNames.includes('geral de clube')) {
-      result = processPPPoker(wb);
+    const sheets=wb.SheetNames.join(' ').toLowerCase();
+    if(sheets.includes('geral da liga')||sheets.includes('geral de clube')){
+      result=processPPPoker(wb);
     } else {
-      result = {clubs:[], errors:['App não reconhecido. Suportado atualmente: PPPoker'], period:{start:null,end:null,label:'—'}, app:'desconhecido'};
+      result={clubs:[],errors:['App não reconhecido. Suportado atualmente: PPPoker'],period:{start:null,end:null,label:'—'},app:'desconhecido'};
     }
 
-    setStep('Aplicando regras da liga...');
-    await delay(400);
-
+    setStep('Aplicando regras da liga...'); await delay(400);
     setStep('Salvando no banco de dados...');
-    await saveToSupabase({
-      fileName: file.name,
-      app: result.app,
-      period: result.period,
-      errors: result.errors,
-    }, result.clubs);
-
+    await saveToSupabase({fileName:file.name,app:result.app,period:result.period,errors:result.errors},result.clubs);
     document.getElementById('processing').classList.remove('show');
 
-    if(result.errors.length > 0) {
-      document.getElementById('errorList').innerHTML = result.errors.map(e =>
-        `<li class="error-item"><span class="error-dot"></span>${e}</li>`
-      ).join('');
+    if(result.errors.length>0){
+      document.getElementById('errorList').innerHTML=result.errors.map(e=>`<li class="error-item"><span class="error-dot"></span>${e}</li>`).join('');
       document.getElementById('resultError').classList.add('show');
-      showToast('Importação salva com erros', 'error');
+      showToast('Importação salva com erros','error');
     } else {
-      const rake = result.clubs.reduce((s,c)=>s+c.rake_total, 0);
-      const rakeMTT = result.clubs.reduce((s,c)=>s+c.rake_mtt, 0);
-      document.getElementById('resFileName').textContent = file.name;
-      document.getElementById('resApp').textContent = result.app.toUpperCase();
-      document.getElementById('resPeriod').textContent = result.period.label;
-      document.getElementById('resClubs').textContent = result.clubs.length;
-      document.getElementById('resRake').textContent = fmt(rake);
-      document.getElementById('resRakeMTT').textContent = fmt(rakeMTT);
+      const rake=result.clubs.reduce((s,c)=>s+c.rake_total,0);
+      document.getElementById('resPeriod').textContent=result.period.label;
+      document.getElementById('resApp').textContent=result.app.toUpperCase();
+      document.getElementById('resClubs').textContent=result.clubs.length+' clubes';
+      document.getElementById('resRake').textContent=fmtMoney(rake);
       document.getElementById('resultSuccess').classList.add('show');
       renderReport(result.clubs);
-      showToast('Importação realizada com sucesso! ✓', 'success');
+      showToast('Importação realizada com sucesso! ✓','success');
     }
-
     await loadHistory();
-  } catch(err) {
+  } catch(err){
     document.getElementById('processing').classList.remove('show');
-    document.getElementById('errorList').innerHTML = `<li class="error-item"><span class="error-dot"></span>${err.message}</li>`;
+    document.getElementById('errorList').innerHTML=`<li class="error-item"><span class="error-dot"></span>${err.message}</li>`;
     document.getElementById('resultError').classList.add('show');
-    showToast('Erro ao processar arquivo', 'error');
+    showToast('Erro ao processar arquivo','error');
     console.error(err);
   }
-  document.getElementById('fileInput').value = '';
+  document.getElementById('fileInput').value='';
 }
 
 function setStep(t){document.getElementById('processingStep').textContent=t;}
 function delay(ms){return new Promise(r=>setTimeout(r,ms));}
 function showToast(msg,type){
   const t=document.getElementById('toast');
-  t.textContent=msg; t.className=`toast ${type} show`;
+  t.textContent=msg;t.className=`toast ${type} show`;
   setTimeout(()=>t.classList.remove('show'),3500);
 }
-function switchTab(el, tabId) {
+function switchTab(el,tabId){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   ['tabLPG','tabRake','tabResumo'].forEach(id=>{
-    document.getElementById(id).style.display = id===tabId?'block':'none';
+    document.getElementById(id).style.display=id===tabId?'block':'none';
   });
 }
 
