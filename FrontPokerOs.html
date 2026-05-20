@@ -532,6 +532,71 @@ async function loadHistory() {
   });
 }
 
+
+// ── PROCESSA FORMATO GENÉRICO (arquivo desconhecido) ──
+function processGenerico(wb) {
+  const warnings = [];
+  const sheetName = wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+
+  // Tenta extrair período de qualquer célula das primeiras 5 linhas
+  let period = {start:null,end:null,label:'—'};
+  for(let i=0;i<Math.min(5,rows.length);i++){
+    for(let j=0;j<Math.min(5,(rows[i]||[]).length);j++){
+      const p = extractPeriod(rows[i][j]);
+      if(p.start){period=p;break;}
+    }
+    if(period.start) break;
+  }
+
+  // Procura cabeçalho com nomes de clubes/names
+  let headerRow = -1, nameCol = -1;
+  for(let i=0;i<Math.min(10,rows.length);i++){
+    const row = rows[i]||[];
+    for(let j=0;j<row.length;j++){
+      const v = String(row[j]||'').toLowerCase();
+      if(v.includes('club')||v.includes('clube')||v.includes('name')||v.includes('nome')){
+        headerRow=i; nameCol=j; break;
+      }
+    }
+    if(headerRow>=0) break;
+  }
+
+  // Procura coluna numérica principal (fee/rake/taxa)
+  let feeCol = -1;
+  if(headerRow>=0){
+    const hrow = rows[headerRow]||[];
+    for(let j=0;j<hrow.length;j++){
+      const v = String(hrow[j]||'').toLowerCase();
+      if(v.includes('fee')||v.includes('rake')||v.includes('taxa')||v.includes('total fee')){
+        feeCol=j; break;
+      }
+    }
+  }
+
+  const clubs = [];
+  if(headerRow>=0 && nameCol>=0){
+    for(let i=headerRow+2;i<rows.length;i++){
+      const row=rows[i]||[];
+      const nome=String(row[nameCol]||'').trim();
+      if(!nome||nome===''||nome.toLowerCase()==='total') continue;
+      const rake=feeCol>=0?Math.abs(parseFloat(row[feeCol])||0):0;
+      clubs.push({
+        club_name:nome,
+        club_external_id:'',
+        rake_total:rake,rake_mtt:0,rake_cash:rake,rake_spinup:0,player_result:0,
+        raw_data:JSON.stringify(row),
+      });
+    }
+  }
+
+  warnings.push(`Formato novo detectado (abas: ${wb.SheetNames.join(', ')}). Dados extraídos automaticamente — verifique os valores e informe o Cássio para mapearmos esse formato.`);
+  if(clubs.length===0) warnings.push('Não foi possível identificar clubes automaticamente. O arquivo foi salvo para análise.');
+
+  return {clubs, errors:[], period, app:`Genérico (${sheetName})`, warnings};
+}
+
 // ── HANDLER PRINCIPAL ──
 async function handleFile(file) {
   if(!file) return;
@@ -562,7 +627,8 @@ async function handleFile(file) {
       setStep('Processando PokerBros...');
       result = processPokerbros(wb);
     } else {
-      result = {clubs:[],errors:[`Formato não reconhecido. Abas encontradas: ${wb.SheetNames.join(', ')}`],period:{start:null,end:null,label:'—'},app:'Desconhecido',warnings:[]};
+      setStep('Formato novo — extraindo o que for possível...');
+      result = processGenerico(wb);
     }
 
     setStep('Salvando no banco de dados...');
