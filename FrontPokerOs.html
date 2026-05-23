@@ -13,18 +13,48 @@
   --ivory:#f0ede4;--ivory-dim:rgba(240,237,228,0.55);--ivory-faint:rgba(240,237,228,0.12);
   --green-light:#7dc97d;--red:#e07070;
   --border:rgba(201,168,76,0.18);--border2:rgba(201,168,76,0.07);
+  --sidebar-w:210px;
 }
-html,body{min-height:100%;background:var(--bg);color:var(--ivory);font-family:'DM Sans',sans-serif;}
+html,body{height:100%;background:var(--bg);color:var(--ivory);font-family:'DM Sans',sans-serif;overflow:hidden;}
+.app{display:flex;flex-direction:column;height:100vh;}
 
 /* TOPBAR */
-.topbar{background:var(--surface);border-bottom:1px solid var(--border);height:48px;display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);height:48px;display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;z-index:100;}
+.hamburger{width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:6px;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.topbar-logo{display:flex;align-items:center;gap:7px;flex:1;}
 .logo-icon{width:26px;height:26px;background:var(--surface3);border:1px solid var(--gold);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .logo-name{font-family:'Playfair Display',serif;font-size:14px;color:var(--gold);}
 .logo-sub{font-size:8px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;}
-.topbar-title{flex:1;text-align:center;font-size:12px;color:var(--gold);font-weight:500;}
+.topbar-screen{font-size:12px;color:var(--gold);font-weight:500;}
 .avatar{width:28px;height:28px;border-radius:50%;background:var(--surface3);border:1px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--gold);font-weight:500;}
 
-.content{max-width:760px;margin:0 auto;padding:24px 16px 40px;}
+/* OVERLAY */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:200;opacity:0;pointer-events:none;transition:opacity 0.25s;}
+.overlay.open{opacity:1;pointer-events:all;}
+
+/* SIDEBAR */
+.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100%;background:var(--surface);border-right:1px solid var(--border);z-index:300;transform:translateX(-100%);transition:transform 0.28s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;overflow-y:auto;}
+.sidebar.open{transform:translateX(0);}
+.sidebar-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);}
+.sidebar-logo{display:flex;align-items:center;gap:8px;}
+.close-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:6px;color:var(--ivory-dim);-webkit-tap-highlight-color:transparent;}
+.nav{flex:1;padding:8px 0;}
+.nav-section{padding:12px 16px 4px;font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:12px 16px;font-size:13px;color:var(--ivory-dim);cursor:pointer;border-left:2px solid transparent;transition:all 0.12s;-webkit-tap-highlight-color:transparent;text-decoration:none;}
+.nav-item:hover{background:var(--surface2);color:var(--ivory);}
+.nav-item.active{background:var(--surface2);color:var(--gold);border-left-color:var(--gold);}
+.nav-icon{width:15px;height:15px;flex-shrink:0;opacity:0.6;}
+.nav-item.active .nav-icon{opacity:1;}
+.nav-badge{margin-left:auto;background:var(--gold-faint);border:1px solid var(--gold-border);color:var(--gold);font-size:9px;padding:2px 7px;border-radius:10px;}
+.sidebar-footer{padding:14px 16px;border-top:1px solid var(--border);}
+.user-chip{display:flex;align-items:center;gap:9px;}
+.user-name{font-size:12px;font-weight:500;}
+.user-role{font-size:10px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1px;}
+
+/* LAYOUT */
+.main-layout{flex:1;overflow:hidden;display:flex;}
+.main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.content{padding:24px 20px 40px;max-width:800px;margin:0 auto;}
 .page-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--gold);margin-bottom:3px;}
 .page-sub{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:20px;}
 
@@ -33,11 +63,11 @@ html,body{min-height:100%;background:var(--bg);color:var(--ivory);font-family:'D
 .search-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:7px;padding:9px 14px;font-size:12px;color:var(--ivory);font-family:'DM Sans',sans-serif;outline:none;}
 .search-input:focus{border-color:var(--gold);}
 .search-input::placeholder{color:var(--ivory-faint);}
-.btn-add{padding:9px 16px;background:var(--gold);color:#0c0e0b;border:none;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;}
+.btn-add{padding:9px 16px;background:var(--gold);color:#0c0e0b;border:none;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
 
 /* LEAGUE CARD */
 .league-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden;}
-.league-header{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;user-select:none;}
+.league-header{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;}
 .league-header:hover{background:var(--surface2);}
 .league-chevron{font-size:10px;color:var(--gold-dim);transition:transform 0.2s;flex-shrink:0;}
 .league-chevron.open{transform:rotate(180deg);}
@@ -47,42 +77,38 @@ html,body{min-height:100%;background:var(--bg);color:var(--ivory);font-family:'D
 .badge-usd{background:rgba(175,169,236,0.1);border-color:rgba(175,169,236,0.25);color:#afa9ec;}
 .league-clubs-count{font-size:11px;color:var(--ivory-dim);}
 
-/* CLUBS LIST */
+/* CLUBS */
 .clubs-list{display:none;border-top:1px solid var(--border2);}
 .clubs-list.open{display:block;}
-.club-row{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid var(--border2);transition:background 0.1s;}
+.club-row{display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--border2);flex-wrap:wrap;}
 .club-row:last-child{border-bottom:none;}
 .club-row:hover{background:var(--surface2);}
-.club-name{flex:1;font-size:13px;color:var(--ivory);}
 .club-id{font-family:'DM Mono',monospace;font-size:10px;color:var(--ivory-dim);width:80px;flex-shrink:0;}
-.club-type{font-size:9px;padding:2px 7px;border-radius:4px;flex-shrink:0;}
+.club-name{flex:1;font-size:13px;color:var(--ivory);min-width:120px;}
+.club-rules{display:flex;gap:6px;flex-wrap:wrap;}
+.rule-tag{font-size:10px;color:var(--ivory-dim);}
+.rule-tag span{color:var(--gold);}
+.club-type{font-size:9px;padding:2px 7px;border-radius:4px;flex-shrink:0;white-space:nowrap;}
 .type-dinamica{background:rgba(61,110,61,0.15);color:var(--green-light);border:1px solid rgba(61,110,61,0.3);}
 .type-fixa{background:var(--gold-faint);color:var(--gold);border:1px solid var(--gold-border);}
 .type-rakeback{background:rgba(175,169,236,0.1);color:#afa9ec;border:1px solid rgba(175,169,236,0.25);}
 .type-usd{background:rgba(224,112,112,0.1);color:var(--red);border:1px solid rgba(224,112,112,0.25);}
-.club-rules{display:flex;gap:8px;flex-shrink:0;}
-.rule-tag{font-size:10px;color:var(--ivory-dim);}
-.rule-tag span{color:var(--gold);}
-.btn-edit{padding:5px 12px;background:transparent;border:1px solid var(--border);color:var(--ivory-dim);border-radius:5px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;flex-shrink:0;transition:all 0.15s;}
+.btn-edit{padding:5px 12px;background:transparent;border:1px solid var(--border);color:var(--ivory-dim);border-radius:5px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;flex-shrink:0;transition:all 0.15s;-webkit-tap-highlight-color:transparent;}
 .btn-edit:hover{border-color:var(--gold);color:var(--gold);}
-
-/* LOADING */
 .loading{padding:32px;text-align:center;font-size:12px;color:var(--ivory-faint);}
 .spinner-sm{width:16px;height:16px;border:1.5px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block;margin-right:8px;vertical-align:middle;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
-/* MODAL EDIT */
+/* MODAL */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;display:none;align-items:center;justify-content:center;padding:16px;}
 .modal-bg.open{display:flex;}
 .modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;}
 .modal-header{padding:18px 20px 0;display:flex;justify-content:space-between;align-items:center;}
 .modal-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--gold);}
-.modal-close{width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ivory-dim);border-radius:4px;}
-.modal-close:hover{color:var(--ivory);}
+.modal-close{width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ivory-dim);}
 .modal-body{padding:16px 20px 20px;}
 .form-section{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;margin:14px 0 8px;}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.field{margin-bottom:0;}
 .field label{display:block;font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
 .field input,.field select{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:8px 11px;font-size:12px;color:var(--ivory);font-family:'DM Sans',sans-serif;outline:none;}
 .field input:focus,.field select:focus{border-color:var(--gold);}
@@ -91,7 +117,7 @@ html,body{min-height:100%;background:var(--bg);color:var(--ivory);font-family:'D
 .btn-cancel{padding:9px 18px;background:transparent;border:1px solid var(--border);color:var(--ivory-dim);border-radius:6px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;}
 .btn-save{padding:9px 18px;background:var(--gold);color:#0c0e0b;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
 
-/* CONFIRM DIALOG */
+/* CONFIRM */
 .confirm-bg{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:600;display:none;align-items:center;justify-content:center;padding:16px;}
 .confirm-bg.open{display:flex;}
 .confirm-box{background:var(--surface);border:1px solid var(--gold-border);border-radius:10px;width:100%;max-width:360px;padding:24px 22px;}
@@ -108,44 +134,108 @@ html,body{min-height:100%;background:var(--bg);color:var(--ivory);font-family:'D
 .toast.success{border-color:rgba(125,201,125,0.4);color:var(--green-light);}
 .toast.error{border-color:rgba(224,112,112,0.4);color:var(--red);}
 
-.footer{background:var(--surface);border-top:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;margin-top:20px;}
+/* FOOTER */
+.footer{background:var(--surface);border-top:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .footer-tag{font-family:'Playfair Display',serif;font-style:italic;font-size:10px;color:var(--gold-dim);}
 .suits{display:flex;gap:10px;}
 .suit{font-size:14px;color:var(--gold);opacity:0.3;}
+
 ::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--gold-border);border-radius:2px;}
+
+@media(min-width:768px){
+  .overlay{display:none!important;}
+  .sidebar{position:relative;transform:none!important;flex-shrink:0;}
+  .hamburger{display:none;}
+  .close-btn{display:none;}
+  .topbar-screen{display:none;}
+}
 </style>
 </head>
 <body>
+<div class="app">
 
-<div class="topbar">
-  <div class="logo-icon">
-    <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-      <path d="M10 2L3 7v6l7 5 7-5V7L10 2z" stroke="#c9a84c" stroke-width="1.4" stroke-linejoin="round"/>
-      <circle cx="10" cy="10" r="2" fill="#c9a84c"/>
-    </svg>
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="hamburger" onclick="toggleSidebar()">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h14" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </div>
+    <div class="topbar-logo">
+      <div class="logo-icon"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 2L3 7v6l7 5 7-5V7L10 2z" stroke="#c9a84c" stroke-width="1.4" stroke-linejoin="round"/><circle cx="10" cy="10" r="2" fill="#c9a84c"/></svg></div>
+      <div><div class="logo-name">PokerOS</div><div class="logo-sub">League Platform</div></div>
+    </div>
+    <span class="topbar-screen">Ligas & Clubes</span>
+    <div class="avatar">EM</div>
   </div>
-  <div><div class="logo-name">PokerOS</div><div class="logo-sub">League Platform</div></div>
-  <div class="topbar-title">Ligas & Clubes</div>
-  <div class="avatar">EM</div>
+
+  <div class="main-layout">
+    <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <div class="logo-icon"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 2L3 7v6l7 5 7-5V7L10 2z" stroke="#c9a84c" stroke-width="1.4" stroke-linejoin="round"/><circle cx="10" cy="10" r="2" fill="#c9a84c"/></svg></div>
+          <div class="logo-name">PokerOS</div>
+        </div>
+        <div class="close-btn" onclick="closeSidebar()"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4l10 10M14 4L4 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+      </div>
+      <nav class="nav">
+        <div class="nav-section">Principal</div>
+        <a class="nav-item" href="index.html">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/></svg>
+          Dashboard
+        </a>
+        <a class="nav-item" href="FrontPokerOs.html">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          Importação
+        </a>
+        <div class="nav-section">Configuração</div>
+        <a class="nav-item active" href="cadastro.html">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M9 11.5h6M12 9v5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          Ligas & Clubes
+        </a>
+        <div class="nav-section">Financeiro</div>
+        <a class="nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 8h6M5 11h4M5 5h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          Relatórios
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-chip">
+          <div class="avatar">EM</div>
+          <div><div class="user-name">Emilly</div><div class="user-role">Administrador</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+      <div class="content">
+        <div class="page-title">Ligas & Clubes</div>
+        <div class="page-sub">Cadastro e configuração de regras · Admin</div>
+
+        <div class="search-bar">
+          <input class="search-input" type="text" placeholder="Buscar clube..." id="searchInput" oninput="filterClubs()"/>
+          <button class="btn-add" onclick="openAddClub()">+ Novo Clube</button>
+        </div>
+
+        <div id="leaguesList">
+          <div class="loading"><span class="spinner-sm"></span>Carregando ligas e clubes...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="footer-tag">"From game data to financial settlements — automatically."</div>
+    <div class="suits"><span class="suit">♠</span><span class="suit">♥</span><span class="suit">♦</span><span class="suit">♣</span></div>
+  </div>
 </div>
 
-<div class="content">
-  <div class="page-title">Ligas & Clubes</div>
-  <div class="page-sub">Cadastro e configuração de regras · Admin</div>
-
-  <div class="search-bar">
-    <input class="search-input" type="text" placeholder="Buscar clube..." id="searchInput" oninput="filterClubs()"/>
-    <button class="btn-add" onclick="openAddClub()">+ Novo Clube</button>
-  </div>
-
-  <div id="leaguesList">
-    <div class="loading"><span class="spinner-sm"></span>Carregando ligas e clubes...</div>
-  </div>
-</div>
-
-<!-- MODAL EDITAR/ADICIONAR CLUBE -->
+<!-- MODAL EDITAR/ADICIONAR -->
 <div class="modal-bg" id="modalBg">
   <div class="modal">
     <div class="modal-header">
@@ -155,17 +245,12 @@ html,body{min-height:100%;background:var(--bg);color:var(--ivory);font-family:'D
     <div class="modal-body">
       <input type="hidden" id="editClubId"/>
       <input type="hidden" id="editClubName"/>
-
       <div class="form-section">Identificação</div>
       <div class="form-grid">
         <div class="field"><label>Nome do Clube</label><input type="text" id="fName"/></div>
         <div class="field"><label>ID Externo (App)</label><input type="text" id="fExtId"/></div>
-        <div class="field">
-          <label>Liga</label>
-          <select id="fLeague"></select>
-        </div>
-        <div class="field">
-          <label>Tipo de Acerto</label>
+        <div class="field"><label>Liga</label><select id="fLeague"></select></div>
+        <div class="field"><label>Tipo de Acerto</label>
           <select id="fType" onchange="toggleFields()">
             <option value="taxa_dinamica">Taxa Dinâmica</option>
             <option value="taxa_fixa_variavel">Taxa Fixa/Variável</option>
@@ -173,8 +258,7 @@ html,body{min-height:100%;background:var(--bg);color:var(--ivory);font-family:'D
             <option value="rakeback">Rakeback</option>
           </select>
         </div>
-        <div class="field">
-          <label>Moeda</label>
+        <div class="field"><label>Moeda</label>
           <select id="fMoeda">
             <option value="BRL">BRL</option>
             <option value="USD">USD</option>
@@ -190,7 +274,7 @@ html,body{min-height:100%;background:var(--bg);color:var(--ivory);font-family:'D
           <div class="field"><label>Taxa Operacional %</label><input type="number" step="0.1" id="fTaxaOp"/></div>
           <div class="field"><label>Spinup %</label><input type="number" step="0.1" id="fSpinup"/></div>
           <div class="field"><label>Rebate %</label><input type="number" step="0.1" id="fRebate"/></div>
-          <div class="field"><label>Security (R$)</label><input type="number" step="0.01" id="fSecurity"/></div>
+          <div class="field"><label>Security (valor fixo)</label><input type="number" step="0.01" id="fSecurity"/></div>
         </div>
       </div>
 
@@ -218,7 +302,7 @@ html,body{min-height:100%;background:var(--bg);color:var(--ivory);font-family:'D
   </div>
 </div>
 
-<!-- CONFIRM DIALOG -->
+<!-- CONFIRM -->
 <div class="confirm-bg" id="confirmBg">
   <div class="confirm-box">
     <div class="confirm-title">Confirmar alteração</div>
@@ -232,76 +316,45 @@ html,body{min-height:100%;background:var(--bg);color:var(--ivory);font-family:'D
 
 <div class="toast" id="toast"></div>
 
-<div class="footer">
-  <div class="footer-tag">"From game data to financial settlements — automatically."</div>
-  <div class="suits"><span class="suit">♠</span><span class="suit">♥</span><span class="suit">♦</span><span class="suit">♣</span></div>
-</div>
-
 <script>
 const SUPABASE_URL = 'https://gebfitjjeyfogqyjqaij.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_97_5LwcW7aqP1Ux0D8Zzcg_hHLlRH-v';
+let allLeagues=[], allClubs=[], pendingSave=null;
 
-let allLeagues = [], allClubs = [], pendingSave = null;
-
-const h = {
-  'Content-Type':'application/json',
-  'apikey': SUPABASE_KEY,
-  'Authorization': `Bearer ${SUPABASE_KEY}`,
-  'Prefer': 'return=representation'
-};
+const h = {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Prefer':'return=representation'};
 
 async function api(method, path, body) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    method, headers: h,
-    body: body ? JSON.stringify(body) : undefined
-  });
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {method, headers:h, body:body?JSON.stringify(body):undefined});
   const txt = await res.text();
   return txt ? JSON.parse(txt) : [];
 }
 
 async function load() {
   const [leagues, clubs] = await Promise.all([
-    api('GET', 'leagues?select=id,name,moeda&order=name'),
-    api('GET', 'clubs?select=*&order=name')
+    api('GET','leagues?select=id,name,moeda&order=name'),
+    api('GET','clubs?select=*&order=name')
   ]);
-  allLeagues = leagues;
-  allClubs = clubs;
+  allLeagues = Array.isArray(leagues) ? leagues : [];
+  allClubs   = Array.isArray(clubs)   ? clubs   : [];
   render();
   populateLeagueSelect();
 }
 
-function typeLabel(t) {
-  const m = {taxa_dinamica:'Taxa Dinâmica',taxa_fixa_variavel:'Taxa Fixa/Var.',weekly_usd:'Weekly USD',rakeback:'Rakeback'};
-  return m[t] || t;
-}
-function typeClass(t) {
-  const m = {taxa_dinamica:'type-dinamica',taxa_fixa_variavel:'type-fixa',weekly_usd:'type-usd',rakeback:'type-rakeback'};
-  return m[t] || '';
-}
+function typeLabel(t){return{taxa_dinamica:'Taxa Dinâmica',taxa_fixa_variavel:'Taxa Fixa/Var.',weekly_usd:'Weekly USD',rakeback:'Rakeback'}[t]||t;}
+function typeClass(t){return{taxa_dinamica:'type-dinamica',taxa_fixa_variavel:'type-fixa',weekly_usd:'type-usd',rakeback:'type-rakeback'}[t]||'';}
 
 function rulesSummary(c) {
-  if(c.settlement_type === 'rakeback')
-    return `<span class="rule-tag">RB <span>${c.rakeback_pct}%</span></span>`;
-  if(c.settlement_type === 'weekly_usd')
-    return `<span class="rule-tag">Fee <span>${c.fee_mtt_pct}%</span></span>
-            <span class="rule-tag">Rebate <span>${c.rebate_pct}%</span></span>
-            ${c.crypto_rebate_pct>0?`<span class="rule-tag">Crypto <span>${c.crypto_rebate_pct}%</span></span>`:''}`;
-  return `<span class="rule-tag">MTT <span>${c.fee_mtt_pct}%</span></span>
-          <span class="rule-tag">Op <span>${c.taxa_op_pct}%</span></span>
-          ${c.rebate_pct>0?`<span class="rule-tag">Rebate <span>${c.rebate_pct}%</span></span>`:''}`;
+  if(c.settlement_type==='rakeback') return `<span class="rule-tag">RB <span>${c.rakeback_pct}%</span></span>`;
+  if(c.settlement_type==='weekly_usd') return `<span class="rule-tag">Fee <span>${c.fee_mtt_pct}%</span></span><span class="rule-tag">Rebate <span>${c.rebate_pct}%</span></span>${c.crypto_rebate_pct>0?`<span class="rule-tag">Crypto <span>${c.crypto_rebate_pct}%</span></span>`:''}`;
+  return `<span class="rule-tag">MTT <span>${c.fee_mtt_pct}%</span></span><span class="rule-tag">Op <span>${c.taxa_op_pct}%</span></span>${c.rebate_pct>0?`<span class="rule-tag">Rebate <span>${c.rebate_pct}%</span></span>`:''}`;
 }
 
 function render(filter='') {
   const container = document.getElementById('leaguesList');
   if(!allLeagues.length){container.innerHTML='<div class="loading">Nenhuma liga cadastrada</div>';return;}
-
-  container.innerHTML = allLeagues.map(league => {
-    const clubs = allClubs.filter(c =>
-      c.league_id === league.id &&
-      (!filter || c.name.toLowerCase().includes(filter.toLowerCase()))
-    );
-    if(filter && !clubs.length) return '';
-
+  container.innerHTML = allLeagues.map(league=>{
+    const clubs = allClubs.filter(c=>c.league_id===league.id&&(!filter||c.name.toLowerCase().includes(filter.toLowerCase())));
+    if(filter&&!clubs.length) return '';
     return `<div class="league-card">
       <div class="league-header" onclick="toggleLeague('${league.id}')">
         <span class="league-chevron open" id="chev-${league.id}">▼</span>
@@ -312,176 +365,134 @@ function render(filter='') {
         </div>
       </div>
       <div class="clubs-list open" id="list-${league.id}">
-        ${clubs.length===0
+        ${!clubs.length
           ? '<div class="loading" style="padding:16px">Nenhum clube nessa liga</div>'
-          : clubs.map(c=>`
-            <div class="club-row" id="row-${c.id}">
+          : clubs.map(c=>`<div class="club-row">
               <span class="club-id">${c.external_id||'—'}</span>
               <span class="club-name">${c.name}</span>
               <div class="club-rules">${rulesSummary(c)}</div>
               <span class="club-type ${typeClass(c.settlement_type)}">${typeLabel(c.settlement_type)}</span>
               <button class="btn-edit" onclick="openEdit('${c.id}')">Editar</button>
-            </div>`).join('')
-        }
+            </div>`).join('')}
       </div>
     </div>`;
   }).join('');
 }
 
-function toggleLeague(id) {
-  const list = document.getElementById(`list-${id}`);
-  const chev = document.getElementById(`chev-${id}`);
-  list.classList.toggle('open');
-  chev.classList.toggle('open');
+function toggleLeague(id){
+  document.getElementById(`list-${id}`).classList.toggle('open');
+  document.getElementById(`chev-${id}`).classList.toggle('open');
 }
-
-function filterClubs() {
-  render(document.getElementById('searchInput').value);
+function filterClubs(){render(document.getElementById('searchInput').value);}
+function populateLeagueSelect(){
+  document.getElementById('fLeague').innerHTML = allLeagues.map(l=>`<option value="${l.id}">${l.name}</option>`).join('');
 }
-
-function populateLeagueSelect() {
-  const sel = document.getElementById('fLeague');
-  sel.innerHTML = allLeagues.map(l=>`<option value="${l.id}">${l.name}</option>`).join('');
+function toggleFields(){
+  const t=document.getElementById('fType').value;
+  document.getElementById('fieldsTaxaDinamica').style.display=(t==='taxa_dinamica'||t==='taxa_fixa_variavel')?'block':'none';
+  document.getElementById('fieldsRakeback').style.display=t==='rakeback'?'block':'none';
+  document.getElementById('fieldsUSD').style.display=t==='weekly_usd'?'block':'none';
 }
-
-function toggleFields() {
-  const t = document.getElementById('fType').value;
-  document.getElementById('fieldsTaxaDinamica').style.display = (t==='taxa_dinamica'||t==='taxa_fixa_variavel') ? 'block' : 'none';
-  document.getElementById('fieldsRakeback').style.display = t==='rakeback' ? 'block' : 'none';
-  document.getElementById('fieldsUSD').style.display = t==='weekly_usd' ? 'block' : 'none';
-}
-
-function openEdit(clubId) {
-  const c = allClubs.find(x=>x.id===clubId);
-  if(!c) return;
-  document.getElementById('modalTitle').textContent = `Editar — ${c.name}`;
-  document.getElementById('editClubId').value = c.id;
-  document.getElementById('editClubName').value = c.name;
-  document.getElementById('fName').value = c.name;
-  document.getElementById('fExtId').value = c.external_id||'';
-  document.getElementById('fLeague').value = c.league_id;
-  document.getElementById('fType').value = c.settlement_type;
-  document.getElementById('fMoeda').value = c.moeda||'BRL';
-  // Campos dinâmica
-  document.getElementById('fFeeMTT').value = c.fee_mtt_pct||0;
-  document.getElementById('fFeeCash').value = c.fee_cash_pct||0;
-  document.getElementById('fTaxaOp').value = c.taxa_op_pct||0;
-  document.getElementById('fSpinup').value = c.spinup_pct||0;
-  document.getElementById('fRebate').value = c.rebate_pct||0;
-  document.getElementById('fSecurity').value = c.security||0;
-  // Rakeback
-  document.getElementById('fRakeback').value = c.rakeback_pct||0;
-  // USD
-  document.getElementById('fFeeUSD').value = c.fee_mtt_pct||0;
-  document.getElementById('fRebateUSD').value = c.rebate_pct||0;
-  document.getElementById('fCryptoRebate').value = c.crypto_rebate_pct||0;
-  document.getElementById('fSecurityUSD').value = c.security||0;
+function openEdit(id){
+  const c=allClubs.find(x=>x.id===id); if(!c) return;
+  document.getElementById('modalTitle').textContent=`Editar — ${c.name}`;
+  document.getElementById('editClubId').value=c.id;
+  document.getElementById('editClubName').value=c.name;
+  document.getElementById('fName').value=c.name;
+  document.getElementById('fExtId').value=c.external_id||'';
+  document.getElementById('fLeague').value=c.league_id;
+  document.getElementById('fType').value=c.settlement_type;
+  document.getElementById('fMoeda').value=c.moeda||'BRL';
+  document.getElementById('fFeeMTT').value=c.fee_mtt_pct||0;
+  document.getElementById('fFeeCash').value=c.fee_cash_pct||0;
+  document.getElementById('fTaxaOp').value=c.taxa_op_pct||0;
+  document.getElementById('fSpinup').value=c.spinup_pct||0;
+  document.getElementById('fRebate').value=c.rebate_pct||0;
+  document.getElementById('fSecurity').value=c.security||0;
+  document.getElementById('fRakeback').value=c.rakeback_pct||0;
+  document.getElementById('fFeeUSD').value=c.fee_mtt_pct||0;
+  document.getElementById('fRebateUSD').value=c.rebate_pct||0;
+  document.getElementById('fCryptoRebate').value=c.crypto_rebate_pct||0;
+  document.getElementById('fSecurityUSD').value=c.security||0;
   toggleFields();
   document.getElementById('modalBg').classList.add('open');
 }
-
-function openAddClub() {
-  document.getElementById('modalTitle').textContent = 'Novo Clube';
-  document.getElementById('editClubId').value = '';
-  document.getElementById('editClubName').value = '';
-  ['fName','fExtId','fFeeMTT','fFeeCash','fTaxaOp','fSpinup','fRebate','fSecurity',
-   'fRakeback','fFeeUSD','fRebateUSD','fCryptoRebate','fSecurityUSD'].forEach(id=>{
-    document.getElementById(id).value = '';
-  });
-  document.getElementById('fType').value = 'taxa_dinamica';
-  document.getElementById('fMoeda').value = 'BRL';
+function openAddClub(){
+  document.getElementById('modalTitle').textContent='Novo Clube';
+  document.getElementById('editClubId').value='';
+  document.getElementById('editClubName').value='';
+  ['fName','fExtId','fFeeMTT','fFeeCash','fTaxaOp','fSpinup','fRebate','fSecurity','fRakeback','fFeeUSD','fRebateUSD','fCryptoRebate','fSecurityUSD'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fType').value='taxa_dinamica';
+  document.getElementById('fMoeda').value='BRL';
   toggleFields();
   document.getElementById('modalBg').classList.add('open');
 }
-
-function closeModal() {
-  document.getElementById('modalBg').classList.remove('open');
-}
-
-function confirmSave() {
-  const name = document.getElementById('fName').value.trim();
+function closeModal(){document.getElementById('modalBg').classList.remove('open');}
+function confirmSave(){
+  const name=document.getElementById('fName').value.trim();
   if(!name){showToast('Nome do clube é obrigatório','error');return;}
-  const clubId = document.getElementById('editClubId').value;
-  const isEdit = !!clubId;
-  const originalName = document.getElementById('editClubName').value;
-
-  pendingSave = buildPayload();
-  pendingSave._id = clubId;
-  pendingSave._isEdit = isEdit;
-
-  document.getElementById('confirmText').innerHTML = isEdit
-    ? `Você está alterando as regras de <strong>${originalName}</strong>.<br>Essa ação afeta os cálculos futuros.`
-    : `Você está cadastrando o clube <strong>${name}</strong>.`;
-
+  const clubId=document.getElementById('editClubId').value;
+  const originalName=document.getElementById('editClubName').value;
+  pendingSave=buildPayload();
+  pendingSave._id=clubId;
+  pendingSave._isEdit=!!clubId;
+  document.getElementById('confirmText').innerHTML=clubId
+    ?`Você está alterando as regras de <strong>${originalName}</strong>.<br>Essa ação afeta os cálculos futuros.`
+    :`Você está cadastrando o clube <strong>${name}</strong>.`;
   document.getElementById('confirmBg').classList.add('open');
 }
-
-function buildPayload() {
-  const t = document.getElementById('fType').value;
-  const p = {
-    name: document.getElementById('fName').value.trim(),
-    external_id: document.getElementById('fExtId').value.trim(),
-    league_id: document.getElementById('fLeague').value,
-    settlement_type: t,
-    moeda: document.getElementById('fMoeda').value,
-    fee_mtt_pct: 0, fee_cash_pct: 0, taxa_op_pct: 0,
-    spinup_pct: 0, rebate_pct: 0, crypto_rebate_pct: 0,
-    rakeback_pct: 0, security: 0,
-  };
+function buildPayload(){
+  const t=document.getElementById('fType').value;
+  const p={name:document.getElementById('fName').value.trim(),external_id:document.getElementById('fExtId').value.trim(),league_id:document.getElementById('fLeague').value,settlement_type:t,moeda:document.getElementById('fMoeda').value,fee_mtt_pct:0,fee_cash_pct:0,taxa_op_pct:0,spinup_pct:0,rebate_pct:0,crypto_rebate_pct:0,rakeback_pct:0,security:0};
   if(t==='taxa_dinamica'||t==='taxa_fixa_variavel'){
-    p.fee_mtt_pct   = parseFloat(document.getElementById('fFeeMTT').value)||0;
-    p.fee_cash_pct  = parseFloat(document.getElementById('fFeeCash').value)||0;
-    p.taxa_op_pct   = parseFloat(document.getElementById('fTaxaOp').value)||0;
-    p.spinup_pct    = parseFloat(document.getElementById('fSpinup').value)||0;
-    p.rebate_pct    = parseFloat(document.getElementById('fRebate').value)||0;
-    p.security      = parseFloat(document.getElementById('fSecurity').value)||0;
-  } else if(t==='rakeback') {
-    p.rakeback_pct  = parseFloat(document.getElementById('fRakeback').value)||0;
-  } else if(t==='weekly_usd') {
-    p.fee_mtt_pct       = parseFloat(document.getElementById('fFeeUSD').value)||0;
-    p.rebate_pct        = parseFloat(document.getElementById('fRebateUSD').value)||0;
-    p.crypto_rebate_pct = parseFloat(document.getElementById('fCryptoRebate').value)||0;
-    p.security          = parseFloat(document.getElementById('fSecurityUSD').value)||0;
+    p.fee_mtt_pct=parseFloat(document.getElementById('fFeeMTT').value)||0;
+    p.fee_cash_pct=parseFloat(document.getElementById('fFeeCash').value)||0;
+    p.taxa_op_pct=parseFloat(document.getElementById('fTaxaOp').value)||0;
+    p.spinup_pct=parseFloat(document.getElementById('fSpinup').value)||0;
+    p.rebate_pct=parseFloat(document.getElementById('fRebate').value)||0;
+    p.security=parseFloat(document.getElementById('fSecurity').value)||0;
+  } else if(t==='rakeback'){
+    p.rakeback_pct=parseFloat(document.getElementById('fRakeback').value)||0;
+  } else if(t==='weekly_usd'){
+    p.fee_mtt_pct=parseFloat(document.getElementById('fFeeUSD').value)||0;
+    p.rebate_pct=parseFloat(document.getElementById('fRebateUSD').value)||0;
+    p.crypto_rebate_pct=parseFloat(document.getElementById('fCryptoRebate').value)||0;
+    p.security=parseFloat(document.getElementById('fSecurityUSD').value)||0;
   }
   return p;
 }
-
-function closeConfirm() {
-  document.getElementById('confirmBg').classList.remove('open');
-  pendingSave = null;
-}
-
-async function doSave() {
-  closeConfirm();
-  closeModal();
+function closeConfirm(){document.getElementById('confirmBg').classList.remove('open');pendingSave=null;}
+async function doSave(){
+  closeConfirm();closeModal();
   if(!pendingSave) return;
-
-  const {_id, _isEdit, ...payload} = pendingSave;
-
-  try {
-    if(_isEdit) {
-      await api('PATCH', `clubs?id=eq.${_id}`, payload);
-      // Atualiza local
-      const idx = allClubs.findIndex(c=>c.id===_id);
-      if(idx>=0) allClubs[idx] = {...allClubs[idx], ...payload};
+  const{_id,_isEdit,...payload}=pendingSave;
+  try{
+    if(_isEdit){
+      await api('PATCH',`clubs?id=eq.${_id}`,payload);
+      const idx=allClubs.findIndex(c=>c.id===_id);
+      if(idx>=0) allClubs[idx]={...allClubs[idx],...payload};
       showToast('Clube atualizado com sucesso ✓','success');
     } else {
-      const result = await api('POST', 'clubs', payload);
-      if(Array.isArray(result) && result[0]) allClubs.push(result[0]);
+      const result=await api('POST','clubs',payload);
+      if(Array.isArray(result)&&result[0]) allClubs.push(result[0]);
       showToast('Clube cadastrado com sucesso ✓','success');
     }
     render(document.getElementById('searchInput').value);
-  } catch(e) {
-    showToast('Erro ao salvar','error');
-    console.error(e);
-  }
-  pendingSave = null;
+  } catch(e){showToast('Erro ao salvar','error');console.error(e);}
+  pendingSave=null;
 }
-
-function showToast(msg, type) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.className = `toast ${type} show`;
-  setTimeout(()=>t.classList.remove('show'), 3000);
+function showToast(msg,type){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className=`toast ${type} show`;
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('open');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
 }
 
 load();
