@@ -5,21 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <title>PokerOS — League Platform</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
   --bg:#0c0e0b;--surface:#111510;--surface2:#181c16;--surface3:#1a2a1a;
   --gold:#c9a84c;--gold-dim:rgba(201,168,76,0.45);--gold-faint:rgba(201,168,76,0.1);--gold-border:rgba(201,168,76,0.2);
   --ivory:#f0ede4;--ivory-dim:rgba(240,237,228,0.55);--ivory-faint:rgba(240,237,228,0.12);
-  --green-light:#7dc97d;--red:#e07070;
+  --green-light:#7dc97d;--red:#e07070;--purple:#afa9ec;
   --border:rgba(201,168,76,0.18);--border2:rgba(201,168,76,0.07);
-  --sidebar-w:220px;
+  --sidebar-w:210px;
 }
 html,body{height:100%;background:var(--bg);color:var(--ivory);font-family:'DM Sans',sans-serif;overflow:hidden;}
 .app{display:flex;flex-direction:column;height:100vh;}
 
+/* ── TOPBAR ── */
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);height:48px;display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;z-index:100;}
-.hamburger{width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:6px;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.hamburger{width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:6px;-webkit-tap-highlight-color:transparent;}
 .topbar-logo{display:flex;align-items:center;gap:7px;flex:1;}
 .logo-icon{width:26px;height:26px;background:var(--surface3);border:1px solid var(--gold);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .logo-name{font-family:'Playfair Display',serif;font-size:14px;color:var(--gold);}
@@ -27,91 +29,191 @@ html,body{height:100%;background:var(--bg);color:var(--ivory);font-family:'DM Sa
 .topbar-screen{font-size:12px;color:var(--gold);font-weight:500;}
 .avatar{width:28px;height:28px;border-radius:50%;background:var(--surface3);border:1px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--gold);font-weight:500;flex-shrink:0;}
 
+/* ── OVERLAY ── */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:200;opacity:0;pointer-events:none;transition:opacity 0.25s;}
 .overlay.open{opacity:1;pointer-events:all;}
 
-.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100%;background:var(--surface);border-right:1px solid var(--border);z-index:300;transform:translateX(-100%);transition:transform 0.28s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;overflow-y:auto;}
+/* ── SIDEBAR ── */
+.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100%;background:var(--surface);border-right:1px solid var(--border);z-index:300;transform:translateX(-100%);transition:transform 0.28s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;}
 .sidebar.open{transform:translateX(0);}
 .sidebar-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);}
 .sidebar-logo{display:flex;align-items:center;gap:8px;}
 .close-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:6px;color:var(--ivory-dim);-webkit-tap-highlight-color:transparent;}
-.nav{flex:1;padding:8px 0;}
+.nav{flex:1;padding:8px 0;overflow-y:auto;}
 .nav-section{padding:12px 16px 4px;font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;}
-.nav-item{display:flex;align-items:center;gap:10px;padding:12px 16px;font-size:13px;color:var(--ivory-dim);cursor:pointer;border-left:2px solid transparent;transition:all 0.12s;-webkit-tap-highlight-color:transparent;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:12px 16px;font-size:13px;color:var(--ivory-dim);cursor:pointer;border-left:2px solid transparent;transition:all 0.12s;-webkit-tap-highlight-color:transparent;user-select:none;}
+.nav-item:hover{background:var(--surface2);color:var(--ivory);}
 .nav-item.active{background:var(--surface2);color:var(--gold);border-left-color:var(--gold);}
 .nav-icon{width:15px;height:15px;flex-shrink:0;opacity:0.6;}
 .nav-item.active .nav-icon{opacity:1;}
 .nav-badge{margin-left:auto;background:var(--gold-faint);border:1px solid var(--gold-border);color:var(--gold);font-size:9px;padding:2px 7px;border-radius:10px;}
-.sidebar-footer{padding:14px 16px;border-top:1px solid var(--border);}
+.sidebar-footer{padding:14px 16px;border-top:1px solid var(--border);flex-shrink:0;}
 .user-chip{display:flex;align-items:center;gap:9px;}
 .user-name{font-size:12px;font-weight:500;}
 .user-role{font-size:10px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1px;}
 
+/* ── LAYOUT ── */
 .main-layout{flex:1;overflow:hidden;display:flex;}
 .main{flex:1;overflow:hidden;display:flex;flex-direction:column;}
-.screen{display:none;flex:1;padding:18px 16px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-.screen.active{display:block;animation:fadeIn 0.18s ease;}
-@keyframes fadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
-.page-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--gold);margin-bottom:3px;}
-.page-sub{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:18px;}
 
+/* ── SCREENS ── */
+.screen{display:none;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:24px 20px 40px;}
+.screen.active{display:block;animation:fadeIn 0.18s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+.screen-inner{max-width:760px;margin:0 auto;}
+.page-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--gold);margin-bottom:3px;}
+.page-sub{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:20px;}
+
+/* ── COMPONENTS ── */
 .metrics{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:18px;}
 .metric{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:13px 14px;}
 .metric-label{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:5px;}
 .metric-val{font-size:22px;font-weight:500;color:var(--gold);font-family:'Playfair Display',serif;line-height:1;}
 .metric-delta{font-size:10px;margin-top:4px;}
 .delta-up{color:var(--green-light);}
-
 .section-label{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;}
 .table-wrap{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;overflow:hidden;margin-bottom:16px;overflow-x:auto;}
-table{width:100%;border-collapse:collapse;font-size:12px;min-width:320px;}
+.empty-state{padding:32px;text-align:center;font-size:12px;color:var(--ivory-faint);}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:300px;}
 th{padding:9px 12px;text-align:left;font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);font-weight:500;white-space:nowrap;}
+th.r{text-align:right;}
 td{padding:9px 12px;border-bottom:1px solid var(--border2);color:var(--ivory);}
 tr:last-child td{border-bottom:none;}
-.mono{font-family:'DM Mono',monospace;font-size:10px;}
+td.r{text-align:right;font-family:'DM Mono',monospace;font-size:11px;}
+td.pos{color:var(--green-light);}td.neg{color:var(--red);}td.gold{color:var(--gold);font-weight:500;}
+tr.total-row td{background:rgba(201,168,76,0.05);font-weight:500;border-top:1px solid var(--border);}
 .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:500;white-space:nowrap;}
 .pill-ok{background:rgba(61,110,61,0.2);color:var(--green-light);border:1px solid rgba(61,110,61,0.35);}
 .pill-pend{background:var(--gold-faint);color:var(--gold);border:1px solid var(--gold-border);}
 .pill-err{background:rgba(224,112,112,0.1);color:var(--red);border:1px solid rgba(224,112,112,0.3);}
+.pill-app{background:rgba(175,169,236,0.1);color:var(--purple);border:1px solid rgba(175,169,236,0.25);}
+.mono{font-family:'DM Mono',monospace;font-size:10px;color:var(--ivory-dim);}
+.spinner{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;}
+.spinner-sm{width:16px;height:16px;border:1.5px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block;margin-right:8px;vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg);}}
 
-.upload-zone{border:1.5px dashed var(--border);border-radius:10px;padding:28px 20px;text-align:center;margin-bottom:16px;}
+/* ── IMPORT SCREEN ── */
+.upload-zone{border:1.5px dashed var(--border);border-radius:10px;padding:28px 20px;text-align:center;margin-bottom:16px;cursor:pointer;transition:all 0.2s;position:relative;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--gold);background:var(--gold-faint);}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
 .upload-title{font-size:14px;font-weight:500;margin-bottom:5px;}
 .upload-sub{font-size:11px;color:var(--ivory-dim);line-height:1.5;}
-.btn-outline{margin-top:12px;padding:9px 20px;background:transparent;border:1px solid var(--gold);color:var(--gold);border-radius:6px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;}
-
-.rules-list{display:flex;flex-direction:column;gap:12px;}
-.rule-card{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;}
-.rule-name{font-family:'Playfair Display',serif;font-size:14px;color:var(--ivory);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border2);}
-.rule-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border2);}
-.rule-row:last-child{border-bottom:none;}
-.rule-key{font-size:12px;color:var(--ivory-dim);}
-.rule-val{font-size:12px;color:var(--gold);font-weight:500;}
-.rule-add{border:1.5px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;padding:20px;font-size:12px;color:var(--ivory-dim);}
-
-.report-tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;}
+.upload-formats{display:flex;gap:6px;justify-content:center;margin-top:10px;flex-wrap:wrap;}
+.format-badge{font-size:9px;padding:3px 8px;border-radius:4px;background:var(--gold-faint);border:1px solid var(--gold-border);color:var(--gold);font-family:'DM Mono',monospace;}
+.processing{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:20px;margin-bottom:16px;text-align:center;}
+.processing.show{display:block;}
+.processing-text{font-size:13px;color:var(--ivory-dim);}
+.processing-step{font-size:11px;color:var(--gold-dim);margin-top:4px;}
+.result{display:none;border-radius:10px;padding:16px 18px;margin-bottom:14px;}
+.result.show{display:block;}
+.result.success{background:rgba(61,110,61,0.08);border:1px solid rgba(125,201,125,0.2);}
+.result.error{background:rgba(224,112,112,0.07);border:1px solid rgba(224,112,112,0.25);}
+.result-title{font-size:14px;font-weight:500;margin-bottom:12px;}
+.result-title.success{color:var(--green-light);}
+.result-title.error{color:var(--red);}
+.result-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+.summary-item{display:flex;flex-direction:column;gap:3px;}
+.summary-lbl{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1.5px;}
+.summary-val{font-size:16px;font-weight:500;color:var(--ivory);font-family:'Playfair Display',serif;}
+.summary-val.gold{color:var(--gold);}
+.btn-toggle{width:100%;padding:10px;background:transparent;border:1px solid var(--gold-border);color:var(--gold-dim);border-radius:7px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;}
+.btn-toggle:hover,.btn-toggle.open{border-color:var(--gold);color:var(--gold);background:var(--gold-faint);}
+.btn-toggle .arr{transition:transform 0.2s;font-size:10px;}
+.btn-toggle.open .arr{transform:rotate(180deg);}
+.report-detail{display:none;margin-top:12px;}
+.report-detail.show{display:block;animation:fadeIn 0.18s ease;}
+.report-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.report-tabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;}
 .report-tabs::-webkit-scrollbar{display:none;}
-.tab{padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--border);color:var(--ivory-dim);background:transparent;font-family:'DM Sans',sans-serif;white-space:nowrap;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.tab{padding:5px 12px;border-radius:5px;font-size:11px;cursor:pointer;border:1px solid var(--border);color:var(--ivory-dim);background:transparent;font-family:'DM Sans',sans-serif;white-space:nowrap;flex-shrink:0;transition:all 0.15s;}
 .tab.active{background:var(--gold-faint);color:var(--gold);border-color:rgba(201,168,76,0.35);}
-.report-block{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:4px 16px 12px;margin-bottom:12px;}
-.report-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border2);font-size:13px;}
-.report-row:last-child{border-bottom:none;}
-.report-lbl{color:var(--ivory-dim);}
-.report-val{font-weight:500;}
-.pos{color:var(--green-light);}
-.neg{color:var(--red);}
-.report-total{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--surface2);border:1px solid var(--gold-border);border-radius:8px;margin-bottom:14px;}
-.report-total-lbl{font-size:14px;font-weight:500;}
-.report-total-val{font-size:24px;font-weight:500;color:var(--gold);font-family:'Playfair Display',serif;}
+.report-table{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;overflow:hidden;overflow-x:auto;margin-bottom:10px;}
+.report-table table{min-width:500px;}
+.report-table th,.report-table td{padding:9px 12px;}
+.error-list{list-style:none;display:flex;flex-direction:column;gap:4px;}
+.error-item{font-size:11px;color:var(--red);display:flex;align-items:flex-start;gap:6px;line-height:1.4;}
+.error-dot{width:4px;height:4px;border-radius:50%;background:var(--red);flex-shrink:0;margin-top:5px;}
+.warn-box{background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:11px;color:var(--gold-dim);}
 
+/* ── CADASTRO SCREEN ── */
+.search-bar{display:flex;gap:8px;margin-bottom:16px;}
+.search-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:7px;padding:9px 14px;font-size:12px;color:var(--ivory);font-family:'DM Sans',sans-serif;outline:none;}
+.search-input:focus{border-color:var(--gold);}
+.search-input::placeholder{color:var(--ivory-faint);}
+.btn-add{padding:9px 16px;background:var(--gold);color:#0c0e0b;border:none;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;}
+.league-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden;}
+.league-header{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;user-select:none;}
+.league-header:hover{background:var(--surface2);}
+.league-chevron{font-size:10px;color:var(--gold-dim);transition:transform 0.2s;}
+.league-chevron.open{transform:rotate(180deg);}
+.league-name{font-family:'Playfair Display',serif;font-size:16px;color:var(--gold);flex:1;}
+.league-meta{display:flex;gap:8px;align-items:center;}
+.badge{font-size:9px;padding:2px 8px;border-radius:10px;background:var(--gold-faint);border:1px solid var(--gold-border);color:var(--gold);}
+.badge-usd{background:rgba(175,169,236,0.1);border-color:rgba(175,169,236,0.25);color:var(--purple);}
+.clubs-list{display:none;border-top:1px solid var(--border2);}
+.clubs-list.open{display:block;}
+.club-row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border2);flex-wrap:wrap;}
+.club-row:last-child{border-bottom:none;}
+.club-row:hover{background:var(--surface2);}
+.club-ext-id{font-family:'DM Mono',monospace;font-size:10px;color:var(--ivory-dim);width:80px;flex-shrink:0;}
+.club-name-cell{flex:1;font-size:13px;min-width:100px;}
+.club-rules-cell{display:flex;gap:6px;flex-wrap:wrap;}
+.rule-tag{font-size:10px;color:var(--ivory-dim);}
+.rule-tag span{color:var(--gold);}
+.club-type-badge{font-size:9px;padding:2px 7px;border-radius:4px;flex-shrink:0;white-space:nowrap;}
+.type-dinamica{background:rgba(61,110,61,0.15);color:var(--green-light);border:1px solid rgba(61,110,61,0.3);}
+.type-fixa{background:var(--gold-faint);color:var(--gold);border:1px solid var(--gold-border);}
+.type-rakeback{background:rgba(175,169,236,0.1);color:var(--purple);border:1px solid rgba(175,169,236,0.25);}
+.type-usd{background:rgba(224,112,112,0.1);color:var(--red);border:1px solid rgba(224,112,112,0.25);}
+.btn-edit{padding:5px 12px;background:transparent;border:1px solid var(--border);color:var(--ivory-dim);border-radius:5px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;flex-shrink:0;transition:all 0.15s;}
+.btn-edit:hover{border-color:var(--gold);color:var(--gold);}
+
+/* ── MODAL ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;display:none;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:100%;max-width:480px;margin:auto;}
+.modal-header{padding:18px 20px 0;display:flex;justify-content:space-between;align-items:center;}
+.modal-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--gold);}
+.modal-close{width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ivory-dim);}
+.modal-body{padding:16px 20px 8px;}
+.form-section{font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:2px;margin:12px 0 8px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.field label{display:block;font-size:9px;color:var(--gold-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+.field input,.field select{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:8px 11px;font-size:12px;color:var(--ivory);font-family:'DM Sans',sans-serif;outline:none;}
+.field input:focus,.field select:focus{border-color:var(--gold);}
+.field select option{background:var(--surface);}
+.modal-footer{padding:12px 20px 18px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border2);margin-top:16px;}
+.btn-cancel{padding:9px 18px;background:transparent;border:1px solid var(--border);color:var(--ivory-dim);border-radius:6px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.btn-save{padding:9px 18px;background:var(--gold);color:#0c0e0b;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
+
+/* ── CONFIRM ── */
+.confirm-bg{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:600;display:none;align-items:center;justify-content:center;padding:16px;}
+.confirm-bg.open{display:flex;}
+.confirm-box{background:var(--surface);border:1px solid var(--gold-border);border-radius:10px;width:100%;max-width:360px;padding:24px 22px;}
+.confirm-title{font-size:15px;font-weight:500;margin-bottom:8px;}
+.confirm-text{font-size:12px;color:var(--ivory-dim);line-height:1.6;margin-bottom:20px;}
+.confirm-text strong{color:var(--gold);}
+.confirm-btns{display:flex;gap:8px;justify-content:flex-end;}
+.btn-conf-cancel{padding:9px 18px;background:transparent;border:1px solid var(--border);color:var(--ivory-dim);border-radius:6px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.btn-conf-ok{padding:9px 18px;background:var(--gold);color:#0c0e0b;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 20px;font-size:12px;color:var(--ivory);box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:999;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap;}
+.toast.show{opacity:1;}
+.toast.success{border-color:rgba(125,201,125,0.4);color:var(--green-light);}
+.toast.error{border-color:rgba(224,112,112,0.4);color:var(--red);}
+
+/* ── FOOTER ── */
 .footer{background:var(--surface);border-top:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .footer-tag{font-family:'Playfair Display',serif;font-style:italic;font-size:10px;color:var(--gold-dim);}
-.suits{display:flex;gap:10px;}
-.suit{font-size:14px;color:var(--gold);opacity:0.3;}
+.suits{display:flex;gap:8px;}
+.suit{font-size:13px;color:var(--gold);opacity:0.3;}
 
 ::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--gold-border);border-radius:2px;}
 
+/* ── DESKTOP ── */
 @media(min-width:768px){
   .overlay{display:none!important;}
   .sidebar{position:relative;transform:none!important;flex-shrink:0;}
@@ -123,67 +225,75 @@ tr:last-child td{border-bottom:none;}
 </head>
 <body>
 <div class="app">
-  <div class="topbar">
-    <div class="hamburger" onclick="toggleSidebar()">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h14" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round"/></svg>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="hamburger" onclick="toggleSidebar()">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h14" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round"/></svg>
+  </div>
+  <div class="topbar-logo">
+    <div class="logo-icon"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 2L3 7v6l7 5 7-5V7L10 2z" stroke="#c9a84c" stroke-width="1.4" stroke-linejoin="round"/><circle cx="10" cy="10" r="2" fill="#c9a84c"/></svg></div>
+    <div><div class="logo-name">PokerOS</div><div class="logo-sub">League Platform</div></div>
+  </div>
+  <span class="topbar-screen" id="topbarTitle">Dashboard</span>
+  <div class="avatar">EM</div>
+</div>
+
+<div class="main-layout">
+  <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="logo-icon"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 2L3 7v6l7 5 7-5V7L10 2z" stroke="#c9a84c" stroke-width="1.4" stroke-linejoin="round"/><circle cx="10" cy="10" r="2" fill="#c9a84c"/></svg></div>
+        <div class="logo-name">PokerOS</div>
+      </div>
+      <div class="close-btn" onclick="closeSidebar()"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4l10 10M14 4L4 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
     </div>
-    <div class="topbar-logo">
-      <div class="logo-icon"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 2L3 7v6l7 5 7-5V7L10 2z" stroke="#c9a84c" stroke-width="1.4" stroke-linejoin="round"/><circle cx="10" cy="10" r="2" fill="#c9a84c"/></svg></div>
-      <div><div class="logo-name">PokerOS</div><div class="logo-sub">League Platform</div></div>
+    <nav class="nav">
+      <div class="nav-section">Principal</div>
+      <div class="nav-item active" data-screen="dashboard" onclick="goTo('dashboard',this)">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-item" data-screen="importacao" onclick="goTo('importacao',this)">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Importação
+        <span class="nav-badge" id="importBadge" style="display:none">!</span>
+      </div>
+      <div class="nav-section">Configuração</div>
+      <div class="nav-item" data-screen="cadastro" onclick="goTo('cadastro',this)">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M9 11.5h6M12 9v5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Ligas & Clubes
+      </div>
+      <div class="nav-section">Financeiro</div>
+      <div class="nav-item" data-screen="relatorios" onclick="goTo('relatorios',this)">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 8h6M5 11h4M5 5h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Relatórios
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="avatar">EM</div>
+        <div><div class="user-name">Emilly</div><div class="user-role">Administrador</div></div>
+      </div>
     </div>
-    <span class="topbar-screen" id="topbar-title">Dashboard</span>
-    <div class="avatar">EM</div>
   </div>
 
-  <div class="main-layout">
-    <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+  <!-- MAIN -->
+  <div class="main">
 
-    <div class="sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <div class="sidebar-logo">
-          <div class="logo-icon"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 2L3 7v6l7 5 7-5V7L10 2z" stroke="#c9a84c" stroke-width="1.4" stroke-linejoin="round"/><circle cx="10" cy="10" r="2" fill="#c9a84c"/></svg></div>
-          <div class="logo-name">PokerOS</div>
-        </div>
-        <div class="close-btn" onclick="closeSidebar()"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4l10 10M14 4L4 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
-      </div>
-      <nav class="nav">
-        <div class="nav-section">Principal</div>
-        <div class="nav-item active" onclick="goTo('dashboard',this)">
-          <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/></svg>
-          Dashboard
-        </div>
-        <div class="nav-item" onclick="goTo('import',this)">
-          <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-          Importação <span class="nav-badge">1 erro</span>
-        </div>
-        <div class="nav-section">Configuração</div>
-        <div class="nav-item" onclick="goTo('rules',this)">
-          <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-          Regras da Liga
-        </div>
-        <div class="nav-section">Financeiro</div>
-        <div class="nav-item" onclick="goTo('reports',this)">
-          <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 8h6M5 11h4M5 5h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-          Relatórios
-        </div>
-      </nav>
-      <div class="sidebar-footer">
-        <div class="user-chip">
-          <div class="avatar">EM</div>
-          <div><div class="user-name">Emilly</div><div class="user-role">Administrador</div></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="main">
-      <div class="screen active" id="screen-dashboard">
+    <!-- DASHBOARD -->
+    <div class="screen active" id="screen-dashboard">
+      <div class="screen-inner">
         <div class="page-title">Dashboard</div>
         <div class="page-sub">Liga Poker Pro · Semana atual</div>
         <div class="metrics">
           <div class="metric"><div class="metric-label">Clubes ativos</div><div class="metric-val">24</div><div class="metric-delta delta-up">↑ 2 esta semana</div></div>
           <div class="metric"><div class="metric-label">Rake total</div><div class="metric-val">R$48k</div><div class="metric-delta delta-up">↑ 8% vs anterior</div></div>
-          <div class="metric"><div class="metric-label">Pendentes</div><div class="metric-val">7</div><div class="metric-delta" style="color:var(--ivory-dim);">aguardando</div></div>
-          <div class="metric"><div class="metric-label">Importações</div><div class="metric-val">132</div><div class="metric-delta" style="color:var(--ivory-dim);">este mês</div></div>
+          <div class="metric"><div class="metric-label">Pendentes</div><div class="metric-val">7</div><div class="metric-delta" style="color:var(--ivory-dim)">aguardando</div></div>
+          <div class="metric"><div class="metric-label">Importações</div><div class="metric-val">132</div><div class="metric-delta" style="color:var(--ivory-dim)">este mês</div></div>
         </div>
         <div class="section-label">Últimas importações</div>
         <div class="table-wrap">
@@ -198,97 +308,564 @@ tr:last-child td{border-bottom:none;}
           </table>
         </div>
       </div>
+    </div>
 
-      <div class="screen" id="screen-import">
-        <div class="page-title">Importação</div>
+    <!-- IMPORTAÇÃO -->
+    <div class="screen" id="screen-importacao">
+      <div class="screen-inner">
+        <div class="page-title">Importação de Dados</div>
         <div class="page-sub">Upload de arquivo · .xlsx</div>
-        <div class="upload-zone">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" style="margin:0 auto 10px;display:block;"><path d="M16 24V10M10 16l6-6 6 6" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/><path d="M6 28h20" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round" opacity="0.35"/></svg>
-          <div class="upload-title">Toque para selecionar arquivo</div>
-          <div class="upload-sub">Aceita .xlsx — compatível com PokerBros, PPPoker, ClubGG e outros</div>
-          <button class="btn-outline">Selecionar arquivo</button>
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" accept=".xlsx,.xls" id="fileInput" onchange="handleFile(this.files[0])"/>
+          <svg width="34" height="34" viewBox="0 0 36 36" fill="none" style="margin:0 auto 10px;display:block;"><path d="M18 26V10M11 17l7-7 7 7" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/><path d="M6 30h24" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round" opacity="0.35"/></svg>
+          <div class="upload-title">Arraste o arquivo ou clique para selecionar</div>
+          <div class="upload-sub">Detecção automática · PPPoker Liga · PPPoker Clube · PokerBros · Qualquer .xlsx</div>
+          <div class="upload-formats">
+            <span class="format-badge">PPPoker Liga</span>
+            <span class="format-badge">PPPoker Clube</span>
+            <span class="format-badge">PokerBros</span>
+            <span class="format-badge">.xlsx</span>
+          </div>
         </div>
-        <div class="section-label">Histórico</div>
+        <div class="processing" id="processing">
+          <div class="spinner"></div>
+          <div class="processing-text">Processando arquivo...</div>
+          <div class="processing-step" id="processingStep">Lendo estrutura</div>
+        </div>
+        <div class="result success" id="resultSuccess">
+          <div class="result-title success">✓ Importação realizada com sucesso</div>
+          <div class="result-summary">
+            <div class="summary-item"><span class="summary-lbl">Período</span><span class="summary-val" id="resPeriod">—</span></div>
+            <div class="summary-item"><span class="summary-lbl">App detectado</span><span class="summary-val" id="resApp">—</span></div>
+            <div class="summary-item"><span class="summary-lbl">Clubes importados</span><span class="summary-val gold" id="resClubs">—</span></div>
+            <div class="summary-item"><span class="summary-lbl">Rake total</span><span class="summary-val gold" id="resRake">—</span></div>
+          </div>
+          <div class="warn-box" id="warnBox" style="display:none"></div>
+          <button class="btn-toggle" id="btnToggle" onclick="toggleReport()">
+            <span id="btnToggleText">Ver relatório completo</span><span class="arr">▼</span>
+          </button>
+          <div class="report-detail" id="reportDetail">
+            <div style="height:12px"></div>
+            <div class="report-header">
+              <div class="section-label">Relatório de Acerto — LPG</div>
+              <button class="btn-edit" onclick="exportCSV()" style="border-color:var(--gold);color:var(--gold)">Exportar CSV</button>
+            </div>
+            <div class="report-tabs">
+              <button class="tab active" onclick="switchTab(this,'tabLPG')">LPG Acertos</button>
+              <button class="tab" onclick="switchTab(this,'tabRake')">Rake Líquido</button>
+              <button class="tab" onclick="switchTab(this,'tabResumo')">Resumo</button>
+            </div>
+            <div class="report-table" id="tabLPG"><table>
+              <thead><tr><th>Clube</th><th class="r">Rake Total</th><th class="r">Rake MTT</th><th class="r">Rake Cash</th><th class="r">Ganhos/Perdas</th><th class="r">Spinup</th><th class="r">Total Acerto</th></tr></thead>
+              <tbody id="lpgBody"></tbody>
+            </table></div>
+            <div class="report-table" id="tabRake" style="display:none"><table>
+              <thead><tr><th>Clube</th><th class="r">Rake Total</th><th class="r">MTT</th><th class="r">Cash</th><th class="r">Spinup</th></tr></thead>
+              <tbody id="rakeBody"></tbody>
+            </table></div>
+            <div class="report-table" id="tabResumo" style="display:none"><table>
+              <thead><tr><th>Item</th><th class="r">Valor</th></tr></thead>
+              <tbody id="resumoBody"></tbody>
+            </table></div>
+          </div>
+        </div>
+        <div class="result error" id="resultError">
+          <div class="result-title error">✕ Erro na importação</div>
+          <ul class="error-list" id="errorList"></ul>
+        </div>
+        <div class="section-label">Histórico de importações</div>
         <div class="table-wrap">
-          <table>
-            <thead><tr><th>Arquivo</th><th>Clube</th><th>Status</th></tr></thead>
-            <tbody>
-              <tr><td class="mono">lpg_royal_0507.xlsx</td><td>Club Royal</td><td><span class="pill pill-ok">Válido</span></td></tr>
-              <tr><td class="mono">lpg_shark_0507.xlsx</td><td>Shark Club</td><td><span class="pill pill-ok">Válido</span></td></tr>
-              <tr><td class="mono">lpg_fullhouse.xlsx</td><td>Full House FC</td><td><span class="pill pill-err">Col. inválida</span></td></tr>
-            </tbody>
+          <div class="empty-state" id="emptyState">Nenhuma importação ainda</div>
+          <table id="historyTable" style="display:none">
+            <thead><tr><th>Arquivo</th><th>App</th><th>Período</th><th>Clubes</th><th>Status</th></tr></thead>
+            <tbody id="historyBody"></tbody>
           </table>
         </div>
       </div>
+    </div>
 
-      <div class="screen" id="screen-rules">
-        <div class="page-title">Regras da Liga</div>
-        <div class="page-sub">Configuração por clube</div>
-        <div class="rules-list">
-          <div class="rule-card"><div class="rule-name">Club Royal</div><div class="rule-row"><span class="rule-key">Tipo</span><span class="rule-val">Taxa Dinâmica</span></div><div class="rule-row"><span class="rule-key">Rake MTT</span><span class="rule-val">8%</span></div><div class="rule-row"><span class="rule-key">Rake Cash</span><span class="rule-val">Dinâmico</span></div><div class="rule-row"><span class="rule-key">Spinup</span><span class="rule-val">5%</span></div><div class="rule-row"><span class="rule-key">Rebate</span><span class="rule-val">10%</span></div><div class="rule-row"><span class="rule-key">Security</span><span class="rule-val">R$500</span></div></div>
-          <div class="rule-card"><div class="rule-name">Shark Club</div><div class="rule-row"><span class="rule-key">Tipo</span><span class="rule-val">5%–15%</span></div><div class="rule-row"><span class="rule-key">Taxa atual</span><span class="rule-val">10%</span></div><div class="rule-row"><span class="rule-key">Spinup</span><span class="rule-val">5%</span></div><div class="rule-row"><span class="rule-key">Security</span><span class="rule-val">R$300</span></div></div>
-          <div class="rule-card"><div class="rule-name">Ás de Ouro</div><div class="rule-row"><span class="rule-key">Tipo</span><span class="rule-val">Taxa Dinâmica</span></div><div class="rule-row"><span class="rule-key">Rake MTT</span><span class="rule-val">9%</span></div><div class="rule-row"><span class="rule-key">Rebate</span><span class="rule-val">10%</span></div><div class="rule-row"><span class="rule-key">Security</span><span class="rule-val">R$400</span></div></div>
-          <div class="rule-add">+ Adicionar clube</div>
+    <!-- CADASTRO -->
+    <div class="screen" id="screen-cadastro">
+      <div class="screen-inner">
+        <div class="page-title">Ligas & Clubes</div>
+        <div class="page-sub">Cadastro e configuração de regras · Admin</div>
+        <div class="search-bar">
+          <input class="search-input" type="text" placeholder="Buscar clube..." id="searchInput" oninput="filterClubs()"/>
+          <button class="btn-add" onclick="openAddClub()">+ Novo Clube</button>
         </div>
-      </div>
-
-      <div class="screen" id="screen-reports">
-        <div class="page-title">Relatório de Acerto</div>
-        <div class="page-sub">Club Royal · 01–07 Mai</div>
-        <div class="report-tabs">
-          <button class="tab active" onclick="switchTab(this)">LPG Acertos</button>
-          <button class="tab" onclick="switchTab(this)">Rake Líquido</button>
-          <button class="tab" onclick="switchTab(this)">PnL</button>
-          <button class="tab" onclick="switchTab(this)">Resumo</button>
-        </div>
-        <div class="report-block">
-          <div class="report-row"><span class="report-lbl">Rake Total</span><span class="report-val">R$12.400,00</span></div>
-          <div class="report-row"><span class="report-lbl">Rake MTT</span><span class="report-val">R$7.200,00</span></div>
-          <div class="report-row"><span class="report-lbl">Rake Cash</span><span class="report-val">R$5.200,00</span></div>
-          <div class="report-row"><span class="report-lbl">Ganhos/Perdas</span><span class="report-val pos">+R$1.240,00</span></div>
-          <div class="report-row"><span class="report-lbl">Taxa Operacional</span><span class="report-val neg">−R$890,00</span></div>
-          <div class="report-row"><span class="report-lbl">Spinup Lucro</span><span class="report-val neg">−R$620,00</span></div>
-          <div class="report-row"><span class="report-lbl">Rebate 10%</span><span class="report-val neg">−R$1.240,00</span></div>
-          <div class="report-row"><span class="report-lbl">Security</span><span class="report-val neg">−R$500,00</span></div>
-          <div class="report-row"><span class="report-lbl">Bilhetes</span><span class="report-val neg">−R$200,00</span></div>
-          <div class="report-row"><span class="report-lbl">Pendências</span><span class="report-val neg">−R$300,00</span></div>
-          <div class="report-row"><span class="report-lbl">Indicações</span><span class="report-val pos">+R$500,00</span></div>
-        </div>
-        <div class="report-total"><span class="report-total-lbl">Total Acerto</span><span class="report-total-val">R$10.390,00</span></div>
-        <button class="btn-outline">Exportar relatório</button>
+        <div id="leaguesList"><div class="empty-state"><span class="spinner-sm"></span>Carregando...</div></div>
       </div>
     </div>
-  </div>
 
-  <div class="footer">
-    <div class="footer-tag">"From game data to financial settlements — automatically."</div>
-    <div class="suits"><span class="suit">♠</span><span class="suit">♥</span><span class="suit">♦</span><span class="suit">♣</span></div>
-  </div>
+    <!-- RELATÓRIOS -->
+    <div class="screen" id="screen-relatorios">
+      <div class="screen-inner">
+        <div class="page-title">Relatórios</div>
+        <div class="page-sub">Em breve</div>
+        <div class="empty-state" style="padding:60px 0;font-size:13px;color:var(--ivory-dim)">Tela em desenvolvimento 🃏</div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /main-layout -->
+
+<!-- FOOTER -->
+<div class="footer">
+  <div class="footer-tag">"From game data to financial settlements — automatically."</div>
+  <div class="suits"><span class="suit">♠</span><span class="suit">♥</span><span class="suit">♦</span><span class="suit">♣</span></div>
+</div>
+</div><!-- /app -->
 </div>
 
+<div class="toast" id="toast"></div>
+
 <script>
+/* ── CONFIG ── */
+const SB  = 'https://gebfitjjeyfogqyjqaij.supabase.co';
+const KEY = 'sb_publishable_97_5LwcW7aqP1Ux0D8Zzcg_hHLlRH-v';
+const H   = {'Content-Type':'application/json','apikey':KEY,'Authorization':`Bearer ${KEY}`,'Prefer':'return=representation'};
+
+const DEFAULT_RULES = {rebate_pct:0, security:0, spinup_lucro_pct:0};
+
+let allLeagues=[], allClubs=[], pendingSave=null, importOpen=false, currentData=[];
+
+/* ── NAVIGATION ── */
+const TITLES = {dashboard:'Dashboard',importacao:'Importação de Dados',cadastro:'Ligas & Clubes',relatorios:'Relatórios'};
+
+function goTo(screen, navEl) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(`screen-${screen}`).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(navEl) navEl.classList.add('active');
+  document.getElementById('topbarTitle').textContent = TITLES[screen]||screen;
+  closeSidebar();
+  // Lazy load data when entering screens
+  if(screen==='cadastro' && !allLeagues.length) loadCadastro();
+  if(screen==='importacao') loadHistory();
+  // Update URL hash for deep linking
+  history.replaceState(null,'',`#${screen}`);
+}
+
+/* ── SIDEBAR ── */
 function toggleSidebar(){
-  var s=document.getElementById('sidebar'),o=document.getElementById('overlay');
-  if(s.classList.contains('open')){closeSidebar();}
-  else{s.classList.add('open');o.classList.add('open');}
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('open');
 }
 function closeSidebar(){
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('overlay').classList.remove('open');
 }
-function goTo(screen,navEl){
-  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
-  document.getElementById('screen-'+screen).classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
-  navEl.classList.add('active');
-  var titles={dashboard:'Dashboard',import:'Importação',rules:'Regras da Liga',reports:'Relatórios'};
-  document.getElementById('topbar-title').textContent=titles[screen]||screen;
-  closeSidebar();
+
+/* ── API ── */
+async function api(method, path, body) {
+  const r = await fetch(`${SB}/rest/v1/${path}`,{method,headers:H,body:body?JSON.stringify(body):undefined});
+  const t = await r.text();
+  return t ? JSON.parse(t) : [];
 }
-function switchTab(el){
-  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
-  el.classList.add('active');
+
+/* ══════════════════════════════════════
+   IMPORTAÇÃO
+══════════════════════════════════════ */
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag');});
+zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
+zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
+
+function detectType(wb){
+  const s=wb.SheetNames.map(x=>x.toLowerCase());
+  if(s.includes('geral da liga')) return 'pppoker_liga';
+  if(s.includes('geral')) return 'pppoker_clube';
+  if(s.includes('union overview')) return 'pokerbros';
+  return 'generico';
 }
+
+function extractPeriod(v){
+  if(!v) return {start:null,end:null,label:'—'};
+  const c=String(v).replace(/\n/g,' ').replace(/\s+/g,' ');
+  let m=c.match(/(\d{4}\/\d{2}\/\d{2})\s*-\s*(\d{4}\/\d{2}\/\d{2})/);
+  if(m){const s=m[1].replace(/\//g,'-'),e=m[2].replace(/\//g,'-'),f=d=>d.split('-').reverse().join('/');return{start:s,end:e,label:`${f(s)} – ${f(e)}`};}
+  m=c.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/);
+  if(m){const f=d=>d.split('-').reverse().join('/');return{start:m[1],end:m[2],label:`${f(m[1])} – ${f(m[2])}`};}
+  return{start:null,end:null,label:'—'};
+}
+
+function sf(v){try{return parseFloat(v||0)||0;}catch{return 0;}}
+
+function processPPPokerLiga(wb){
+  const ws=wb.Sheets['Geral da liga'];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+  const period=extractPeriod(rows[2]?rows[2][0]:'');
+  const clubs=[],errors=[];
+  for(let i=4;i<rows.length;i++){
+    const row=rows[i]; if(!row) continue;
+    const nome=row[1]?String(row[1]).trim():'';
+    if(!nome||nome.toLowerCase()==='total') continue;
+    const t22=Math.abs(sf(row[22])),r23=Math.abs(sf(row[23])),r24=Math.abs(sf(row[24])),r25=Math.abs(sf(row[25])),r26=Math.abs(sf(row[26]));
+    const mtt=r23,cash=r24+r25+r26,total=t22>0?t22:mtt+cash;
+    clubs.push({club_name:nome,club_external_id:String(row[2]||'').trim(),rake_total:total,rake_mtt:mtt,rake_cash:cash,rake_spinup:Math.abs(sf(row[27])),player_result:sf(row[9])+sf(row[10]),raw_data:JSON.stringify(row)});
+  }
+  if(!clubs.length) errors.push('Nenhum clube encontrado na aba "Geral da liga"');
+  return{clubs,errors,period,app:'PPPoker Liga',warnings:[]};
+}
+
+function processPPPokerClube(wb){
+  const ws=wb.Sheets['Geral'];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+  const period=extractPeriod(rows[2]?rows[2][0]:'');
+  const map={};
+  for(let i=4;i<rows.length;i++){
+    const row=rows[i]; if(!row||!row[0]) continue;
+    const ag=String(row[5]||row[4]||'Sem agente').trim();
+    if(!map[ag]) map[ag]={ganho:0};
+    map[ag].ganho+=sf(row[9]);
+  }
+  const clubs=Object.entries(map).map(([n,d])=>({club_name:n,club_external_id:'',rake_total:0,rake_mtt:0,rake_cash:0,rake_spinup:0,player_result:Math.round(d.ganho*100)/100,raw_data:'{}'}));
+  return{clubs,errors:[],period,app:'PPPoker Clube',warnings:['Arquivo de jogadores — rake não disponível. Apenas ganhos/perdas por agente foram importados.']};
+}
+
+function processPokerbros(wb){
+  const ws=wb.Sheets['Union Overview'];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+  const period=extractPeriod(rows[2]?rows[2][0]:'');
+  const clubs=[],errors=[];
+  for(let i=5;i<rows.length;i++){
+    const row=rows[i]; if(!row||!row[3]) continue;
+    const nome=String(row[3]).trim(); if(!nome) continue;
+    clubs.push({club_name:nome,club_external_id:String(row[2]||'').trim(),rake_total:Math.abs(sf(row[8])),rake_mtt:0,rake_cash:Math.abs(sf(row[8])),rake_spinup:0,player_result:sf(row[20]),raw_data:JSON.stringify(row)});
+  }
+  if(!clubs.length) errors.push('Nenhum clube encontrado');
+  return{clubs,errors,period,app:'PokerBros',warnings:[]};
+}
+
+function processGenerico(wb){
+  const sn=wb.SheetNames[0],ws=wb.Sheets[sn];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+  let period={start:null,end:null,label:'—'};
+  for(let i=0;i<Math.min(5,rows.length);i++){for(let j=0;j<Math.min(5,(rows[i]||[]).length);j++){const p=extractPeriod(rows[i][j]);if(p.start){period=p;break;}}}
+  let hRow=-1,nCol=-1,fCol=-1;
+  for(let i=0;i<Math.min(10,rows.length);i++){const row=rows[i]||[];for(let j=0;j<row.length;j++){const v=String(row[j]||'').toLowerCase();if(v.includes('club')||v.includes('clube')||v.includes('name')||v.includes('nome')){hRow=i;nCol=j;break;}}if(hRow>=0)break;}
+  if(hRow>=0){const hr=rows[hRow]||[];for(let j=0;j<hr.length;j++){const v=String(hr[j]||'').toLowerCase();if(v.includes('fee')||v.includes('rake')||v.includes('taxa')){fCol=j;break;}}}
+  const clubs=[];
+  if(hRow>=0&&nCol>=0){for(let i=hRow+2;i<rows.length;i++){const row=rows[i]||[],nome=String(row[nCol]||'').trim();if(!nome||nome.toLowerCase()==='total') continue;clubs.push({club_name:nome,club_external_id:'',rake_total:fCol>=0?Math.abs(sf(row[fCol])):0,rake_mtt:0,rake_cash:0,rake_spinup:0,player_result:0,raw_data:JSON.stringify(row)});}}
+  return{clubs,errors:[],period,app:`Genérico (${sn})`,warnings:[`Formato novo detectado (abas: ${wb.SheetNames.join(', ')}). Dados extraídos automaticamente — valide os valores.`]};
+}
+
+function calcAcerto(c){
+  const r=DEFAULT_RULES,rake=c.rake_total;
+  const rebate=rake*(r.rebate_pct/100),spinL=c.rake_spinup*(r.spinup_lucro_pct/100),sec=r.security;
+  return{rake,rakeMTT:c.rake_mtt,rakeCash:c.rake_cash,ganhos:c.player_result,spinup:spinL,rebate,security:sec,total:rake-rebate-spinL-sec};
+}
+
+function br(v){return(Math.round(v*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtM(v){return'R$ '+br(Math.abs(v));}
+function fmtS(v){return(v>=0?'+ ':'- ')+'R$ '+br(Math.abs(v));}
+
+function renderReport(clubs){
+  currentData=clubs;
+  let tR=0,tM=0,tC=0,tG=0,tS=0,tT=0;
+  document.getElementById('lpgBody').innerHTML=clubs.map(c=>{
+    const a=calcAcerto(c);tR+=a.rake;tM+=a.rakeMTT;tC+=a.rakeCash;tG+=a.ganhos;tS+=a.spinup;tT+=a.total;
+    return `<tr><td>${c.club_name}</td><td class="r">${fmtM(a.rake)}</td><td class="r">${fmtM(a.rakeMTT)}</td><td class="r">${fmtM(a.rakeCash)}</td><td class="r ${a.ganhos>=0?'pos':'neg'}">${fmtS(a.ganhos)}</td><td class="r">${fmtM(a.spinup)}</td><td class="r gold ${a.total>=0?'pos':'neg'}">${fmtS(a.total)}</td></tr>`;
+  }).join('')+`<tr class="total-row"><td><strong>TOTAL</strong></td><td class="r gold">${fmtM(tR)}</td><td class="r gold">${fmtM(tM)}</td><td class="r gold">${fmtM(tC)}</td><td class="r ${tG>=0?'pos':'neg'}">${fmtS(tG)}</td><td class="r">${fmtM(tS)}</td><td class="r gold ${tT>=0?'pos':'neg'}">${fmtS(tT)}</td></tr>`;
+  let tR2=0,tM2=0,tC2=0,tS2=0;
+  document.getElementById('rakeBody').innerHTML=clubs.map(c=>{tR2+=c.rake_total;tM2+=c.rake_mtt;tC2+=c.rake_cash;tS2+=c.rake_spinup;return`<tr><td>${c.club_name}</td><td class="r">${fmtM(c.rake_total)}</td><td class="r">${fmtM(c.rake_mtt)}</td><td class="r">${fmtM(c.rake_cash)}</td><td class="r">${fmtM(c.rake_spinup)}</td></tr>`;}).join('')+`<tr class="total-row"><td><strong>TOTAL</strong></td><td class="r gold">${fmtM(tR2)}</td><td class="r gold">${fmtM(tM2)}</td><td class="r gold">${fmtM(tC2)}</td><td class="r gold">${fmtM(tS2)}</td></tr>`;
+  document.getElementById('resumoBody').innerHTML=`<tr><td>Rake Total</td><td class="r">${fmtM(tR)}</td></tr><tr><td>Ganhos/Perdas</td><td class="r ${tG>=0?'pos':'neg'}">${fmtS(tG)}</td></tr><tr><td colspan="2" style="font-size:10px;color:var(--gold-dim);padding-top:6px">⚠️ Rebate e Security aplicados após cadastro dos clubes</td></tr><tr class="total-row"><td><strong>Total Acerto (bruto)</strong></td><td class="r gold">${fmtM(tR)}</td></tr>`;
+}
+
+function exportCSV(){
+  if(!currentData.length) return;
+  const period=document.getElementById('resPeriod').textContent;
+  let csv=`PokerOS — LPG Acertos\nPeríodo:;${period}\n\nClube;Rake Total;Rake MTT;Rake Cash;Ganhos/Perdas;Spinup;Total Acerto\n`;
+  let tR=0,tM=0,tC=0,tG=0,tS=0,tT=0;
+  currentData.forEach(c=>{const a=calcAcerto(c);tR+=a.rake;tM+=a.rakeMTT;tC+=a.rakeCash;tG+=a.ganhos;tS+=a.spinup;tT+=a.total;csv+=`"${c.club_name}";${br(a.rake)};${br(a.rakeMTT)};${br(a.rakeCash)};${br(a.ganhos)};${br(a.spinup)};${br(a.total)}\n`;});
+  csv+=`TOTAL;${br(tR)};${br(tM)};${br(tC)};${br(tG)};${br(tS)};${br(tT)}\n`;
+  const url=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download=`LPG_Acertos_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.csv`;a.click();URL.revokeObjectURL(url);
+}
+
+async function saveImport(data,rows){
+  const lr=await api('GET','leagues?select=id&limit=1');
+  if(!lr.length) throw new Error('Nenhuma liga no banco');
+  const lid=lr[0].id;
+  const[imp]=await api('POST','imports',{league_id:lid,file_name:data.fileName,app_source:data.app,period_start:data.period.start,period_end:data.period.end,status:data.errors.length?'error':'valid',error_message:data.errors.join('; ')||null,uploaded_by:'Emilly'});
+  if(!imp?.id) throw new Error('Falha ao salvar importação');
+  if(rows.length) await api('POST','import_rows',rows.map(r=>({import_id:imp.id,club_name:r.club_name,club_external_id:r.club_external_id,rake_total:r.rake_total,rake_mtt:r.rake_mtt,rake_cash:r.rake_cash,rake_spinup:r.rake_spinup,player_result:r.player_result,raw_data:r.raw_data})));
+  return imp.id;
+}
+
+async function loadHistory(){
+  const data=await api('GET','imports?select=*,import_rows(count)&order=created_at.desc&limit=20');
+  const tbody=document.getElementById('historyBody'),empty=document.getElementById('emptyState'),table=document.getElementById('historyTable');
+  if(!Array.isArray(data)||!data.length){empty.style.display='block';table.style.display='none';return;}
+  empty.style.display='none';table.style.display='table';tbody.innerHTML='';
+  data.forEach(imp=>{
+    const d=new Date(imp.created_at),ds=d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const period=imp.period_start?`${imp.period_start.split('-').reverse().join('/')} – ${imp.period_end.split('-').reverse().join('/')}`:'—';
+    const count=imp.import_rows?.[0]?.count||0;
+    const pill=imp.status==='valid'?'<span class="pill pill-ok">Válido</span>':imp.status==='error'?'<span class="pill pill-err">Erro</span>':'<span class="pill pill-pend">Pendente</span>';
+    tbody.innerHTML+=`<tr><td><span class="mono">${imp.file_name}</span><br><span style="font-size:10px;color:var(--ivory-dim)">${ds}</span></td><td><span class="pill pill-app">${imp.app_source}</span></td><td style="font-size:11px">${period}</td><td style="color:var(--gold);font-weight:500">${count}</td><td>${pill}</td></tr>`;
+  });
+}
+
+async function handleFile(file){
+  if(!file) return;
+  ['resultSuccess','resultError'].forEach(id=>document.getElementById(id).classList.remove('show'));
+  document.getElementById('reportDetail').classList.remove('show');
+  importOpen=false;
+  document.getElementById('btnToggle').classList.remove('open');
+  document.getElementById('btnToggleText').textContent='Ver relatório completo';
+  document.getElementById('processing').classList.add('show');
+  setStep('Lendo estrutura do arquivo...');
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    setStep('Detectando app de origem...'); await delay(200);
+    const tipo=detectType(wb);
+    let result;
+    if(tipo==='pppoker_liga'){setStep('Processando PPPoker Liga...');result=processPPPokerLiga(wb);}
+    else if(tipo==='pppoker_clube'){setStep('Processando PPPoker Clube...');result=processPPPokerClube(wb);}
+    else if(tipo==='pokerbros'){setStep('Processando PokerBros...');result=processPokerbros(wb);}
+    else{setStep('Formato novo — extraindo dados...');result=processGenerico(wb);}
+    setStep('Salvando no banco...');
+    await saveImport({fileName:file.name,app:result.app,period:result.period,errors:result.errors},result.clubs);
+    document.getElementById('processing').classList.remove('show');
+    if(result.errors.length){
+      document.getElementById('errorList').innerHTML=result.errors.map(e=>`<li class="error-item"><span class="error-dot"></span>${e}</li>`).join('');
+      document.getElementById('resultError').classList.add('show');
+      showToast('Importação salva com erros','error');
+    } else {
+      const rake=result.clubs.reduce((s,c)=>s+c.rake_total,0);
+      document.getElementById('resPeriod').textContent=result.period.label;
+      document.getElementById('resApp').textContent=result.app;
+      document.getElementById('resClubs').textContent=result.clubs.length+' clubes';
+      document.getElementById('resRake').textContent=fmtM(rake);
+      const wb2=document.getElementById('warnBox');
+      if(result.warnings?.length){wb2.style.display='block';wb2.textContent='⚠️ '+result.warnings.join(' ');}else{wb2.style.display='none';}
+      document.getElementById('resultSuccess').classList.add('show');
+      renderReport(result.clubs);
+      showToast('Importação realizada com sucesso! ✓','success');
+    }
+    await loadHistory();
+  } catch(err){
+    document.getElementById('processing').classList.remove('show');
+    document.getElementById('errorList').innerHTML=`<li class="error-item"><span class="error-dot"></span>${err.message}</li>`;
+    document.getElementById('resultError').classList.add('show');
+    showToast('Erro ao processar arquivo','error');
+    console.error(err);
+  }
+  document.getElementById('fileInput').value='';
+}
+
+function toggleReport(){
+  importOpen=!importOpen;
+  const btn=document.getElementById('btnToggle'),detail=document.getElementById('reportDetail');
+  btn.classList.toggle('open',importOpen);detail.classList.toggle('show',importOpen);
+  document.getElementById('btnToggleText').textContent=importOpen?'Ocultar relatório':'Ver relatório completo';
+}
+function switchTab(el,tabId){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');
+  ['tabLPG','tabRake','tabResumo'].forEach(id=>document.getElementById(id).style.display=id===tabId?'block':'none');
+}
+function setStep(t){document.getElementById('processingStep').textContent=t;}
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+
+/* ══════════════════════════════════════
+   CADASTRO
+══════════════════════════════════════ */
+async function loadCadastro(){
+  const [leagues,clubs]=await Promise.all([api('GET','leagues?select=id,name,moeda&order=name'),api('GET','clubs?select=*&order=name')]);
+  allLeagues=Array.isArray(leagues)?leagues:[];
+  allClubs=Array.isArray(clubs)?clubs:[];
+  renderCadastro();
+  populateLeagueSelect();
+}
+
+function typeLabel(t){return{taxa_dinamica:'Taxa Dinâmica',taxa_fixa_variavel:'Taxa Fixa/Var.',weekly_usd:'Weekly USD',rakeback:'Rakeback'}[t]||t;}
+function typeClass(t){return{taxa_dinamica:'type-dinamica',taxa_fixa_variavel:'type-fixa',weekly_usd:'type-usd',rakeback:'type-rakeback'}[t]||'';}
+function rulesSummary(c){
+  if(c.settlement_type==='rakeback') return `<span class="rule-tag">RB <span>${c.rakeback_pct}%</span></span>`;
+  if(c.settlement_type==='weekly_usd') return `<span class="rule-tag">Fee <span>${c.fee_mtt_pct}%</span></span><span class="rule-tag">Rebate <span>${c.rebate_pct}%</span></span>${c.crypto_rebate_pct>0?`<span class="rule-tag">Crypto <span>${c.crypto_rebate_pct}%</span></span>`:''}`;
+  return `<span class="rule-tag">MTT <span>${c.fee_mtt_pct}%</span></span><span class="rule-tag">Op <span>${c.taxa_op_pct}%</span></span>${c.rebate_pct>0?`<span class="rule-tag">Rebate <span>${c.rebate_pct}%</span></span>`:''}`;
+}
+
+function renderCadastro(filter=''){
+  const el=document.getElementById('leaguesList');
+  if(!allLeagues.length){el.innerHTML='<div class="empty-state">Nenhuma liga cadastrada</div>';return;}
+  el.innerHTML=allLeagues.map(l=>{
+    const clubs=allClubs.filter(c=>c.league_id===l.id&&(!filter||c.name.toLowerCase().includes(filter.toLowerCase())));
+    if(filter&&!clubs.length) return '';
+    return `<div class="league-card">
+      <div class="league-header" onclick="toggleLeague('${l.id}')">
+        <span class="league-chevron open" id="chev-${l.id}">▼</span>
+        <span class="league-name">${l.name}</span>
+        <div class="league-meta">
+          <span class="badge ${l.moeda==='USD'?'badge-usd':''}">${l.moeda||'BRL'}</span>
+          <span style="font-size:11px;color:var(--ivory-dim)">${clubs.length} clubes</span>
+        </div>
+      </div>
+      <div class="clubs-list open" id="list-${l.id}">
+        ${!clubs.length?'<div class="empty-state" style="padding:14px">Nenhum clube</div>':
+          clubs.map(c=>`<div class="club-row">
+            <span class="club-ext-id">${c.external_id||'—'}</span>
+            <span class="club-name-cell">${c.name}</span>
+            <div class="club-rules-cell">${rulesSummary(c)}</div>
+            <span class="club-type-badge ${typeClass(c.settlement_type)}">${typeLabel(c.settlement_type)}</span>
+            <button class="btn-edit" onclick="openEdit('${c.id}')">Editar</button>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleLeague(id){document.getElementById(`list-${id}`).classList.toggle('open');document.getElementById(`chev-${id}`).classList.toggle('open');}
+function filterClubs(){renderCadastro(document.getElementById('searchInput').value);}
+function populateLeagueSelect(){document.getElementById('fLeague').innerHTML=allLeagues.map(l=>`<option value="${l.id}">${l.name}</option>`).join('');}
+
+function toggleFields(){
+  const t=document.getElementById('fType').value;
+  document.getElementById('fieldsDinamica').style.display=(t==='taxa_dinamica'||t==='taxa_fixa_variavel')?'block':'none';
+  document.getElementById('fieldsRakeback').style.display=t==='rakeback'?'block':'none';
+  document.getElementById('fieldsUSD').style.display=t==='weekly_usd'?'block':'none';
+}
+
+function openEdit(id){
+  const c=allClubs.find(x=>x.id===id);if(!c)return;
+  document.getElementById('modalTitle').textContent=`Editar — ${c.name}`;
+  document.getElementById('editClubId').value=c.id;document.getElementById('editClubName').value=c.name;
+  document.getElementById('fName').value=c.name;document.getElementById('fExtId').value=c.external_id||'';
+  document.getElementById('fLeague').value=c.league_id;document.getElementById('fType').value=c.settlement_type;
+  document.getElementById('fMoeda').value=c.moeda||'BRL';
+  document.getElementById('fFeeMTT').value=c.fee_mtt_pct||0;document.getElementById('fFeeCash').value=c.fee_cash_pct||0;
+  document.getElementById('fTaxaOp').value=c.taxa_op_pct||0;document.getElementById('fSpinup').value=c.spinup_pct||0;
+  document.getElementById('fRebate').value=c.rebate_pct||0;document.getElementById('fSecurity').value=c.security||0;
+  document.getElementById('fRakeback').value=c.rakeback_pct||0;
+  document.getElementById('fFeeUSD').value=c.fee_mtt_pct||0;document.getElementById('fRebateUSD').value=c.rebate_pct||0;
+  document.getElementById('fCryptoRebate').value=c.crypto_rebate_pct||0;document.getElementById('fSecurityUSD').value=c.security||0;
+  toggleFields();document.getElementById('modalBg').classList.add('open');
+}
+
+function openAddClub(){
+  document.getElementById('modalTitle').textContent='Novo Clube';
+  document.getElementById('editClubId').value='';document.getElementById('editClubName').value='';
+  ['fName','fExtId','fFeeMTT','fFeeCash','fTaxaOp','fSpinup','fRebate','fSecurity','fRakeback','fFeeUSD','fRebateUSD','fCryptoRebate','fSecurityUSD'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fType').value='taxa_dinamica';document.getElementById('fMoeda').value='BRL';
+  toggleFields();document.getElementById('modalBg').classList.add('open');
+}
+
+function closeModal(){document.getElementById('modalBg').classList.remove('open');}
+
+function confirmSave(){
+  const name=document.getElementById('fName').value.trim();
+  if(!name){showToast('Nome obrigatório','error');return;}
+  const id=document.getElementById('editClubId').value,orig=document.getElementById('editClubName').value;
+  pendingSave={...buildPayload(),_id:id,_isEdit:!!id};
+  document.getElementById('confirmText').innerHTML=id?`Você está alterando as regras de <strong>${orig}</strong>.<br>Isso afeta os cálculos futuros.`:`Cadastrar o clube <strong>${name}</strong>?`;
+  document.getElementById('confirmBg').classList.add('open');
+}
+
+function buildPayload(){
+  const t=document.getElementById('fType').value;
+  const p={name:document.getElementById('fName').value.trim(),external_id:document.getElementById('fExtId').value.trim(),league_id:document.getElementById('fLeague').value,settlement_type:t,moeda:document.getElementById('fMoeda').value,fee_mtt_pct:0,fee_cash_pct:0,taxa_op_pct:0,spinup_pct:0,rebate_pct:0,crypto_rebate_pct:0,rakeback_pct:0,security:0};
+  if(t==='taxa_dinamica'||t==='taxa_fixa_variavel'){p.fee_mtt_pct=parseFloat(document.getElementById('fFeeMTT').value)||0;p.fee_cash_pct=parseFloat(document.getElementById('fFeeCash').value)||0;p.taxa_op_pct=parseFloat(document.getElementById('fTaxaOp').value)||0;p.spinup_pct=parseFloat(document.getElementById('fSpinup').value)||0;p.rebate_pct=parseFloat(document.getElementById('fRebate').value)||0;p.security=parseFloat(document.getElementById('fSecurity').value)||0;}
+  else if(t==='rakeback'){p.rakeback_pct=parseFloat(document.getElementById('fRakeback').value)||0;}
+  else if(t==='weekly_usd'){p.fee_mtt_pct=parseFloat(document.getElementById('fFeeUSD').value)||0;p.rebate_pct=parseFloat(document.getElementById('fRebateUSD').value)||0;p.crypto_rebate_pct=parseFloat(document.getElementById('fCryptoRebate').value)||0;p.security=parseFloat(document.getElementById('fSecurityUSD').value)||0;}
+  return p;
+}
+
+function closeConfirm(){document.getElementById('confirmBg').classList.remove('open');pendingSave=null;}
+
+async function doSave(){
+  closeConfirm();closeModal();if(!pendingSave)return;
+  const{_id,_isEdit,...payload}=pendingSave;
+  try{
+    if(_isEdit){await api('PATCH',`clubs?id=eq.${_id}`,payload);const i=allClubs.findIndex(c=>c.id===_id);if(i>=0)allClubs[i]={...allClubs[i],...payload};showToast('Clube atualizado ✓','success');}
+    else{const r=await api('POST','clubs',payload);if(Array.isArray(r)&&r[0])allClubs.push(r[0]);showToast('Clube cadastrado ✓','success');}
+    renderCadastro(document.getElementById('searchInput').value);
+  }catch(e){showToast('Erro ao salvar','error');console.error(e);}
+  pendingSave=null;
+}
+
+/* ── TOAST ── */
+function showToast(msg,type){
+  const t=document.getElementById('toast');t.textContent=msg;t.className=`toast ${type} show`;
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+/* ── INIT ── */
+// Deep link via hash
+const initScreen = location.hash.replace('#','') || 'dashboard';
+const initNav = document.querySelector(`[data-screen="${initScreen}"]`);
+if(initNav) goTo(initScreen, initNav);
+else goTo('dashboard', document.querySelector('[data-screen="dashboard"]'));
 </script>
+
+<!-- MODAL CLUBE -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Editar Clube</div>
+      <div class="modal-close" onclick="closeModal()">✕</div>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editClubId"/><input type="hidden" id="editClubName"/>
+      <div class="form-section">Identificação</div>
+      <div class="form-grid">
+        <div class="field"><label>Nome do Clube</label><input type="text" id="fName"/></div>
+        <div class="field"><label>ID Externo (App)</label><input type="text" id="fExtId"/></div>
+        <div class="field"><label>Liga</label><select id="fLeague"></select></div>
+        <div class="field"><label>Tipo de Acerto</label>
+          <select id="fType" onchange="toggleFields()">
+            <option value="taxa_dinamica">Taxa Dinâmica</option>
+            <option value="taxa_fixa_variavel">Taxa Fixa/Variável</option>
+            <option value="weekly_usd">Weekly USD</option>
+            <option value="rakeback">Rakeback</option>
+          </select>
+        </div>
+        <div class="field"><label>Moeda</label><select id="fMoeda"><option value="BRL">BRL</option><option value="USD">USD</option></select></div>
+      </div>
+      <div id="fieldsDinamica">
+        <div class="form-section">Regras de Cálculo</div>
+        <div class="form-grid">
+          <div class="field"><label>Taxa MTT %</label><input type="number" step="0.1" id="fFeeMTT"/></div>
+          <div class="field"><label>Taxa Cash %</label><input type="number" step="0.1" id="fFeeCash"/></div>
+          <div class="field"><label>Taxa Operacional %</label><input type="number" step="0.1" id="fTaxaOp"/></div>
+          <div class="field"><label>Spinup %</label><input type="number" step="0.1" id="fSpinup"/></div>
+          <div class="field"><label>Rebate %</label><input type="number" step="0.1" id="fRebate"/></div>
+          <div class="field"><label>Security</label><input type="number" step="0.01" id="fSecurity"/></div>
+        </div>
+      </div>
+      <div id="fieldsRakeback" style="display:none">
+        <div class="form-section">Regras de Cálculo</div>
+        <div class="form-grid"><div class="field"><label>Rakeback %</label><input type="number" step="0.1" id="fRakeback"/></div></div>
+      </div>
+      <div id="fieldsUSD" style="display:none">
+        <div class="form-section">Regras de Cálculo</div>
+        <div class="form-grid">
+          <div class="field"><label>Fee %</label><input type="number" step="0.1" id="fFeeUSD"/></div>
+          <div class="field"><label>Rebate %</label><input type="number" step="0.1" id="fRebateUSD"/></div>
+          <div class="field"><label>Crypto Rebate %</label><input type="number" step="0.1" id="fCryptoRebate"/></div>
+          <div class="field"><label>Security (USD)</label><input type="number" step="0.01" id="fSecurityUSD"/></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="confirmSave()">Salvar alterações</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM -->
+<div class="confirm-bg" id="confirmBg">
+  <div class="confirm-box">
+    <div class="confirm-title">Confirmar alteração</div>
+    <div class="confirm-text" id="confirmText"></div>
+    <div class="confirm-btns">
+      <button class="btn-conf-cancel" onclick="closeConfirm()">Cancelar</button>
+      <button class="btn-conf-ok" onclick="doSave()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
