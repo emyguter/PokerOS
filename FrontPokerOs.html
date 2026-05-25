@@ -415,73 +415,6 @@ tr.total-row td{background:rgba(201,168,76,0.05);font-weight:500;border-top:1px 
   <div class="suits"><span class="suit">♠</span><span class="suit">♥</span><span class="suit">♦</span><span class="suit">♣</span></div>
 </div>
 </div><!-- /app -->
-
-<!-- MODAL CLUBE -->
-<div class="modal-bg" id="modalBg">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="modalTitle">Editar Clube</div>
-      <div class="modal-close" onclick="closeModal()">✕</div>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="editClubId"/><input type="hidden" id="editClubName"/>
-      <div class="form-section">Identificação</div>
-      <div class="form-grid">
-        <div class="field"><label>Nome do Clube</label><input type="text" id="fName"/></div>
-        <div class="field"><label>ID Externo (App)</label><input type="text" id="fExtId"/></div>
-        <div class="field"><label>Liga</label><select id="fLeague"></select></div>
-        <div class="field"><label>Tipo de Acerto</label>
-          <select id="fType" onchange="toggleFields()">
-            <option value="taxa_dinamica">Taxa Dinâmica</option>
-            <option value="taxa_fixa_variavel">Taxa Fixa/Variável</option>
-            <option value="weekly_usd">Weekly USD</option>
-            <option value="rakeback">Rakeback</option>
-          </select>
-        </div>
-        <div class="field"><label>Moeda</label><select id="fMoeda"><option value="BRL">BRL</option><option value="USD">USD</option></select></div>
-      </div>
-      <div id="fieldsDinamica">
-        <div class="form-section">Regras de Cálculo</div>
-        <div class="form-grid">
-          <div class="field"><label>Taxa MTT %</label><input type="number" step="0.1" id="fFeeMTT"/></div>
-          <div class="field"><label>Taxa Cash %</label><input type="number" step="0.1" id="fFeeCash"/></div>
-          <div class="field"><label>Taxa Operacional %</label><input type="number" step="0.1" id="fTaxaOp"/></div>
-          <div class="field"><label>Spinup %</label><input type="number" step="0.1" id="fSpinup"/></div>
-          <div class="field"><label>Rebate %</label><input type="number" step="0.1" id="fRebate"/></div>
-          <div class="field"><label>Security</label><input type="number" step="0.01" id="fSecurity"/></div>
-        </div>
-      </div>
-      <div id="fieldsRakeback" style="display:none">
-        <div class="form-section">Regras de Cálculo</div>
-        <div class="form-grid"><div class="field"><label>Rakeback %</label><input type="number" step="0.1" id="fRakeback"/></div></div>
-      </div>
-      <div id="fieldsUSD" style="display:none">
-        <div class="form-section">Regras de Cálculo</div>
-        <div class="form-grid">
-          <div class="field"><label>Fee %</label><input type="number" step="0.1" id="fFeeUSD"/></div>
-          <div class="field"><label>Rebate %</label><input type="number" step="0.1" id="fRebateUSD"/></div>
-          <div class="field"><label>Crypto Rebate %</label><input type="number" step="0.1" id="fCryptoRebate"/></div>
-          <div class="field"><label>Security (USD)</label><input type="number" step="0.01" id="fSecurityUSD"/></div>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
-      <button class="btn-save" onclick="confirmSave()">Salvar alterações</button>
-    </div>
-  </div>
-</div>
-
-<!-- CONFIRM -->
-<div class="confirm-bg" id="confirmBg">
-  <div class="confirm-box">
-    <div class="confirm-title">Confirmar alteração</div>
-    <div class="confirm-text" id="confirmText"></div>
-    <div class="confirm-btns">
-      <button class="btn-conf-cancel" onclick="closeConfirm()">Cancelar</button>
-      <button class="btn-conf-ok" onclick="doSave()">Confirmar</button>
-    </div>
-  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -865,5 +798,74 @@ const initNav = document.querySelector(`[data-screen="${initScreen}"]`);
 if(initNav) goTo(initScreen, initNav);
 else goTo('dashboard', document.querySelector('[data-screen="dashboard"]'));
 </script>
+
+<!-- MODAL CLUBE -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Editar Clube</div>
+      <div class="modal-close" onclick="closeModal()">✕</div>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editClubId"/><input type="hidden" id="editClubName"/>
+      <div class="form-section">Identificação</div>
+      <div class="form-grid">
+        <div class="field"><label>Nome do Clube</label><input type="text" id="fName"/></div>
+        <div class="field"><label>ID Externo (App)</label><input type="text" id="fExtId"/></div>
+        <div class="field"><label>Liga</label><select id="fLeague"></select></div>
+        <div class="field"><label>Tipo de Acerto</label>
+          <select id="fType" onchange="toggleFields()">
+            <option value="taxa_dinamica">Taxa Dinâmica</option>
+            <option value="taxa_fixa_variavel">Taxa Fixa/Variável</option>
+            <option value="weekly_usd">Weekly USD</option>
+            <option value="rakeback">Rakeback</option>
+          </select>
+        </div>
+        <div class="field"><label>Moeda</label><select id="fMoeda"><option value="BRL">BRL</option><option value="USD">USD</option></select></div>
+      </div>
+      <div id="fieldsDinamica">
+        <div class="form-section">Regras de Cálculo</div>
+        <div class="form-grid">
+          <div class="field"><label>Taxa MTT %</label><input type="number" step="0.1" id="fFeeMTT"/></div>
+          <div class="field"><label>Taxa Cash %</label><input type="number" step="0.1" id="fFeeCash"/></div>
+          <div class="field"><label>Taxa Operacional %</label><input type="number" step="0.1" id="fTaxaOp"/></div>
+          <div class="field"><label>Spinup %</label><input type="number" step="0.1" id="fSpinup"/></div>
+          <div class="field"><label>Rebate %</label><input type="number" step="0.1" id="fRebate"/></div>
+          <div class="field"><label>Security</label><input type="number" step="0.01" id="fSecurity"/></div>
+        </div>
+      </div>
+      <div id="fieldsRakeback" style="display:none">
+        <div class="form-section">Regras de Cálculo</div>
+        <div class="form-grid"><div class="field"><label>Rakeback %</label><input type="number" step="0.1" id="fRakeback"/></div></div>
+      </div>
+      <div id="fieldsUSD" style="display:none">
+        <div class="form-section">Regras de Cálculo</div>
+        <div class="form-grid">
+          <div class="field"><label>Fee %</label><input type="number" step="0.1" id="fFeeUSD"/></div>
+          <div class="field"><label>Rebate %</label><input type="number" step="0.1" id="fRebateUSD"/></div>
+          <div class="field"><label>Crypto Rebate %</label><input type="number" step="0.1" id="fCryptoRebate"/></div>
+          <div class="field"><label>Security (USD)</label><input type="number" step="0.01" id="fSecurityUSD"/></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="confirmSave()">Salvar alterações</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM -->
+<div class="confirm-bg" id="confirmBg">
+  <div class="confirm-box">
+    <div class="confirm-title">Confirmar alteração</div>
+    <div class="confirm-text" id="confirmText"></div>
+    <div class="confirm-btns">
+      <button class="btn-conf-cancel" onclick="closeConfirm()">Cancelar</button>
+      <button class="btn-conf-ok" onclick="doSave()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
