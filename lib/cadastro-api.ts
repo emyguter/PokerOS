@@ -1,157 +1,235 @@
-export const MOEDAS = [
-  { value: 'AED', label: 'AED — Dirham dos Emirados' },
-  { value: 'AFN', label: 'AFN — Afgani Afegão' },
-  { value: 'ALL', label: 'ALL — Lek Albanês' },
-  { value: 'AMD', label: 'AMD — Dram Armênio' },
-  { value: 'ANG', label: 'ANG — Guilder Antilhano' },
-  { value: 'AOA', label: 'AOA — Kwanza Angolano' },
-  { value: 'ARS', label: 'ARS — Peso Argentino' },
-  { value: 'AUD', label: 'AUD — Dólar Australiano' },
-  { value: 'AWG', label: 'AWG — Florim Arubano' },
-  { value: 'AZN', label: 'AZN — Manat Azerbaijano' },
-  { value: 'BAM', label: 'BAM — Marco Conversível' },
-  { value: 'BBD', label: 'BBD — Dólar de Barbados' },
-  { value: 'BDT', label: 'BDT — Taka Bangladeshi' },
-  { value: 'BGN', label: 'BGN — Lev Búlgaro' },
-  { value: 'BHD', label: 'BHD — Dinar Bahreinita' },
-  { value: 'BIF', label: 'BIF — Franco Burundiano' },
-  { value: 'BMD', label: 'BMD — Dólar das Bermudas' },
-  { value: 'BND', label: 'BND — Dólar de Brunei' },
-  { value: 'BOB', label: 'BOB — Boliviano' },
-  { value: 'BRL', label: 'BRL — Real Brasileiro' },
-  { value: 'BSD', label: 'BSD — Dólar Bahamese' },
-  { value: 'BTN', label: 'BTN — Ngultrum Butanês' },
-  { value: 'BWP', label: 'BWP — Pula Botsuanesa' },
-  { value: 'BYN', label: 'BYN — Rublo Bielorrusso' },
-  { value: 'BZD', label: 'BZD — Dólar Belizenho' },
-  { value: 'CAD', label: 'CAD — Dólar Canadense' },
-  { value: 'CDF', label: 'CDF — Franco Congolês' },
-  { value: 'CHF', label: 'CHF — Franco Suíço' },
-  { value: 'CLP', label: 'CLP — Peso Chileno' },
-  { value: 'CNY', label: 'CNY — Yuan Chinês' },
-  { value: 'COP', label: 'COP — Peso Colombiano' },
-  { value: 'CRC', label: 'CRC — Colón Costarriquenho' },
-  { value: 'CUP', label: 'CUP — Peso Cubano' },
-  { value: 'CVE', label: 'CVE — Escudo Cabo-Verdiano' },
-  { value: 'CZK', label: 'CZK — Coroa Tcheca' },
-  { value: 'DJF', label: 'DJF — Franco Djibutiano' },
-  { value: 'DKK', label: 'DKK — Coroa Dinamarquesa' },
-  { value: 'DOP', label: 'DOP — Peso Dominicano' },
-  { value: 'DZD', label: 'DZD — Dinar Argelino' },
-  { value: 'EGP', label: 'EGP — Libra Egípcia' },
-  { value: 'ERN', label: 'ERN — Nakfa Eritreia' },
-  { value: 'ETB', label: 'ETB — Birr Etíope' },
-  { value: 'EUR', label: 'EUR — Euro' },
-  { value: 'FJD', label: 'FJD — Dólar Fijiano' },
-  { value: 'FKP', label: 'FKP — Libra das Malvinas' },
-  { value: 'GBP', label: 'GBP — Libra Esterlina' },
-  { value: 'GEL', label: 'GEL — Lari Georgiano' },
-  { value: 'GHS', label: 'GHS — Cedi Ganês' },
-  { value: 'GIP', label: 'GIP — Libra de Gibraltar' },
-  { value: 'GMD', label: 'GMD — Dalasi Gambiano' },
-  { value: 'GNF', label: 'GNF — Franco Guineense' },
-  { value: 'GTQ', label: 'GTQ — Quetzal Guatemalteco' },
-  { value: 'GYD', label: 'GYD — Dólar Guianense' },
-  { value: 'HKD', label: 'HKD — Dólar de Hong Kong' },
-  { value: 'HNL', label: 'HNL — Lempira Hondurenho' },
-  { value: 'HRK', label: 'HRK — Kuna Croata' },
-  { value: 'HTG', label: 'HTG — Gourde Haitiano' },
-  { value: 'HUF', label: 'HUF — Forint Húngaro' },
-  { value: 'IDR', label: 'IDR — Rupia Indonésia' },
-  { value: 'ILS', label: 'ILS — Novo Shekel Israelense' },
-  { value: 'INR', label: 'INR — Rupia Indiana' },
-  { value: 'IQD', label: 'IQD — Dinar Iraquiano' },
-  { value: 'IRR', label: 'IRR — Rial Iraniano' },
-  { value: 'ISK', label: 'ISK — Coroa Islandesa' },
-  { value: 'JMD', label: 'JMD — Dólar Jamaicano' },
-  { value: 'JOD', label: 'JOD — Dinar Jordaniano' },
-  { value: 'JPY', label: 'JPY — Iene Japonês' },
-  { value: 'KES', label: 'KES — Shilling Queniano' },
-  { value: 'KGS', label: 'KGS — Som Quirguiz' },
-  { value: 'KHR', label: 'KHR — Riel Cambojano' },
-  { value: 'KMF', label: 'KMF — Franco Comorense' },
-  { value: 'KPW', label: 'KPW — Won Norte-Coreano' },
-  { value: 'KRW', label: 'KRW — Won Sul-Coreano' },
-  { value: 'KWD', label: 'KWD — Dinar Kuwaitiano' },
-  { value: 'KYD', label: 'KYD — Dólar das Ilhas Cayman' },
-  { value: 'KZT', label: 'KZT — Tenge Cazaque' },
-  { value: 'LAK', label: 'LAK — Kip Laosiano' },
-  { value: 'LBP', label: 'LBP — Libra Libanesa' },
-  { value: 'LKR', label: 'LKR — Rupia Sri-Lankesa' },
-  { value: 'LRD', label: 'LRD — Dólar Liberiano' },
-  { value: 'LSL', label: 'LSL — Loti Lesotiano' },
-  { value: 'LYD', label: 'LYD — Dinar Líbio' },
-  { value: 'MAD', label: 'MAD — Dirham Marroquino' },
-  { value: 'MDL', label: 'MDL — Leu Moldavo' },
-  { value: 'MGA', label: 'MGA — Ariary Malgaxe' },
-  { value: 'MKD', label: 'MKD — Denar Macedônio' },
-  { value: 'MMK', label: 'MMK — Kyat Birmanês' },
-  { value: 'MNT', label: 'MNT — Tugrik Mongol' },
-  { value: 'MOP', label: 'MOP — Pataca Macaense' },
-  { value: 'MRU', label: 'MRU — Uguiya Mauritana' },
-  { value: 'MUR', label: 'MUR — Rupia Mauriciana' },
-  { value: 'MVR', label: 'MVR — Rufiyaa Maldiva' },
-  { value: 'MWK', label: 'MWK — Kwacha Malauiana' },
-  { value: 'MXN', label: 'MXN — Peso Mexicano' },
-  { value: 'MYR', label: 'MYR — Ringgit Malaio' },
-  { value: 'MZN', label: 'MZN — Metical Moçambicano' },
-  { value: 'NAD', label: 'NAD — Dólar Namibiano' },
-  { value: 'NGN', label: 'NGN — Naira Nigeriana' },
-  { value: 'NIO', label: 'NIO — Córdoba Nicaraguense' },
-  { value: 'NOK', label: 'NOK — Coroa Norueguesa' },
-  { value: 'NPR', label: 'NPR — Rupia Nepalesa' },
-  { value: 'NZD', label: 'NZD — Dólar Neozelandês' },
-  { value: 'OMR', label: 'OMR — Rial Omanense' },
-  { value: 'PAB', label: 'PAB — Balboa Panamenho' },
-  { value: 'PEN', label: 'PEN — Sol Peruano' },
-  { value: 'PGK', label: 'PGK — Kina Papua' },
-  { value: 'PHP', label: 'PHP — Peso Filipino' },
-  { value: 'PKR', label: 'PKR — Rupia Paquistanesa' },
-  { value: 'PLN', label: 'PLN — Zloti Polonês' },
-  { value: 'PYG', label: 'PYG — Guarani Paraguaio' },
-  { value: 'QAR', label: 'QAR — Riyal Catariano' },
-  { value: 'RON', label: 'RON — Leu Romeno' },
-  { value: 'RSD', label: 'RSD — Dinar Sérvio' },
-  { value: 'RUB', label: 'RUB — Rublo Russo' },
-  { value: 'RWF', label: 'RWF — Franco Ruandense' },
-  { value: 'SAR', label: 'SAR — Riyal Saudita' },
-  { value: 'SBD', label: 'SBD — Dólar das Salomão' },
-  { value: 'SCR', label: 'SCR — Rupia Seichelense' },
-  { value: 'SDG', label: 'SDG — Libra Sudanesa' },
-  { value: 'SEK', label: 'SEK — Coroa Sueca' },
-  { value: 'SGD', label: 'SGD — Dólar de Singapura' },
-  { value: 'SHP', label: 'SHP — Libra de Santa Helena' },
-  { value: 'SLL', label: 'SLL — Leone Serra-Leonês' },
-  { value: 'SOS', label: 'SOS — Shilling Somali' },
-  { value: 'SRD', label: 'SRD — Dólar Surinamês' },
-  { value: 'STN', label: 'STN — Dobra São-Tomense' },
-  { value: 'SVC', label: 'SVC — Colón Salvadorenho' },
-  { value: 'SYP', label: 'SYP — Libra Síria' },
-  { value: 'SZL', label: 'SZL — Lilangeni Suazi' },
-  { value: 'THB', label: 'THB — Baht Tailandês' },
-  { value: 'TJS', label: 'TJS — Somoni Tajique' },
-  { value: 'TMT', label: 'TMT — Manat Turcomano' },
-  { value: 'TND', label: 'TND — Dinar Tunisiano' },
-  { value: 'TOP', label: 'TOP — Paʻanga Tonganês' },
-  { value: 'TRY', label: 'TRY — Lira Turca' },
-  { value: 'TTD', label: 'TTD — Dólar de Trinidad' },
-  { value: 'TWD', label: 'TWD — Novo Dólar Taiwanês' },
-  { value: 'TZS', label: 'TZS — Shilling Tanzaniano' },
-  { value: 'UAH', label: 'UAH — Hryvnia Ucraniana' },
-  { value: 'UGX', label: 'UGX — Shilling Ugandense' },
-  { value: 'USD', label: 'USD — Dólar Americano' },
-  { value: 'UYU', label: 'UYU — Peso Uruguaio' },
-  { value: 'UZS', label: 'UZS — Som Uzbeque' },
-  { value: 'VES', label: 'VES — Bolívar Venezuelano' },
-  { value: 'VND', label: 'VND — Dong Vietnamita' },
-  { value: 'VUV', label: 'VUV — Vatu Vanuatuano' },
-  { value: 'WST', label: 'WST — Tala Samoano' },
-  { value: 'XAF', label: 'XAF — Franco CFA Central' },
-  { value: 'XCD', label: 'XCD — Dólar do Caribe Oriental' },
-  { value: 'XOF', label: 'XOF — Franco CFA Ocidental' },
-  { value: 'XPF', label: 'XPF — Franco CFP' },
-  { value: 'YER', label: 'YER — Rial Iemenita' },
-  { value: 'ZAR', label: 'ZAR — Rand Sul-Africano' },
-  { value: 'ZMW', label: 'ZMW — Kwacha Zambiana' },
-  { value: 'ZWL', label: 'ZWL — Dólar Zimbabuano' },
-]
+import { createClient } from '@supabase/supabase-js'
+import type {
+  Plataforma, PlataformaForm,
+  MegaLiga, MegaLigaForm,
+  SuperLeague, SuperLeagueForm,
+  League, LeagueForm,
+  Club, ClubForm,
+  Agente, AgenteForm,
+  Jogador, JogadorForm,
+  AgenteJogador, ClubeAgente
+} from './types'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+// ─── PLATAFORMAS ─────────────────────────────────────────────
+
+export async function getPlataformas(): Promise<Plataforma[]> {
+  const { data, error } = await supabase.from('plataformas').select('*').order('nome')
+  if (error) throw error
+  return data
+}
+export async function createPlataforma(form: PlataformaForm): Promise<Plataforma> {
+  const { data, error } = await supabase.from('plataformas').insert(form).select().single()
+  if (error) throw error
+  return data
+}
+export async function updatePlataforma(id: string, form: PlataformaForm): Promise<Plataforma> {
+  const { data, error } = await supabase.from('plataformas').update(form).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}
+export async function deletePlataforma(id: string): Promise<void> {
+  const { error } = await supabase.from('plataformas').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ─── MEGA LIGAS ──────────────────────────────────────────────
+
+export async function getMegaLigas(): Promise<MegaLiga[]> {
+  const { data, error } = await supabase.from('mega_ligas').select('*').order('nome')
+  if (error) throw error
+  return data
+}
+export async function createMegaLiga(form: MegaLigaForm): Promise<MegaLiga> {
+  const { data, error } = await supabase.from('mega_ligas').insert(form).select().single()
+  if (error) throw error
+  return data
+}
+export async function updateMegaLiga(id: string, form: MegaLigaForm): Promise<MegaLiga> {
+  const { data, error } = await supabase.from('mega_ligas').update(form).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}
+export async function deleteMegaLiga(id: string): Promise<void> {
+  const { error } = await supabase.from('mega_ligas').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ─── SUPER LEAGUES ───────────────────────────────────────────
+
+export async function getSuperLeagues(): Promise<SuperLeague[]> {
+  const { data, error } = await supabase
+    .from('super_leagues')
+    .select('*, plataformas(id, nome, moeda), mega_ligas(id, nome, moeda)')
+    .order('name')
+  if (error) throw error
+  return data
+}
+export async function createSuperLeague(form: SuperLeagueForm): Promise<SuperLeague> {
+  const { data, error } = await supabase
+    .from('super_leagues').insert(form)
+    .select('*, plataformas(id, nome, moeda), mega_ligas(id, nome, moeda)').single()
+  if (error) throw error
+  return data
+}
+export async function updateSuperLeague(id: string, form: SuperLeagueForm): Promise<SuperLeague> {
+  const { data, error } = await supabase
+    .from('super_leagues').update(form).eq('id', id)
+    .select('*, plataformas(id, nome, moeda), mega_ligas(id, nome, moeda)').single()
+  if (error) throw error
+  return data
+}
+export async function deleteSuperLeague(id: string): Promise<void> {
+  const { error } = await supabase.from('super_leagues').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ─── LEAGUES ─────────────────────────────────────────────────
+
+export async function getLeagues(): Promise<League[]> {
+  const { data, error } = await supabase
+    .from('leagues')
+    .select('*, super_leagues(id, name, moeda, plataformas(id, nome, moeda))')
+    .order('name')
+  if (error) throw error
+  return data
+}
+export async function createLeague(form: LeagueForm): Promise<League> {
+  const { data, error } = await supabase
+    .from('leagues').insert(form)
+    .select('*, super_leagues(id, name, moeda, plataformas(id, nome, moeda))').single()
+  if (error) throw error
+  return data
+}
+export async function updateLeague(id: string, form: LeagueForm): Promise<League> {
+  const { data, error } = await supabase
+    .from('leagues').update(form).eq('id', id)
+    .select('*, super_leagues(id, name, moeda, plataformas(id, nome, moeda))').single()
+  if (error) throw error
+  return data
+}
+export async function deleteLeague(id: string): Promise<void> {
+  const { error } = await supabase.from('leagues').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ─── CLUBS ───────────────────────────────────────────────────
+
+export async function getClubs(leagueId?: string): Promise<Club[]> {
+  let query = supabase
+    .from('clubs')
+    .select('*, leagues(id, name, moeda, super_leagues(id, name, plataformas(id, nome)))')
+    .order('name')
+  if (leagueId) query = query.eq('league_id', leagueId)
+  const { data, error } = await query
+  if (error) throw error
+  return data
+}
+export async function createClub(form: ClubForm): Promise<Club> {
+  const { data, error } = await supabase
+    .from('clubs').insert(form)
+    .select('*, leagues(id, name, moeda, super_leagues(id, name, plataformas(id, nome)))').single()
+  if (error) throw error
+  return data
+}
+export async function updateClub(id: string, form: ClubForm): Promise<Club> {
+  const { data, error } = await supabase
+    .from('clubs').update(form).eq('id', id)
+    .select('*, leagues(id, name, moeda, super_leagues(id, name, plataformas(id, nome)))').single()
+  if (error) throw error
+  return data
+}
+export async function deleteClub(id: string): Promise<void> {
+  const { error } = await supabase.from('clubs').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ─── AGENTES ─────────────────────────────────────────────────
+
+export async function getAgentes(plataformaId?: string): Promise<Agente[]> {
+  let query = supabase.from('agentes').select('*, plataformas(id, nome, moeda)').order('nome')
+  if (plataformaId) query = query.eq('plataforma_id', plataformaId)
+  const { data, error } = await query
+  if (error) throw error
+  return data
+}
+export async function createAgente(form: AgenteForm): Promise<Agente> {
+  const { data, error } = await supabase.from('agentes').insert(form).select('*, plataformas(id, nome, moeda)').single()
+  if (error) throw error
+  return data
+}
+export async function updateAgente(id: string, form: AgenteForm): Promise<Agente> {
+  const { data, error } = await supabase.from('agentes').update(form).eq('id', id).select('*, plataformas(id, nome, moeda)').single()
+  if (error) throw error
+  return data
+}
+export async function deleteAgente(id: string): Promise<void> {
+  const { error } = await supabase.from('agentes').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ─── JOGADORES ───────────────────────────────────────────────
+
+export async function getJogadores(plataformaId?: string): Promise<Jogador[]> {
+  let query = supabase.from('jogadores').select('*, plataformas(id, nome, moeda)').order('nome')
+  if (plataformaId) query = query.eq('plataforma_id', plataformaId)
+  const { data, error } = await query
+  if (error) throw error
+  return data
+}
+export async function createJogador(form: JogadorForm): Promise<Jogador> {
+  const { data, error } = await supabase.from('jogadores').insert(form).select('*, plataformas(id, nome, moeda)').single()
+  if (error) throw error
+  return data
+}
+export async function updateJogador(id: string, form: JogadorForm): Promise<Jogador> {
+  const { data, error } = await supabase.from('jogadores').update(form).eq('id', id).select('*, plataformas(id, nome, moeda)').single()
+  if (error) throw error
+  return data
+}
+export async function deleteJogador(id: string): Promise<void> {
+  const { error } = await supabase.from('jogadores').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ─── AGENTE <-> JOGADOR ──────────────────────────────────────
+
+export async function getJogadoresByAgente(agenteId: string): Promise<AgenteJogador[]> {
+  const { data, error } = await supabase
+    .from('agente_jogadores')
+    .select('*, jogadores(id, nome, external_id, plataformas(id, nome))')
+    .eq('agente_id', agenteId)
+  if (error) throw error
+  return data
+}
+export async function addJogadorToAgente(agenteId: string, jogadorId: string): Promise<void> {
+  const { error } = await supabase.from('agente_jogadores').insert({ agente_id: agenteId, jogador_id: jogadorId })
+  if (error) throw error
+}
+export async function removeJogadorFromAgente(agenteId: string, jogadorId: string): Promise<void> {
+  const { error } = await supabase.from('agente_jogadores').delete().eq('agente_id', agenteId).eq('jogador_id', jogadorId)
+  if (error) throw error
+}
+
+// ─── CLUBE <-> AGENTE ────────────────────────────────────────
+
+export async function getAgentesByClube(clubeId: string): Promise<ClubeAgente[]> {
+  const { data, error } = await supabase
+    .from('clube_agentes')
+    .select('*, agentes(id, nome, external_id, plataformas(id, nome))')
+    .eq('clube_id', clubeId)
+  if (error) throw error
+  return data
+}
+export async function addAgenteToClube(clubeId: string, agenteId: string): Promise<void> {
+  const { error } = await supabase.from('clube_agentes').insert({ clube_id: clubeId, agente_id: agenteId })
+  if (error) throw error
+}
+export async function removeAgenteFromClube(clubeId: string, agenteId: string): Promise<void> {
+  const { error } = await supabase.from('clube_agentes').delete().eq('clube_id', clubeId).eq('agente_id', agenteId)
+  if (error) throw error
+}
