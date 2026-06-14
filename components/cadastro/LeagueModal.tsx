@@ -99,8 +99,8 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
   const [usuarioLocked, setUsuarioLocked] = useState(false)
   const [searchingClube, setSearchingClube] = useState(false)
   const [searchingUsuario, setSearchingUsuario] = useState(false)
-  const clubeTimer = useRef<NodeJS.Timeout>()
-  const usuarioTimer = useRef<NodeJS.Timeout>()
+  const clubeTimer = useRef<NodeJS.Timeout | null>(null)
+  const usuarioTimer = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (open) {
