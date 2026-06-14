@@ -1,53 +1,155 @@
-export type Moeda = 'BRL' | 'USD'
-export type TaxaTipo = 'fixa' | 'variavel'
-export type TaxaOpTipo = 'fixa' | 'variavel'
-export type TaxaVariavelIndicador = 'Rake' | 'Ganhos+Rake' | 'WTR' | 'Rake Cash' | 'Rake MTT'
-export type SettlementType = 'dinamico' | 'weekly_usd' | 'rakeback'
-
-export interface SuperLeague {
+export type Plataforma = {
   id: string
-  name: string
-  moeda: Moeda | null
+  nome: string
+  moeda: string
   created_at: string
 }
 
-export interface League {
+export type PlataformaForm = {
+  nome: string
+  moeda: string
+}
+
+export type SuperLeague = {
   id: string
   name: string
-  moeda: Moeda | null
-  taxa_app_pct: number | null
-  ratio: number | null
+  moeda: string
+  plataforma_id: string | null
+  created_at: string
+  plataformas?: Plataforma
+}
+
+export type SuperLeagueForm = {
+  name: string
+  moeda: string
+  plataforma_id: string | null
+}
+
+export type League = {
+  id: string
+  name: string
+  moeda: string
+  taxa_app_pct: number
+  ratio: number
   super_league_id: string | null
   created_at: string
-  super_league?: SuperLeague
+  super_leagues?: SuperLeague
 }
 
-export interface Club {
-  id: string
-  league_id: string | null
+export type LeagueForm = {
   name: string
-  external_id: string | null
-  settlement_type: SettlementType | null
-  moeda: Moeda | null
-  taxa_tipo: TaxaTipo | null
-  fee_mtt_pct: number | null
-  fee_cash_pct: number | null
-  taxa_op_pct: number | null
-  taxa_op_tipo: TaxaOpTipo | null
-  spinup_pct: number | null
-  rebate_pct: number | null
-  crypto_rebate_pct: number | null
-  rakeback_pct: number | null
-  security: number | null
-  taxa_variavel_nome: string | null
-  taxa_variavel_indicador: TaxaVariavelIndicador | null
-  taxa_variavel_regra: string | null
-  caucao_atual: number | null
-  stoploss_inicial: number | null
-  created_at: string
-  league?: League
+  moeda: string
+  taxa_app_pct: number
+  ratio: number
+  super_league_id: string | null
 }
 
-export type SuperLeagueForm = Omit<SuperLeague, 'id' | 'created_at'>
-export type LeagueForm = Omit<League, 'id' | 'created_at' | 'super_league'>
-export type ClubForm = Omit<Club, 'id' | 'created_at' | 'league'>
+export type Club = {
+  id: string
+  league_id: string
+  name: string
+  external_id: string
+  settlement_type: string
+  fee_mtt_pct: number
+  fee_cash_pct: number
+  taxa_op_pct: number
+  spinup_pct: number
+  rebate_pct: number
+  crypto_rebate_pct: number
+  rakeback_pct: number
+  security: number
+  moeda: string
+  taxa_tipo: string
+  taxa_variavel_nome: string | null
+  taxa_variavel_indicador: string | null
+  taxa_variavel_regra: string | null
+  taxa_op_tipo: string
+  caucao_atual: number
+  stoploss_inicial: number
+  created_at: string
+  leagues?: League
+}
+
+export type ClubForm = {
+  league_id: string
+  name: string
+  external_id: string
+  settlement_type: string
+  fee_mtt_pct: number
+  fee_cash_pct: number
+  taxa_op_pct: number
+  spinup_pct: number
+  rebate_pct: number
+  crypto_rebate_pct: number
+  rakeback_pct: number
+  security: number
+  moeda: string
+  taxa_tipo: string
+  taxa_variavel_nome: string | null
+  taxa_variavel_indicador: string | null
+  taxa_variavel_regra: string | null
+  taxa_op_tipo: string
+  caucao_atual: number
+  stoploss_inicial: number
+}
+
+export type Agente = {
+  id: string
+  nome: string
+  email: string | null
+  telefone: string | null
+  external_id: string | null
+  plataforma_id: string | null
+  created_at: string
+  plataformas?: Plataforma
+}
+
+export type AgenteForm = {
+  nome: string
+  email: string | null
+  telefone: string | null
+  external_id: string | null
+  plataforma_id: string | null
+}
+
+export type Jogador = {
+  id: string
+  nome: string
+  telefone: string | null
+  external_id: string
+  plataforma_id: string | null
+  created_at: string
+  plataformas?: Plataforma
+}
+
+export type JogadorForm = {
+  nome: string
+  telefone: string | null
+  external_id: string
+  plataforma_id: string | null
+}
+
+export type AgenteJogador = {
+  id: string
+  agente_id: string
+  jogador_id: string
+  created_at: string
+  agentes?: Agente
+  jogadores?: Jogador
+}
+
+export type ClubeAgente = {
+  id: string
+  clube_id: string
+  agente_id: string
+  created_at: string
+  clubs?: Club
+  agentes?: Agente
+}
+
+export type Usuario = {
+  id: string
+  role: 'superliga' | 'liga' | 'clube' | 'agente' | 'jogador'
+  entidade_id: string
+  created_at: string
+}
