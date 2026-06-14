@@ -56,10 +56,16 @@ function Fld({ label, required, children }: { label: string; required?: boolean;
   )
 }
 
-// Linha com ID + Nickname lado a lado
-function IdNickRow({ idLabel, idValue, idPlaceholder, idLocked, onIdChange, nickValue, nickPlaceholder, nickLocked, onNickChange, searching }: {
-  idLabel: string; idValue: string; idPlaceholder: string; idLocked: boolean; onIdChange: (v: string) => void
-  nickValue: string; nickPlaceholder: string; nickLocked: boolean; onNickChange: (v: string) => void
+function IdNickRow({ idLabel, nickLabel, idValue, idPlaceholder, onIdChange, nickValue, nickPlaceholder, nickLocked, onNickChange, searching }: {
+  idLabel: string
+  nickLabel: string
+  idValue: string
+  idPlaceholder: string
+  onIdChange: (v: string) => void
+  nickValue: string
+  nickPlaceholder: string
+  nickLocked: boolean
+  onNickChange: (v: string) => void
   searching?: boolean
 }) {
   return (
@@ -71,13 +77,12 @@ function IdNickRow({ idLabel, idValue, idPlaceholder, idLocked, onIdChange, nick
             value={idValue}
             onChange={e => onIdChange(e.target.value)}
             placeholder={idPlaceholder}
-            disabled={idLocked}
-            className={idLocked ? inputLockedCls : inputCls}
+            className={inputCls}
           />
           {searching && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
         </div>
       </Fld>
-      <Fld label="Nickname">
+      <Fld label={nickLabel}>
         <input
           type="text"
           value={nickValue}
@@ -99,8 +104,8 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
   const [usuarioLocked, setUsuarioLocked] = useState(false)
   const [searchingClube, setSearchingClube] = useState(false)
   const [searchingUsuario, setSearchingUsuario] = useState(false)
-  const clubeTimer = useRef<NodeJS.Timeout | null>(null)
-  const usuarioTimer = useRef<NodeJS.Timeout | null>(null)
+  const clubeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const usuarioTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -155,40 +160,34 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
 
   const set = (k: keyof LeagueForm, v: any) => setForm(f => ({ ...f, [k]: v }))
 
-  // Busca clube pelo external_id na plataforma selecionada
   const handleClubeIdChange = (v: string) => {
     set('clube_ext_id', v || null)
     set('clube_nickname', null)
     setClubeLocked(false)
-    clearTimeout(clubeTimer.current ?? undefined)
+    if (clubeTimer.current) clearTimeout(clubeTimer.current)
     if (!v || !form.plataforma_id) return
     clubeTimer.current = setTimeout(async () => {
       setSearchingClube(true)
       const { data } = await supabase
-        .from('clubs')
-        .select('name, external_id')
-        .eq('external_id', v)
-        .maybeSingle()
+        .from('clubs').select('name').eq('external_id', v).maybeSingle()
       setSearchingClube(false)
       if (data) { set('clube_nickname', data.name); setClubeLocked(true) }
     }, 600)
   }
 
-  // Busca usuário em todas as entidades com external_id
-  const handleUsuarioIdChange = async (v: string) => {
+  const handleUsuarioIdChange = (v: string) => {
     set('operador_ext_id', v || null)
     set('operador_nickname', null)
     setUsuarioLocked(false)
-    clearTimeout(usuarioTimer.current ?? undefined)
+    if (usuarioTimer.current) clearTimeout(usuarioTimer.current)
     if (!v) return
     usuarioTimer.current = setTimeout(async () => {
       setSearchingUsuario(true)
-      // Busca em paralelo em todas as entidades
       const [agente, jogador, clube, liga] = await Promise.all([
-        supabase.from('agentes').select('nome, external_id').eq('external_id', v).maybeSingle(),
-        supabase.from('jogadores').select('nome, external_id').eq('external_id', v).maybeSingle(),
-        supabase.from('clubs').select('name, external_id').eq('external_id', v).maybeSingle(),
-        supabase.from('leagues').select('name, clube_ext_id').eq('clube_ext_id', v).maybeSingle(),
+        supabase.from('agentes').select('nome').eq('external_id', v).maybeSingle(),
+        supabase.from('jogadores').select('nome').eq('external_id', v).maybeSingle(),
+        supabase.from('clubs').select('name').eq('external_id', v).maybeSingle(),
+        supabase.from('leagues').select('name').eq('clube_ext_id', v).maybeSingle(),
       ])
       setSearchingUsuario(false)
       const found = agente.data?.nome || jogador.data?.nome || clube.data?.name || liga.data?.name
@@ -197,7 +196,10 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
   }
 
   const addCondicao = () => setCondicoes(c => [...c, { ...EMPTY_COND }])
-  const addFallback = () => { if (condicoes.some(c => c.is_fallback)) return; setCondicoes(c => [...c, { ...EMPTY_COND, is_fallback: true, operador: '=' }]) }
+  const addFallback = () => {
+    if (condicoes.some(c => c.is_fallback)) return
+    setCondicoes(c => [...c, { ...EMPTY_COND, is_fallback: true, operador: '=' }])
+  }
   const removeCondicao = (i: number) => setCondicoes(c => c.filter((_, j) => j !== i))
   const setCondicao = (i: number, k: keyof Condicao, v: any) => setCondicoes(c => c.map((item, j) => j === i ? { ...item, [k]: v } : item))
 
@@ -215,7 +217,6 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
         <form onSubmit={e => { e.preventDefault(); onSave(form, condicoes) }} className="flex flex-col flex-1 min-h-0">
           <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6">
 
-            {/* Identificação */}
             <Sec title="Identificação">
               <Fld label="Nome" required>
                 <input type="text" value={form.name} onChange={e => set('name', e.target.value)} required placeholder="Ex: LP, ORION, SUL_HG" className={inputCls} />
@@ -234,9 +235,8 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
               </div>
             </Sec>
 
-            {/* Usuário na Plataforma */}
             <Sec title="Usuário na Plataforma">
-              <p className="text-xs text-gray-500">Cada plataforma é um clube diferente. IDs cadastrados são preenchidos automaticamente.</p>
+              <p className="text-xs text-gray-500">Cada plataforma é um clube diferente. IDs já cadastrados são preenchidos automaticamente.</p>
               <Fld label="Plataforma (App)">
                 <select value={form.plataforma_id ?? ''} onChange={e => set('plataforma_id', e.target.value || null)} className={inputCls}>
                   <option value="">— Selecione —</option>
@@ -245,9 +245,9 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
               </Fld>
               <IdNickRow
                 idLabel="ID do Clube"
+                nickLabel="Nome do Clube"
                 idValue={form.clube_ext_id ?? ''}
                 idPlaceholder="Ex: 1548056"
-                idLocked={false}
                 onIdChange={handleClubeIdChange}
                 nickValue={form.clube_nickname ?? ''}
                 nickPlaceholder="Preenchido automaticamente"
@@ -257,9 +257,9 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
               />
               <IdNickRow
                 idLabel="ID do Usuário"
+                nickLabel="Nome do Usuário"
                 idValue={form.operador_ext_id ?? ''}
                 idPlaceholder="Ex: 12034210"
-                idLocked={false}
                 onIdChange={handleUsuarioIdChange}
                 nickValue={form.operador_nickname ?? ''}
                 nickPlaceholder="Preenchido automaticamente"
@@ -269,19 +269,16 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
               />
             </Sec>
 
-            {/* Regras */}
             <Sec title="Regras — Taxa do App">
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <div
-                    onClick={() => set('conversao_dia', !form.conversao_dia)}
-                    className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${form.conversao_dia ? 'bg-gold' : 'bg-white/10'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${form.conversao_dia ? 'translate-x-5' : 'translate-x-1'}`} />
-                  </div>
-                  <span className="text-sm text-gray-300">Conversão do dia</span>
-                </label>
-              </div>
+              <label className="flex items-center gap-3 cursor-pointer w-fit">
+                <div
+                  onClick={() => set('conversao_dia', !form.conversao_dia)}
+                  className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${form.conversao_dia ? 'bg-gold' : 'bg-white/10'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${form.conversao_dia ? 'translate-x-5' : 'translate-x-1'}`} />
+                </div>
+                <span className="text-sm text-gray-300">Conversão do dia</span>
+              </label>
 
               <div className="space-y-2">
                 <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Condições SE / ENTÃO</p>
