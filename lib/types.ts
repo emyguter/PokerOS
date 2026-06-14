@@ -54,8 +54,8 @@ export type League = {
 export type LeagueForm = {
   name: string
   moeda: string
-  taxa_app_pct: number
-  ratio: number
+  taxa_app_pct: number | null
+  ratio: number | null
   super_league_id: string | null
 }
 
