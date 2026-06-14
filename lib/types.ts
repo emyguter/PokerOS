@@ -10,19 +10,34 @@ export type PlataformaForm = {
   moeda: string
 }
 
+export type MegaLiga = {
+  id: string
+  nome: string
+  moeda: string
+  created_at: string
+}
+
+export type MegaLigaForm = {
+  nome: string
+  moeda: string
+}
+
 export type SuperLeague = {
   id: string
   name: string
   moeda: string
   plataforma_id: string | null
+  mega_liga_id: string | null
   created_at: string
   plataformas?: Plataforma
+  mega_ligas?: MegaLiga
 }
 
 export type SuperLeagueForm = {
   name: string
   moeda: string
   plataforma_id: string | null
+  mega_liga_id: string | null
 }
 
 export type League = {
@@ -46,51 +61,51 @@ export type LeagueForm = {
 
 export type Club = {
   id: string
-  league_id: string
+  league_id: string | null
   name: string
-  external_id: string
+  external_id: string | null
   settlement_type: string
-  fee_mtt_pct: number
-  fee_cash_pct: number
-  taxa_op_pct: number
-  spinup_pct: number
-  rebate_pct: number
-  crypto_rebate_pct: number
-  rakeback_pct: number
-  security: number
+  fee_mtt_pct: number | null
+  fee_cash_pct: number | null
+  taxa_op_pct: number | null
+  spinup_pct: number | null
+  rebate_pct: number | null
+  crypto_rebate_pct: number | null
+  rakeback_pct: number | null
+  security: number | null
   moeda: string
   taxa_tipo: string
   taxa_variavel_nome: string | null
   taxa_variavel_indicador: string | null
   taxa_variavel_regra: string | null
-  taxa_op_tipo: string
-  caucao_atual: number
-  stoploss_inicial: number
+  taxa_op_tipo: string | null
+  caucao_atual: number | null
+  stoploss_inicial: number | null
   created_at: string
   leagues?: League
 }
 
 export type ClubForm = {
-  league_id: string
+  league_id: string | null
   name: string
-  external_id: string
+  external_id: string | null
   settlement_type: string
-  fee_mtt_pct: number
-  fee_cash_pct: number
-  taxa_op_pct: number
-  spinup_pct: number
-  rebate_pct: number
-  crypto_rebate_pct: number
-  rakeback_pct: number
-  security: number
+  fee_mtt_pct: number | null
+  fee_cash_pct: number | null
+  taxa_op_pct: number | null
+  spinup_pct: number | null
+  rebate_pct: number | null
+  crypto_rebate_pct: number | null
+  rakeback_pct: number | null
+  security: number | null
   moeda: string
   taxa_tipo: string
   taxa_variavel_nome: string | null
   taxa_variavel_indicador: string | null
   taxa_variavel_regra: string | null
-  taxa_op_tipo: string
-  caucao_atual: number
-  stoploss_inicial: number
+  taxa_op_tipo: string | null
+  caucao_atual: number | null
+  stoploss_inicial: number | null
 }
 
 export type Agente = {
