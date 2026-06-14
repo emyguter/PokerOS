@@ -49,6 +49,13 @@ interface ImportRecord {
   plataformas?: { nome: string } | null;
 }
 
+// Erro estruturado com contexto
+interface ImportError {
+  titulo: string;
+  detalhe: string;
+  acao?: string;
+}
+
 type UploadStep = "idle" | "parsing" | "parsed" | "confirm_platform" | "saving" | "done" | "error";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -90,16 +97,19 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "pl
   const warnings: string[] = [];
   const rows: ImportRow[] = [];
 
-  const sheetName = wb.SheetNames.find(s => s === "Geral da liga" || s === "Geral")!;
+  const sheetName = wb.SheetNames.find(s => s === "Geral da liga" || s === "Geral");
+  if (!sheetName) throw { titulo: "Sheet não encontrada", detalhe: `O arquivo "${fileName}" não contém as abas "Geral da liga" ou "Geral".`, acao: "Verifique se exportou o arquivo correto do PPPoker." };
+
   const isLiga = sheetName === "Geral da liga";
   const ws = wb.Sheets[sheetName];
   const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+  if (raw.length < 5) throw { titulo: "Arquivo vazio ou inválido", detalhe: `A aba "${sheetName}" tem menos de 5 linhas. Esperado: cabeçalho + dados.`, acao: "Confirme que o arquivo foi exportado corretamente." };
 
   let liga_nome: string | undefined;
   let liga_id_ext: string | undefined;
 
   if (isLiga) {
-    // Linha 2 tem o período e nome da liga no header
     for (let i = 4; i < raw.length; i++) {
       const row = raw[i] as unknown[];
       const clubName = String(row[1] ?? "").trim();
@@ -128,16 +138,19 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "pl
       });
     }
   } else {
-    // Arquivo de clube direto
     const clubHeader = String((raw[1] as unknown[])?.[0] ?? "");
     const clubMatch = clubHeader.match(/^(.*?)\s*\((\d+)\)/);
     const clubName = clubMatch ? clubMatch[1].trim() : fileName.replace(".xlsx", "");
     const clubId = clubMatch ? clubMatch[2] : "";
+
+    if (!clubMatch) warnings.push(`Não foi possível extrair o ID do clube do cabeçalho. Valor encontrado: "${clubHeader}"`);
+
     liga_nome = clubName;
     liga_id_ext = clubId;
 
     let totalPlayerResult = 0;
     let totalRake = 0;
+    let linhasProcessadas = 0;
 
     for (let i = 3; i < raw.length; i++) {
       const row = raw[i] as unknown[];
@@ -145,7 +158,10 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "pl
       if (!playerId || playerId === "Total") continue;
       totalPlayerResult += safeNum(row[8]);
       totalRake += safeNum(row[28]);
+      linhasProcessadas++;
     }
+
+    if (linhasProcessadas === 0) warnings.push("Nenhum jogador encontrado na aba. Verifique se o arquivo está correto.");
 
     if (clubName) {
       rows.push({
@@ -166,7 +182,10 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "pl
     }
   }
 
-  if (rows.length === 0) warnings.push("Nenhuma linha de dados encontrada.");
+  if (rows.length === 0) throw { titulo: "Nenhum dado encontrado", detalhe: "O arquivo foi lido mas não contém linhas de clubes válidas.", acao: "Verifique se o arquivo possui dados no período selecionado." };
+
+  if (!period.start) warnings.push("Período não encontrado no nome do arquivo. Esperado formato: AAAAMMDD-AAAAMMDD.");
+
   return { liga_nome, liga_id_ext, period_start: period.start, period_end: period.end, rows, warnings };
 }
 
@@ -174,10 +193,14 @@ function parseGGPoker(wb: XLSX.WorkBook): Omit<ParsedFile, "plataforma"> {
   const warnings: string[] = [];
   const rows: ImportRow[] = [];
   const ws = wb.Sheets["Union Overview"];
+
+  if (!ws) throw { titulo: "Sheet não encontrada", detalhe: 'A aba "Union Overview" não foi encontrada no arquivo.', acao: "Confirme que exportou o relatório correto do GGPoker." };
+
   const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
   const period = parsePeriodFromGG(raw);
 
-  // Detectar linha de header (tem "Club" e "Total Fee")
+  if (!period.start) warnings.push("Período não encontrado no arquivo GGPoker.");
+
   let headerRow = -1;
   for (let i = 0; i < raw.length; i++) {
     const row = raw[i] as unknown[];
@@ -188,7 +211,8 @@ function parseGGPoker(wb: XLSX.WorkBook): Omit<ParsedFile, "plataforma"> {
     }
   }
 
-  // Liga (Union) nome e ID
+  if (headerRow === -1) throw { titulo: "Estrutura inválida", detalhe: "Não foi possível encontrar o cabeçalho da tabela no arquivo GGPoker. Colunas esperadas: Club Name, Total Fee.", acao: "Verifique se o arquivo é um relatório Union Overview válido." };
+
   let liga_nome: string | undefined;
   let liga_id_ext: string | undefined;
   for (let i = 0; i < 4; i++) {
@@ -200,16 +224,14 @@ function parseGGPoker(wb: XLSX.WorkBook): Omit<ParsedFile, "plataforma"> {
     }
   }
 
-  if (headerRow === -1) {
-    warnings.push("Header do GGPoker não encontrado.");
-    return { liga_nome, liga_id_ext, period_start: period.start, period_end: period.end, rows, warnings };
-  }
-
   const headers = (raw[headerRow] as unknown[]).map(h => String(h ?? "").trim());
   const idxClubId = headers.findIndex(h => h === "ID" || h === "Club ID");
   const idxClubName = headers.findIndex(h => h.toLowerCase().includes("club name") || h === "Club");
   const idxFee = headers.findIndex(h => h === "Total Fee");
   const idxPL = headers.findIndex(h => h === "P&L");
+
+  if (idxClubId === -1) throw { titulo: "Coluna não encontrada", detalhe: "Coluna 'ID' ou 'Club ID' não encontrada no arquivo GGPoker.", acao: "Verifique se o arquivo foi exportado corretamente." };
+  if (idxFee === -1) throw { titulo: "Coluna não encontrada", detalhe: "Coluna 'Total Fee' não encontrada no arquivo GGPoker.", acao: "Verifique se o arquivo foi exportado corretamente." };
 
   for (let i = headerRow + 1; i < raw.length; i++) {
     const row = raw[i] as unknown[];
@@ -234,7 +256,8 @@ function parseGGPoker(wb: XLSX.WorkBook): Omit<ParsedFile, "plataforma"> {
     });
   }
 
-  if (rows.length === 0) warnings.push("Nenhuma linha de dados encontrada.");
+  if (rows.length === 0) throw { titulo: "Nenhum clube encontrado", detalhe: "O arquivo GGPoker foi lido mas não contém linhas de clubes válidas.", acao: "Verifique se o período tem dados ou se o arquivo está correto." };
+
   return { liga_nome, liga_id_ext, period_start: period.start, period_end: period.end, rows, warnings };
 }
 
@@ -245,6 +268,12 @@ function parseXlsx(file: File): Promise<ParsedFile> {
       try {
         const data = new Uint8Array(e.target!.result as ArrayBuffer);
         const wb = XLSX.read(data, { type: "array" });
+
+        if (wb.SheetNames.length === 0) {
+          reject({ titulo: "Arquivo inválido", detalhe: "O arquivo não contém nenhuma aba.", acao: "Verifique se o arquivo .xlsx está correto e não está corrompido." });
+          return;
+        }
+
         const plataforma = detectPlataforma(wb);
 
         if (plataforma === "PPPoker") {
@@ -252,15 +281,29 @@ function parseXlsx(file: File): Promise<ParsedFile> {
         } else if (plataforma === "GGPoker") {
           resolve({ plataforma, ...parseGGPoker(wb) });
         } else {
-          resolve({ plataforma: "unknown", period_start: "", period_end: "", rows: [], warnings: ["Plataforma não reconhecida."] });
+          resolve({
+            plataforma: "unknown",
+            period_start: "",
+            period_end: "",
+            rows: [],
+            warnings: [`Abas encontradas: ${wb.SheetNames.join(", ")}. Nenhuma corresponde ao formato PPPoker ou GGPoker.`]
+          });
         }
       } catch (err) {
         reject(err);
       }
     };
-    reader.onerror = () => reject(new Error("Falha ao ler o arquivo."));
+    reader.onerror = () => reject({ titulo: "Falha na leitura", detalhe: "Não foi possível ler o arquivo.", acao: "Tente novamente ou verifique se o arquivo não está aberto em outro programa." });
     reader.readAsArrayBuffer(file);
   });
+}
+
+function formatError(err: unknown): ImportError {
+  if (err && typeof err === "object" && "titulo" in err) {
+    return err as ImportError;
+  }
+  const msg = err instanceof Error ? err.message : String(err);
+  return { titulo: "Erro inesperado", detalhe: msg, acao: "Se o problema persistir, contate o suporte com o nome do arquivo." };
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -270,12 +313,11 @@ export default function ImportacaoXlsx() {
   const [file, setFile] = useState<File | null>(null);
   const [parsed, setParsed] = useState<ParsedFile | null>(null);
   const [step, setStep] = useState<UploadStep>("idle");
-  const [errorMsg, setErrorMsg] = useState<string>("");
+  const [importError, setImportError] = useState<ImportError | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [history, setHistory] = useState<ImportRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
 
-  // Para fluxo de plataforma desconhecida
   const [platformAction, setPlatformAction] = useState<"new" | "existing" | null>(null);
   const [newPlatformName, setNewPlatformName] = useState("");
   const [selectedExistingPlatform, setSelectedExistingPlatform] = useState("");
@@ -289,30 +331,33 @@ export default function ImportacaoXlsx() {
   }, []);
 
   async function loadPlataformas() {
-    const { data } = await supabase.from("plataformas").select("id, nome, moeda").order("nome");
+    const { data, error } = await supabase.from("plataformas").select("id, nome, moeda").order("nome");
+    if (error) console.error("Erro ao carregar plataformas:", error.message);
     if (data) setPlataformas(data);
   }
 
   async function loadHistory() {
     setLoadingHistory(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("imports")
       .select("*, leagues(name), plataformas(nome)")
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(50);
+    if (error) console.error("Erro ao carregar histórico:", error.message);
     if (data) setHistory(data as ImportRecord[]);
     setLoadingHistory(false);
   }
 
   const handleFile = useCallback(async (f: File) => {
     if (!f.name.endsWith(".xlsx")) {
-      setErrorMsg("Apenas arquivos .xlsx são aceitos.");
+      setImportError({ titulo: "Formato inválido", detalhe: `O arquivo "${f.name}" não é um .xlsx.`, acao: "Selecione um arquivo com extensão .xlsx exportado do PPPoker ou GGPoker." });
       setStep("error");
       return;
     }
+
     setFile(f);
     setStep("parsing");
-    setErrorMsg("");
+    setImportError(null);
     setParsed(null);
     setResolvedPlatformId(null);
     setPlatformAction(null);
@@ -326,19 +371,17 @@ export default function ImportacaoXlsx() {
       if (result.plataforma === "unknown") {
         setStep("confirm_platform");
       } else {
-        // Busca plataforma existente pelo nome
         const match = plataformas.find(p => p.nome.toLowerCase() === result.plataforma.toLowerCase());
         if (match) {
           setResolvedPlatformId(match.id);
           setStep("parsed");
         } else {
-          // Plataforma reconhecida pelo arquivo mas não cadastrada ainda
           setNewPlatformName(result.plataforma);
           setStep("confirm_platform");
         }
       }
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Erro ao processar arquivo.");
+      setImportError(formatError(err));
       setStep("error");
     }
   }, [plataformas]);
@@ -351,7 +394,11 @@ export default function ImportacaoXlsx() {
         .insert({ nome: newPlatformName.trim(), moeda: "USD" })
         .select()
         .single();
-      if (error) { setErrorMsg(error.message); setStep("error"); return; }
+      if (error) {
+        setImportError({ titulo: "Erro ao criar plataforma", detalhe: error.message, acao: "Verifique se o nome já não está cadastrado." });
+        setStep("error");
+        return;
+      }
       setResolvedPlatformId(data.id);
       await loadPlataformas();
     } else {
@@ -365,13 +412,12 @@ export default function ImportacaoXlsx() {
     if (!file || !parsed || !resolvedPlatformId) return;
     setStep("saving");
     try {
-      // Busca ou cria a liga pelo nome/id externo
       let leagueId: string | null = null;
       if (parsed.liga_id_ext) {
         const { data: existing } = await supabase
           .from("leagues")
           .select("id")
-          .eq("external_id", parsed.liga_id_ext)
+          .eq("clube_ext_id", parsed.liga_id_ext)
           .maybeSingle();
         leagueId = existing?.id ?? null;
       }
@@ -391,7 +437,7 @@ export default function ImportacaoXlsx() {
         .select()
         .single();
 
-      if (importError) throw new Error(importError.message);
+      if (importError) throw { titulo: "Erro ao registrar importação", detalhe: importError.message, acao: "Tente novamente. Se persistir, verifique as permissões do banco." };
 
       const { error: rowsError } = await supabase
         .from("import_rows")
@@ -414,7 +460,7 @@ export default function ImportacaoXlsx() {
           }))
         );
 
-      if (rowsError) throw new Error(rowsError.message);
+      if (rowsError) throw { titulo: "Erro ao salvar linhas", detalhe: rowsError.message, acao: `${parsed.rows.length} linhas tentadas. Verifique se a tabela import_rows está acessível.` };
 
       await supabase.from("imports").update({ status: "done" }).eq("id", importData.id);
 
@@ -424,7 +470,7 @@ export default function ImportacaoXlsx() {
       setResolvedPlatformId(null);
       await loadHistory();
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Erro ao salvar.");
+      setImportError(formatError(err));
       setStep("error");
     }
   }
@@ -433,7 +479,7 @@ export default function ImportacaoXlsx() {
     setStep("idle");
     setFile(null);
     setParsed(null);
-    setErrorMsg("");
+    setImportError(null);
     setResolvedPlatformId(null);
     setPlatformAction(null);
     setNewPlatformName("");
@@ -478,204 +524,128 @@ export default function ImportacaoXlsx() {
         .radio-opt.selected{border-color:#C9A84C;background:#1a1a10}
       `}</style>
 
-      {/* Header */}
       <div style={{ marginBottom: 32 }}>
         <p style={{ color: "#C9A84C", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>PokerOS · Importação</p>
         <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 600, margin: 0 }}>Importar Arquivo .xlsx</h1>
         <p style={{ color: "#6a6a62", fontSize: 14, marginTop: 6 }}>PPPoker · GGPoker · Detecção automática de plataforma</p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, maxWidth: 1100 }}>
+      {/* Upload — coluna única */}
+      <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 16 }}>
 
-        {/* Esquerda */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div
+          className={`drop-zone${dragOver ? " drag-over" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+          onClick={() => inputRef.current?.click()}
+        >
+          <input ref={inputRef} type="file" accept=".xlsx" style={{ display: "none" }}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
+          <div style={{ fontSize: 28, marginBottom: 10, color: "#C9A84C" }}>♦</div>
+          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, color: "#C9A84C", marginBottom: 4 }}>Arraste ou clique para selecionar</p>
+          <p style={{ fontSize: 12, color: "#5a5a52" }}>Apenas arquivos .xlsx</p>
+        </div>
 
-          {/* Drop zone */}
-          <div
-            className={`drop-zone${dragOver ? " drag-over" : ""}`}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={onDrop}
-            onClick={() => inputRef.current?.click()}
-          >
-            <input ref={inputRef} type="file" accept=".xlsx" style={{ display: "none" }}
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
-            <div style={{ fontSize: 28, marginBottom: 10, color: "#C9A84C" }}>♦</div>
-            <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, color: "#C9A84C", marginBottom: 4 }}>Arraste ou clique para selecionar</p>
-            <p style={{ fontSize: 12, color: "#5a5a52" }}>Apenas arquivos .xlsx</p>
+        {step === "parsing" && (
+          <div className="card" style={{ padding: 14 }}>
+            <span style={{ color: "#C9A84C", fontSize: 13 }}>⏳ Analisando arquivo...</span>
           </div>
+        )}
 
-          {/* Status: parsing */}
-          {step === "parsing" && (
-            <div className="card" style={{ padding: 14 }}>
-              <span style={{ color: "#C9A84C", fontSize: 13 }}>⏳ Analisando arquivo...</span>
-            </div>
-          )}
-
-          {/* Status: confirm_platform */}
-          {step === "confirm_platform" && parsed && (
-            <div className="card" style={{ padding: 20 }}>
-              <p style={{ color: "#C9A84C", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
-                {parsed.plataforma === "unknown"
-                  ? "⚠ Plataforma não reconhecida"
-                  : `⚠ Plataforma detectada: ${parsed.plataforma}`}
-              </p>
-              <p style={{ color: "#7a7a70", fontSize: 12, marginBottom: 16 }}>
-                {parsed.plataforma === "unknown"
-                  ? "Não conseguimos identificar a plataforma deste arquivo. Como deseja prosseguir?"
-                  : `"${parsed.plataforma}" ainda não está cadastrada. Como deseja prosseguir?`}
-              </p>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-                <div
-                  className={`radio-opt${platformAction === "new" ? " selected" : ""}`}
-                  onClick={() => setPlatformAction("new")}
-                >
-                  <div style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${platformAction === "new" ? "#C9A84C" : "#3D6E3D"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    {platformAction === "new" && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#C9A84C" }} />}
+        {step === "confirm_platform" && parsed && (
+          <div className="card" style={{ padding: 20 }}>
+            <p style={{ color: "#C9A84C", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
+              {parsed.plataforma === "unknown" ? "⚠ Plataforma não reconhecida" : `⚠ Plataforma detectada: ${parsed.plataforma}`}
+            </p>
+            <p style={{ color: "#7a7a70", fontSize: 12, marginBottom: 16 }}>
+              {parsed.plataforma === "unknown"
+                ? `Abas encontradas: ${parsed.warnings[0] ?? "—"}. Como deseja prosseguir?`
+                : `"${parsed.plataforma}" ainda não está cadastrada. Como deseja prosseguir?`}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+              {["new", "existing"].map(opt => (
+                <div key={opt} className={`radio-opt${platformAction === opt ? " selected" : ""}`} onClick={() => setPlatformAction(opt as "new" | "existing")}>
+                  <div style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${platformAction === opt ? "#C9A84C" : "#3D6E3D"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {platformAction === opt && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#C9A84C" }} />}
                   </div>
-                  <span style={{ fontSize: 13 }}>É uma nova plataforma</span>
+                  <span style={{ fontSize: 13 }}>{opt === "new" ? "É uma nova plataforma" : "É uma plataforma existente"}</span>
                 </div>
-                <div
-                  className={`radio-opt${platformAction === "existing" ? " selected" : ""}`}
-                  onClick={() => setPlatformAction("existing")}
-                >
-                  <div style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${platformAction === "existing" ? "#C9A84C" : "#3D6E3D"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    {platformAction === "existing" && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#C9A84C" }} />}
-                  </div>
-                  <span style={{ fontSize: 13 }}>É uma plataforma existente</span>
-                </div>
-              </div>
-
-              {platformAction === "new" && (
-                <div style={{ marginBottom: 16 }}>
-                  <p className="label">Nome da nova plataforma</p>
-                  <input
-                    className="input-field"
-                    value={newPlatformName}
-                    onChange={e => setNewPlatformName(e.target.value)}
-                    placeholder="Ex: PokerBros"
-                  />
-                </div>
-              )}
-
-              {platformAction === "existing" && (
-                <div style={{ marginBottom: 16 }}>
-                  <p className="label">Selecione a plataforma</p>
-                  <select className="select-field" value={selectedExistingPlatform} onChange={e => setSelectedExistingPlatform(e.target.value)}>
-                    <option value="">Selecione...</option>
-                    {plataformas.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-                  </select>
-                </div>
-              )}
-
-              <div style={{ display: "flex", gap: 10 }}>
-                <button
-                  className="btn-gold"
-                  disabled={!platformAction || (platformAction === "new" && !newPlatformName.trim()) || (platformAction === "existing" && !selectedExistingPlatform)}
-                  onClick={handleResolvePlatform}
-                >
-                  Continuar
-                </button>
-                <button className="btn-ghost" onClick={reset}>Cancelar</button>
-              </div>
+              ))}
             </div>
-          )}
+            {platformAction === "new" && (
+              <div style={{ marginBottom: 16 }}>
+                <p className="label">Nome da nova plataforma</p>
+                <input className="input-field" value={newPlatformName} onChange={e => setNewPlatformName(e.target.value)} placeholder="Ex: PokerBros" />
+              </div>
+            )}
+            {platformAction === "existing" && (
+              <div style={{ marginBottom: 16 }}>
+                <p className="label">Selecione a plataforma</p>
+                <select className="select-field" value={selectedExistingPlatform} onChange={e => setSelectedExistingPlatform(e.target.value)}>
+                  <option value="">Selecione...</option>
+                  {plataformas.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                </select>
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn-gold" disabled={!platformAction || (platformAction === "new" && !newPlatformName.trim()) || (platformAction === "existing" && !selectedExistingPlatform)} onClick={handleResolvePlatform}>Continuar</button>
+              <button className="btn-ghost" onClick={reset}>Cancelar</button>
+            </div>
+          </div>
+        )}
 
-          {/* Status: parsed */}
-          {step === "parsed" && parsed && file && (
-            <div className="card" style={{ padding: 16, borderColor: "#2a5a2a" }}>
-              <p style={{ color: "#7DC97D", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>✓ Arquivo válido</p>
-              <p style={{ color: "#5a5a52", fontSize: 12, marginBottom: 2 }}>{file.name}</p>
-              <p style={{ color: "#5a5a52", fontSize: 12, marginBottom: 2 }}>
-                <span style={{ color: "#C9A84C" }}>{parsed.plataforma}</span>
-                {parsed.liga_nome && <> · {parsed.liga_nome}</>}
+        {step === "parsed" && parsed && file && (
+          <div className="card" style={{ padding: 16, borderColor: "#2a5a2a" }}>
+            <p style={{ color: "#7DC97D", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>✓ Arquivo válido</p>
+            <p style={{ color: "#5a5a52", fontSize: 12, marginBottom: 2 }}>{file.name}</p>
+            <p style={{ color: "#5a5a52", fontSize: 12, marginBottom: 2 }}>
+              <span style={{ color: "#C9A84C" }}>{parsed.plataforma}</span>
+              {parsed.liga_nome && <> · {parsed.liga_nome}</>}
+            </p>
+            <p style={{ color: "#5a5a52", fontSize: 12, marginBottom: 4 }}>
+              {parsed.rows.length} clube{parsed.rows.length !== 1 ? "s" : ""} detectado{parsed.rows.length !== 1 ? "s" : ""}
+              {parsed.period_start && ` · ${parsed.period_start} → ${parsed.period_end}`}
+            </p>
+            {parsed.warnings.map((w, i) => (
+              <p key={i} style={{ color: "#C9A84C", fontSize: 12, marginBottom: 4 }}>⚠ {w}</p>
+            ))}
+            <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+              <button className="btn-gold" onClick={handleConfirmImport}>Confirmar importação</button>
+              <button className="btn-ghost" onClick={reset}>Cancelar</button>
+            </div>
+          </div>
+        )}
+
+        {step === "saving" && (
+          <div className="card" style={{ padding: 14 }}>
+            <span style={{ color: "#C9A84C", fontSize: 13 }}>⏳ Salvando no banco...</span>
+          </div>
+        )}
+
+        {step === "done" && (
+          <div className="card" style={{ padding: 16, borderColor: "#2a5a2a" }}>
+            <p style={{ color: "#7DC97D", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>✓ Importação concluída</p>
+            <p style={{ color: "#5a5a52", fontSize: 12 }}>Dados salvos com sucesso.</p>
+          </div>
+        )}
+
+        {step === "error" && importError && (
+          <div className="card" style={{ padding: 20, borderColor: "#5a2020" }}>
+            <p style={{ color: "#E07070", fontWeight: 600, fontSize: 14, marginBottom: 8 }}>✗ {importError.titulo}</p>
+            <p style={{ color: "#c08080", fontSize: 13, marginBottom: importError.acao ? 8 : 16 }}>{importError.detalhe}</p>
+            {importError.acao && (
+              <p style={{ color: "#7a7a70", fontSize: 12, marginBottom: 16, padding: "8px 12px", background: "#1a1008", borderRadius: 6, borderLeft: "3px solid #C9A84C" }}>
+                💡 {importError.acao}
               </p>
-              <p style={{ color: "#5a5a52", fontSize: 12, marginBottom: 4 }}>
-                {parsed.rows.length} clube{parsed.rows.length !== 1 ? "s" : ""} detectado{parsed.rows.length !== 1 ? "s" : ""}
-                {parsed.period_start && ` · ${parsed.period_start} → ${parsed.period_end}`}
-              </p>
-              {parsed.warnings.map((w, i) => <p key={i} style={{ color: "#C9A84C", fontSize: 12, marginBottom: 4 }}>⚠ {w}</p>)}
-              <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-                <button className="btn-gold" onClick={handleConfirmImport}>Confirmar importação</button>
-                <button className="btn-ghost" onClick={reset}>Cancelar</button>
-              </div>
-            </div>
-          )}
-
-          {/* Status: saving */}
-          {step === "saving" && (
-            <div className="card" style={{ padding: 14 }}>
-              <span style={{ color: "#C9A84C", fontSize: 13 }}>⏳ Salvando no banco...</span>
-            </div>
-          )}
-
-          {/* Status: done */}
-          {step === "done" && (
-            <div className="card" style={{ padding: 14, borderColor: "#2a5a2a" }}>
-              <p style={{ color: "#7DC97D", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>✓ Importação concluída</p>
-              <p style={{ color: "#5a5a52", fontSize: 12 }}>Dados salvos com sucesso.</p>
-            </div>
-          )}
-
-          {/* Status: error */}
-          {step === "error" && (
-            <div className="card" style={{ padding: 16, borderColor: "#5a2020" }}>
-              <p style={{ color: "#E07070", fontWeight: 600, fontSize: 13, marginBottom: 8 }}>✗ Erro</p>
-              <p style={{ color: "#c08080", fontSize: 13, marginBottom: 12 }}>{errorMsg}</p>
-              <button className="btn-ghost" onClick={reset}>Tentar novamente</button>
-            </div>
-          )}
-        </div>
-
-        {/* Direita: preview */}
-        <div>
-          {parsed && parsed.rows.length > 0 ? (
-            <div className="card" style={{ overflow: "hidden" }}>
-              <div style={{ padding: "14px 16px", borderBottom: "1px solid #1e2018", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <p style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "#5a5a52", margin: 0 }}>
-                  Preview · {parsed.rows.length} linhas
-                </p>
-                <span style={{ fontSize: 11, color: "#3D6E3D" }}>{parsed.plataforma}</span>
-              </div>
-              <div style={{ overflowX: "auto", maxHeight: 400, overflowY: "auto" }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Clube</th>
-                      <th>ID Externo</th>
-                      <th>{parsed.plataforma === "GGPoker" ? "Fee Total" : "Rake Total"}</th>
-                      <th>Result. Jogador</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {parsed.rows.slice(0, 20).map((row, i) => (
-                      <tr key={i}>
-                        <td style={{ color: "#C9A84C" }}>{row.club_name}</td>
-                        <td style={{ color: "#5a5a52" }}>{row.club_external_id}</td>
-                        <td>{(parsed.plataforma === "GGPoker" ? row.fee_total : row.rake_total).toFixed(2)}</td>
-                        <td style={{ color: row.player_result >= 0 ? "#7DC97D" : "#E07070" }}>
-                          {row.player_result.toFixed(2)}
-                        </td>
-                      </tr>
-                    ))}
-                    {parsed.rows.length > 20 && (
-                      <tr><td colSpan={4} style={{ color: "#5a5a52", textAlign: "center" }}>+ {parsed.rows.length - 20} linhas não exibidas</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : (
-            <div className="card" style={{ padding: "48px 32px", textAlign: "center" }}>
-              <p style={{ color: "#3a3a32", fontSize: 13 }}>Preview aparece após upload</p>
-            </div>
-          )}
-        </div>
+            )}
+            <button className="btn-ghost" onClick={reset}>Tentar novamente</button>
+          </div>
+        )}
       </div>
 
       {/* Histórico */}
-      <div style={{ maxWidth: 1100, marginTop: 36 }}>
+      <div style={{ maxWidth: 1100, marginTop: 48 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 16 }}>
           <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 500, margin: 0 }}>Histórico de importações</h2>
           <span style={{ fontSize: 12, color: "#5a5a52" }}>{history.length} registros</span>
@@ -699,7 +669,7 @@ export default function ImportacaoXlsx() {
               <tbody>
                 {history.map((entry) => (
                   <tr key={entry.id}>
-                    <td style={{ color: "#C9A84C", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.file_name}</td>
+                    <td style={{ color: "#C9A84C", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.file_name}</td>
                     <td style={{ color: "#7a7a70" }}>{entry.plataformas?.nome ?? entry.app_source ?? "—"}</td>
                     <td style={{ color: "#7a7a70", fontSize: 12 }}>{entry.period_start ? `${entry.period_start} → ${entry.period_end}` : "—"}</td>
                     <td>
