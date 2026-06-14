@@ -1,4 +1,6 @@
 export const MOEDAS = [
+  { value: 'BRL', label: 'BRL — Real Brasileiro' },
+  { value: 'USD', label: 'USD — Dólar Americano' },
   { value: 'AED', label: 'AED — Dirham dos Emirados' },
   { value: 'AFN', label: 'AFN — Afgani Afegão' },
   { value: 'ALL', label: 'ALL — Lek Albanês' },
@@ -18,7 +20,6 @@ export const MOEDAS = [
   { value: 'BMD', label: 'BMD — Dólar das Bermudas' },
   { value: 'BND', label: 'BND — Dólar de Brunei' },
   { value: 'BOB', label: 'BOB — Boliviano' },
-  { value: 'BRL', label: 'BRL — Real Brasileiro' },
   { value: 'BSD', label: 'BSD — Dólar Bahamese' },
   { value: 'BTN', label: 'BTN — Ngultrum Butanês' },
   { value: 'BWP', label: 'BWP — Pula Botsuanesa' },
@@ -139,7 +140,6 @@ export const MOEDAS = [
   { value: 'TZS', label: 'TZS — Shilling Tanzaniano' },
   { value: 'UAH', label: 'UAH — Hryvnia Ucraniana' },
   { value: 'UGX', label: 'UGX — Shilling Ugandense' },
-  { value: 'USD', label: 'USD — Dólar Americano' },
   { value: 'UYU', label: 'UYU — Peso Uruguaio' },
   { value: 'UZS', label: 'UZS — Som Uzbeque' },
   { value: 'VES', label: 'VES — Bolívar Venezuelano' },
