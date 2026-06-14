@@ -1,17 +1,31 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { getLeagues, createLeague, updateLeague, deleteLeague, getSuperLeagues } from '@/lib/cadastro-api'
-import type { League, LeagueForm, SuperLeague } from '@/lib/types'
-import { CadastroModal } from '@/components/cadastro/CadastroModal'
+import { getLeagues, createLeague, updateLeague, deleteLeague, getSuperLeagues, getPlataformas } from '@/lib/cadastro-api'
+import type { League, LeagueForm, SuperLeague, Plataforma } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
+import { LeagueModal } from '@/components/cadastro/LeagueModal'
 import { Plus } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
-const EMPTY: LeagueForm = { name: '', moeda: 'BRL', taxa_app_pct: null, ratio: null, super_league_id: null }
+interface Condicao {
+  indicador_id: string
+  operador: string
+  valor: number | null
+  resultado_pct: number | null
+  is_fallback: boolean
+}
+
+const EMPTY: LeagueForm = {
+  name: '', moeda: 'BRL', taxa_app_pct: null, ratio: null, super_league_id: null,
+  plataforma_id: null, clube_ext_id: null, clube_nickname: null,
+  operador_ext_id: null, operador_nickname: null, moeda_acerto: 'BRL', conversao_dia: false
+}
 
 export default function LigasPage() {
   const [items, setItems] = useState<League[]>([])
   const [superLeagues, setSuperLeagues] = useState<SuperLeague[]>([])
+  const [plataformas, setPlataformas] = useState<Plataforma[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<League | null>(null)
@@ -22,18 +36,66 @@ export default function LigasPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [l, sl] = await Promise.all([getLeagues(), getSuperLeagues()])
-      setItems(l); setSuperLeagues(sl)
+      const [l, sl, pl] = await Promise.all([getLeagues(), getSuperLeagues(), getPlataformas()])
+      setItems(l); setSuperLeagues(sl); setPlataformas(pl)
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
   }, [])
 
   useEffect(() => { load() }, [load])
 
-  const handleSave = async (form: LeagueForm) => {
+  const handleSave = async (form: LeagueForm, condicoes: Condicao[]) => {
     setSaving(true); setError(null)
     try {
-      editing ? await updateLeague(editing.id, form) : await createLeague(form)
+      let leagueId: string
+      if (editing) {
+        await updateLeague(editing.id, form)
+        leagueId = editing.id
+      } else {
+        const created = await createLeague(form)
+        leagueId = created.id
+      }
+
+      // Salva regras se houver condições
+      if (condicoes.length > 0) {
+        // Busca regra existente pra esta liga
+        const { data: existingRE } = await supabase
+          .from('regra_entidades')
+          .select('regra_id')
+          .eq('entidade_tipo', 'liga')
+          .eq('entidade_id', leagueId)
+          .maybeSingle()
+
+        let regraId: string
+
+        if (existingRE) {
+          regraId = existingRE.regra_id
+          // Limpa condições antigas
+          await supabase.from('regra_condicoes').delete().eq('regra_id', regraId)
+        } else {
+          // Cria regra nova
+          const { data: novaRegra } = await supabase
+            .from('regras')
+            .insert({ nome: `Taxa App — ${form.name}`, moeda: form.moeda_acerto, conversao_dia: form.conversao_dia })
+            .select().single()
+          regraId = novaRegra!.id
+          await supabase.from('regra_entidades').insert({ regra_id: regraId, entidade_tipo: 'liga', entidade_id: leagueId, prioridade: 1 })
+        }
+
+        // Insere condições
+        await supabase.from('regra_condicoes').insert(
+          condicoes.map((c, i) => ({
+            regra_id: regraId,
+            ordem: i + 1,
+            indicador_id: c.indicador_id || null,
+            operador: c.is_fallback ? '=' : c.operador,
+            valor: c.is_fallback ? 0 : c.valor,
+            resultado_pct: c.resultado_pct,
+            is_fallback: c.is_fallback,
+          }))
+        )
+      }
+
       await load(); setModalOpen(false); setEditing(null)
     } catch (e: any) { setError(e.message) }
     finally { setSaving(false) }
@@ -46,8 +108,6 @@ export default function LigasPage() {
     catch (e: any) { setError(e.message) }
     finally { setSaving(false) }
   }
-
-  const slOptions = [{ value: '', label: '— Nenhuma —' }, ...superLeagues.map(sl => ({ value: sl.id, label: sl.name }))]
 
   return (
     <div className="space-y-6">
@@ -67,9 +127,9 @@ export default function LigasPage() {
         columns={[
           { key: 'name', label: 'Nome' },
           { key: 'moeda', label: 'Moeda' },
-          { key: 'taxa_app_pct', label: 'Taxa App %', render: (v: number) => v != null ? `${v}%` : '—' },
-          { key: 'ratio', label: 'Ratio', render: (v: number) => v ?? '—' },
-          { key: 'super_leagues', label: 'Superliga', render: (_: any, row: League) => row.super_leagues?.name ?? '—' }
+          { key: 'plataformas', label: 'Plataforma', render: (_: any, row: League) => row.super_leagues?.plataformas?.nome ?? '—' },
+          { key: 'super_leagues', label: 'Superliga', render: (_: any, row: League) => row.super_leagues?.name ?? '—' },
+          { key: 'conversao_dia', label: 'Conv. Dia', render: (v: boolean) => v ? '✓' : '—' },
         ]}
         data={items}
         loading={loading}
@@ -77,20 +137,14 @@ export default function LigasPage() {
         onDelete={item => setDeleteTarget(item)}
       />
 
-      <CadastroModal
+      <LeagueModal
         open={modalOpen}
-        title={editing ? 'Editar Liga' : 'Nova Liga'}
+        editing={editing}
+        superLeagues={superLeagues}
+        plataformas={plataformas}
         onClose={() => { setModalOpen(false); setEditing(null) }}
         onSave={handleSave}
         saving={saving}
-        initialData={editing ? { name: editing.name, moeda: editing.moeda, taxa_app_pct: editing.taxa_app_pct, ratio: editing.ratio, super_league_id: editing.super_league_id } : EMPTY}
-        fields={[
-          { key: 'name', label: 'Nome', type: 'text', required: true, placeholder: 'Ex: LP, ORION, SUL_HG' },
-          { key: 'moeda', label: 'Moeda', type: 'select', required: true, options: [{ value: 'BRL', label: 'BRL — Real' }, { value: 'USD', label: 'USD — Dólar' }] },
-          { key: 'taxa_app_pct', label: 'Taxa do App (%)', type: 'number', placeholder: 'Ex: 9' },
-          { key: 'ratio', label: 'Ratio de conversão', type: 'number', placeholder: 'Ex: 1' },
-          { key: 'super_league_id', label: 'Superliga', type: 'select', options: slOptions }
-        ]}
       />
 
       <ConfirmDelete
