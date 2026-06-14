@@ -531,7 +531,7 @@ export default function ImportacaoXlsx() {
       </div>
 
       {/* Upload — coluna única */}
-      <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ maxWidth: 1100, display: "flex", flexDirection: "column", gap: 16 }}>
 
         <div
           className={`drop-zone${dragOver ? " drag-over" : ""}`}
