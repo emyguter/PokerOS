@@ -160,7 +160,7 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
     set('clube_ext_id', v || null)
     set('clube_nickname', null)
     setClubeLocked(false)
-    clearTimeout(clubeTimer.current)
+    clearTimeout(clubeTimer.current ?? undefined)
     if (!v || !form.plataforma_id) return
     clubeTimer.current = setTimeout(async () => {
       setSearchingClube(true)
@@ -179,7 +179,7 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
     set('operador_ext_id', v || null)
     set('operador_nickname', null)
     setUsuarioLocked(false)
-    clearTimeout(usuarioTimer.current)
+    clearTimeout(usuarioTimer.current ?? undefined)
     if (!v) return
     usuarioTimer.current = setTimeout(async () => {
       setSearchingUsuario(true)
