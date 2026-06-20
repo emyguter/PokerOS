@@ -158,64 +158,33 @@ export type Jogador = {
   created_at: string
   plataformas?: Plataforma
 }
-
-export type JogadorForm = {
+export interface Agente {
+  id: string
   nome: string
+  email: string | null
   telefone: string | null
-  external_id: string
+  external_id: string | null
   plataforma_id: string | null
+  created_at?: string
+  agente_plataformas?: {
+    id: string
+    plataforma_id: string
+    external_id: string
+    nickname: string | null
+    plataformas?: { nome: string }
+  }[]
 }
 
-export type AgenteJogador = {
-  id: string
-  agente_id: string
-  jogador_id: string
-  created_at: string
-  agentes?: Agente
-  jogadores?: Jogador
-}
-
-export type ClubeAgente = {
-  id: string
-  clube_id: string
-  agente_id: string
-  created_at: string
-  clubs?: Club
-  agentes?: Agente
-}
-
-export type Usuario = {
-  id: string
-  role: 'superliga' | 'liga' | 'clube' | 'agente' | 'jogador'
-  entidade_id: string
-  created_at: string
-}
-
-export type Indicador = {
-  id: string
+export interface AgenteForm {
   nome: string
-  descricao: string | null
-  created_at: string
+  email: string | null
+  telefone: string | null
 }
 
-export type Regra = {
-  id: string
-  nome: string
-  descricao: string | null
-  moeda: string | null
-  conversao_dia: boolean
-  created_at: string
-}
-
-export type RegraCondicao = {
-  id: string
-  regra_id: string
-  ordem: number
-  indicador_id: string | null
-  operador: string
-  valor: number
-  resultado_pct: number
-  is_fallback: boolean
-  created_at: string
-  indicadores?: Indicador
+export interface AgentePlataforma {
+  id?: string
+  agente_id?: string
+  plataforma_id: string
+  external_id: string
+  nickname: string | null
 }
