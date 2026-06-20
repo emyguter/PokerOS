@@ -46,10 +46,10 @@ function toForm(c: Club): ClubForm {
     crypto_rebate_pct: c.crypto_rebate_pct, rakeback_pct: c.rakeback_pct, security: c.security,
     taxa_variavel_nome: c.taxa_variavel_nome, taxa_variavel_indicador: c.taxa_variavel_indicador,
     taxa_variavel_regra: c.taxa_variavel_regra, caucao_atual: c.caucao_atual, stoploss_inicial: c.stoploss_inicial,
-    plataforma_id: (c as any).plataforma_id ?? null,
-    operador_ext_id: (c as any).operador_ext_id ?? null,
-    operador_nickname: (c as any).operador_nickname ?? null,
-    rebate_ativo: (c as any).rebate_ativo ?? false,
+    plataforma_id: c.plataforma_id ?? null,
+    operador_ext_id: c.operador_ext_id ?? null,
+    operador_nickname: c.operador_nickname ?? null,
+    rebate_ativo: c.rebate_ativo ?? false,
   }
 }
 
@@ -92,7 +92,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     setLigaRegraLeitura(null)
 
     if (editing) {
-      // Carrega condições próprias do clube (se não tiver liga)
       supabase.from('regra_entidades')
         .select('regra_id, regras(id, nome, moeda, conversao_dia, regra_condicoes(*))')
         .eq('entidade_tipo', 'clube')
@@ -112,7 +111,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     }
   }, [editing, open])
 
-  // Quando o clube está atrelado a uma liga, busca a regra da liga em modo leitura
   useEffect(() => {
     if (!form.league_id) { setLigaRegraLeitura(null); return }
     const liga = leagues.find(l => l.id === form.league_id)
@@ -152,18 +150,24 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     set('operador_nickname', null)
     setUsuarioLocked(false)
     if (usuarioTimer.current) clearTimeout(usuarioTimer.current)
-    if (!v) return
+    if (!v.trim()) return
     usuarioTimer.current = setTimeout(async () => {
       setSearchingUsuario(true)
-      const [agente, jogador, liga] = await Promise.all([
-        supabase.from('agentes').select('nome').eq('external_id', v).maybeSingle(),
-        supabase.from('jogadores').select('nome').eq('external_id', v).maybeSingle(),
-        supabase.from('leagues').select('name').eq('clube_ext_id', v).maybeSingle(),
-      ])
-      setSearchingUsuario(false)
-      const found = agente.data?.nome || jogador.data?.nome || liga.data?.name
-      if (found) { set('operador_nickname', found); setUsuarioLocked(true) }
-    }, 600)
+      try {
+        const [agente, jogador, liga] = await Promise.all([
+          supabase.from('agentes').select('nome').eq('external_id', v.trim()).maybeSingle(),
+          supabase.from('jogadores').select('nome').eq('external_id', v.trim()).maybeSingle(),
+          supabase.from('leagues').select('name').eq('clube_ext_id', v.trim()).maybeSingle(),
+        ])
+        const found = agente.data?.nome || jogador.data?.nome || liga.data?.name
+        if (found) {
+          set('operador_nickname', found)
+          setUsuarioLocked(true)
+        }
+      } finally {
+        setSearchingUsuario(false)
+      }
+    }, 500)
   }
 
   const addCondicao = () => setCondicoes(c => [...c, { ...EMPTY_COND }])
@@ -200,7 +204,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               </Fld>
             </Sec>
 
-            {/* Usuário na Plataforma */}
             <Sec title="Usuário na Plataforma">
               <p className="text-xs text-gray-500">Cada plataforma é um clube diferente. IDs já cadastrados são preenchidos automaticamente.</p>
               <Fld label="Plataforma (App)">
@@ -265,7 +268,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                       {['Rake', 'Ganhos+Rake', 'WTR', 'Rake Cash', 'Rake MTT'].map(v => <option key={v} value={v}>{v}</option>)}
                     </select>
                   </Fld>
-                  <Fld label="Regra"><input type="text" value={form.taxa_variavel_regra ?? ''} onChange={e => set('taxa_variavel_regra', e.target.value || null)} placeholder="Ex: SE (Ganhos+Rake)<0 = 5% ; 15%" className={inputCls} /></Fld>
+                  <p className="text-xs text-gray-500 italic">A regra de variação é montada na seção "Fórmula de Ajuste" abaixo.</p>
                 </div>
               )}
               {isRkb && <Fld label="Rakeback (%)"><NumInput value={form.rakeback_pct} onChange={v => set('rakeback_pct', v)} placeholder="Ex: 72" /></Fld>}
@@ -274,7 +277,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                 <NumInput value={form.taxa_op_pct} onChange={v => set('taxa_op_pct', v)} placeholder="Ex: 9" />
               </Fld>
 
-              {/* Rebate como checkbox */}
               <div className="space-y-2">
                 <label className="flex items-center gap-3 cursor-pointer w-fit">
                   <div
@@ -298,7 +300,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               )}
             </Sec>
 
-            {/* Fórmula de ajuste SE/ENTÃO */}
             <Sec title="Fórmula de Ajuste">
               {temLiga ? (
                 <div className="p-4 bg-surface2 rounded-lg border border-white/10 space-y-2">
@@ -370,7 +371,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                 </div>
               )}
 
-              {/* Indicações — só aparece se NÃO tiver liga */}
               {!temLiga && (
                 <div className="space-y-3 mt-4">
                   <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">Indicações</h3>
