@@ -95,6 +95,10 @@ export type Club = {
   taxa_op_tipo: string | null
   caucao_atual: number | null
   stoploss_inicial: number | null
+  plataforma_id: string | null
+  operador_ext_id: string | null
+  operador_nickname: string | null
+  rebate_ativo: boolean
   created_at: string
   leagues?: League
 }
@@ -120,6 +124,10 @@ export type ClubForm = {
   taxa_op_tipo: string | null
   caucao_atual: number | null
   stoploss_inicial: number | null
+  plataforma_id: string | null
+  operador_ext_id: string | null
+  operador_nickname: string | null
+  rebate_ativo: boolean
 }
 
 export type Agente = {
