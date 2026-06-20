@@ -71,9 +71,14 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   const [indTaxa, setIndTaxa] = useState('')
   const [condicoes, setCondicoes] = useState<Condicao[]>([])
   const [indicadores, setIndicadores] = useState<Indicador[]>([])
+
+  const [clubeLocked, setClubeLocked] = useState(false)
+  const [searchingClube, setSearchingClube] = useState(false)
   const [usuarioLocked, setUsuarioLocked] = useState(false)
   const [searchingUsuario, setSearchingUsuario] = useState(false)
+
   const [ligaRegraLeitura, setLigaRegraLeitura] = useState<{ nome: string; condicoes: Condicao[] } | null>(null)
+  const clubeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const usuarioTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -88,6 +93,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     setIndicacoes([])
     setIndClub('')
     setIndTaxa('')
+    setClubeLocked(!!editing?.name && !!editing?.external_id)
     setUsuarioLocked(!!editing?.operador_nickname)
     setLigaRegraLeitura(null)
 
@@ -114,7 +120,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   useEffect(() => {
     if (!form.league_id) { setLigaRegraLeitura(null); return }
     const liga = leagues.find(l => l.id === form.league_id)
-    if (!liga) return
+    if (!liga) { setLigaRegraLeitura(null); return }
     supabase.from('regra_entidades')
       .select('regra_id, regras(id, nome, regra_condicoes(*))')
       .eq('entidade_tipo', 'liga')
@@ -143,7 +149,25 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   const isUSD = form.settlement_type === 'weekly_usd'
   const isRkb = form.settlement_type === 'rakeback'
   const isVar = form.taxa_tipo === 'variavel'
-  const temLiga = !!form.league_id
+  // Liga só conta como "tem liga" quando é uma string não vazia
+  const temLiga = !!form.league_id && form.league_id !== ''
+
+  const handleClubeIdChange = (v: string) => {
+    set('external_id', v || null)
+    set('name', '')
+    setClubeLocked(false)
+    if (clubeTimer.current) clearTimeout(clubeTimer.current)
+    if (!v.trim()) return
+    clubeTimer.current = setTimeout(async () => {
+      setSearchingClube(true)
+      try {
+        const { data } = await supabase.from('clubs').select('name').eq('external_id', v.trim()).maybeSingle()
+        if (data?.name) { set('name', data.name); setClubeLocked(true) }
+      } finally {
+        setSearchingClube(false)
+      }
+    }, 500)
+  }
 
   const handleUsuarioIdChange = (v: string) => {
     set('operador_ext_id', v || null)
@@ -160,10 +184,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
           supabase.from('leagues').select('name').eq('clube_ext_id', v.trim()).maybeSingle(),
         ])
         const found = agente.data?.nome || jogador.data?.nome || liga.data?.name
-        if (found) {
-          set('operador_nickname', found)
-          setUsuarioLocked(true)
-        }
+        if (found) { set('operador_nickname', found); setUsuarioLocked(true) }
       } finally {
         setSearchingUsuario(false)
       }
@@ -174,6 +195,71 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   const addFallback = () => { if (condicoes.some(c => c.is_fallback)) return; setCondicoes(c => [...c, { ...EMPTY_COND, is_fallback: true, operador: '>=' }]) }
   const removeCondicao = (i: number) => setCondicoes(c => c.filter((_, j) => j !== i))
   const setCondicao = (i: number, k: keyof Condicao, v: any) => setCondicoes(c => c.map((item, j) => j === i ? { ...item, [k]: v } : item))
+
+  // Bloco reutilizável da Fórmula de Ajuste (SE/ENTÃO)
+  const formulaAjuste = (
+    <div className="space-y-2">
+      <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Fórmula de Ajuste — Condições SE / ENTÃO</p>
+      {temLiga ? (
+        <div className="p-4 bg-surface2 rounded-lg border border-white/10 space-y-2">
+          <p className="text-xs text-gray-400">
+            Este clube está atrelado à liga <span className="text-gold font-medium">{ligaRegraLeitura?.nome}</span>.
+            A regra de ajuste é herdada dela:
+          </p>
+          {ligaRegraLeitura && ligaRegraLeitura.condicoes.length > 0 ? (
+            <div className="space-y-1.5 mt-2">
+              {ligaRegraLeitura.condicoes.map((c, i) => (
+                <div key={i} className="text-xs text-gray-400 bg-surface px-3 py-2 rounded border border-white/5">
+                  {c.is_fallback
+                    ? <>SENÃO → <span className="text-gold">{c.resultado_pct}%</span></>
+                    : <>SE indicador {c.operador} {c.valor} → <span className="text-gold">{c.resultado_pct}%</span></>
+                  }
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500 italic">A liga ainda não possui regra configurada.</p>
+          )}
+        </div>
+      ) : (
+        <>
+          {condicoes.map((c, i) => (
+            <div key={i} className={`p-3 rounded-lg border space-y-2 ${c.is_fallback ? 'border-gold/30 bg-gold/5' : 'border-white/10 bg-surface2'}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-400">{c.is_fallback ? 'SENÃO' : `SE ${i + 1}`}</span>
+                <button type="button" onClick={() => removeCondicao(i)} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+              </div>
+              {!c.is_fallback && (
+                <>
+                  <select value={c.indicador_id} onChange={e => setCondicao(i, 'indicador_id', e.target.value)} className={inputCls}>
+                    <option value="">Indicador</option>
+                    {indicadores.map(ind => <option key={ind.id} value={ind.id}>{ind.nome}</option>)}
+                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <select value={c.operador} onChange={e => setCondicao(i, 'operador', e.target.value)} className={inputCls}>
+                      {['>', '>=', '<', '<='].map(op => <option key={op} value={op}>{op}</option>)}
+                    </select>
+                    <input type="number" step="any" value={c.valor ?? ''} onChange={e => setCondicao(i, 'valor', e.target.value === '' ? null : Number(e.target.value))} placeholder="Valor" className={inputCls} />
+                  </div>
+                </>
+              )}
+              <input type="number" step="any" value={c.resultado_pct ?? ''} onChange={e => setCondicao(i, 'resultado_pct', e.target.value === '' ? null : Number(e.target.value))} placeholder="Resultado (%)" className={inputCls} />
+            </div>
+          ))}
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={addCondicao} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
+              <Plus size={12} />SE condição
+            </button>
+            {!condicoes.some(c => c.is_fallback) && (
+              <button type="button" onClick={addFallback} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
+                <Plus size={12} />SENÃO (fallback)
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -188,20 +274,19 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
 
             <Sec title="Identificação">
               <div className="grid grid-cols-2 gap-4">
-                <Fld label="Nome" required><input type="text" value={form.name} onChange={e => set('name', e.target.value)} required placeholder="Ex: Liga H&H" className={inputCls} /></Fld>
                 <Fld label="Moeda">
                   <select value={form.moeda ?? 'BRL'} onChange={e => set('moeda', e.target.value)} className={inputCls}>
                     <option value="BRL">BRL — Real</option>
                     <option value="USD">USD — Dólar</option>
                   </select>
                 </Fld>
+                <Fld label="Liga (opcional)">
+                  <select value={form.league_id ?? ''} onChange={e => set('league_id', e.target.value || null)} className={inputCls}>
+                    <option value="">— Nenhuma —</option>
+                    {leagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  </select>
+                </Fld>
               </div>
-              <Fld label="Liga (opcional)">
-                <select value={form.league_id ?? ''} onChange={e => set('league_id', e.target.value || null)} className={inputCls}>
-                  <option value="">— Nenhuma —</option>
-                  {leagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                </select>
-              </Fld>
             </Sec>
 
             <Sec title="Usuário na Plataforma">
@@ -213,11 +298,21 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                 </select>
               </Fld>
               <div className="grid grid-cols-2 gap-3">
-                <Fld label="ID do Clube">
-                  <input type="text" value={form.external_id ?? ''} onChange={e => set('external_id', e.target.value || null)} placeholder="Ex: 1548056" className={inputCls} />
+                <Fld label="ID do Clube" required>
+                  <div className="relative">
+                    <input type="text" value={form.external_id ?? ''} onChange={e => handleClubeIdChange(e.target.value)} placeholder="Ex: 1548056" className={inputCls} />
+                    {searchingClube && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
+                  </div>
                 </Fld>
-                <Fld label="Nome do Clube">
-                  <input type="text" value={form.name} disabled className={inputLockedCls} />
+                <Fld label="Nome do Clube" required>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={e => { set('name', e.target.value); setClubeLocked(false) }}
+                    placeholder="Preenchido automaticamente"
+                    disabled={clubeLocked}
+                    className={clubeLocked ? inputLockedCls : inputCls}
+                  />
                 </Fld>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -268,14 +363,15 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                       {['Rake', 'Ganhos+Rake', 'WTR', 'Rake Cash', 'Rake MTT'].map(v => <option key={v} value={v}>{v}</option>)}
                     </select>
                   </Fld>
-                  <p className="text-xs text-gray-500 italic">A regra de variação é montada na seção "Fórmula de Ajuste" abaixo.</p>
+                  {formulaAjuste}
                 </div>
               )}
               {isRkb && <Fld label="Rakeback (%)"><NumInput value={form.rakeback_pct} onChange={v => set('rakeback_pct', v)} placeholder="Ex: 72" /></Fld>}
 
-              <Fld label="Taxa Operacional">
-                <NumInput value={form.taxa_op_pct} onChange={v => set('taxa_op_pct', v)} placeholder="Ex: 9" />
-              </Fld>
+              <div className="grid grid-cols-2 gap-4">
+                <Fld label="Taxa Operacional"><NumInput value={form.taxa_op_pct} onChange={v => set('taxa_op_pct', v)} placeholder="Ex: 9" /></Fld>
+                {isDin && <Fld label="SpinUp (%)"><NumInput value={form.spinup_pct} onChange={v => set('spinup_pct', v)} placeholder="Ex: 3" /></Fld>}
+              </div>
 
               <div className="space-y-2">
                 <label className="flex items-center gap-3 cursor-pointer w-fit">
@@ -292,73 +388,17 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                 )}
               </div>
 
-              {!isRkb && (
-                <div className="grid grid-cols-2 gap-4">
-                  {isUSD && <Fld label="Crypto Rebate (%)"><NumInput value={form.crypto_rebate_pct} onChange={v => set('crypto_rebate_pct', v)} placeholder="Ex: 5" /></Fld>}
-                  {isDin && <Fld label="SpinUp (%)"><NumInput value={form.spinup_pct} onChange={v => set('spinup_pct', v)} placeholder="Ex: 3" /></Fld>}
-                </div>
+              {!isRkb && isUSD && (
+                <Fld label="Crypto Rebate (%)"><NumInput value={form.crypto_rebate_pct} onChange={v => set('crypto_rebate_pct', v)} placeholder="Ex: 5" /></Fld>
               )}
             </Sec>
 
-            <Sec title="Fórmula de Ajuste">
-              {temLiga ? (
-                <div className="p-4 bg-surface2 rounded-lg border border-white/10 space-y-2">
-                  <p className="text-xs text-gray-400">
-                    Este clube está atrelado à liga <span className="text-gold font-medium">{ligaRegraLeitura?.nome}</span>.
-                    A regra de ajuste é herdada dela:
-                  </p>
-                  {ligaRegraLeitura && ligaRegraLeitura.condicoes.length > 0 ? (
-                    <div className="space-y-1.5 mt-2">
-                      {ligaRegraLeitura.condicoes.map((c, i) => (
-                        <div key={i} className="text-xs text-gray-400 bg-surface px-3 py-2 rounded border border-white/5">
-                          {c.is_fallback
-                            ? <>SENÃO → <span className="text-gold">{c.resultado_pct}%</span></>
-                            : <>SE indicador {c.operador} {c.valor} → <span className="text-gold">{c.resultado_pct}%</span></>
-                          }
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-gray-500 italic">A liga ainda não possui regra configurada.</p>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Condições SE / ENTÃO</p>
-                  {condicoes.map((c, i) => (
-                    <div key={i} className={`p-3 rounded-lg border space-y-2 ${c.is_fallback ? 'border-gold/30 bg-gold/5' : 'border-white/10 bg-surface2'}`}>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-gray-400">{c.is_fallback ? 'SENÃO' : `SE ${i + 1}`}</span>
-                        <button type="button" onClick={() => removeCondicao(i)} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
-                      </div>
-                      {!c.is_fallback && (
-                        <div className="grid grid-cols-3 gap-2">
-                          <select value={c.indicador_id} onChange={e => setCondicao(i, 'indicador_id', e.target.value)} className={inputCls}>
-                            <option value="">Indicador</option>
-                            {indicadores.map(ind => <option key={ind.id} value={ind.id}>{ind.nome}</option>)}
-                          </select>
-                          <select value={c.operador} onChange={e => setCondicao(i, 'operador', e.target.value)} className={inputCls}>
-                            {['>', '>=', '<', '<='].map(op => <option key={op} value={op}>{op}</option>)}
-                          </select>
-                          <input type="number" step="any" value={c.valor ?? ''} onChange={e => setCondicao(i, 'valor', e.target.value === '' ? null : Number(e.target.value))} placeholder="Valor" className={inputCls} />
-                        </div>
-                      )}
-                      <input type="number" step="any" value={c.resultado_pct ?? ''} onChange={e => setCondicao(i, 'resultado_pct', e.target.value === '' ? null : Number(e.target.value))} placeholder="Resultado (%)" className={inputCls} />
-                    </div>
-                  ))}
-                  <div className="flex gap-2 pt-1">
-                    <button type="button" onClick={addCondicao} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
-                      <Plus size={12} />SE condição
-                    </button>
-                    {!condicoes.some(c => c.is_fallback) && (
-                      <button type="button" onClick={addFallback} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
-                        <Plus size={12} />SENÃO (fallback)
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </Sec>
+            {/* Fórmula de Ajuste — só exibida aqui fora se NÃO for taxa variável (pois já apareceu lá dentro) */}
+            {!isVar && (
+              <Sec title="Fórmula de Ajuste">
+                {formulaAjuste}
+              </Sec>
+            )}
 
             <div>
               <button type="button" onClick={() => setAdv(v => !v)} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors w-full">
@@ -371,7 +411,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                 </div>
               )}
 
-              {!temLiga && (
+              {!temLiga ? (
                 <div className="space-y-3 mt-4">
                   <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">Indicações</h3>
                   <div className="flex gap-2">
@@ -381,8 +421,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                   </div>
                   {indicacoes.map((ind, i) => <div key={i} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-white/10 text-sm"><span className="text-gray-300">{ind.club_id}</span><span className="text-gold">{ind.taxa}%</span><button type="button" onClick={() => setIndicacoes(p => p.filter((_, j) => j !== i))} className="text-gray-500 hover:text-red-400"><Trash2 size={13} /></button></div>)}
                 </div>
-              )}
-              {temLiga && (
+              ) : (
                 <p className="text-xs text-gray-500 italic mt-4">Indicações ficam disponíveis apenas para clubes sem liga vinculada.</p>
               )}
             </div>
