@@ -130,6 +130,10 @@ export type ClubForm = {
   rebate_ativo: boolean
 }
 
+// ─── AGENTES ─────────────────────────────────────────────────
+// Modelo: agentes.plataforma_id/external_id = plataforma PRINCIPAL (espelho automático).
+// agente_plataformas = vínculos com TODAS as plataformas (multi-ID por agente).
+
 export type Agente = {
   id: string
   nome: string
@@ -139,15 +143,30 @@ export type Agente = {
   plataforma_id: string | null
   created_at: string
   plataformas?: Plataforma
+  agente_plataformas?: {
+    id: string
+    plataforma_id: string
+    external_id: string
+    nickname: string | null
+    plataformas?: { nome: string }
+  }[]
 }
 
 export type AgenteForm = {
   nome: string
   email: string | null
   telefone: string | null
-  external_id: string | null
-  plataforma_id: string | null
 }
+
+export type AgentePlataforma = {
+  id?: string
+  agente_id?: string
+  plataforma_id: string
+  external_id: string
+  nickname: string | null
+}
+
+// ─── JOGADORES ───────────────────────────────────────────────
 
 export type Jogador = {
   id: string
@@ -158,33 +177,38 @@ export type Jogador = {
   created_at: string
   plataformas?: Plataforma
 }
-export interface Agente {
-  id: string
-  nome: string
-  email: string | null
-  telefone: string | null
-  external_id: string | null
-  plataforma_id: string | null
-  created_at?: string
-  agente_plataformas?: {
-    id: string
-    plataforma_id: string
-    external_id: string
-    nickname: string | null
-    plataformas?: { nome: string }
-  }[]
-}
 
-export interface AgenteForm {
+export type JogadorForm = {
   nome: string
-  email: string | null
   telefone: string | null
-}
-
-export interface AgentePlataforma {
-  id?: string
-  agente_id?: string
-  plataforma_id: string
   external_id: string
-  nickname: string | null
+  plataforma_id: string | null
+}
+
+// ─── VÍNCULOS ────────────────────────────────────────────────
+
+export type AgenteJogador = {
+  id: string
+  agente_id: string
+  jogador_id: string
+  created_at: string
+  jogadores?: {
+    id: string
+    nome: string
+    external_id: string
+    plataformas?: { id: string; nome: string }
+  }
+}
+
+export type ClubeAgente = {
+  id: string
+  clube_id: string
+  agente_id: string
+  created_at: string
+  agentes?: {
+    id: string
+    nome: string
+    external_id: string
+    plataformas?: { id: string; nome: string }
+  }
 }

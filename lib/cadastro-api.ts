@@ -5,7 +5,7 @@ import type {
   SuperLeague, SuperLeagueForm,
   League, LeagueForm,
   Club, ClubForm,
-  Agente, AgenteForm,
+  Agente, AgenteForm, AgentePlataforma,
   Jogador, JogadorForm,
   AgenteJogador, ClubeAgente
 } from './types'
@@ -150,26 +150,79 @@ export async function deleteClub(id: string): Promise<void> {
 
 // ─── AGENTES ─────────────────────────────────────────────────
 
-export async function getAgentes(plataformaId?: string): Promise<Agente[]> {
-  let query = supabase.from('agentes').select('*, plataformas(id, nome, moeda)').order('nome')
-  if (plataformaId) query = query.eq('plataforma_id', plataformaId)
+export async function getAgentes(filter?: string): Promise<Agente[]> {
+  let query = supabase
+    .from('agentes')
+    .select('*, plataformas(id, nome, moeda), agente_plataformas(id, plataforma_id, external_id, nickname, plataformas(nome))')
+    .order('nome')
+  if (filter) query = query.ilike('nome', `%${filter}%`)
   const { data, error } = await query
   if (error) throw error
-  return data
+  return data ?? []
 }
+
 export async function createAgente(form: AgenteForm): Promise<Agente> {
-  const { data, error } = await supabase.from('agentes').insert(form).select('*, plataformas(id, nome, moeda)').single()
+  const { data, error } = await supabase
+    .from('agentes').insert(form)
+    .select('*, plataformas(id, nome, moeda), agente_plataformas(id, plataforma_id, external_id, nickname, plataformas(nome))')
+    .single()
   if (error) throw error
   return data
 }
+
 export async function updateAgente(id: string, form: AgenteForm): Promise<Agente> {
-  const { data, error } = await supabase.from('agentes').update(form).eq('id', id).select('*, plataformas(id, nome, moeda)').single()
+  const { data, error } = await supabase
+    .from('agentes').update(form).eq('id', id)
+    .select('*, plataformas(id, nome, moeda), agente_plataformas(id, plataforma_id, external_id, nickname, plataformas(nome))')
+    .single()
   if (error) throw error
   return data
 }
+
 export async function deleteAgente(id: string): Promise<void> {
+  // agente_plataformas e clube_agentes caem junto via ON DELETE CASCADE
   const { error } = await supabase.from('agentes').delete().eq('id', id)
   if (error) throw error
+}
+
+export async function syncAgentePlataformas(
+  agenteId: string,
+  vinculos: AgentePlataforma[],
+  iniciais: AgentePlataforma[]
+): Promise<void> {
+  const idsAtuais = vinculos.filter(v => v.id).map(v => v.id)
+  const idsRemovidos = iniciais.filter(v => v.id && !idsAtuais.includes(v.id)).map(v => v.id!)
+
+  if (idsRemovidos.length > 0) {
+    const { error } = await supabase.from('agente_plataformas').delete().in('id', idsRemovidos)
+    if (error) throw error
+  }
+
+  for (const v of vinculos) {
+    if (!v.plataforma_id || !v.external_id.trim()) continue
+    if (v.id) {
+      const { error } = await supabase
+        .from('agente_plataformas')
+        .update({ external_id: v.external_id.trim(), nickname: v.nickname })
+        .eq('id', v.id)
+      if (error) throw error
+    } else {
+      const { error } = await supabase
+        .from('agente_plataformas')
+        .insert({ agente_id: agenteId, plataforma_id: v.plataforma_id, external_id: v.external_id.trim(), nickname: v.nickname })
+      if (error) throw error
+    }
+  }
+
+  // espelha a plataforma principal (primeira da lista) em agentes.external_id/plataforma_id
+  const principal = vinculos[0]
+  if (principal?.plataforma_id && principal.external_id.trim()) {
+    const { error } = await supabase
+      .from('agentes')
+      .update({ external_id: principal.external_id.trim(), plataforma_id: principal.plataforma_id })
+      .eq('id', agenteId)
+    if (error) throw error
+  }
 }
 
 // ─── JOGADORES ───────────────────────────────────────────────
@@ -232,72 +285,4 @@ export async function addAgenteToClube(clubeId: string, agenteId: string): Promi
 export async function removeAgenteFromClube(clubeId: string, agenteId: string): Promise<void> {
   const { error } = await supabase.from('clube_agentes').delete().eq('clube_id', clubeId).eq('agente_id', agenteId)
   if (error) throw error
-}
-// --- Agentes ---
-
-export async function getAgentes(filter?: string) {
-  let query = supabase
-    .from('agentes')
-    .select('*, agente_plataformas(id, plataforma_id, external_id, nickname, plataformas(nome))')
-    .order('nome')
-  if (filter) query = query.ilike('nome', `%${filter}%`)
-  const { data, error } = await query
-  if (error) throw error
-  return data ?? []
-}
-
-export async function createAgente(form: AgenteForm) {
-  const { data, error } = await supabase.from('agentes').insert(form).select().single()
-  if (error) throw error
-  return data
-}
-export async function updateAgente(id: string, form: AgenteForm) {
-  const { error } = await supabase.from('agentes').update(form).eq('id', id)
-  if (error) throw error
-}
-
-export async function deleteAgente(id: string) {
-  // agente_plataformas cai junto via ON DELETE CASCADE
-  const { error } = await supabase.from('agentes').delete().eq('id', id)
-  if (error) throw error
-}
-
-export async function syncAgentePlataformas(
-  agenteId: string,
-  vinculos: AgentePlataforma[],
-  iniciais: AgentePlataforma[]
-) {
-  const idsAtuais = vinculos.filter(v => v.id).map(v => v.id)
-  const idsRemovidos = iniciais.filter(v => v.id && !idsAtuais.includes(v.id)).map(v => v.id!)
-
-  if (idsRemovidos.length > 0) {
-    const { error } = await supabase.from('agente_plataformas').delete().in('id', idsRemovidos)
-    if (error) throw error
-  }
-
-  for (const v of vinculos) {
-    if (!v.plataforma_id || !v.external_id.trim()) continue
-    if (v.id) {
-      const { error } = await supabase
-        .from('agente_plataformas')
-        .update({ external_id: v.external_id.trim(), nickname: v.nickname })
-        .eq('id', v.id)
-      if (error) throw error
-    } else {
-      const { error } = await supabase
-        .from('agente_plataformas')
-        .insert({ agente_id: agenteId, plataforma_id: v.plataforma_id, external_id: v.external_id.trim(), nickname: v.nickname })
-      if (error) throw error
-    }
-  }
-
-  // espelha a plataforma principal (primeira da lista) em agentes.external_id/plataforma_id
-  const principal = vinculos[0]
-  if (principal?.plataforma_id && principal.external_id.trim()) {
-    const { error } = await supabase
-      .from('agentes')
-      .update({ external_id: principal.external_id.trim(), plataforma_id: principal.plataforma_id })
-      .eq('id', agenteId)
-    if (error) throw error
-  }
 }
