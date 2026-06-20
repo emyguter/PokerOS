@@ -74,8 +74,10 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
 
   const [clubeLocked, setClubeLocked] = useState(false)
   const [searchingClube, setSearchingClube] = useState(false)
+  const [clubeNaoEncontrado, setClubeNaoEncontrado] = useState(false)
   const [usuarioLocked, setUsuarioLocked] = useState(false)
   const [searchingUsuario, setSearchingUsuario] = useState(false)
+  const [usuarioNaoEncontrado, setUsuarioNaoEncontrado] = useState(false)
 
   const [ligaRegraLeitura, setLigaRegraLeitura] = useState<{ nome: string; condicoes: Condicao[] } | null>(null)
   const clubeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -156,13 +158,18 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     set('external_id', v || null)
     set('name', '')
     setClubeLocked(false)
+    setClubeNaoEncontrado(false)
     if (clubeTimer.current) clearTimeout(clubeTimer.current)
     if (!v.trim()) return
     clubeTimer.current = setTimeout(async () => {
       setSearchingClube(true)
       try {
         const { data } = await supabase.from('clubs').select('name').eq('external_id', v.trim()).maybeSingle()
-        if (data?.name) { set('name', data.name); setClubeLocked(true) }
+        if (data?.name) {
+          set('name', data.name); setClubeLocked(true); setClubeNaoEncontrado(false)
+        } else {
+          setClubeNaoEncontrado(true)
+        }
       } finally {
         setSearchingClube(false)
       }
@@ -173,6 +180,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     set('operador_ext_id', v || null)
     set('operador_nickname', null)
     setUsuarioLocked(false)
+    setUsuarioNaoEncontrado(false)
     if (usuarioTimer.current) clearTimeout(usuarioTimer.current)
     if (!v.trim()) return
     usuarioTimer.current = setTimeout(async () => {
@@ -184,7 +192,11 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
           supabase.from('leagues').select('name').eq('clube_ext_id', v.trim()).maybeSingle(),
         ])
         const found = agente.data?.nome || jogador.data?.nome || liga.data?.name
-        if (found) { set('operador_nickname', found); setUsuarioLocked(true) }
+        if (found) {
+          set('operador_nickname', found); setUsuarioLocked(true); setUsuarioNaoEncontrado(false)
+        } else {
+          setUsuarioNaoEncontrado(true)
+        }
       } finally {
         setSearchingUsuario(false)
       }
@@ -313,6 +325,9 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                     disabled={clubeLocked}
                     className={clubeLocked ? inputLockedCls : inputCls}
                   />
+                  {clubeNaoEncontrado && !clubeLocked && (
+                    <p className="text-xs text-gold/80 mt-1.5">⚠ Clube não encontrado. Preencha o nome para cadastrá-lo.</p>
+                  )}
                 </Fld>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -331,6 +346,9 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                     disabled={usuarioLocked}
                     className={usuarioLocked ? inputLockedCls : inputCls}
                   />
+                  {usuarioNaoEncontrado && !usuarioLocked && (
+                    <p className="text-xs text-gold/80 mt-1.5">⚠ Usuário não encontrado. Preencha o nome para cadastrá-lo.</p>
+                  )}
                 </Fld>
               </div>
             </Sec>
