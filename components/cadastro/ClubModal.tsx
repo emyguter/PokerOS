@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, Loader2, ChevronDown, ChevronUp, Plus, Trash2, Search } from 'lucide-react'
 import type { Club, ClubForm, League, Plataforma } from '@/lib/types'
+import { MOEDAS } from '@/lib/moedas'
 import { supabase } from '@/lib/supabase'
 
 interface Condicao {
@@ -288,8 +289,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               <div className="grid grid-cols-2 gap-4">
                 <Fld label="Moeda">
                   <select value={form.moeda ?? 'BRL'} onChange={e => set('moeda', e.target.value)} className={inputCls}>
-                    <option value="BRL">BRL — Real</option>
-                    <option value="USD">USD — Dólar</option>
+                    {MOEDAS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                   </select>
                 </Fld>
                 <Fld label="Liga (opcional)">
