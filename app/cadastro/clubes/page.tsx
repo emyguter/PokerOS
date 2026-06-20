@@ -1,3 +1,4 @@
+cat > app/admin/cadastro/clubes/page.tsx << 'ENDOFFILE'
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { getClubs, createClub, updateClub, deleteClub, getLeagues, getPlataformas } from '@/lib/cadastro-api'
@@ -61,7 +62,6 @@ export default function ClubesPage() {
         clubId = created.id
       }
 
-      // Só salva regra própria se o clube NÃO tiver liga
       if (!form.league_id) {
         if (condicoes.length > 0) {
           const { data: existingRE } = await supabase

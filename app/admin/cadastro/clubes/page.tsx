@@ -1,26 +1,35 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { getClubs, createClub, updateClub, deleteClub, getLeagues } from '@/lib/cadastro-api'
-import type { Club, ClubForm, League } from '@/lib/types'
+import { getClubs, createClub, updateClub, deleteClub, getLeagues, getPlataformas } from '@/lib/cadastro-api'
+import type { Club, ClubForm, League, Plataforma } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { ClubModal } from '@/components/cadastro/ClubModal'
 import { Plus, Filter } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
-const EMPTY: ClubForm = { league_id: null, name: '', external_id: null, settlement_type: 'dinamico', moeda: 'BRL', taxa_tipo: 'fixa', fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: 9, taxa_op_tipo: 'fixa', spinup_pct: null, rebate_pct: null, crypto_rebate_pct: null, rakeback_pct: null, security: null, taxa_variavel_nome: null, taxa_variavel_indicador: null, taxa_variavel_regra: null, caucao_atual: null, stoploss_inicial: null }
+interface Condicao {
+  indicador_id: string
+  operador: string
+  valor: number | null
+  resultado_pct: number | null
+  is_fallback: boolean
+}
 
 function clean(form: ClubForm): ClubForm {
   const f = { ...form }
-  if (f.settlement_type === 'rakeback') { f.fee_mtt_pct = null; f.fee_cash_pct = null; f.spinup_pct = null; f.rebate_pct = null; f.crypto_rebate_pct = null; f.taxa_variavel_nome = null; f.taxa_variavel_indicador = null; f.taxa_variavel_regra = null }
+  if (f.settlement_type === 'rakeback') { f.fee_mtt_pct = null; f.fee_cash_pct = null; f.spinup_pct = null; f.crypto_rebate_pct = null; f.taxa_variavel_nome = null; f.taxa_variavel_indicador = null; f.taxa_variavel_regra = null }
   if (f.settlement_type === 'weekly_usd') { f.fee_cash_pct = null; f.spinup_pct = null; f.rakeback_pct = null }
   if (f.settlement_type === 'dinamico') { f.crypto_rebate_pct = null; f.rakeback_pct = null }
   if (f.taxa_tipo === 'fixa') { f.taxa_variavel_nome = null; f.taxa_variavel_indicador = null; f.taxa_variavel_regra = null }
+  if (!f.rebate_ativo) f.rebate_pct = null
   return f
 }
 
 export default function ClubesPage() {
   const [items, setItems] = useState<Club[]>([])
   const [leagues, setLeagues] = useState<League[]>([])
+  const [plataformas, setPlataformas] = useState<Plataforma[]>([])
   const [filter, setFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -32,18 +41,62 @@ export default function ClubesPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [c, l] = await Promise.all([getClubs(filter || undefined), getLeagues()])
-      setItems(c); setLeagues(l)
+      const [c, l, p] = await Promise.all([getClubs(filter || undefined), getLeagues(), getPlataformas()])
+      setItems(c); setLeagues(l); setPlataformas(p)
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
   }, [filter])
 
   useEffect(() => { load() }, [load])
 
-  const handleSave = async (form: ClubForm) => {
+  const handleSave = async (form: ClubForm, condicoes: Condicao[]) => {
     setSaving(true); setError(null)
     try {
-      editing ? await updateClub(editing.id, clean(form)) : await createClub(clean(form))
+      let clubId: string
+      if (editing) {
+        await updateClub(editing.id, clean(form))
+        clubId = editing.id
+      } else {
+        const created = await createClub(clean(form))
+        clubId = created.id
+      }
+
+      if (!form.league_id) {
+        if (condicoes.length > 0) {
+          const { data: existingRE } = await supabase
+            .from('regra_entidades')
+            .select('regra_id')
+            .eq('entidade_tipo', 'clube')
+            .eq('entidade_id', clubId)
+            .maybeSingle()
+
+          let regraId: string
+          if (existingRE) {
+            regraId = existingRE.regra_id
+            await supabase.from('regra_condicoes').delete().eq('regra_id', regraId)
+          } else {
+            const { data: novaRegra } = await supabase
+              .from('regras')
+              .insert({ nome: `Ajuste — ${form.name}` })
+              .select().single()
+            regraId = novaRegra!.id
+            await supabase.from('regra_entidades').insert({ regra_id: regraId, entidade_tipo: 'clube', entidade_id: clubId, prioridade: 0 })
+          }
+
+          await supabase.from('regra_condicoes').insert(
+            condicoes.map((c, i) => ({
+              regra_id: regraId,
+              ordem: i + 1,
+              indicador_id: c.indicador_id || null,
+              operador: c.is_fallback ? '>=' : c.operador,
+              valor: c.is_fallback ? 0 : c.valor,
+              resultado_pct: c.resultado_pct,
+              is_fallback: c.is_fallback,
+            }))
+          )
+        }
+      }
+
       await load(); setModalOpen(false); setEditing(null)
     } catch (e: any) { setError(e.message) }
     finally { setSaving(false) }
@@ -55,12 +108,6 @@ export default function ClubesPage() {
     try { await deleteClub(deleteTarget.id); await load(); setDeleteTarget(null) }
     catch (e: any) { setError(e.message) }
     finally { setSaving(false) }
-  }
-
-  const settlementLabel: Record<string, string> = {
-    dinamico: 'Taxa Dinâmica',
-    weekly_usd: 'Weekly USD',
-    rakeback: 'Rakeback'
   }
 
   return (
@@ -92,8 +139,7 @@ export default function ClubesPage() {
           { key: 'external_id', label: 'ID App', render: (v: string) => v ?? '—' },
           { key: 'leagues', label: 'Liga', render: (_: any, row: Club) => row.leagues?.name ?? '—' },
           { key: 'moeda', label: 'Moeda' },
-          { key: 'settlement_type', label: 'Modelo', render: (v: string) => settlementLabel[v] ?? v ?? '—' },
-          { key: 'taxa_tipo', label: 'Tipo Taxa', render: (v: string) => v ?? '—' }
+          { key: 'rebate_ativo', label: 'Rebate', render: (v: boolean, row: Club) => v ? `${row.rebate_pct ?? 0}%` : '—' },
         ]}
         data={items}
         loading={loading}
@@ -101,7 +147,15 @@ export default function ClubesPage() {
         onDelete={item => setDeleteTarget(item)}
       />
 
-      <ClubModal open={modalOpen} editing={editing} leagues={leagues} onClose={() => { setModalOpen(false); setEditing(null) }} onSave={handleSave} saving={saving} />
+      <ClubModal
+        open={modalOpen}
+        editing={editing}
+        leagues={leagues}
+        plataformas={plataformas}
+        onClose={() => { setModalOpen(false); setEditing(null) }}
+        onSave={handleSave}
+        saving={saving}
+      />
       <ConfirmDelete open={!!deleteTarget} name={deleteTarget?.name ?? ''} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} saving={saving} />
     </div>
   )
