@@ -1,11 +1,20 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { getAgentes, createAgente, updateAgente, deleteAgente, syncAgentePlataformas, getPlataformas } from '@/lib/cadastro-api'
-import type { Agente, AgenteForm, AgentePlataforma, Plataforma } from '@/lib/types'
+import { getAgentes, createAgente, updateAgente, deleteAgente, syncAgentePlataformas, syncClubeAgentes, getPlataformas } from '@/lib/cadastro-api'
+import type { Agente, AgenteForm, AgentePlataforma, Plataforma, ClubeVinculado } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { AgenteModal } from '@/components/cadastro/AgenteModal'
 import { Plus } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+
+interface Condicao {
+  indicador_id: string
+  operador: string
+  valor: number | null
+  resultado_pct: number | null
+  is_fallback: boolean
+}
 
 export default function AgentesPage() {
   const [items, setItems] = useState<Agente[]>([])
@@ -34,7 +43,16 @@ export default function AgentesPage() {
       id: v.id, agente_id: item.id, plataforma_id: v.plataforma_id, external_id: v.external_id, nickname: v.nickname,
     })) ?? []
 
-  const handleSave = async (form: AgenteForm, vinculos: AgentePlataforma[]) => {
+  const clubesIniciais = (item: Agente | null): ClubeVinculado[] =>
+    item?.clube_agentes?.map(ca => ({
+      id: ca.clube_id,
+      name: ca.clubs?.name ?? '—',
+      external_id: ca.clubs?.external_id ?? null,
+      plataforma_id: ca.clubs?.plataforma_id ?? null,
+      leagueName: ca.clubs?.leagues?.name ?? null,
+    })) ?? []
+
+  const handleSave = async (form: AgenteForm, vinculos: AgentePlataforma[], clubeIds: string[], condicoes: Condicao[]) => {
     setSaving(true); setError(null)
     try {
       let agenteId: string
@@ -45,7 +63,47 @@ export default function AgentesPage() {
         const created = await createAgente(form)
         agenteId = created.id
       }
+
       await syncAgentePlataformas(agenteId, vinculos, vinculosIniciais(editing))
+      await syncClubeAgentes(agenteId, clubeIds, clubesIniciais(editing).map(c => c.id))
+
+      const { data: existingRE } = await supabase
+        .from('regra_entidades')
+        .select('regra_id')
+        .eq('entidade_tipo', 'agente')
+        .eq('entidade_id', agenteId)
+        .maybeSingle()
+
+      if (condicoes.length > 0) {
+        let regraId: string
+        if (existingRE) {
+          regraId = existingRE.regra_id
+          await supabase.from('regra_condicoes').delete().eq('regra_id', regraId)
+        } else {
+          const { data: novaRegra } = await supabase
+            .from('regras')
+            .insert({ nome: `Rakeback — ${form.nome}` })
+            .select().single()
+          regraId = novaRegra!.id
+          await supabase.from('regra_entidades').insert({ regra_id: regraId, entidade_tipo: 'agente', entidade_id: agenteId, prioridade: 0 })
+        }
+        await supabase.from('regra_condicoes').insert(
+          condicoes.map((c, i) => ({
+            regra_id: regraId,
+            ordem: i + 1,
+            indicador_id: c.indicador_id || null,
+            operador: c.is_fallback ? '>=' : c.operador,
+            valor: c.is_fallback ? 0 : c.valor,
+            resultado_pct: c.resultado_pct,
+            is_fallback: c.is_fallback,
+          }))
+        )
+      } else if (existingRE) {
+        await supabase.from('regra_condicoes').delete().eq('regra_id', existingRE.regra_id)
+        await supabase.from('regra_entidades').delete().eq('regra_id', existingRE.regra_id)
+        await supabase.from('regras').delete().eq('id', existingRE.regra_id)
+      }
+
       await load(); setModalOpen(false); setEditing(null)
     } catch (e: any) { setError(e.message) }
     finally { setSaving(false) }
@@ -90,6 +148,10 @@ export default function AgentesPage() {
             key: 'agente_plataformas', label: 'Plataformas',
             render: (v: Agente['agente_plataformas']) => v?.length ? v.map(p => p.plataformas?.nome).filter(Boolean).join(', ') : '—',
           },
+          {
+            key: 'clube_agentes', label: 'Clubes',
+            render: (v: Agente['clube_agentes']) => v?.length ? `${v.length} clube${v.length !== 1 ? 's' : ''}` : '—',
+          },
         ]}
         data={items}
         loading={loading}
@@ -101,6 +163,7 @@ export default function AgentesPage() {
         open={modalOpen}
         editing={editing}
         vinculosIniciais={vinculosIniciais(editing)}
+        clubesVinculadosIniciais={clubesIniciais(editing)}
         plataformas={plataformas}
         onClose={() => { setModalOpen(false); setEditing(null) }}
         onSave={handleSave}

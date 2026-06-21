@@ -131,8 +131,9 @@ export type ClubForm = {
 }
 
 // ─── AGENTES ─────────────────────────────────────────────────
-// Modelo: agentes.plataforma_id/external_id = plataforma PRINCIPAL (espelho automático).
-// agente_plataformas = vínculos com TODAS as plataformas (multi-ID por agente).
+// agentes.plataforma_id/external_id = plataforma PRINCIPAL (espelho automático)
+// agente_plataformas = vínculos com TODAS as plataformas (multi-ID por agente)
+// clube_agentes = em quais clubes o agente atua (ID/nickname derivado da plataforma do clube)
 
 export type Agente = {
   id: string
@@ -150,6 +151,7 @@ export type Agente = {
     nickname: string | null
     plataformas?: { nome: string }
   }[]
+  clube_agentes?: AgenteClubeVinculo[]
 }
 
 export type AgenteForm = {
@@ -164,6 +166,27 @@ export type AgentePlataforma = {
   plataforma_id: string
   external_id: string
   nickname: string | null
+}
+
+export type AgenteClubeVinculo = {
+  id: string
+  clube_id: string
+  clubs?: {
+    id: string
+    name: string
+    external_id: string | null
+    plataforma_id: string | null
+    league_id: string | null
+    leagues?: { name: string }
+  }
+}
+
+export type ClubeVinculado = {
+  id: string
+  name: string
+  external_id: string | null
+  plataforma_id: string | null
+  leagueName: string | null
 }
 
 // ─── JOGADORES ───────────────────────────────────────────────
