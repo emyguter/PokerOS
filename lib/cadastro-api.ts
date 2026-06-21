@@ -180,7 +180,6 @@ export async function updateAgente(id: string, form: AgenteForm): Promise<Agente
 }
 
 export async function deleteAgente(id: string): Promise<void> {
-  // agente_plataformas e clube_agentes caem junto via ON DELETE CASCADE
   const { error } = await supabase.from('agentes').delete().eq('id', id)
   if (error) throw error
 }
@@ -214,7 +213,6 @@ export async function syncAgentePlataformas(
     }
   }
 
-  // espelha a plataforma principal (primeira da lista) em agentes.external_id/plataforma_id
   const principal = vinculos[0]
   if (principal?.plataforma_id && principal.external_id.trim()) {
     const { error } = await supabase

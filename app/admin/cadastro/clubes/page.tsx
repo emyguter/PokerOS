@@ -109,3 +109,4 @@ export default function AgentesPage() {
       <ConfirmDelete open={!!deleteTarget} name={deleteTarget?.nome ?? ''} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} saving={saving} />
     </div>
   )
+}
