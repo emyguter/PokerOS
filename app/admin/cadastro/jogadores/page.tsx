@@ -1,0 +1,98 @@
+'use client'
+import { useState, useEffect, useCallback } from 'react'
+import { getJogadores, createJogador, updateJogador, deleteJogador, getPlataformas } from '@/lib/cadastro-api'
+import type { Jogador, JogadorForm, Plataforma } from '@/lib/types'
+import { CadastroTable } from '@/components/cadastro/CadastroTable'
+import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
+import { JogadorModal } from '@/components/cadastro/JogadorModal'
+import { Plus } from 'lucide-react'
+
+export default function JogadoresPage() {
+  const [items, setItems] = useState<Jogador[]>([])
+  const [plataformas, setPlataformas] = useState<Plataforma[]>([])
+  const [filter, setFilter] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<Jogador | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Jogador | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [j, p] = await Promise.all([getJogadores(), getPlataformas()])
+      setItems(filter ? j.filter(x => x.nome.toLowerCase().includes(filter.toLowerCase())) : j)
+      setPlataformas(p)
+    } catch (e: any) { setError(e.message) }
+    finally { setLoading(false) }
+  }, [filter])
+
+  useEffect(() => { load() }, [load])
+
+  const handleSave = async (form: JogadorForm) => {
+    setSaving(true); setError(null)
+    try {
+      if (editing) await updateJogador(editing.id, form)
+      else await createJogador(form)
+      await load(); setModalOpen(false); setEditing(null)
+    } catch (e: any) { setError(e.message) }
+    finally { setSaving(false) }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setSaving(true)
+    try { await deleteJogador(deleteTarget.id); await load(); setDeleteTarget(null) }
+    catch (e: any) { setError(e.message) }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-white">Jogadores</h1>
+          <p className="text-sm text-gray-400 mt-1">Jogadores vinculados aos agentes</p>
+        </div>
+        <button onClick={() => { setEditing(null); setModalOpen(true) }} className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors">
+          <Plus size={16} />Novo Jogador
+        </button>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <input
+          type="text" value={filter} onChange={e => setFilter(e.target.value)}
+          placeholder="Buscar por nome..."
+          className="bg-surface2 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gold/50 w-64"
+        />
+        <span className="text-sm text-gray-500">{items.length} jogador{items.length !== 1 ? 'es' : ''}</span>
+      </div>
+
+      {error && <div className="p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">{error}</div>}
+
+      <CadastroTable
+        columns={[
+          { key: 'nome', label: 'Nome' },
+          { key: 'external_id', label: 'ID', render: (v: string) => v ?? '—' },
+          { key: 'plataformas', label: 'Plataforma', render: (_: any, row: Jogador) => row.plataformas?.nome ?? '—' },
+          { key: 'telefone', label: 'Telefone', render: (v: string) => v ?? '—' },
+        ]}
+        data={items}
+        loading={loading}
+        onEdit={item => { setEditing(item); setModalOpen(true) }}
+        onDelete={item => setDeleteTarget(item)}
+      />
+
+      <JogadorModal
+        open={modalOpen}
+        editing={editing}
+        plataformas={plataformas}
+        onClose={() => { setModalOpen(false); setEditing(null) }}
+        onSave={handleSave}
+        saving={saving}
+      />
+      <ConfirmDelete open={!!deleteTarget} name={deleteTarget?.nome ?? ''} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} saving={saving} />
+    </div>
+  )
+}
