@@ -388,7 +388,7 @@ async function processarJogadores(
       // 1. Upsert superagente (se existir)
       let superagenteId: string | null = null;
       if (j.superagente_id_ext) {
-        const { data: sa } = await supabase
+        const { data: sa, error: saErr } = await supabase
           .from("agentes")
           .upsert(
             { nome: j.superagente_nome || j.superagente_id_ext, external_id: j.superagente_id_ext, plataforma_id: plataformaId },
@@ -396,9 +396,9 @@ async function processarJogadores(
           )
           .select("id")
           .single();
+        if (saErr) erros.push(`Superagente ${j.superagente_id_ext}: ${saErr.message}`);
         if (sa) {
           superagenteId = sa.id;
-          // upsert em agente_plataformas
           await supabase.from("agente_plataformas").upsert(
             { agente_id: sa.id, plataforma_id: plataformaId, external_id: j.superagente_id_ext, nickname: j.superagente_nome || null },
             { onConflict: "plataforma_id,external_id", ignoreDuplicates: false }
@@ -409,7 +409,7 @@ async function processarJogadores(
       // 2. Upsert agente (se existir)
       let agenteId: string | null = null;
       if (j.agente_id_ext) {
-        const { data: ag } = await supabase
+        const { data: ag, error: agErr } = await supabase
           .from("agentes")
           .upsert(
             { nome: j.agente_nome || j.agente_id_ext, external_id: j.agente_id_ext, plataforma_id: plataformaId, superagente_id: superagenteId },
@@ -417,14 +417,13 @@ async function processarJogadores(
           )
           .select("id")
           .single();
+        if (agErr) erros.push(`Agente ${j.agente_id_ext}: ${agErr.message}`);
         if (ag) {
           agenteId = ag.id;
-          // upsert em agente_plataformas
           await supabase.from("agente_plataformas").upsert(
             { agente_id: ag.id, plataforma_id: plataformaId, external_id: j.agente_id_ext, nickname: j.agente_nome || null },
             { onConflict: "plataforma_id,external_id", ignoreDuplicates: false }
           );
-          // vínculo superagente → agente
           if (superagenteId) {
             await supabase.from("clube_agentes").upsert(
               { clube_id: (await getOrNullClube(j.clube_id_ext)), agente_id: superagenteId },
@@ -436,7 +435,7 @@ async function processarJogadores(
 
       // 3. Upsert jogador
       const nomeJogador = j.jogador_memo || j.jogador_apelido || j.jogador_id_ext;
-      const { data: jog } = await supabase
+      const { data: jog, error: jogErr } = await supabase
         .from("jogadores")
         .upsert(
           { nome: nomeJogador, external_id: j.jogador_id_ext, plataforma_id: plataformaId },
@@ -444,7 +443,7 @@ async function processarJogadores(
         )
         .select("id")
         .single();
-
+      if (jogErr) erros.push(`Jogador ${j.jogador_id_ext}: ${jogErr.message}`);
       if (!jog) continue;
 
       // 4. Busca clube pelo external_id
