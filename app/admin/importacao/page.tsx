@@ -210,8 +210,10 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "pl
     const ws = wb.Sheets[clubeSheetName];
     const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
-    // Header está na linha 1 (index 1) — extrair nome e ID do clube
-    const clubeHeader = String((raw[1] as unknown[])?.[0] ?? "");
+
+// Busca o cabeçalho com nome do clube nas primeiras 4 linhas
+    const clubeHeader = [0,1,2,3].map(i => String((raw[i] as unknown[])?.[0] ?? ""))
+  .find(s => /\(\d+\)/.test(s)) ?? "";
     const clubeMatch = clubeHeader.replace(/\n/g, " ").match(/^(.*?)\s*\((\d+)\)/);
     const clubeNome = clubeMatch ? clubeMatch[1].replace(/\n/g, " ").trim() : fileName.replace(".xlsx", "");
     const clubeIdExt = clubeMatch ? clubeMatch[2] : "";
