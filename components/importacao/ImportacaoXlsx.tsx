@@ -24,6 +24,20 @@ interface ImportRow {
   raw_data: Record<string, unknown>;
 }
 
+interface JogadorRow {
+  jogador_id_ext: string;
+  jogador_apelido: string;
+  jogador_memo: string;
+  agente_nome: string;
+  agente_id_ext: string;
+  superagente_nome: string;
+  superagente_id_ext: string;
+  player_result: number;
+  rake_clube: number;
+  clube_nome: string;
+  clube_id_ext: string;
+}
+
 interface ParsedFile {
   plataforma: "PPPoker" | "GGPoker" | "unknown";
   liga_nome?: string;
@@ -31,6 +45,7 @@ interface ParsedFile {
   period_start: string;
   period_end: string;
   rows: ImportRow[];
+  jogadores: JogadorRow[];
   warnings: string[];
 }
 
@@ -49,7 +64,6 @@ interface ImportRecord {
   plataformas?: { nome: string } | null;
 }
 
-// Erro estruturado com contexto
 interface ImportError {
   titulo: string;
   detalhe: string;
@@ -84,10 +98,49 @@ function safeNum(v: unknown): number {
   return isNaN(n) ? 0 : n;
 }
 
+function safeStr(v: unknown): string {
+  const s = String(v ?? "").trim();
+  return s === "None" || s === "none" || s === "" ? "" : s;
+}
+
 function detectPlataforma(wb: XLSX.WorkBook): "PPPoker" | "GGPoker" | "unknown" {
   if (wb.SheetNames.includes("Union Overview")) return "GGPoker";
-  if (wb.SheetNames.includes("Geral da liga") || wb.SheetNames.includes("Geral")) return "PPPoker";
+  if (wb.SheetNames.some(s => s === "Geral da liga" || s === "Geral de clube" || s === "Geral")) return "PPPoker";
   return "unknown";
+}
+
+// ─── Parser de jogadores (Geral de clube / Geral) ─────────────────────────────
+
+function parseJogadoresSheet(
+  ws: XLSX.WorkSheet,
+  clubeNome: string,
+  clubeIdExt: string,
+  headerRow: number // 0-based
+): JogadorRow[] {
+  const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  const jogadores: JogadorRow[] = [];
+
+  for (let i = headerRow + 2; i < raw.length; i++) {
+    const row = raw[i] as unknown[];
+    const jogadorId = safeStr(row[1]);
+    if (!jogadorId || jogadorId === "Total") continue;
+
+    jogadores.push({
+      jogador_id_ext: jogadorId,
+      jogador_apelido: safeStr(row[3]),
+      jogador_memo: safeStr(row[4]),
+      agente_nome: safeStr(row[5]),
+      agente_id_ext: safeStr(row[6]),
+      superagente_nome: safeStr(row[7]),
+      superagente_id_ext: safeStr(row[8]),
+      player_result: safeNum(row[15]),
+      rake_clube: safeNum(row[28]),
+      clube_nome: clubeNome,
+      clube_id_ext: clubeIdExt,
+    });
+  }
+
+  return jogadores;
 }
 
 // ─── Parsers ──────────────────────────────────────────────────────────────────
@@ -96,20 +149,33 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "pl
   const period = parsePeriodFromFileName(fileName);
   const warnings: string[] = [];
   const rows: ImportRow[] = [];
+  let jogadores: JogadorRow[] = [];
 
-  const sheetName = wb.SheetNames.find(s => s === "Geral da liga" || s === "Geral");
-  if (!sheetName) throw { titulo: "Sheet não encontrada", detalhe: `O arquivo "${fileName}" não contém as abas "Geral da liga" ou "Geral".`, acao: "Verifique se exportou o arquivo correto do PPPoker." };
+  const ligaSheetName = wb.SheetNames.find(s => s === "Geral da liga");
+  const clubeSheetName = wb.SheetNames.find(s => s === "Geral de clube" || s === "Geral");
 
-  const isLiga = sheetName === "Geral da liga";
-  const ws = wb.Sheets[sheetName];
-  const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-
-  if (raw.length < 5) throw { titulo: "Arquivo vazio ou inválido", detalhe: `A aba "${sheetName}" tem menos de 5 linhas. Esperado: cabeçalho + dados.`, acao: "Confirme que o arquivo foi exportado corretamente." };
+  if (!ligaSheetName && !clubeSheetName) {
+    throw {
+      titulo: "Sheet não encontrada",
+      detalhe: `O arquivo "${fileName}" não contém abas reconhecidas.`,
+      acao: "Verifique se exportou o arquivo correto do PPPoker.",
+    };
+  }
 
   let liga_nome: string | undefined;
   let liga_id_ext: string | undefined;
 
-  if (isLiga) {
+  // ── Geral da liga ──
+  if (ligaSheetName) {
+    const ws = wb.Sheets[ligaSheetName];
+    const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+    if (raw.length < 5) throw {
+      titulo: "Arquivo vazio ou inválido",
+      detalhe: `A aba "Geral da liga" tem menos de 5 linhas.`,
+      acao: "Confirme que o arquivo foi exportado corretamente.",
+    };
+
     for (let i = 4; i < raw.length; i++) {
       const row = raw[i] as unknown[];
       const clubName = String(row[1] ?? "").trim();
@@ -137,37 +203,42 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "pl
         raw_data: rawEntry,
       });
     }
-  } else {
-    const clubHeader = String((raw[1] as unknown[])?.[0] ?? "");
-    const clubMatch = clubHeader.match(/^(.*?)\s*\((\d+)\)/);
-    const clubName = clubMatch ? clubMatch[1].trim() : fileName.replace(".xlsx", "");
-    const clubId = clubMatch ? clubMatch[2] : "";
+  }
 
-    if (!clubMatch) warnings.push(`Não foi possível extrair o ID do clube do cabeçalho. Valor encontrado: "${clubHeader}"`);
+  // ── Geral de clube / Geral (jogadores) ──
+  if (clubeSheetName) {
+    const ws = wb.Sheets[clubeSheetName];
+    const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
-    liga_nome = clubName;
-    liga_id_ext = clubId;
+    // Header está na linha 1 (index 1) — extrair nome e ID do clube
+    const clubeHeader = String((raw[1] as unknown[])?.[0] ?? "");
+    const clubeMatch = clubeHeader.replace(/\n/g, " ").match(/^(.*?)\s*\((\d+)\)/);
+    const clubeNome = clubeMatch ? clubeMatch[1].replace(/\n/g, " ").trim() : fileName.replace(".xlsx", "");
+    const clubeIdExt = clubeMatch ? clubeMatch[2] : "";
 
-    let totalPlayerResult = 0;
-    let totalRake = 0;
-    let linhasProcessadas = 0;
+    if (!ligaSheetName) {
+      // É um arquivo só de clube (SUL_HG style) — gera a row agregada também
+      liga_nome = clubeNome;
+      liga_id_ext = clubeIdExt;
 
-    for (let i = 3; i < raw.length; i++) {
-      const row = raw[i] as unknown[];
-      const playerId = String(row[1] ?? "").trim();
-      if (!playerId || playerId === "Total") continue;
-      totalPlayerResult += safeNum(row[8]);
-      totalRake += safeNum(row[28]);
-      linhasProcessadas++;
+      if (!clubeMatch) warnings.push(`Não foi possível extrair o ID do clube. Valor: "${clubeHeader}"`);
     }
 
-    if (linhasProcessadas === 0) warnings.push("Nenhum jogador encontrado na aba. Verifique se o arquivo está correto.");
+    // Lê jogadores (header na linha 1, sub-header na linha 2, dados a partir da linha 3)
+    jogadores = parseJogadoresSheet(ws, clubeNome, clubeIdExt, 1);
 
-    if (clubName) {
+    if (jogadores.length === 0) {
+      warnings.push("Nenhum jogador encontrado na aba de clube.");
+    }
+
+    // Se não tem Geral da liga, gera row de clube a partir dos jogadores
+    if (!ligaSheetName && jogadores.length > 0) {
+      const totalResult = jogadores.reduce((s, j) => s + j.player_result, 0);
+      const totalRake = jogadores.reduce((s, j) => s + j.rake_clube, 0);
       rows.push({
-        club_name: clubName,
-        club_external_id: clubId,
-        player_result: totalPlayerResult,
+        club_name: clubeNome,
+        club_external_id: clubeIdExt,
+        player_result: totalResult,
         rake_total: totalRake,
         rake_mtt: 0,
         rake_cash: 0,
@@ -182,11 +253,15 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "pl
     }
   }
 
-  if (rows.length === 0) throw { titulo: "Nenhum dado encontrado", detalhe: "O arquivo foi lido mas não contém linhas de clubes válidas.", acao: "Verifique se o arquivo possui dados no período selecionado." };
+  if (rows.length === 0) throw {
+    titulo: "Nenhum dado encontrado",
+    detalhe: "O arquivo foi lido mas não contém linhas válidas.",
+    acao: "Verifique se o arquivo possui dados no período selecionado.",
+  };
 
-  if (!period.start) warnings.push("Período não encontrado no nome do arquivo. Esperado formato: AAAAMMDD-AAAAMMDD.");
+  if (!period.start) warnings.push("Período não encontrado no nome do arquivo. Esperado: AAAAMMDD-AAAAMMDD.");
 
-  return { liga_nome, liga_id_ext, period_start: period.start, period_end: period.end, rows, warnings };
+  return { liga_nome, liga_id_ext, period_start: period.start, period_end: period.end, rows, jogadores, warnings };
 }
 
 function parseGGPoker(wb: XLSX.WorkBook): Omit<ParsedFile, "plataforma"> {
@@ -194,24 +269,27 @@ function parseGGPoker(wb: XLSX.WorkBook): Omit<ParsedFile, "plataforma"> {
   const rows: ImportRow[] = [];
   const ws = wb.Sheets["Union Overview"];
 
-  if (!ws) throw { titulo: "Sheet não encontrada", detalhe: 'A aba "Union Overview" não foi encontrada no arquivo.', acao: "Confirme que exportou o relatório correto do GGPoker." };
+  if (!ws) throw {
+    titulo: "Sheet não encontrada",
+    detalhe: 'A aba "Union Overview" não foi encontrada.',
+    acao: "Confirme que exportou o relatório correto do GGPoker.",
+  };
 
   const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
   const period = parsePeriodFromGG(raw);
-
   if (!period.start) warnings.push("Período não encontrado no arquivo GGPoker.");
 
   let headerRow = -1;
   for (let i = 0; i < raw.length; i++) {
-    const row = raw[i] as unknown[];
-    const joined = row.map(c => String(c)).join("|");
-    if (joined.includes("Total Fee") || joined.includes("Club Name")) {
-      headerRow = i;
-      break;
-    }
+    const joined = (raw[i] as unknown[]).map(c => String(c)).join("|");
+    if (joined.includes("Total Fee") || joined.includes("Club Name")) { headerRow = i; break; }
   }
 
-  if (headerRow === -1) throw { titulo: "Estrutura inválida", detalhe: "Não foi possível encontrar o cabeçalho da tabela no arquivo GGPoker. Colunas esperadas: Club Name, Total Fee.", acao: "Verifique se o arquivo é um relatório Union Overview válido." };
+  if (headerRow === -1) throw {
+    titulo: "Estrutura inválida",
+    detalhe: "Cabeçalho não encontrado no arquivo GGPoker.",
+    acao: "Verifique se o arquivo é um relatório Union Overview válido.",
+  };
 
   let liga_nome: string | undefined;
   let liga_id_ext: string | undefined;
@@ -219,8 +297,8 @@ function parseGGPoker(wb: XLSX.WorkBook): Omit<ParsedFile, "plataforma"> {
     const row = raw[i] as unknown[];
     for (const cell of row) {
       const s = String(cell ?? "");
-      if (s.startsWith("Union Name")) liga_nome = s.replace("Union Name :", "").replace("Union Name:", "").trim();
-      if (s.startsWith("Union ID")) liga_id_ext = s.replace("Union ID :", "").replace("Union ID:", "").trim();
+      if (s.startsWith("Union Name")) liga_nome = s.replace(/Union Name\s*:?\s*/i, "").trim();
+      if (s.startsWith("Union ID")) liga_id_ext = s.replace(/Union ID\s*:?\s*/i, "").trim();
     }
   }
 
@@ -230,8 +308,8 @@ function parseGGPoker(wb: XLSX.WorkBook): Omit<ParsedFile, "plataforma"> {
   const idxFee = headers.findIndex(h => h === "Total Fee");
   const idxPL = headers.findIndex(h => h === "P&L");
 
-  if (idxClubId === -1) throw { titulo: "Coluna não encontrada", detalhe: "Coluna 'ID' ou 'Club ID' não encontrada no arquivo GGPoker.", acao: "Verifique se o arquivo foi exportado corretamente." };
-  if (idxFee === -1) throw { titulo: "Coluna não encontrada", detalhe: "Coluna 'Total Fee' não encontrada no arquivo GGPoker.", acao: "Verifique se o arquivo foi exportado corretamente." };
+  if (idxClubId === -1) throw { titulo: "Coluna não encontrada", detalhe: "Coluna 'ID' não encontrada.", acao: "Verifique se o arquivo foi exportado corretamente." };
+  if (idxFee === -1) throw { titulo: "Coluna não encontrada", detalhe: "Coluna 'Total Fee' não encontrada.", acao: "Verifique se o arquivo foi exportado corretamente." };
 
   for (let i = headerRow + 1; i < raw.length; i++) {
     const row = raw[i] as unknown[];
@@ -256,9 +334,13 @@ function parseGGPoker(wb: XLSX.WorkBook): Omit<ParsedFile, "plataforma"> {
     });
   }
 
-  if (rows.length === 0) throw { titulo: "Nenhum clube encontrado", detalhe: "O arquivo GGPoker foi lido mas não contém linhas de clubes válidas.", acao: "Verifique se o período tem dados ou se o arquivo está correto." };
+  if (rows.length === 0) throw {
+    titulo: "Nenhum clube encontrado",
+    detalhe: "O arquivo GGPoker não contém linhas de clubes válidas.",
+    acao: "Verifique se o período tem dados.",
+  };
 
-  return { liga_nome, liga_id_ext, period_start: period.start, period_end: period.end, rows, warnings };
+  return { liga_nome, liga_id_ext, period_start: period.start, period_end: period.end, rows, jogadores: [], warnings };
 }
 
 function parseXlsx(file: File): Promise<ParsedFile> {
@@ -268,42 +350,153 @@ function parseXlsx(file: File): Promise<ParsedFile> {
       try {
         const data = new Uint8Array(e.target!.result as ArrayBuffer);
         const wb = XLSX.read(data, { type: "array" });
-
         if (wb.SheetNames.length === 0) {
-          reject({ titulo: "Arquivo inválido", detalhe: "O arquivo não contém nenhuma aba.", acao: "Verifique se o arquivo .xlsx está correto e não está corrompido." });
+          reject({ titulo: "Arquivo inválido", detalhe: "O arquivo não contém nenhuma aba.", acao: "Verifique se o arquivo .xlsx está correto." });
           return;
         }
-
         const plataforma = detectPlataforma(wb);
-
-        if (plataforma === "PPPoker") {
-          resolve({ plataforma, ...parsePPPoker(wb, file.name) });
-        } else if (plataforma === "GGPoker") {
-          resolve({ plataforma, ...parseGGPoker(wb) });
-        } else {
-          resolve({
-            plataforma: "unknown",
-            period_start: "",
-            period_end: "",
-            rows: [],
-            warnings: [`Abas encontradas: ${wb.SheetNames.join(", ")}. Nenhuma corresponde ao formato PPPoker ou GGPoker.`]
-          });
-        }
-      } catch (err) {
-        reject(err);
-      }
+        if (plataforma === "PPPoker") resolve({ plataforma, ...parsePPPoker(wb, file.name) });
+        else if (plataforma === "GGPoker") resolve({ plataforma, ...parseGGPoker(wb) });
+        else resolve({ plataforma: "unknown", period_start: "", period_end: "", rows: [], jogadores: [], warnings: [`Abas encontradas: ${wb.SheetNames.join(", ")}.`] });
+      } catch (err) { reject(err); }
     };
-    reader.onerror = () => reject({ titulo: "Falha na leitura", detalhe: "Não foi possível ler o arquivo.", acao: "Tente novamente ou verifique se o arquivo não está aberto em outro programa." });
+    reader.onerror = () => reject({ titulo: "Falha na leitura", detalhe: "Não foi possível ler o arquivo.", acao: "Tente novamente." });
     reader.readAsArrayBuffer(file);
   });
 }
 
 function formatError(err: unknown): ImportError {
-  if (err && typeof err === "object" && "titulo" in err) {
-    return err as ImportError;
-  }
+  if (err && typeof err === "object" && "titulo" in err) return err as ImportError;
   const msg = err instanceof Error ? err.message : String(err);
-  return { titulo: "Erro inesperado", detalhe: msg, acao: "Se o problema persistir, contate o suporte com o nome do arquivo." };
+  return { titulo: "Erro inesperado", detalhe: msg, acao: "Se o problema persistir, contate o suporte." };
+}
+
+// ─── Upsert de jogadores/agentes pós-import ───────────────────────────────────
+
+async function processarJogadores(
+  importId: string,
+  plataformaId: string,
+  jogadores: JogadorRow[]
+): Promise<{ ok: number; erros: string[] }> {
+  let ok = 0;
+  const erros: string[] = [];
+
+  for (const j of jogadores) {
+    try {
+      // 1. Upsert superagente (se existir)
+      let superagenteId: string | null = null;
+      if (j.superagente_id_ext) {
+        const { data: sa } = await supabase
+          .from("agentes")
+          .upsert(
+            { nome: j.superagente_nome || j.superagente_id_ext, external_id: j.superagente_id_ext, plataforma_id: plataformaId },
+            { onConflict: "external_id,plataforma_id", ignoreDuplicates: false }
+          )
+          .select("id")
+          .single();
+        if (sa) {
+          superagenteId = sa.id;
+          // upsert em agente_plataformas
+          await supabase.from("agente_plataformas").upsert(
+            { agente_id: sa.id, plataforma_id: plataformaId, external_id: j.superagente_id_ext, nickname: j.superagente_nome || null },
+            { onConflict: "plataforma_id,external_id", ignoreDuplicates: false }
+          );
+        }
+      }
+
+      // 2. Upsert agente (se existir)
+      let agenteId: string | null = null;
+      if (j.agente_id_ext) {
+        const { data: ag } = await supabase
+          .from("agentes")
+          .upsert(
+            { nome: j.agente_nome || j.agente_id_ext, external_id: j.agente_id_ext, plataforma_id: plataformaId, superagente_id: superagenteId },
+            { onConflict: "external_id,plataforma_id", ignoreDuplicates: false }
+          )
+          .select("id")
+          .single();
+        if (ag) {
+          agenteId = ag.id;
+          // upsert em agente_plataformas
+          await supabase.from("agente_plataformas").upsert(
+            { agente_id: ag.id, plataforma_id: plataformaId, external_id: j.agente_id_ext, nickname: j.agente_nome || null },
+            { onConflict: "plataforma_id,external_id", ignoreDuplicates: false }
+          );
+          // vínculo superagente → agente
+          if (superagenteId) {
+            await supabase.from("clube_agentes").upsert(
+              { clube_id: (await getOrNullClube(j.clube_id_ext)), agente_id: superagenteId },
+              { onConflict: "clube_id,agente_id", ignoreDuplicates: true }
+            );
+          }
+        }
+      }
+
+      // 3. Upsert jogador
+      const nomeJogador = j.jogador_memo || j.jogador_apelido || j.jogador_id_ext;
+      const { data: jog } = await supabase
+        .from("jogadores")
+        .upsert(
+          { nome: nomeJogador, external_id: j.jogador_id_ext, plataforma_id: plataformaId },
+          { onConflict: "external_id,plataforma_id", ignoreDuplicates: false }
+        )
+        .select("id")
+        .single();
+
+      if (!jog) continue;
+
+      // 4. Busca clube pelo external_id
+      const clubeId = await getOrNullClube(j.clube_id_ext);
+
+      // 5. Vínculo agente → jogador
+      if (agenteId) {
+        await supabase.from("agente_jogadores").upsert(
+          { agente_id: agenteId, jogador_id: jog.id },
+          { onConflict: "agente_id,jogador_id", ignoreDuplicates: true }
+        );
+      }
+
+      // 6. Vínculo clube → jogador
+      if (clubeId) {
+        await supabase.from("clube_jogadores").upsert(
+          { clube_id: clubeId, jogador_id: jog.id },
+          { onConflict: "clube_id,jogador_id", ignoreDuplicates: true }
+        );
+        // vínculo clube → agente
+        if (agenteId) {
+          await supabase.from("clube_agentes").upsert(
+            { clube_id: clubeId, agente_id: agenteId },
+            { onConflict: "clube_id,agente_id", ignoreDuplicates: true }
+          );
+        }
+      }
+
+      // 7. import_jogadores
+      await supabase.from("import_jogadores").upsert(
+        {
+          import_id: importId,
+          jogador_id: jog.id,
+          clube_id: clubeId,
+          agente_id: agenteId,
+          player_result: j.player_result,
+          rake_total: j.rake_clube,
+        },
+        { onConflict: "import_id,jogador_id", ignoreDuplicates: false }
+      );
+
+      ok++;
+    } catch (e) {
+      erros.push(`Jogador ${j.jogador_id_ext}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  return { ok, erros };
+}
+
+async function getOrNullClube(externalId: string): Promise<string | null> {
+  if (!externalId) return null;
+  const { data } = await supabase.from("clubs").select("id").eq("external_id", externalId).maybeSingle();
+  return data?.id ?? null;
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -317,6 +510,7 @@ export default function ImportacaoXlsx() {
   const [dragOver, setDragOver] = useState(false);
   const [history, setHistory] = useState<ImportRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [jogadorStats, setJogadorStats] = useState<{ ok: number; erros: string[] } | null>(null);
 
   const [platformAction, setPlatformAction] = useState<"new" | "existing" | null>(null);
   const [newPlatformName, setNewPlatformName] = useState("");
@@ -325,82 +519,43 @@ export default function ImportacaoXlsx() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    loadPlataformas();
-    loadHistory();
-  }, []);
+  useEffect(() => { loadPlataformas(); loadHistory(); }, []);
 
   async function loadPlataformas() {
-    const { data, error } = await supabase.from("plataformas").select("id, nome, moeda").order("nome");
-    if (error) console.error("Erro ao carregar plataformas:", error.message);
+    const { data } = await supabase.from("plataformas").select("id, nome, moeda").order("nome");
     if (data) setPlataformas(data);
   }
 
   async function loadHistory() {
     setLoadingHistory(true);
-    const { data, error } = await supabase
-      .from("imports")
-      .select("*, leagues(name), plataformas(nome)")
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (error) console.error("Erro ao carregar histórico:", error.message);
+    const { data } = await supabase.from("imports").select("*, leagues(name), plataformas(nome)").order("created_at", { ascending: false }).limit(50);
     if (data) setHistory(data as ImportRecord[]);
     setLoadingHistory(false);
   }
 
   const handleFile = useCallback(async (f: File) => {
     if (!f.name.endsWith(".xlsx")) {
-      setImportError({ titulo: "Formato inválido", detalhe: `O arquivo "${f.name}" não é um .xlsx.`, acao: "Selecione um arquivo com extensão .xlsx exportado do PPPoker ou GGPoker." });
-      setStep("error");
-      return;
+      setImportError({ titulo: "Formato inválido", detalhe: `"${f.name}" não é um .xlsx.`, acao: "Selecione um arquivo .xlsx exportado do PPPoker ou GGPoker." });
+      setStep("error"); return;
     }
-
-    setFile(f);
-    setStep("parsing");
-    setImportError(null);
-    setParsed(null);
-    setResolvedPlatformId(null);
-    setPlatformAction(null);
-    setNewPlatformName("");
-    setSelectedExistingPlatform("");
-
+    setFile(f); setStep("parsing"); setImportError(null); setParsed(null);
+    setResolvedPlatformId(null); setPlatformAction(null); setNewPlatformName(""); setSelectedExistingPlatform(""); setJogadorStats(null);
     try {
       const result = await parseXlsx(f);
       setParsed(result);
-
-      if (result.plataforma === "unknown") {
-        setStep("confirm_platform");
-      } else {
-        const match = plataformas.find(p => p.nome.toLowerCase() === result.plataforma.toLowerCase());
-        if (match) {
-          setResolvedPlatformId(match.id);
-          setStep("parsed");
-        } else {
-          setNewPlatformName(result.plataforma);
-          setStep("confirm_platform");
-        }
-      }
-    } catch (err) {
-      setImportError(formatError(err));
-      setStep("error");
-    }
+      if (result.plataforma === "unknown") { setStep("confirm_platform"); return; }
+      const match = plataformas.find(p => p.nome.toLowerCase() === result.plataforma.toLowerCase());
+      if (match) { setResolvedPlatformId(match.id); setStep("parsed"); }
+      else { setNewPlatformName(result.plataforma); setStep("confirm_platform"); }
+    } catch (err) { setImportError(formatError(err)); setStep("error"); }
   }, [plataformas]);
 
   async function handleResolvePlatform() {
     if (platformAction === "new") {
       if (!newPlatformName.trim()) return;
-      const { data, error } = await supabase
-        .from("plataformas")
-        .insert({ nome: newPlatformName.trim(), moeda: "USD" })
-        .select()
-        .single();
-      if (error) {
-        setImportError({ titulo: "Erro ao criar plataforma", detalhe: error.message, acao: "Verifique se o nome já não está cadastrado." });
-        setStep("error");
-        return;
-      }
-      setResolvedPlatformId(data.id);
-      await loadPlataformas();
+      const { data, error } = await supabase.from("plataformas").insert({ nome: newPlatformName.trim(), moeda: "USD" }).select().single();
+      if (error) { setImportError({ titulo: "Erro ao criar plataforma", detalhe: error.message, acao: "Verifique se o nome já está cadastrado." }); setStep("error"); return; }
+      setResolvedPlatformId(data.id); await loadPlataformas();
     } else {
       if (!selectedExistingPlatform) return;
       setResolvedPlatformId(selectedExistingPlatform);
@@ -414,15 +569,11 @@ export default function ImportacaoXlsx() {
     try {
       let leagueId: string | null = null;
       if (parsed.liga_id_ext) {
-        const { data: existing } = await supabase
-          .from("leagues")
-          .select("id")
-          .eq("clube_ext_id", parsed.liga_id_ext)
-          .maybeSingle();
+        const { data: existing } = await supabase.from("leagues").select("id").eq("clube_ext_id", parsed.liga_id_ext).maybeSingle();
         leagueId = existing?.id ?? null;
       }
 
-      const { data: importData, error: importError } = await supabase
+      const { data: importData, error: importErr } = await supabase
         .from("imports")
         .insert({
           league_id: leagueId,
@@ -434,63 +585,55 @@ export default function ImportacaoXlsx() {
           status: "processing",
           uploaded_by: "admin",
         })
-        .select()
-        .single();
+        .select().single();
 
-      if (importError) throw { titulo: "Erro ao registrar importação", detalhe: importError.message, acao: "Tente novamente. Se persistir, verifique as permissões do banco." };
+      if (importErr) throw { titulo: "Erro ao registrar importação", detalhe: importErr.message };
 
-      const { error: rowsError } = await supabase
-        .from("import_rows")
-        .insert(
-          parsed.rows.map((row) => ({
-            import_id: importData.id,
-            club_name: row.club_name,
-            club_external_id: row.club_external_id,
-            rake_total: row.rake_total,
-            rake_mtt: row.rake_mtt,
-            rake_cash: row.rake_cash,
-            rake_spinup: row.rake_spinup,
-            fee_total: row.fee_total,
-            player_result: row.player_result,
-            agente_nome: row.agente_nome || null,
-            agente_id_ext: row.agente_id_ext || null,
-            superagente_nome: row.superagente_nome || null,
-            superagente_id_ext: row.superagente_id_ext || null,
-            raw_data: row.raw_data,
-          }))
-        );
+      // Salva import_rows (por clube)
+      const { error: rowsErr } = await supabase.from("import_rows").insert(
+        parsed.rows.map(row => ({
+          import_id: importData.id,
+          club_name: row.club_name,
+          club_external_id: row.club_external_id,
+          rake_total: row.rake_total,
+          rake_mtt: row.rake_mtt,
+          rake_cash: row.rake_cash,
+          rake_spinup: row.rake_spinup,
+          fee_total: row.fee_total,
+          player_result: row.player_result,
+          agente_nome: row.agente_nome || null,
+          agente_id_ext: row.agente_id_ext || null,
+          superagente_nome: row.superagente_nome || null,
+          superagente_id_ext: row.superagente_id_ext || null,
+          raw_data: row.raw_data,
+        }))
+      );
 
-      if (rowsError) throw { titulo: "Erro ao salvar linhas", detalhe: rowsError.message, acao: `${parsed.rows.length} linhas tentadas. Verifique se a tabela import_rows está acessível.` };
+      if (rowsErr) throw { titulo: "Erro ao salvar linhas", detalhe: rowsErr.message };
+
+      // Processa jogadores (upsert cascata)
+      let stats = { ok: 0, erros: [] as string[] };
+      if (parsed.jogadores.length > 0) {
+        stats = await processarJogadores(importData.id, resolvedPlatformId, parsed.jogadores);
+        setJogadorStats(stats);
+      }
 
       await supabase.from("imports").update({ status: "done" }).eq("id", importData.id);
 
       setStep("done");
-      setParsed(null);
-      setFile(null);
-      setResolvedPlatformId(null);
+      setParsed(null); setFile(null); setResolvedPlatformId(null);
       await loadHistory();
-    } catch (err) {
-      setImportError(formatError(err));
-      setStep("error");
-    }
+    } catch (err) { setImportError(formatError(err)); setStep("error"); }
   }
 
   function reset() {
-    setStep("idle");
-    setFile(null);
-    setParsed(null);
-    setImportError(null);
-    setResolvedPlatformId(null);
-    setPlatformAction(null);
-    setNewPlatformName("");
-    setSelectedExistingPlatform("");
+    setStep("idle"); setFile(null); setParsed(null); setImportError(null);
+    setResolvedPlatformId(null); setPlatformAction(null); setNewPlatformName(""); setSelectedExistingPlatform(""); setJogadorStats(null);
   }
 
   const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    const f = e.dataTransfer.files[0];
-    if (f) handleFile(f);
+    e.preventDefault(); setDragOver(false);
+    const f = e.dataTransfer.files[0]; if (f) handleFile(f);
   }, [handleFile]);
 
   return (
@@ -513,7 +656,6 @@ export default function ImportacaoXlsx() {
         .badge-ok{background:#1c3a1c;color:#7DC97D}
         .badge-error{background:#3a1c1c;color:#E07070}
         .badge-processing{background:#2a2a1c;color:#C9A84C}
-        .badge-reprocessing{background:#1c2a3a;color:#7DC9C9}
         table{width:100%;border-collapse:collapse}
         th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#7a7a70;padding:8px 12px;border-bottom:1px solid #1e2018}
         td{padding:10px 12px;font-size:13px;border-bottom:1px solid #151710;color:#d0cdc5}
@@ -530,9 +672,7 @@ export default function ImportacaoXlsx() {
         <p style={{ color: "#6a6a62", fontSize: 14, marginTop: 6 }}>PPPoker · GGPoker · Detecção automática de plataforma</p>
       </div>
 
-      {/* Upload — coluna única */}
       <div style={{ maxWidth: 1100, display: "flex", flexDirection: "column", gap: 16 }}>
-
         <div
           className={`drop-zone${dragOver ? " drag-over" : ""}`}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -559,9 +699,7 @@ export default function ImportacaoXlsx() {
               {parsed.plataforma === "unknown" ? "⚠ Plataforma não reconhecida" : `⚠ Plataforma detectada: ${parsed.plataforma}`}
             </p>
             <p style={{ color: "#7a7a70", fontSize: 12, marginBottom: 16 }}>
-              {parsed.plataforma === "unknown"
-                ? `Abas encontradas: ${parsed.warnings[0] ?? "—"}. Como deseja prosseguir?`
-                : `"${parsed.plataforma}" ainda não está cadastrada. Como deseja prosseguir?`}
+              {parsed.plataforma === "unknown" ? `Abas: ${parsed.warnings[0] ?? "—"}` : `"${parsed.plataforma}" não está cadastrada.`}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
               {["new", "existing"].map(opt => (
@@ -589,7 +727,9 @@ export default function ImportacaoXlsx() {
               </div>
             )}
             <div style={{ display: "flex", gap: 10 }}>
-              <button className="btn-gold" disabled={!platformAction || (platformAction === "new" && !newPlatformName.trim()) || (platformAction === "existing" && !selectedExistingPlatform)} onClick={handleResolvePlatform}>Continuar</button>
+              <button className="btn-gold"
+                disabled={!platformAction || (platformAction === "new" && !newPlatformName.trim()) || (platformAction === "existing" && !selectedExistingPlatform)}
+                onClick={handleResolvePlatform}>Continuar</button>
               <button className="btn-ghost" onClick={reset}>Cancelar</button>
             </div>
           </div>
@@ -603,12 +743,13 @@ export default function ImportacaoXlsx() {
               <span style={{ color: "#C9A84C" }}>{parsed.plataforma}</span>
               {parsed.liga_nome && <> · {parsed.liga_nome}</>}
             </p>
-            <p style={{ color: "#5a5a52", fontSize: 12, marginBottom: 4 }}>
-              {parsed.rows.length} clube{parsed.rows.length !== 1 ? "s" : ""} detectado{parsed.rows.length !== 1 ? "s" : ""}
+            <p style={{ color: "#5a5a52", fontSize: 12 }}>
+              {parsed.rows.length} clube{parsed.rows.length !== 1 ? "s" : ""}
+              {parsed.jogadores.length > 0 && ` · ${parsed.jogadores.length} jogadores detectados`}
               {parsed.period_start && ` · ${parsed.period_start} → ${parsed.period_end}`}
             </p>
             {parsed.warnings.map((w, i) => (
-              <p key={i} style={{ color: "#C9A84C", fontSize: 12, marginBottom: 4 }}>⚠ {w}</p>
+              <p key={i} style={{ color: "#C9A84C", fontSize: 12, marginTop: 4 }}>⚠ {w}</p>
             ))}
             <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
               <button className="btn-gold" onClick={handleConfirmImport}>Confirmar importação</button>
@@ -626,7 +767,15 @@ export default function ImportacaoXlsx() {
         {step === "done" && (
           <div className="card" style={{ padding: 16, borderColor: "#2a5a2a" }}>
             <p style={{ color: "#7DC97D", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>✓ Importação concluída</p>
-            <p style={{ color: "#5a5a52", fontSize: 12 }}>Dados salvos com sucesso.</p>
+            {jogadorStats && (
+              <p style={{ color: "#5a5a52", fontSize: 12, marginBottom: 4 }}>
+                Jogadores: <span style={{ color: "#7DC97D" }}>{jogadorStats.ok} processados</span>
+                {jogadorStats.erros.length > 0 && <span style={{ color: "#E07070" }}> · {jogadorStats.erros.length} com erro</span>}
+              </p>
+            )}
+            {jogadorStats?.erros.map((e, i) => (
+              <p key={i} style={{ color: "#E07070", fontSize: 11, marginTop: 2 }}>✗ {e}</p>
+            ))}
           </div>
         )}
 
@@ -644,7 +793,6 @@ export default function ImportacaoXlsx() {
         )}
       </div>
 
-      {/* Histórico */}
       <div style={{ maxWidth: 1100, marginTop: 48 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 16 }}>
           <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 500, margin: 0 }}>Histórico de importações</h2>
@@ -658,22 +806,16 @@ export default function ImportacaoXlsx() {
           ) : (
             <table>
               <thead>
-                <tr>
-                  <th>Arquivo</th>
-                  <th>Plataforma</th>
-                  <th>Período</th>
-                  <th>Status</th>
-                  <th>Data</th>
-                </tr>
+                <tr><th>Arquivo</th><th>Plataforma</th><th>Período</th><th>Status</th><th>Data</th></tr>
               </thead>
               <tbody>
-                {history.map((entry) => (
+                {history.map(entry => (
                   <tr key={entry.id}>
                     <td style={{ color: "#C9A84C", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.file_name}</td>
                     <td style={{ color: "#7a7a70" }}>{entry.plataformas?.nome ?? entry.app_source ?? "—"}</td>
                     <td style={{ color: "#7a7a70", fontSize: 12 }}>{entry.period_start ? `${entry.period_start} → ${entry.period_end}` : "—"}</td>
                     <td>
-                      <span className={`badge ${entry.status === "done" ? "badge-ok" : entry.status === "error" ? "badge-error" : entry.status === "reprocessing" ? "badge-reprocessing" : "badge-processing"}`}>
+                      <span className={`badge ${entry.status === "done" ? "badge-ok" : entry.status === "error" ? "badge-error" : "badge-processing"}`}>
                         {entry.status === "done" ? "✓ OK" : entry.status === "error" ? "✗ Erro" : "⏳ " + entry.status}
                       </span>
                     </td>
