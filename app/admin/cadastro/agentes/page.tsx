@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { getAgentes, createAgente, updateAgente, deleteAgente, syncAgentePlataformas, syncClubeAgentes, getPlataformas } from '@/lib/cadastro-api'
+import { getAgentes, createAgente, updateAgente, deleteAgente, syncAgentePlataformas, syncClubeAgentes, syncSubAgentes, getPlataformas } from '@/lib/cadastro-api'
 import type { Agente, AgenteForm, AgentePlataforma, Plataforma, ClubeVinculado } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
@@ -52,7 +52,11 @@ export default function AgentesPage() {
       leagueName: ca.clubs?.leagues?.name ?? null,
     })) ?? []
 
-  const handleSave = async (form: AgenteForm, vinculos: AgentePlataforma[], clubeIds: string[], condicoes: Condicao[]) => {
+  // Sub-agentes = outros registros de `items` que apontam pra este via superagente_id
+  const subAgentesIniciais = (item: Agente | null): { id: string; nome: string; email: string | null }[] =>
+    item ? items.filter(a => a.superagente_id === item.id).map(a => ({ id: a.id, nome: a.nome, email: a.email })) : []
+
+  const handleSave = async (form: AgenteForm, vinculos: AgentePlataforma[], clubeIds: string[], condicoes: Condicao[], subAgenteIds: string[]) => {
     setSaving(true); setError(null)
     try {
       let agenteId: string
@@ -66,6 +70,7 @@ export default function AgentesPage() {
 
       await syncAgentePlataformas(agenteId, vinculos, vinculosIniciais(editing))
       await syncClubeAgentes(agenteId, clubeIds, clubesIniciais(editing).map(c => c.id))
+      await syncSubAgentes(agenteId, subAgenteIds, subAgentesIniciais(editing).map(a => a.id))
 
       const { data: existingRE } = await supabase
         .from('regra_entidades')
@@ -164,6 +169,7 @@ export default function AgentesPage() {
         editing={editing}
         vinculosIniciais={vinculosIniciais(editing)}
         clubesVinculadosIniciais={clubesIniciais(editing)}
+        subAgentesIniciais={subAgentesIniciais(editing)}
         plataformas={plataformas}
         onClose={() => { setModalOpen(false); setEditing(null) }}
         onSave={handleSave}

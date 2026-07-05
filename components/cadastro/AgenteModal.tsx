@@ -25,9 +25,10 @@ interface Props {
   editing: Agente | null
   vinculosIniciais: AgentePlataforma[]
   clubesVinculadosIniciais: ClubeVinculado[]
+  subAgentesIniciais?: { id: string; nome: string; email: string | null }[]
   plataformas: Plataforma[]
   onClose: () => void
-  onSave: (form: AgenteForm, vinculos: AgentePlataforma[], clubeIds: string[], condicoes: Condicao[]) => void
+  onSave: (form: AgenteForm, vinculos: AgentePlataforma[], clubeIds: string[], condicoes: Condicao[], subAgenteIds: string[]) => void
   saving: boolean
 }
 
@@ -45,7 +46,7 @@ function Fld({ label, required, children }: { label: string; required?: boolean;
   return <div><label className="block text-sm font-medium text-gray-300 mb-1.5">{label}{required && <span className="text-gold ml-1">*</span>}</label>{children}</div>
 }
 
-export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosIniciais, plataformas, onClose, onSave, saving }: Props) {
+export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosIniciais, subAgentesIniciais = [], plataformas, onClose, onSave, saving }: Props) {
   const [form, setForm] = useState<AgenteForm>(EMPTY)
   const [vinculos, setVinculos] = useState<VinculoState[]>([])
   const timers = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
@@ -61,6 +62,11 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
   const [taxaTipo, setTaxaTipo] = useState<'fixa' | 'escalonado'>('fixa')
   const [rakebackFixo, setRakebackFixo] = useState<number | null>(null)
 
+  const [subAgentes, setSubAgentes] = useState<{ id: string; nome: string; email: string | null }[]>([])
+  const [buscaSubAgente, setBuscaSubAgente] = useState('')
+  const [resultadosSubAgente, setResultadosSubAgente] = useState<{ id: string; nome: string; email: string | null }[]>([])
+  const subAgenteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const [agentesLista, setAgentesLista] = useState<AgenteOpcao[]>([])
 
   useEffect(() => {
@@ -69,6 +75,20 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
       supabase.from('agentes').select('id, nome').order('nome').then(({ data }) => { if (data) setAgentesLista(data) })
     }
   }, [open])
+
+  useEffect(() => { setSubAgentes(subAgentesIniciais ?? []) }, [subAgentesIniciais, open])
+
+  useEffect(() => {
+    if (subAgenteTimer.current) clearTimeout(subAgenteTimer.current)
+    if (!buscaSubAgente.trim()) { setResultadosSubAgente([]); return }
+    subAgenteTimer.current = setTimeout(async () => {
+      const q = buscaSubAgente.trim()
+      let query = supabase.from('agentes').select('id, nome, email').ilike('nome', `%${q}%`).limit(6)
+      if (editing) query = query.neq('id', editing.id)
+      const { data } = await query
+      setResultadosSubAgente((data ?? []).filter(a => !subAgentes.some(s => s.id === a.id)))
+    }, 400)
+  }, [buscaSubAgente, editing, subAgentes])
 
   useEffect(() => {
     setForm(editing ? { nome: editing.nome, email: editing.email, telefone: editing.telefone, superagente_id: editing.superagente_id ?? null } : EMPTY)
@@ -228,7 +248,7 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
           <h2 className="text-lg font-semibold text-white">{editing ? 'Editar Agente' : 'Novo Agente'}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><X size={18} /></button>
         </div>
-        <form onSubmit={e => { e.preventDefault(); if (podeSalvar) onSave(form, vinculos, clubesSelecionados.map(c => c.id), condicoesFinais()) }} className="flex flex-col flex-1 min-h-0">
+        <form onSubmit={e => { e.preventDefault(); if (podeSalvar) onSave(form, vinculos, clubesSelecionados.map(c => c.id), condicoesFinais(), subAgentes.map(a => a.id)) }} className="flex flex-col flex-1 min-h-0">
           <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
 
             <Sec title="Identificação">
@@ -253,6 +273,28 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
                 </select>
                 <p className="text-xs text-gray-500 mt-1.5">Se esse agente responde a um Super Agente, selecione acima. Deixe em branco se ele é direto.</p>
               </Fld>
+            </Sec>
+
+            <Sec title="Sub-Agentes">
+              <p className="text-xs text-gray-500">Agentes que respondem a este. Se adicionar alguém aqui, este agente vira um Super Agente.</p>
+              <div className="relative">
+                <input type="text" value={buscaSubAgente} onChange={e => setBuscaSubAgente(e.target.value)} placeholder="Buscar agente por nome..." className={inputCls} />
+                {resultadosSubAgente.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-surface2 border border-white/10 rounded-lg overflow-hidden shadow-xl">
+                    {resultadosSubAgente.map(a => (
+                      <button key={a.id} type="button" onClick={() => { setSubAgentes(prev => [...prev, a]); setBuscaSubAgente(''); setResultadosSubAgente([]) }} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-white/5 transition-colors">
+                        {a.nome} {a.email && <span className="text-gray-500">({a.email})</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {subAgentes.map(a => (
+                <div key={a.id} className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-surface2">
+                  <span className="text-sm text-white">{a.nome}</span>
+                  <button type="button" onClick={() => setSubAgentes(prev => prev.filter(x => x.id !== a.id))} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                </div>
+              ))}
             </Sec>
 
             <Sec title="Plataformas">
