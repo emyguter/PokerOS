@@ -18,6 +18,7 @@ interface Condicao {
   is_fallback: boolean
 }
 interface Indicador { id: string; nome: string; descricao: string | null }
+interface AgenteOpcao { id: string; nome: string }
 
 interface Props {
   open: boolean
@@ -30,7 +31,7 @@ interface Props {
   saving: boolean
 }
 
-const EMPTY: AgenteForm = { nome: '', email: null, telefone: null }
+const EMPTY: AgenteForm = { nome: '', email: null, telefone: null, superagente_id: null }
 const EMPTY_VINCULO: VinculoState = { plataforma_id: '', external_id: '', nickname: null, searching: false, status: 'idle' }
 const EMPTY_COND: Condicao = { indicador_id: '', operador: '>', valor: null, resultado_pct: null, is_fallback: false }
 
@@ -60,14 +61,17 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
   const [taxaTipo, setTaxaTipo] = useState<'fixa' | 'escalonado'>('fixa')
   const [rakebackFixo, setRakebackFixo] = useState<number | null>(null)
 
+  const [agentesLista, setAgentesLista] = useState<AgenteOpcao[]>([])
+
   useEffect(() => {
     if (open) {
       supabase.from('indicadores').select('*').order('nome').then(({ data }) => { if (data) setIndicadores(data) })
+      supabase.from('agentes').select('id, nome').order('nome').then(({ data }) => { if (data) setAgentesLista(data) })
     }
   }, [open])
 
   useEffect(() => {
-    setForm(editing ? { nome: editing.nome, email: editing.email, telefone: editing.telefone } : EMPTY)
+    setForm(editing ? { nome: editing.nome, email: editing.email, telefone: editing.telefone, superagente_id: editing.superagente_id ?? null } : EMPTY)
     setVinculos(
       vinculosIniciais.length > 0
         ? vinculosIniciais.map(v => ({ ...v, searching: false, status: 'found_agente' as const }))
@@ -143,6 +147,8 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
 
   const plataformasDisponiveis = (atual: string) =>
     plataformas.filter(p => p.id === atual || !vinculos.some(v => v.plataforma_id === p.id))
+
+  const agentesDisponiveis = agentesLista.filter(a => a.id !== editing?.id)
 
   const buscar = (i: number, plataformaId: string, externalId: string) => {
     if (timers.current[i]) clearTimeout(timers.current[i])
@@ -237,6 +243,16 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
                   <input type="text" value={form.telefone ?? ''} onChange={e => set('telefone', e.target.value || null)} placeholder="opcional" className={inputCls} />
                 </Fld>
               </div>
+            </Sec>
+
+            <Sec title="Hierarquia">
+              <Fld label="Super Agente">
+                <select value={form.superagente_id ?? ''} onChange={e => set('superagente_id', e.target.value || null)} className={inputCls}>
+                  <option value="">— Nenhum (agente direto) —</option>
+                  {agentesDisponiveis.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
+                </select>
+                <p className="text-xs text-gray-500 mt-1.5">Se esse agente responde a um Super Agente, selecione acima. Deixe em branco se ele é direto.</p>
+              </Fld>
             </Sec>
 
             <Sec title="Plataformas">

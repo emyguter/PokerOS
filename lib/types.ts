@@ -134,6 +134,7 @@ export type ClubForm = {
 // agentes.plataforma_id/external_id = plataforma PRINCIPAL (espelho automático)
 // agente_plataformas = vínculos com TODAS as plataformas (multi-ID por agente)
 // clube_agentes = em quais clubes o agente atua (ID/nickname derivado da plataforma do clube)
+// superagente_id = auto-referência: agente que tem outros agentes abaixo dele (hierarquia 1 nível)
 
 export type Agente = {
   id: string
@@ -142,6 +143,7 @@ export type Agente = {
   telefone: string | null
   external_id: string | null
   plataforma_id: string | null
+  superagente_id: string | null
   created_at: string
   plataformas?: Plataforma
   agente_plataformas?: {
@@ -152,12 +154,16 @@ export type Agente = {
     plataformas?: { nome: string }
   }[]
   clube_agentes?: AgenteClubeVinculo[]
+  // join reverso: nome do Super Agente vinculado
+  // query: .select('*, superagente:agentes!superagente_id(id, nome)')
+  superagente?: { id: string; nome: string } | null
 }
 
 export type AgenteForm = {
   nome: string
   email: string | null
   telefone: string | null
+  superagente_id: string | null
 }
 
 export type AgentePlataforma = {

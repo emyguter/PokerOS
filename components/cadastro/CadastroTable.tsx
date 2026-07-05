@@ -9,6 +9,7 @@ export function CadastroTable({ columns, data, loading, onEdit, onDelete }: Prop
   if (data.length === 0) return <div className="rounded-xl border border-white/10 p-8 text-center text-gray-500 text-sm">Nenhum registro. Clique em "Novo" para adicionar.</div>
   return (
     <div className="rounded-xl border border-white/10 overflow-hidden">
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-white/10 bg-surface2">
@@ -30,6 +31,7 @@ export function CadastroTable({ columns, data, loading, onEdit, onDelete }: Prop
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

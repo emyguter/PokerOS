@@ -1,11 +1,12 @@
 import Link from 'next/link'
-import { Trophy, Shield, Users, Bot, Zap, User } from 'lucide-react'
+import { Trophy, Shield, Users, Bot, Zap, User, Crown } from 'lucide-react'
 
 const NAV = [
   { href: '/admin/cadastro/mega-ligas', label: 'Mega Ligas', icon: Zap, desc: 'Agrupa superligas' },
   { href: '/admin/cadastro/superligas', label: 'Superligas', icon: Trophy, desc: 'Grupos de ligas' },
   { href: '/admin/cadastro/ligas', label: 'Ligas', icon: Shield, desc: 'Clientes da plataforma' },
   { href: '/admin/cadastro/clubes', label: 'Clubes', icon: Users, desc: 'Com regras financeiras' },
+  { href: '/admin/cadastro/super-agentes', label: 'Super Agentes', icon: Crown, desc: 'Agentes de agentes' },
   { href: '/admin/cadastro/agentes', label: 'Agentes', icon: Bot, desc: 'Responsáveis por jogadores' },
   { href: '/admin/cadastro/jogadores', label: 'Jogadores', icon: User, desc: 'Vinculados a agente ou clube' },
 ]

@@ -301,3 +301,16 @@ export async function syncClubeAgentes(
   for (const clubeId of adicionados) await addAgenteToClube(clubeId, agenteId)
   for (const clubeId of removidos) await removeAgenteFromClube(clubeId, agenteId)
 }
+
+export async function syncSubAgentes(superAgenteId: string, agenteIds: string[], iniciais: string[]): Promise<void> {
+  const paraAdicionar = agenteIds.filter(id => !iniciais.includes(id))
+  const paraRemover = iniciais.filter(id => !agenteIds.includes(id))
+  if (paraAdicionar.length > 0) {
+    const { error } = await supabase.from('agentes').update({ superagente_id: superAgenteId }).in('id', paraAdicionar)
+    if (error) throw error
+  }
+  if (paraRemover.length > 0) {
+    const { error } = await supabase.from('agentes').update({ superagente_id: null }).in('id', paraRemover)
+    if (error) throw error
+  }
+}

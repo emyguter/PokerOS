@@ -684,7 +684,7 @@ export default function ImportacaoXlsx() {
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
           <div style={{ fontSize: 28, marginBottom: 10, color: "#C9A84C" }}>♦</div>
           <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, color: "#C9A84C", marginBottom: 4 }}>Arraste ou clique para selecionar</p>
-          <p style={{ fontSize: 12, color: "#5a5a52" }}>Apenas arquivos .xlsx</p>
+          <p style={{ fontSize: 12, color: "#5a5a52" }}>Um arquivo .xlsx por vez</p>
         </div>
 
         {step === "parsing" && (
