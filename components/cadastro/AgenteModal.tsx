@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, Loader2, Plus, Trash2, Search, AlertTriangle } from 'lucide-react'
 import type { Agente, AgenteForm, AgentePlataforma, Plataforma, ClubeVinculado } from '@/lib/types'
+import { formatIndicadorNome } from '@/lib/indicadores'
 import { supabase } from '@/lib/supabase'
 
 interface VinculoState extends AgentePlataforma {
@@ -450,7 +451,7 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
                                 {ti > 0 && <span className="text-gray-500 text-xs">+</span>}
                                 <select value={id} onChange={e => setTermo(i, ti, e.target.value)} className={`${inputCls} w-auto`}>
                                   <option value="">Indicador</option>
-                                  {indicadores.map(ind => <option key={ind.id} value={ind.id}>{ind.nome}</option>)}
+                                  {indicadores.map(ind => <option key={ind.id} value={ind.id}>{formatIndicadorNome(ind.nome, ind.descricao)}</option>)}
                                 </select>
                                 {c.indicador_ids.length > 1 && (
                                   <button type="button" onClick={() => removeTermo(i, ti)} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
@@ -476,7 +477,7 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
                     </button>
                     {!condicoes.some(c => c.is_fallback) && (
                       <button type="button" onClick={addFallback} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
-                        <Plus size={12} />SENÃO (fallback)
+                        <Plus size={12} />SENÃO (regra padrão)
                       </button>
                     )}
                   </div>
