@@ -80,16 +80,19 @@ export default function SuperAgentesPage() {
         let regraId: string
         if (existingRE) {
           regraId = existingRE.regra_id
-          await supabase.from('regra_condicoes').delete().eq('regra_id', regraId)
+          const { error: delErr } = await supabase.from('regra_condicoes').delete().eq('regra_id', regraId)
+          if (delErr) throw delErr
         } else {
-          const { data: novaRegra } = await supabase
+          const { data: novaRegra, error: regraErr } = await supabase
             .from('regras')
             .insert({ nome: `Rakeback — ${form.nome}` })
             .select().single()
-          regraId = novaRegra!.id
-          await supabase.from('regra_entidades').insert({ regra_id: regraId, entidade_tipo: 'agente', entidade_id: agenteId, prioridade: 0 })
+          if (regraErr) throw regraErr
+          regraId = novaRegra.id
+          const { error: reErr } = await supabase.from('regra_entidades').insert({ regra_id: regraId, entidade_tipo: 'agente', entidade_id: agenteId, prioridade: 0 })
+          if (reErr) throw reErr
         }
-        await supabase.from('regra_condicoes').insert(
+        const { error: condErr } = await supabase.from('regra_condicoes').insert(
           condicoes.map((c, i) => ({
             regra_id: regraId,
             ordem: i + 1,
@@ -100,10 +103,14 @@ export default function SuperAgentesPage() {
             is_fallback: c.is_fallback,
           }))
         )
+        if (condErr) throw condErr
       } else if (existingRE) {
-        await supabase.from('regra_condicoes').delete().eq('regra_id', existingRE.regra_id)
-        await supabase.from('regra_entidades').delete().eq('regra_id', existingRE.regra_id)
-        await supabase.from('regras').delete().eq('id', existingRE.regra_id)
+        const { error: delCondErr } = await supabase.from('regra_condicoes').delete().eq('regra_id', existingRE.regra_id)
+        if (delCondErr) throw delCondErr
+        const { error: delReErr } = await supabase.from('regra_entidades').delete().eq('regra_id', existingRE.regra_id)
+        if (delReErr) throw delReErr
+        const { error: delRegraErr } = await supabase.from('regras').delete().eq('id', existingRE.regra_id)
+        if (delRegraErr) throw delRegraErr
       }
 
       await load(); setModalOpen(false); setEditing(null)

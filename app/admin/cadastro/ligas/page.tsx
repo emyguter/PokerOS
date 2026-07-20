@@ -71,19 +71,22 @@ export default function LigasPage() {
         if (existingRE) {
           regraId = existingRE.regra_id
           // Limpa condições antigas
-          await supabase.from('regra_condicoes').delete().eq('regra_id', regraId)
+          const { error: delErr } = await supabase.from('regra_condicoes').delete().eq('regra_id', regraId)
+          if (delErr) throw delErr
         } else {
           // Cria regra nova
-          const { data: novaRegra } = await supabase
+          const { data: novaRegra, error: regraErr } = await supabase
             .from('regras')
             .insert({ nome: `Taxa App — ${form.name}`, moeda: form.moeda_acerto, conversao_dia: form.conversao_dia })
             .select().single()
-          regraId = novaRegra!.id
-          await supabase.from('regra_entidades').insert({ regra_id: regraId, entidade_tipo: 'liga', entidade_id: leagueId, prioridade: 1 })
+          if (regraErr) throw regraErr
+          regraId = novaRegra.id
+          const { error: reErr } = await supabase.from('regra_entidades').insert({ regra_id: regraId, entidade_tipo: 'liga', entidade_id: leagueId, prioridade: 1 })
+          if (reErr) throw reErr
         }
 
         // Insere condições
-        await supabase.from('regra_condicoes').insert(
+        const { error: condErr } = await supabase.from('regra_condicoes').insert(
           condicoes.map((c, i) => ({
             regra_id: regraId,
             ordem: i + 1,
@@ -94,6 +97,7 @@ export default function LigasPage() {
             is_fallback: c.is_fallback,
           }))
         )
+        if (condErr) throw condErr
       }
 
       await load(); setModalOpen(false); setEditing(null)
