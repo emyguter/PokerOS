@@ -156,9 +156,10 @@ export default function LigasPage() {
         editing={editing}
         superLeagues={superLeagues}
         plataformas={plataformas}
-        onClose={() => { setModalOpen(false); setEditing(null) }}
+        onClose={() => { setModalOpen(false); setEditing(null); setError(null) }}
         onSave={handleSave}
         saving={saving}
+        error={error}
       />
 
       <ConfirmDelete

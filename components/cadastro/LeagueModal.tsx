@@ -33,6 +33,7 @@ interface Props {
   onClose: () => void
   onSave: (form: LeagueForm, condicoes: Condicao[]) => void
   saving: boolean
+  error?: string | null
 }
 
 const EMPTY: LeagueForm = {
@@ -106,7 +107,7 @@ function IdNickRow({ idLabel, nickLabel, idValue, idPlaceholder, onIdChange, nic
   )
 }
 
-export function LeagueModal({ open, editing, superLeagues, plataformas, onClose, onSave, saving }: Props) {
+export function LeagueModal({ open, editing, superLeagues, plataformas, onClose, onSave, saving, error }: Props) {
   const [form, setForm] = useState<LeagueForm>(EMPTY)
   const [condicoes, setCondicoes] = useState<Condicao[]>([])
   const [indicadores, setIndicadores] = useState<Indicador[]>([])
@@ -346,6 +347,10 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
             </Sec>
 
           </div>
+
+          {error && (
+            <div className="shrink-0 mx-6 mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">{error}</div>
+          )}
 
           <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>

@@ -164,9 +164,10 @@ export default function SuperAgentesPage() {
         clubesVinculadosIniciais={clubesIniciais(editing)}
         subAgentesIniciais={editing ? subAgentesDe(editing.id) : []}
         plataformas={plataformas}
-        onClose={() => { setModalOpen(false); setEditing(null) }}
+        onClose={() => { setModalOpen(false); setEditing(null); setError(null) }}
         onSave={handleSave}
         saving={saving}
+        error={error}
       />
     </div>
   )

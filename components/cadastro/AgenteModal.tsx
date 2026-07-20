@@ -40,6 +40,7 @@ interface Props {
   onClose: () => void
   onSave: (form: AgenteForm, vinculos: AgentePlataforma[], clubeIds: string[], condicoes: Condicao[], subAgenteIds: string[]) => void
   saving: boolean
+  error?: string | null
 }
 
 const EMPTY: AgenteForm = { nome: '', email: null, telefone: null, superagente_id: null }
@@ -56,7 +57,7 @@ function Fld({ label, required, children }: { label: string; required?: boolean;
   return <div><label className="block text-sm font-medium text-gray-300 mb-1.5">{label}{required && <span className="text-gold ml-1">*</span>}</label>{children}</div>
 }
 
-export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosIniciais, subAgentesIniciais = [], plataformas, onClose, onSave, saving }: Props) {
+export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosIniciais, subAgentesIniciais = [], plataformas, onClose, onSave, saving, error }: Props) {
   const [form, setForm] = useState<AgenteForm>(EMPTY)
   const [vinculos, setVinculos] = useState<VinculoState[]>([])
   const timers = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
@@ -486,6 +487,9 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
             </Sec>
 
           </div>
+          {error && (
+            <div className="shrink-0 mx-6 mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">{error}</div>
+          )}
           <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
             <button type="submit" disabled={saving || !podeSalvar} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">

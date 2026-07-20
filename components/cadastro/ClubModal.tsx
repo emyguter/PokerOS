@@ -24,6 +24,7 @@ interface Props {
   onClose: () => void
   onSave: (form: ClubForm, condicoes: Condicao[]) => void
   saving: boolean
+  error?: string | null
 }
 
 const EMPTY: ClubForm = {
@@ -85,7 +86,7 @@ function NumInput({ value, onChange, placeholder }: { value: number | null; onCh
   return <input type="number" step="any" value={value ?? ''} onChange={e => onChange(e.target.value === '' ? null : Number(e.target.value))} placeholder={placeholder} className={inputCls} />
 }
 
-export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave, saving }: Props) {
+export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave, saving, error }: Props) {
   const [form, setForm] = useState<ClubForm>(EMPTY)
   const [adv, setAdv] = useState(false)
   const [indicacoes, setIndicacoes] = useState<{ club_id: string; taxa: string }[]>([])
@@ -477,6 +478,9 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               )}
             </div>
           </div>
+          {error && (
+            <div className="shrink-0 mx-6 mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">{error}</div>
+          )}
           <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
             <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
