@@ -6,7 +6,7 @@ import { MOEDAS } from '@/lib/moedas'
 import { supabase } from '@/lib/supabase'
 
 interface Condicao {
-  indicador_id: string
+  indicador_ids: string[]
   operador: string
   valor: number | null
   resultado_pct: number | null
@@ -14,6 +14,15 @@ interface Condicao {
 }
 
 interface Indicador { id: string; nome: string; descricao: string | null }
+
+type CondicaoRow = {
+  operador: string
+  valor: number | null
+  resultado_pct: number | null
+  is_fallback: boolean
+  indicador_id?: string | null
+  regra_condicao_termos?: { indicador_id: string; ordem: number }[]
+}
 
 interface Props {
   open: boolean
@@ -31,7 +40,7 @@ const EMPTY: LeagueForm = {
   operador_ext_id: null, operador_nickname: null, moeda_acerto: 'BRL', conversao_dia: false
 }
 
-const EMPTY_COND: Condicao = { indicador_id: '', operador: '>', valor: null, resultado_pct: null, is_fallback: false }
+const EMPTY_COND: Condicao = { indicador_ids: [''], operador: '>', valor: null, resultado_pct: null, is_fallback: false }
 
 const inputCls = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20'
 const inputLockedCls = 'w-full bg-surface/50 border border-white/5 rounded-lg px-3 py-2.5 text-gray-400 text-sm cursor-not-allowed'
@@ -132,20 +141,23 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
       setUsuarioLocked(!!editing.operador_nickname)
 
       supabase.from('regra_entidades')
-        .select('regra_id, regras(id, moeda, conversao_dia, regra_condicoes(*))')
+        .select('regra_id, regras(id, moeda, conversao_dia, regra_condicoes(*, regra_condicao_termos(indicador_id, ordem)))')
         .eq('entidade_tipo', 'liga')
         .eq('entidade_id', editing.id)
         .maybeSingle()
         .then(({ data }) => {
           if (data?.regras) {
             const r = data.regras as any
-            setCondicoes((r.regra_condicoes ?? []).map((c: any) => ({
-              indicador_id: c.indicador_id ?? '',
-              operador: c.operador,
-              valor: c.valor,
-              resultado_pct: c.resultado_pct,
-              is_fallback: c.is_fallback,
-            })))
+            setCondicoes((r.regra_condicoes ?? []).map((c: CondicaoRow) => {
+              const termos = (c.regra_condicao_termos ?? []).slice().sort((a, b) => a.ordem - b.ordem)
+              return {
+                indicador_ids: termos.length > 0 ? termos.map((t) => t.indicador_id) : [c.indicador_id ?? ''],
+                operador: c.operador,
+                valor: c.valor,
+                resultado_pct: c.resultado_pct,
+                is_fallback: c.is_fallback,
+              }
+            }))
           } else setCondicoes([])
         })
     } else {
@@ -202,6 +214,9 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
   }
   const removeCondicao = (i: number) => setCondicoes(c => c.filter((_, j) => j !== i))
   const setCondicao = (i: number, k: keyof Condicao, v: any) => setCondicoes(c => c.map((item, j) => j === i ? { ...item, [k]: v } : item))
+  const setTermo = (i: number, ti: number, v: string) => setCondicoes(c => c.map((item, j) => j === i ? { ...item, indicador_ids: item.indicador_ids.map((id, tj) => tj === ti ? v : id) } : item))
+  const addTermo = (i: number) => setCondicoes(c => c.map((item, j) => j === i ? { ...item, indicador_ids: [...item.indicador_ids, ''] } : item))
+  const removeTermo = (i: number, ti: number) => setCondicoes(c => c.map((item, j) => j === i ? { ...item, indicador_ids: item.indicador_ids.filter((_, tj) => tj !== ti) } : item))
 
   const slOptions = [{ value: '', label: '— Nenhuma —' }, ...superLeagues.map(sl => ({ value: sl.id, label: sl.name }))]
 
@@ -289,16 +304,29 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
                       <button type="button" onClick={() => removeCondicao(i)} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
                     </div>
                     {!c.is_fallback && (
-                      <div className="grid grid-cols-3 gap-2">
-                        <select value={c.indicador_id} onChange={e => setCondicao(i, 'indicador_id', e.target.value)} className={inputCls}>
-                          <option value="">Indicador</option>
-                          {indicadores.map(ind => <option key={ind.id} value={ind.id}>{ind.nome}</option>)}
-                        </select>
-                        <select value={c.operador} onChange={e => setCondicao(i, 'operador', e.target.value)} className={inputCls}>
-                          {['>', '>=', '<', '<=', '='].map(op => <option key={op} value={op}>{op}</option>)}
-                        </select>
-                        <input type="number" step="any" value={c.valor ?? ''} onChange={e => setCondicao(i, 'valor', e.target.value === '' ? null : Number(e.target.value))} placeholder="Valor" className={inputCls} />
-                      </div>
+                      <>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {c.indicador_ids.map((id, ti) => (
+                            <div key={ti} className="flex items-center gap-1">
+                              {ti > 0 && <span className="text-gray-500 text-xs">+</span>}
+                              <select value={id} onChange={e => setTermo(i, ti, e.target.value)} className={`${inputCls} w-auto`}>
+                                <option value="">Indicador</option>
+                                {indicadores.map(ind => <option key={ind.id} value={ind.id}>{ind.nome}</option>)}
+                              </select>
+                              {c.indicador_ids.length > 1 && (
+                                <button type="button" onClick={() => removeTermo(i, ti)} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
+                              )}
+                            </div>
+                          ))}
+                          <button type="button" onClick={() => addTermo(i)} className="text-gold text-xs hover:underline">+ variável</button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <select value={c.operador} onChange={e => setCondicao(i, 'operador', e.target.value)} className={inputCls}>
+                            {['>', '>=', '<', '<=', '='].map(op => <option key={op} value={op}>{op}</option>)}
+                          </select>
+                          <input type="number" step="any" value={c.valor ?? ''} onChange={e => setCondicao(i, 'valor', e.target.value === '' ? null : Number(e.target.value))} placeholder="Valor" className={inputCls} />
+                        </div>
+                      </>
                     )}
                     <input type="number" step="any" value={c.resultado_pct ?? ''} onChange={e => setCondicao(i, 'resultado_pct', e.target.value === '' ? null : Number(e.target.value))} placeholder="Resultado (%)" className={inputCls} />
                   </div>

@@ -9,7 +9,7 @@ import { Plus, Filter } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 interface Condicao {
-  indicador_id: string
+  indicador_ids: string[]
   operador: string
   valor: number | null
   resultado_pct: number | null
@@ -86,18 +86,27 @@ export default function ClubesPage() {
             if (reErr) throw reErr
           }
 
-          const { error: condErr } = await supabase.from('regra_condicoes').insert(
+          const { data: condRows, error: condErr } = await supabase.from('regra_condicoes').insert(
             condicoes.map((c, i) => ({
               regra_id: regraId,
               ordem: i + 1,
-              indicador_id: c.indicador_id || null,
               operador: c.is_fallback ? '>=' : c.operador,
               valor: c.is_fallback ? 0 : c.valor,
               resultado_pct: c.resultado_pct,
               is_fallback: c.is_fallback,
             }))
-          )
+          ).select('id')
           if (condErr) throw condErr
+
+          const termos = condicoes.flatMap((c, i) =>
+            c.is_fallback ? [] : c.indicador_ids
+              .filter(Boolean)
+              .map((indicadorId, ti) => ({ regra_condicao_id: condRows[i].id, indicador_id: indicadorId, ordem: ti + 1 }))
+          )
+          if (termos.length > 0) {
+            const { error: termosErr } = await supabase.from('regra_condicao_termos').insert(termos)
+            if (termosErr) throw termosErr
+          }
         }
       }
 

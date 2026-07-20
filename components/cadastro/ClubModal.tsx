@@ -6,7 +6,7 @@ import { MOEDAS } from '@/lib/moedas'
 import { supabase } from '@/lib/supabase'
 
 interface Condicao {
-  indicador_id: string
+  indicador_ids: string[]
   operador: string
   valor: number | null
   resultado_pct: number | null
@@ -34,10 +34,30 @@ const EMPTY: ClubForm = {
   plataforma_id: null, operador_ext_id: null, operador_nickname: null, rebate_ativo: false,
 }
 
-const EMPTY_COND: Condicao = { indicador_id: '', operador: '>', valor: null, resultado_pct: null, is_fallback: false }
+const EMPTY_COND: Condicao = { indicador_ids: [''], operador: '>', valor: null, resultado_pct: null, is_fallback: false }
 
 const inputCls = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20'
 const inputLockedCls = 'w-full bg-surface/50 border border-white/5 rounded-lg px-3 py-2.5 text-gray-400 text-sm cursor-not-allowed'
+
+type CondicaoRow = {
+  operador: string
+  valor: number | null
+  resultado_pct: number | null
+  is_fallback: boolean
+  indicador_id?: string | null
+  regra_condicao_termos?: { indicador_id: string; ordem: number }[]
+}
+
+function mapCondicao(c: CondicaoRow): Condicao {
+  const termos = (c.regra_condicao_termos ?? []).slice().sort((a, b) => a.ordem - b.ordem)
+  return {
+    indicador_ids: termos.length > 0 ? termos.map((t) => t.indicador_id) : [c.indicador_id ?? ''],
+    operador: c.operador,
+    valor: c.valor,
+    resultado_pct: c.resultado_pct,
+    is_fallback: c.is_fallback,
+  }
+}
 
 function toForm(c: Club): ClubForm {
   return {
@@ -102,17 +122,14 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
 
     if (editing) {
       supabase.from('regra_entidades')
-        .select('regra_id, regras(id, nome, moeda, conversao_dia, regra_condicoes(*))')
+        .select('regra_id, regras(id, nome, moeda, conversao_dia, regra_condicoes(*, regra_condicao_termos(indicador_id, ordem)))')
         .eq('entidade_tipo', 'clube')
         .eq('entidade_id', editing.id)
         .maybeSingle()
         .then(({ data }) => {
           if (data?.regras) {
             const r = data.regras as any
-            setCondicoes((r.regra_condicoes ?? []).map((c: any) => ({
-              indicador_id: c.indicador_id ?? '', operador: c.operador, valor: c.valor,
-              resultado_pct: c.resultado_pct, is_fallback: c.is_fallback,
-            })))
+            setCondicoes((r.regra_condicoes ?? []).map((c: CondicaoRow) => mapCondicao(c)))
           } else setCondicoes([])
         })
     } else {
@@ -125,7 +142,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     const liga = leagues.find(l => l.id === form.league_id)
     if (!liga) { setLigaRegraLeitura(null); return }
     supabase.from('regra_entidades')
-      .select('regra_id, regras(id, nome, regra_condicoes(*))')
+      .select('regra_id, regras(id, nome, regra_condicoes(*, regra_condicao_termos(indicador_id, ordem)))')
       .eq('entidade_tipo', 'liga')
       .eq('entidade_id', form.league_id)
       .maybeSingle()
@@ -134,10 +151,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
           const r = data.regras as any
           setLigaRegraLeitura({
             nome: liga.name,
-            condicoes: (r.regra_condicoes ?? []).map((c: any) => ({
-              indicador_id: c.indicador_id ?? '', operador: c.operador, valor: c.valor,
-              resultado_pct: c.resultado_pct, is_fallback: c.is_fallback,
-            }))
+            condicoes: (r.regra_condicoes ?? []).map((c: CondicaoRow) => mapCondicao(c)),
           })
         } else {
           setLigaRegraLeitura({ nome: liga.name, condicoes: [] })
@@ -208,6 +222,10 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   const addFallback = () => { if (condicoes.some(c => c.is_fallback)) return; setCondicoes(c => [...c, { ...EMPTY_COND, is_fallback: true, operador: '>=' }]) }
   const removeCondicao = (i: number) => setCondicoes(c => c.filter((_, j) => j !== i))
   const setCondicao = (i: number, k: keyof Condicao, v: any) => setCondicoes(c => c.map((item, j) => j === i ? { ...item, [k]: v } : item))
+  const setTermo = (i: number, ti: number, v: string) => setCondicoes(c => c.map((item, j) => j === i ? { ...item, indicador_ids: item.indicador_ids.map((id, tj) => tj === ti ? v : id) } : item))
+  const addTermo = (i: number) => setCondicoes(c => c.map((item, j) => j === i ? { ...item, indicador_ids: [...item.indicador_ids, ''] } : item))
+  const removeTermo = (i: number, ti: number) => setCondicoes(c => c.map((item, j) => j === i ? { ...item, indicador_ids: item.indicador_ids.filter((_, tj) => tj !== ti) } : item))
+  const nomeIndicador = (id: string) => indicadores.find(ind => ind.id === id)?.nome ?? '?'
 
   // Bloco reutilizável da Fórmula de Ajuste (SE/ENTÃO)
   const formulaAjuste = (
@@ -225,7 +243,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                 <div key={i} className="text-xs text-gray-400 bg-surface px-3 py-2 rounded border border-white/5">
                   {c.is_fallback
                     ? <>SENÃO → <span className="text-gold">{c.resultado_pct}%</span></>
-                    : <>SE indicador {c.operador} {c.valor} → <span className="text-gold">{c.resultado_pct}%</span></>
+                    : <>SE {c.indicador_ids.map(nomeIndicador).join(' + ')} {c.operador} {c.valor} → <span className="text-gold">{c.resultado_pct}%</span></>
                   }
                 </div>
               ))}
@@ -244,10 +262,21 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               </div>
               {!c.is_fallback && (
                 <>
-                  <select value={c.indicador_id} onChange={e => setCondicao(i, 'indicador_id', e.target.value)} className={inputCls}>
-                    <option value="">Indicador</option>
-                    {indicadores.map(ind => <option key={ind.id} value={ind.id}>{ind.nome}</option>)}
-                  </select>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {c.indicador_ids.map((id, ti) => (
+                      <div key={ti} className="flex items-center gap-1">
+                        {ti > 0 && <span className="text-gray-500 text-xs">+</span>}
+                        <select value={id} onChange={e => setTermo(i, ti, e.target.value)} className={`${inputCls} w-auto`}>
+                          <option value="">Indicador</option>
+                          {indicadores.map(ind => <option key={ind.id} value={ind.id}>{ind.nome}</option>)}
+                        </select>
+                        {c.indicador_ids.length > 1 && (
+                          <button type="button" onClick={() => removeTermo(i, ti)} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
+                        )}
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => addTermo(i)} className="text-gold text-xs hover:underline">+ variável</button>
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     <select value={c.operador} onChange={e => setCondicao(i, 'operador', e.target.value)} className={inputCls}>
                       {['>', '>=', '<', '<='].map(op => <option key={op} value={op}>{op}</option>)}
