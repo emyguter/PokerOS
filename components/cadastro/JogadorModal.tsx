@@ -32,7 +32,7 @@ export function JogadorModal({ open, editing, plataformas, onClose, onSave, savi
   const [nomeLocked, setNomeLocked] = useState(false)
   const [searching, setSearching] = useState(false)
   const [naoEncontrado, setNaoEncontrado] = useState(false)
-  const [conflito, setConflito] = useState<string | null>(null)
+  const [conflito, setConflito] = useState<{ id: string; nome: string } | null>(null)
   const [clubesJogados, setClubesJogados] = useState<ClubeJogado[]>([])
   const [carregandoClubes, setCarregandoClubes] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -44,13 +44,16 @@ export function JogadorModal({ open, editing, plataformas, onClose, onSave, savi
     setConflito(null)
   }, [editing, open])
 
+  // Mostra os clubes do jogador sendo editado, ou do jogador conflitante (mesmo ID já cadastrado noutro jogador)
+  const jogadorIdParaClubes = editing?.id ?? conflito?.id ?? null
+
   useEffect(() => {
-    if (!open || !editing) { setClubesJogados([]); return }
+    if (!open || !jogadorIdParaClubes) { setClubesJogados([]); return }
     setCarregandoClubes(true)
     supabase
       .from('clube_jogadores')
       .select('clubs(id, name, external_id)')
-      .eq('jogador_id', editing.id)
+      .eq('jogador_id', jogadorIdParaClubes)
       .then(({ data }) => {
         setClubesJogados(
           (data ?? [])
@@ -59,7 +62,7 @@ export function JogadorModal({ open, editing, plataformas, onClose, onSave, savi
         )
         setCarregandoClubes(false)
       })
-  }, [editing, open])
+  }, [jogadorIdParaClubes, open])
 
   if (!open) return null
 
@@ -82,7 +85,7 @@ export function JogadorModal({ open, editing, plataformas, onClose, onSave, savi
         if (data) {
           const ehOutroJogador = editing ? data.id !== editing.id : true
           if (ehOutroJogador) {
-            setConflito(data.nome)
+            setConflito({ id: data.id, nome: data.nome })
             setNomeLocked(false)
           } else {
             set('nome', data.nome)
@@ -153,7 +156,7 @@ export function JogadorModal({ open, editing, plataformas, onClose, onSave, savi
                 )}
                 {conflito && (
                   <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1.5">
-                    <AlertTriangle size={12} />Esse ID já pertence a {conflito}. Edite o jogador existente em vez de criar outro.
+                    <AlertTriangle size={12} />Esse ID já pertence a {conflito.nome}. Edite o jogador existente em vez de criar outro.
                   </p>
                 )}
               </Fld>
@@ -162,8 +165,8 @@ export function JogadorModal({ open, editing, plataformas, onClose, onSave, savi
               </Fld>
             </Sec>
 
-            {editing && (
-              <Sec title="Clubes onde já jogou">
+            {jogadorIdParaClubes && (
+              <Sec title={conflito ? `Clubes onde ${conflito.nome} já jogou` : 'Clubes onde já jogou'}>
                 {carregandoClubes ? (
                   <div className="flex items-center gap-2 text-xs text-gray-500">
                     <Loader2 size={13} className="animate-spin" />Carregando...
