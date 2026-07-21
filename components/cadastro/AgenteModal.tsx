@@ -264,7 +264,11 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-2xl mx-4 shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
-          <h2 className="text-lg font-semibold text-white">{editing ? 'Editar Agente' : 'Novo Agente'}</h2>
+          <h2 className="text-lg font-semibold text-white">
+            {esconderSuperAgente
+              ? (editing ? 'Editar Super Agente' : 'Novo Super Agente')
+              : (editing ? 'Editar Agente' : 'Novo Agente')}
+          </h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><X size={18} /></button>
         </div>
         <form onSubmit={e => { e.preventDefault(); if (podeSalvar) onSave(form, vinculos, clubesSelecionados.map(c => c.id), condicoesFinais(), subAgentes.map(a => a.id)) }} className="flex flex-col flex-1 min-h-0">
@@ -496,7 +500,7 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
           <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
             <button type="submit" disabled={saving || !podeSalvar} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
-              {saving && <Loader2 size={14} className="animate-spin" />}Salvar Agente
+              {saving && <Loader2 size={14} className="animate-spin" />}Salvar {esconderSuperAgente ? 'Super Agente' : 'Agente'}
             </button>
           </div>
         </form>

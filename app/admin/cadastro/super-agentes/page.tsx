@@ -135,7 +135,7 @@ export default function SuperAgentesPage() {
           <p className="text-sm text-gray-400 mt-1">Agentes que têm outros agentes vinculados abaixo</p>
         </div>
         <button onClick={() => { setEditing(null); setModalOpen(true) }} className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors">
-          <Plus size={16} />Novo Agente
+          <Plus size={16} />Novo Super Agente
         </button>
       </div>
 
