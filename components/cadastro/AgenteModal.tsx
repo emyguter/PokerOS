@@ -41,6 +41,7 @@ interface Props {
   onSave: (form: AgenteForm, vinculos: AgentePlataforma[], clubeIds: string[], condicoes: Condicao[], subAgenteIds: string[]) => void
   saving: boolean
   error?: string | null
+  esconderSuperAgente?: boolean
 }
 
 const EMPTY: AgenteForm = { nome: '', email: null, telefone: null, superagente_id: null }
@@ -57,7 +58,7 @@ function Fld({ label, required, children }: { label: string; required?: boolean;
   return <div><label className="block text-sm font-medium text-gray-300 mb-1.5">{label}{required && <span className="text-gold ml-1">*</span>}</label>{children}</div>
 }
 
-export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosIniciais, subAgentesIniciais = [], plataformas, onClose, onSave, saving, error }: Props) {
+export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosIniciais, subAgentesIniciais = [], plataformas, onClose, onSave, saving, error, esconderSuperAgente }: Props) {
   const [form, setForm] = useState<AgenteForm>(EMPTY)
   const [vinculos, setVinculos] = useState<VinculoState[]>([])
   const timers = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
@@ -283,15 +284,17 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
               </div>
             </Sec>
 
-            <Sec title="Hierarquia">
-              <Fld label="Super Agente">
-                <select value={form.superagente_id ?? ''} onChange={e => set('superagente_id', e.target.value || null)} className={inputCls}>
-                  <option value="">— Nenhum (agente direto) —</option>
-                  {agentesDisponiveis.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
-                </select>
-                <p className="text-xs text-gray-500 mt-1.5">Se esse agente responde a um Super Agente, selecione acima. Deixe em branco se ele é direto.</p>
-              </Fld>
-            </Sec>
+            {!esconderSuperAgente && (
+              <Sec title="Hierarquia">
+                <Fld label="Super Agente">
+                  <select value={form.superagente_id ?? ''} onChange={e => set('superagente_id', e.target.value || null)} className={inputCls}>
+                    <option value="">— Nenhum (agente direto) —</option>
+                    {agentesDisponiveis.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1.5">Se esse agente responde a um Super Agente, selecione acima. Deixe em branco se ele é direto.</p>
+                </Fld>
+              </Sec>
+            )}
 
             <Sec title="Agentes Vinculados">
               <p className="text-xs text-gray-500">Agentes que respondem a este. Se adicionar alguém aqui, este agente vira um Super Agente.</p>

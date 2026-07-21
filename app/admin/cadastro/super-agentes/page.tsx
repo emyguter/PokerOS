@@ -167,6 +167,7 @@ export default function SuperAgentesPage() {
         onClose={() => { setModalOpen(false); setEditing(null); setError(null) }}
         onSave={handleSave}
         saving={saving}
+        esconderSuperAgente
         error={error}
       />
     </div>
