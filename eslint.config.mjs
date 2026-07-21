@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Edge Functions rodam em Deno, não Node/browser — ESLint do Next não entende esse runtime.
+    "supabase/functions/**",
   ]),
 ]);
 

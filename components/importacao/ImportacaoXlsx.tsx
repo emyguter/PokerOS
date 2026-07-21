@@ -56,6 +56,8 @@ interface ImportRecord {
   period_start: string;
   period_end: string;
   status: string;
+  harmonization_status: string;
+  harmonization_error: string | null;
   error_message: string | null;
   created_at: string;
   league_id: string | null;
@@ -70,7 +72,7 @@ interface ImportError {
   acao?: string;
 }
 
-type UploadStep = "idle" | "parsing" | "parsed" | "confirm_platform" | "saving" | "done" | "error";
+type UploadStep = "idle" | "parsing" | "parsed" | "confirm_platform" | "saving" | "sent" | "done" | "error";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -371,133 +373,10 @@ function formatError(err: unknown): ImportError {
   return { titulo: "Erro inesperado", detalhe: msg, acao: "Se o problema persistir, contate o suporte." };
 }
 
-// ─── Upsert de jogadores/agentes pós-import ───────────────────────────────────
-
-async function processarJogadores(
-  importId: string,
-  plataformaId: string,
-  jogadores: JogadorRow[]
-): Promise<{ ok: number; erros: string[] }> {
-  let ok = 0;
-  const erros: string[] = [];
-
-  for (const j of jogadores) {
-    try {
-      // 1. Upsert superagente (se existir)
-      let superagenteId: string | null = null;
-      if (j.superagente_id_ext) {
-        const { data: sa } = await supabase
-          .from("agentes")
-          .upsert(
-            { nome: j.superagente_nome || j.superagente_id_ext, external_id: j.superagente_id_ext, plataforma_id: plataformaId },
-            { onConflict: "external_id,plataforma_id", ignoreDuplicates: false }
-          )
-          .select("id")
-          .single();
-        if (sa) {
-          superagenteId = sa.id;
-          // upsert em agente_plataformas
-          await supabase.from("agente_plataformas").upsert(
-            { agente_id: sa.id, plataforma_id: plataformaId, external_id: j.superagente_id_ext, nickname: j.superagente_nome || null },
-            { onConflict: "plataforma_id,external_id", ignoreDuplicates: false }
-          );
-        }
-      }
-
-      // 2. Upsert agente (se existir)
-      let agenteId: string | null = null;
-      if (j.agente_id_ext) {
-        const { data: ag } = await supabase
-          .from("agentes")
-          .upsert(
-            { nome: j.agente_nome || j.agente_id_ext, external_id: j.agente_id_ext, plataforma_id: plataformaId, superagente_id: superagenteId },
-            { onConflict: "external_id,plataforma_id", ignoreDuplicates: false }
-          )
-          .select("id")
-          .single();
-        if (ag) {
-          agenteId = ag.id;
-          // upsert em agente_plataformas
-          await supabase.from("agente_plataformas").upsert(
-            { agente_id: ag.id, plataforma_id: plataformaId, external_id: j.agente_id_ext, nickname: j.agente_nome || null },
-            { onConflict: "plataforma_id,external_id", ignoreDuplicates: false }
-          );
-          // vínculo superagente → agente
-          if (superagenteId) {
-            await supabase.from("clube_agentes").upsert(
-              { clube_id: (await getOrNullClube(j.clube_id_ext)), agente_id: superagenteId },
-              { onConflict: "clube_id,agente_id", ignoreDuplicates: true }
-            );
-          }
-        }
-      }
-
-      // 3. Upsert jogador
-      const nomeJogador = j.jogador_memo || j.jogador_apelido || j.jogador_id_ext;
-      const { data: jog } = await supabase
-        .from("jogadores")
-        .upsert(
-          { nome: nomeJogador, external_id: j.jogador_id_ext, plataforma_id: plataformaId },
-          { onConflict: "external_id,plataforma_id", ignoreDuplicates: false }
-        )
-        .select("id")
-        .single();
-
-      if (!jog) continue;
-
-      // 4. Busca clube pelo external_id
-      const clubeId = await getOrNullClube(j.clube_id_ext);
-
-      // 5. Vínculo agente → jogador
-      if (agenteId) {
-        await supabase.from("agente_jogadores").upsert(
-          { agente_id: agenteId, jogador_id: jog.id },
-          { onConflict: "agente_id,jogador_id", ignoreDuplicates: true }
-        );
-      }
-
-      // 6. Vínculo clube → jogador
-      if (clubeId) {
-        await supabase.from("clube_jogadores").upsert(
-          { clube_id: clubeId, jogador_id: jog.id },
-          { onConflict: "clube_id,jogador_id", ignoreDuplicates: true }
-        );
-        // vínculo clube → agente
-        if (agenteId) {
-          await supabase.from("clube_agentes").upsert(
-            { clube_id: clubeId, agente_id: agenteId },
-            { onConflict: "clube_id,agente_id", ignoreDuplicates: true }
-          );
-        }
-      }
-
-      // 7. import_jogadores
-      await supabase.from("import_jogadores").upsert(
-        {
-          import_id: importId,
-          jogador_id: jog.id,
-          clube_id: clubeId,
-          agente_id: agenteId,
-          player_result: j.player_result,
-          rake_total: j.rake_clube,
-        },
-        { onConflict: "import_id,jogador_id", ignoreDuplicates: false }
-      );
-
-      ok++;
-    } catch (e) {
-      erros.push(`Jogador ${j.jogador_id_ext}: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-
-  return { ok, erros };
-}
-
-async function getOrNullClube(externalId: string): Promise<string | null> {
-  if (!externalId) return null;
-  const { data } = await supabase.from("clubs").select("id").eq("external_id", externalId).maybeSingle();
-  return data?.id ?? null;
-}
+// A cascata de upsert de jogadores/agentes/clubes (que antes rodava aqui,
+// no navegador) agora roda em `supabase/functions/harmonizar-import`,
+// disparada por um Database Webhook assim que a linha cai em `bronze_rows`.
+// Ver esse arquivo pra lógica completa.
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 
@@ -516,10 +395,40 @@ export default function ImportacaoXlsx() {
   const [newPlatformName, setNewPlatformName] = useState("");
   const [selectedExistingPlatform, setSelectedExistingPlatform] = useState("");
   const [resolvedPlatformId, setResolvedPlatformId] = useState<string | null>(null);
+  const [importingId, setImportingId] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadPlataformas(); loadHistory(); }, []);
+
+  // Acompanha ao vivo o status da harmonização — nunca deixa o usuário
+  // sem saber se deu certo ou não.
+  useEffect(() => {
+    if (!importingId) return;
+    const channel = supabase
+      .channel(`import-status-${importingId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "imports", filter: `id=eq.${importingId}` },
+        (payload) => {
+          const row = payload.new as { harmonization_status: string; harmonization_error: string | null; jogadores_ok: number | null };
+          if (row.harmonization_status === "harmonizado") {
+            setStep("done");
+            setImportError(row.harmonization_error ? { titulo: "Concluído com avisos", detalhe: row.harmonization_error } : null);
+            setJogadorStats(row.jogadores_ok != null ? { ok: row.jogadores_ok, erros: [] } : null);
+            setImportingId(null);
+            loadHistory();
+          } else if (row.harmonization_status === "erro") {
+            setStep("error");
+            setImportError({ titulo: "Erro ao processar", detalhe: row.harmonization_error ?? "Erro desconhecido durante a harmonização." });
+            setImportingId(null);
+            loadHistory();
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [importingId]);
 
   async function loadPlataformas() {
     const { data } = await supabase.from("plataformas").select("id, nome, moeda").order("nome");
@@ -573,6 +482,8 @@ export default function ImportacaoXlsx() {
         leagueId = existing?.id ?? null;
       }
 
+      // 1) Registra a importação — nasce "pendente" de harmonização, nada
+      // foi escrito ainda nas tabelas normalizadas.
       const { data: importData, error: importErr } = await supabase
         .from("imports")
         .insert({
@@ -583,51 +494,39 @@ export default function ImportacaoXlsx() {
           period_start: parsed.period_start || null,
           period_end: parsed.period_end || null,
           status: "processing",
+          harmonization_status: "pendente",
           uploaded_by: "admin",
         })
         .select().single();
 
       if (importErr) throw { titulo: "Erro ao registrar importação", detalhe: importErr.message };
 
-      // Salva import_rows (por clube)
-      const { error: rowsErr } = await supabase.from("import_rows").insert(
-        parsed.rows.map(row => ({
-          import_id: importData.id,
-          club_name: row.club_name,
-          club_external_id: row.club_external_id,
-          rake_total: row.rake_total,
-          rake_mtt: row.rake_mtt,
-          rake_cash: row.rake_cash,
-          rake_spinup: row.rake_spinup,
-          fee_total: row.fee_total,
-          player_result: row.player_result,
-          agente_nome: row.agente_nome || null,
-          agente_id_ext: row.agente_id_ext || null,
-          superagente_nome: row.superagente_nome || null,
-          superagente_id_ext: row.superagente_id_ext || null,
-          raw_data: row.raw_data,
-        }))
-      );
+      // 2) Sobe o arquivo original pro Storage (guardado só por alguns dias,
+      // suficiente pra reprocessar se algo mudar na harmonização).
+      const storagePath = `${importData.id}/${file.name}`;
+      const { error: uploadErr } = await supabase.storage.from("bronze-uploads").upload(storagePath, file, { upsert: true });
+      if (uploadErr) throw { titulo: "Erro ao guardar o arquivo original", detalhe: uploadErr.message };
+      await supabase.from("imports").update({ storage_path: storagePath }).eq("id", importData.id);
 
-      if (rowsErr) throw { titulo: "Erro ao salvar linhas", detalhe: rowsErr.message };
+      // 3) Grava o payload cru na bronze. Isso dispara o Database Webhook
+      // que chama a Edge Function `harmonizar-import` — a partir daqui o
+      // processamento roda sozinho, em segundo plano.
+      const { error: bronzeErr } = await supabase.from("bronze_rows").insert({
+        import_id: importData.id,
+        payload: { plataforma: parsed.plataforma, rows: parsed.rows, jogadores: parsed.jogadores },
+      });
+      if (bronzeErr) throw { titulo: "Erro ao registrar dados brutos", detalhe: bronzeErr.message };
 
-      // Processa jogadores (upsert cascata)
-      let stats = { ok: 0, erros: [] as string[] };
-      if (parsed.jogadores.length > 0) {
-        stats = await processarJogadores(importData.id, resolvedPlatformId, parsed.jogadores);
-        setJogadorStats(stats);
-      }
-
-      await supabase.from("imports").update({ status: "done" }).eq("id", importData.id);
-
-      setStep("done");
+      setJogadorStats(null);
+      setStep("sent");
+      setImportingId(importData.id);
       setParsed(null); setFile(null); setResolvedPlatformId(null);
       await loadHistory();
     } catch (err) { setImportError(formatError(err)); setStep("error"); }
   }
 
   function reset() {
-    setStep("idle"); setFile(null); setParsed(null); setImportError(null);
+    setStep("idle"); setFile(null); setParsed(null); setImportError(null); setImportingId(null);
     setResolvedPlatformId(null); setPlatformAction(null); setNewPlatformName(""); setSelectedExistingPlatform(""); setJogadorStats(null);
   }
 
@@ -760,13 +659,25 @@ export default function ImportacaoXlsx() {
 
         {step === "saving" && (
           <div className="card" style={{ padding: 14 }}>
-            <span style={{ color: "#C9A84C", fontSize: 13 }}>⏳ Salvando no banco...</span>
+            <span style={{ color: "#C9A84C", fontSize: 13 }}>⏳ Enviando arquivo...</span>
+          </div>
+        )}
+
+        {step === "sent" && (
+          <div className="card" style={{ padding: 16, borderColor: "#C9A84C" }}>
+            <p style={{ color: "#C9A84C", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>⏳ Arquivo recebido — processando em segundo plano</p>
+            <p style={{ color: "#7a7a70", fontSize: 12 }}>
+              Isso normalmente leva alguns segundos. Esta tela atualiza sozinha quando terminar — não precisa recarregar a página.
+            </p>
           </div>
         )}
 
         {step === "done" && (
-          <div className="card" style={{ padding: 16, borderColor: "#2a5a2a" }}>
-            <p style={{ color: "#7DC97D", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>✓ Importação concluída</p>
+          <div className="card" style={{ padding: 16, borderColor: importError ? "#5a4a20" : "#2a5a2a" }}>
+            <p style={{ color: importError ? "#C9A84C" : "#7DC97D", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
+              {importError ? "⚠ Concluído com avisos" : "✓ Importação concluída"}
+            </p>
+            {importError && <p style={{ color: "#7a7a70", fontSize: 12, marginBottom: 8 }}>{importError.detalhe}</p>}
             {jogadorStats && (
               <p style={{ color: "#5a5a52", fontSize: 12, marginBottom: 4 }}>
                 Jogadores: <span style={{ color: "#7DC97D" }}>{jogadorStats.ok} processados</span>
@@ -776,6 +687,7 @@ export default function ImportacaoXlsx() {
             {jogadorStats?.erros.map((e, i) => (
               <p key={i} style={{ color: "#E07070", fontSize: 11, marginTop: 2 }}>✗ {e}</p>
             ))}
+            <button className="btn-ghost" style={{ marginTop: 12 }} onClick={reset}>Importar outro arquivo</button>
           </div>
         )}
 
@@ -815,8 +727,11 @@ export default function ImportacaoXlsx() {
                     <td style={{ color: "#7a7a70" }}>{entry.plataformas?.nome ?? entry.app_source ?? "—"}</td>
                     <td style={{ color: "#7a7a70", fontSize: 12 }}>{entry.period_start ? `${entry.period_start} → ${entry.period_end}` : "—"}</td>
                     <td>
-                      <span className={`badge ${entry.status === "done" ? "badge-ok" : entry.status === "error" ? "badge-error" : "badge-processing"}`}>
-                        {entry.status === "done" ? "✓ OK" : entry.status === "error" ? "✗ Erro" : "⏳ " + entry.status}
+                      <span className={`badge ${entry.harmonization_status === "harmonizado" ? "badge-ok" : entry.harmonization_status === "erro" ? "badge-error" : "badge-processing"}`}>
+                        {entry.harmonization_status === "harmonizado" ? "✓ Harmonizado"
+                          : entry.harmonization_status === "erro" ? "✗ Erro"
+                          : entry.harmonization_status === "processando" ? "⏳ Processando"
+                          : "⏳ Pendente"}
                       </span>
                     </td>
                     <td style={{ fontSize: 12, color: "#7a7a70" }}>{new Date(entry.created_at).toLocaleString("pt-BR")}</td>
