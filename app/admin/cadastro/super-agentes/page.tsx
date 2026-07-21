@@ -140,7 +140,7 @@ export default function SuperAgentesPage() {
       </div>
 
       <p className="text-xs text-gray-500">
-        {superAgentes.length} super agente{superAgentes.length !== 1 ? 's' : ''} · Pra promover um Agente comum a Super Agente, vincule outro Agente a ele em "Sub-Agentes".
+        {superAgentes.length} super agente{superAgentes.length !== 1 ? 's' : ''} · Pra promover um Agente comum a Super Agente, vincule outro Agente a ele em "Agentes Vinculados".
       </p>
 
       {error && <div className="p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">{error}</div>}

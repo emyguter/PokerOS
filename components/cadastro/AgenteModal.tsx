@@ -293,7 +293,7 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
               </Fld>
             </Sec>
 
-            <Sec title="Sub-Agentes">
+            <Sec title="Agentes Vinculados">
               <p className="text-xs text-gray-500">Agentes que respondem a este. Se adicionar alguém aqui, este agente vira um Super Agente.</p>
               <div className="relative">
                 <input type="text" value={buscaSubAgente} onChange={e => setBuscaSubAgente(e.target.value)} placeholder="Buscar agente por nome..." className={inputCls} />
