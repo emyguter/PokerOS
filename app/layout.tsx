@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Playfair_Display, DM_Sans } from 'next/font/google'
 import Sidebar from '@/components/Sidebar'
 import Footer from '@/components/Footer'
@@ -14,6 +14,11 @@ const sans = DM_Sans({ subsets: ['latin'], weight: ['400', '500', '600'], variab
 export const metadata: Metadata = {
   title: 'PokerOS',
   description: 'League Platform',
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

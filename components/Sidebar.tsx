@@ -1,12 +1,14 @@
 'use client'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { BookOpen, Upload, FileText, LogOut, ShieldCheck, Wallet, Receipt } from 'lucide-react'
+import { BookOpen, Upload, FileText, LogOut, ShieldCheck, Wallet, Receipt, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { useI18n } from '@/lib/i18n'
 
 const CADASTRO_CHAVES = ['cadastro.mega_ligas', 'cadastro.superligas', 'cadastro.ligas', 'cadastro.clubes', 'cadastro.super_agentes', 'cadastro.agentes', 'cadastro.jogadores']
+const COLLAPSED_KEY = 'pokeros_sidebar_collapsed'
 
 const NAV = [
   { href: '/admin/cadastro/superligas', labelKey: 'nav.cadastros', icon: BookOpen, chaves: CADASTRO_CHAVES },
@@ -20,6 +22,19 @@ export default function Sidebar() {
   const router = useRouter()
   const { loading, profile, isSuperAdmin, hasPermission } = usePermissions()
   const { locale, toggleLocale, t } = useI18n()
+  const [collapsed, setCollapsed] = useState(false)
+
+  useEffect(() => {
+    if (localStorage.getItem(COLLAPSED_KEY) === '1') setCollapsed(true)
+  }, [])
+
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem(COLLAPSED_KEY, next ? '1' : '0')
+      return next
+    })
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -32,10 +47,22 @@ export default function Sidebar() {
 
   const nav = NAV.filter(item => loading || item.chaves.some(c => hasPermission(c)))
 
+  if (collapsed) {
+    return (
+      <button
+        onClick={toggleCollapsed}
+        title={t('nav.mostrar_menu')}
+        className="fixed top-4 left-4 z-40 w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 bg-surface2 text-gray-400 hover:text-white hover:border-white/20 transition-colors"
+      >
+        <PanelLeftOpen size={16} />
+      </button>
+    )
+  }
+
   return (
     <aside className="w-60 shrink-0 h-screen sticky top-0 border-r border-white/10 bg-surface2 flex flex-col">
       {/* Logo */}
-      <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between gap-2">
+      <div className="px-4 py-5 border-b border-white/10 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 border border-gold/60 rounded-lg flex items-center justify-center text-gold text-lg shrink-0">◆</div>
           <div className="min-w-0">
@@ -44,9 +71,19 @@ export default function Sidebar() {
           </div>
         </div>
         <button
+          onClick={toggleCollapsed}
+          title={t('nav.esconder_menu')}
+          className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+        >
+          <PanelLeftClose size={16} />
+        </button>
+      </div>
+
+      <div className="px-4 pt-3">
+        <button
           onClick={toggleLocale}
           title={locale === 'pt' ? 'Switch to English' : 'Mudar para Português'}
-          className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-md border border-white/10 text-xs font-semibold text-gray-400 hover:text-white hover:border-white/20 transition-colors"
+          className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-md border border-white/10 text-xs font-semibold text-gray-400 hover:text-white hover:border-white/20 transition-colors"
         >
           <span className={locale === 'pt' ? 'text-gold' : ''}>PT</span>
           <span className="text-gray-600">/</span>

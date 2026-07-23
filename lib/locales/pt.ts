@@ -18,6 +18,8 @@ export const pt = {
     permissoes: 'Permissões',
     extrato: 'Extrato',
     sair: 'Sair',
+    mostrar_menu: 'Mostrar menu',
+    esconder_menu: 'Esconder menu',
   },
   login: {
     entrar: 'Entrar',

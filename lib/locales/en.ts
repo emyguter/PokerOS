@@ -20,6 +20,8 @@ export const en: typeof pt = {
     permissoes: 'Permissions',
     extrato: 'Statement',
     sair: 'Sign out',
+    mostrar_menu: 'Show menu',
+    esconder_menu: 'Hide menu',
   },
   login: {
     entrar: 'Sign in',
