@@ -10,6 +10,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// Chamada direto do navegador (não por webhook/cron como as outras functions),
+// então precisa responder o preflight OPTIONS e mandar os headers de CORS em
+// toda resposta — senão o browser bloqueia antes de a requisição sair.
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
 interface Body {
   email: string;
   password: string;
@@ -21,10 +29,17 @@ interface Body {
 }
 
 function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   const admin = createClient(supabaseUrl, serviceRoleKey);
 
   try {
