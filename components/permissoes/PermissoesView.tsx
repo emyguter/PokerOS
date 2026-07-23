@@ -9,7 +9,8 @@ import { UserModal } from './UserModal'
 
 export interface Permissao { id: string; chave: string; nome: string; categoria: string }
 export interface RoleRow { id: string; nome: string; descricao: string | null; permissaoCount: number; userCount: number }
-export interface UserRow { id: string; email: string | null; nome: string | null; is_super_admin: boolean; roleIds: string[]; roleNomes: string[] }
+export interface ClubeOpcao { id: string; name: string }
+export interface UserRow { id: string; email: string | null; nome: string | null; is_super_admin: boolean; clube_id: string | null; roleIds: string[]; roleNomes: string[] }
 
 export function PermissoesView() {
   const { refresh: refreshMinhasPermissoes } = usePermissions()
@@ -17,6 +18,7 @@ export function PermissoesView() {
   const [permissoes, setPermissoes] = useState<Permissao[]>([])
   const [roles, setRoles] = useState<RoleRow[]>([])
   const [users, setUsers] = useState<UserRow[]>([])
+  const [clubes, setClubes] = useState<ClubeOpcao[]>([])
   const [loading, setLoading] = useState(true)
 
   const [roleModalOpen, setRoleModalOpen] = useState(false)
@@ -28,18 +30,20 @@ export function PermissoesView() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [{ data: permsData }, { data: rolesData }, { data: rolePermsData }, { data: profilesData }, { data: userRolesData }] = await Promise.all([
+    const [{ data: permsData }, { data: rolesData }, { data: rolePermsData }, { data: profilesData }, { data: userRolesData }, { data: clubesData }] = await Promise.all([
       supabase.from('permissoes').select('id, chave, nome, categoria').order('categoria').order('nome'),
       supabase.from('roles').select('id, nome, descricao').order('nome'),
       supabase.from('role_permissoes').select('role_id, permissao_id'),
-      supabase.from('profiles').select('id, email, nome, is_super_admin').order('email'),
+      supabase.from('profiles').select('id, email, nome, is_super_admin, clube_id').order('email'),
       supabase.from('user_roles').select('user_id, role_id, roles(nome)'),
+      supabase.from('clubs').select('id, name').order('name'),
     ])
 
     const rp = rolePermsData ?? []
     const ur = (userRolesData ?? []) as unknown as { user_id: string; role_id: string; roles: { nome: string } | null }[]
 
     setPermissoes(permsData ?? [])
+    setClubes(clubesData ?? [])
     setRoles(
       (rolesData ?? []).map((r) => ({
         ...r,
@@ -134,8 +138,13 @@ export function PermissoesView() {
                   </div>
                   <div className="flex items-center gap-2">
                     {u.is_super_admin && <span className="px-2 py-0.5 rounded-full bg-gold/15 text-gold text-xs font-medium">Super Admin</span>}
+                    {u.clube_id && (
+                      <span className="px-2 py-0.5 rounded-full bg-blue-900/30 border border-blue-800/50 text-blue-300 text-xs">
+                        Clube · {clubes.find((c) => c.id === u.clube_id)?.name ?? '—'}
+                      </span>
+                    )}
                     {u.roleNomes.map((r) => <span key={r} className="px-2 py-0.5 rounded-full bg-surface2 border border-white/10 text-gray-300 text-xs">{r}</span>)}
-                    {u.roleNomes.length === 0 && !u.is_super_admin && <span className="text-xs text-gray-600 italic">sem papel</span>}
+                    {u.roleNomes.length === 0 && !u.is_super_admin && !u.clube_id && <span className="text-xs text-gray-600 italic">sem papel</span>}
                   </div>
                 </button>
               ))}
@@ -157,6 +166,7 @@ export function PermissoesView() {
         user={editingUser}
         roles={roles}
         permissoes={permissoes}
+        clubes={clubes}
         onClose={() => setUserModalOpen(false)}
         onSaved={async () => { setUserModalOpen(false); await load(); await refreshMinhasPermissoes() }}
       />

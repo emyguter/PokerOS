@@ -25,11 +25,14 @@
     app/admin/permissoes/     -> tela de Permissões (papéis e usuários)
     app/importacao/           -> upload de planilhas (.xlsx)
     app/relatorios/           -> relatório de acertos
+    app/lancamento/           -> lançar bônus/promoção/caução/pagamento por clube + aba de extrato (staff)
+    app/extrato/              -> extrato do próprio clube (login de clube, sem sidebar de staff)
     app/login/                -> login (Supabase Auth)
     components/cadastro/      -> modais e tabela genérica de cadastro
     components/permissoes/    -> PermissoesView, RoleModal, UserModal
     components/importacao/    -> ImportacaoXlsx (fluxo bronze -> silver)
     components/acertos/       -> AcertosView
+    components/lancamento/    -> LancamentoView (tabs), LancarForm, ExtratoView
     components/               -> Sidebar, Footer, PermissionGuard
     lib/                      -> types.ts, cadastro-api.ts, supabase.ts, permissions.tsx, acertos-engine.ts, indicadores.ts
     supabase/functions/       -> Edge Functions (harmonizar-import, limpar-bronze)
@@ -98,12 +101,37 @@ Tela em `/admin/permissoes` (só visível/acessível pra quem é `is_super_admin
 - **Usuários**: cada usuário pode ter um ou mais papéis (`user_roles`) + exceções diretas
   (`user_permissoes`, "sempre permitir"/"sempre bloquear" além do que o papel já dá).
 - Uma permissão (`permissoes`) existe pra cada tela hoje visível no menu (Mega Ligas, Superligas,
-  Ligas, Clubes, Super Agentes, Agentes, Jogadores, Importação, Relatórios).
+  Ligas, Clubes, Super Agentes, Agentes, Jogadores, Importação, Relatórios, Lançamento).
+- **Tipo de acesso**: ao editar um usuário, dá pra escolher entre **Staff da liga** (papéis +
+  exceções, como acima) ou **Login de clube** (`profiles.clube_id` preenchido) — esse segundo tipo
+  ignora papéis/permissões por tela: o `Sidebar` detecta `clube_id` e mostra só o link "Extrato",
+  travado no próprio clube.
 
 **Importante:** hoje isso é enforcement de **front** (esconde menu, bloqueia a página client-side)
 via `lib/permissions.tsx` + `PermissionGuard`. Não é ainda uma trava no banco (RLS por permissão) —
 alguém acessando o Supabase diretamente não é barrado por isso. Virar RLS de verdade é o próximo
 passo de hardening, ainda não feito.
+
+---
+
+## Lançamento & Extrato
+
+Fluxo pra operação da liga registrar bônus, promoção, caução ou pagamento por clube, e o próprio
+clube acompanhar o saldo.
+
+- **`/lancamento`** (staff, permissão `lancamento`): duas abas.
+  - **Lançar** — formulário rápido (clube, tipo, natureza crédito/débito, valor, data, descrição
+    opcional) gravando em `lancamentos`, com lista dos últimos 10 lançamentos feitos (qualquer
+    clube).
+  - **Extrato** — mesmo componente `ExtratoView` usado em `/extrato`, com seletor de clube +
+    filtros de tipo e período.
+- **`/extrato`** (login de clube): mesma `ExtratoView`, mas com o clube travado em
+  `profiles.clube_id` — sem seletor, sem acesso a outros clubes.
+- `ExtratoView` calcula saldo corrente (créditos − débitos, ordem cronológica) e mostra cards de
+  resumo (Créditos / Débitos / Saldo) + tabela com saldo acumulado por linha.
+- Hoje é só visualização — o clube não contesta lançamento nenhum. O componente já foi desenhado
+  pra isso caber depois (cada linha é uma entidade própria com `id`, dá pra pendurar um botão de
+  contestação em cima sem redesenhar a tela).
 
 ---
 
@@ -138,11 +166,12 @@ pelo Supabase — não precisa configurar manualmente.
 - [x] Importação de .xlsx (PPPoker, GGPoker) com arquitetura bronze/silver/gold assíncrona
 - [x] Motor de cálculo de acertos (taxa fixa, variável, rakeback, weekly USD)
 - [x] Permissões por tela (papéis + exceções por usuário), com front de administração
+- [x] Login de clube (`profiles.clube_id`) + menu "Lançamento" (bônus/promoção/caução/pagamento) e "Extrato" por clube
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
 - [ ] Relatórios adicionais do escopo original (rake líquido da liga, resumo de acertos, PnL)
-- [ ] Menu "Lançamento" (bônus/promoções/caução por clube + extrato do clube)
+- [ ] Contestação de lançamento pelo clube
 - [ ] Auditoria (histórico de importações, alterações de regras, ações de usuários)
 - [ ] Exportação Excel
 

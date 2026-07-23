@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { BookOpen, Upload, FileText, LogOut, ShieldCheck } from 'lucide-react'
+import { BookOpen, Upload, FileText, LogOut, ShieldCheck, Wallet, Receipt } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 
@@ -10,20 +10,25 @@ const CADASTRO_CHAVES = ['cadastro.mega_ligas', 'cadastro.superligas', 'cadastro
 const NAV = [
   { href: '/admin/cadastro/superligas', label: 'Cadastros', icon: BookOpen, chaves: CADASTRO_CHAVES },
   { href: '/importacao', label: 'Importação', icon: Upload, chaves: ['importacao'] },
+  { href: '/lancamento', label: 'Lançamento', icon: Wallet, chaves: ['lancamento'] },
   { href: '/relatorios', label: 'Relatórios', icon: FileText, chaves: ['relatorios'] },
 ]
 
 export default function Sidebar() {
   const path = usePathname()
   const router = useRouter()
-  const { loading, isSuperAdmin, hasPermission } = usePermissions()
-
-  const nav = NAV.filter(item => loading || item.chaves.some(c => hasPermission(c)))
+  const { loading, profile, isSuperAdmin, hasPermission } = usePermissions()
 
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/login')
   }
+
+  // Login de clube: experiência isolada, só o próprio extrato — nada de
+  // cadastros, importação ou telas internas da liga, não importa a permissão.
+  const ehClube = !loading && !!profile?.clube_id
+
+  const nav = NAV.filter(item => loading || item.chaves.some(c => hasPermission(c)))
 
   return (
     <aside className="w-60 shrink-0 h-screen sticky top-0 border-r border-white/10 bg-surface2 flex flex-col">
@@ -40,31 +45,45 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {nav.map(({ href, label, icon: Icon }) => {
-          const active = path.startsWith(href)
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                active ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
-              }`}
-            >
-              <Icon size={16} />
-              {label}
-            </Link>
-          )
-        })}
-        {isSuperAdmin && (
+        {ehClube ? (
           <Link
-            href="/admin/permissoes"
+            href="/extrato"
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              path.startsWith('/admin/permissoes') ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+              path.startsWith('/extrato') ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
             }`}
           >
-            <ShieldCheck size={16} />
-            Permissões
+            <Receipt size={16} />
+            Extrato
           </Link>
+        ) : (
+          <>
+            {nav.map(({ href, label, icon: Icon }) => {
+              const active = path.startsWith(href)
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    active ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                  }`}
+                >
+                  <Icon size={16} />
+                  {label}
+                </Link>
+              )
+            })}
+            {isSuperAdmin && (
+              <Link
+                href="/admin/permissoes"
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  path.startsWith('/admin/permissoes') ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                }`}
+              >
+                <ShieldCheck size={16} />
+                Permissões
+              </Link>
+            )}
+          </>
         )}
       </nav>
 

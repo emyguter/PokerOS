@@ -2,20 +2,24 @@
 import { useState, useEffect } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import type { Permissao, RoleRow, UserRow } from './PermissoesView'
+import type { ClubeOpcao, Permissao, RoleRow, UserRow } from './PermissoesView'
 
 interface Props {
   open: boolean
   user: UserRow | null
   roles: RoleRow[]
   permissoes: Permissao[]
+  clubes: ClubeOpcao[]
   onClose: () => void
   onSaved: () => void
 }
 
 type Override = 'herdar' | 'permitir' | 'bloquear'
+type TipoAcesso = 'staff' | 'clube'
 
-export function UserModal({ open, user, roles, permissoes, onClose, onSaved }: Props) {
+export function UserModal({ open, user, roles, permissoes, clubes, onClose, onSaved }: Props) {
+  const [tipoAcesso, setTipoAcesso] = useState<TipoAcesso>('staff')
+  const [clubeId, setClubeId] = useState('')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set())
   const [overrides, setOverrides] = useState<Record<string, Override>>({})
@@ -24,6 +28,8 @@ export function UserModal({ open, user, roles, permissoes, onClose, onSaved }: P
 
   useEffect(() => {
     if (!open || !user) return
+    setTipoAcesso(user.clube_id ? 'clube' : 'staff')
+    setClubeId(user.clube_id ?? '')
     setIsSuperAdmin(user.is_super_admin)
     setSelectedRoleIds(new Set(user.roleIds))
     setError(null)
@@ -47,14 +53,19 @@ export function UserModal({ open, user, roles, permissoes, onClose, onSaved }: P
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!user) return
+    if (tipoAcesso === 'clube' && !clubeId) { setError('Escolha o clube.'); return }
     setSaving(true); setError(null)
     try {
-      const { error: profErr } = await supabase.from('profiles').update({ is_super_admin: isSuperAdmin }).eq('id', user.id)
+      const ehClube = tipoAcesso === 'clube'
+      const { error: profErr } = await supabase
+        .from('profiles')
+        .update({ is_super_admin: ehClube ? false : isSuperAdmin, clube_id: ehClube ? clubeId : null })
+        .eq('id', user.id)
       if (profErr) throw profErr
 
       const { error: delRolesErr } = await supabase.from('user_roles').delete().eq('user_id', user.id)
       if (delRolesErr) throw delRolesErr
-      if (selectedRoleIds.size > 0) {
+      if (!ehClube && selectedRoleIds.size > 0) {
         const { error: insRolesErr } = await supabase.from('user_roles').insert(
           Array.from(selectedRoleIds).map((role_id) => ({ user_id: user.id, role_id }))
         )
@@ -63,7 +74,7 @@ export function UserModal({ open, user, roles, permissoes, onClose, onSaved }: P
 
       const { error: delPermErr } = await supabase.from('user_permissoes').delete().eq('user_id', user.id)
       if (delPermErr) throw delPermErr
-      const overrideRows = Object.entries(overrides)
+      const overrideRows = ehClube ? [] : Object.entries(overrides)
         .filter(([, v]) => v !== 'herdar')
         .map(([permissao_id, v]) => ({ user_id: user.id, permissao_id, allow: v === 'permitir' }))
       if (overrideRows.length > 0) {
@@ -93,57 +104,93 @@ export function UserModal({ open, user, roles, permissoes, onClose, onSaved }: P
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
 
-            <label className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-surface2 cursor-pointer">
-              <div>
-                <p className="text-sm text-white font-medium">Super Admin</p>
-                <p className="text-xs text-gray-500">Acesso total, ignora papéis e exceções. Também é quem gerencia essa tela.</p>
-              </div>
-              <div onClick={() => setIsSuperAdmin((v) => !v)} className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${isSuperAdmin ? 'bg-gold' : 'bg-white/10'}`}>
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${isSuperAdmin ? 'translate-x-5' : 'translate-x-1'}`} />
-              </div>
-            </label>
-
             <div className="space-y-2">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Papéis</p>
-              {roles.length === 0 ? (
-                <p className="text-xs text-gray-500 italic">Nenhum papel cadastrado ainda — crie um na aba Papéis.</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {roles.map((r) => (
-                    <label key={r.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm cursor-pointer transition-colors ${selectedRoleIds.has(r.id) ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
-                      <input type="checkbox" checked={selectedRoleIds.has(r.id)} onChange={() => toggleRole(r.id)} className="accent-gold" />
-                      {r.nome}
-                    </label>
-                  ))}
-                </div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tipo de acesso</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTipoAcesso('staff')}
+                  className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipoAcesso === 'staff' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+                >
+                  Staff da liga
+                  <p className="text-xs font-normal text-gray-500 mt-0.5">Vê as telas que o papel liberar</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoAcesso('clube')}
+                  className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipoAcesso === 'clube' ? 'border-blue-500/50 bg-blue-500/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+                >
+                  Login de clube
+                  <p className="text-xs font-normal text-gray-500 mt-0.5">Só vê o extrato do próprio clube</p>
+                </button>
+              </div>
+              {tipoAcesso === 'clube' && (
+                <select
+                  value={clubeId}
+                  onChange={(e) => setClubeId(e.target.value)}
+                  className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50 mt-2"
+                >
+                  <option value="">— Selecione o clube —</option>
+                  {clubes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
               )}
             </div>
 
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Exceções por tela</p>
-                <p className="text-xs text-gray-600 mt-0.5">Sobrepõe o que os papéis já liberam, só pra esse usuário.</p>
-              </div>
-              {categorias.map((cat) => (
-                <div key={cat} className="space-y-1.5">
-                  <p className="text-xs text-gray-500">{cat}</p>
-                  {permissoes.filter((p) => p.categoria === cat).map((p) => (
-                    <div key={p.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-white/10">
-                      <span className="text-sm text-gray-300">{p.nome}</span>
-                      <select
-                        value={overrides[p.id] ?? 'herdar'}
-                        onChange={(e) => setOverrides((prev) => ({ ...prev, [p.id]: e.target.value as Override }))}
-                        className="bg-surface border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50"
-                      >
-                        <option value="herdar">Herdar do papel</option>
-                        <option value="permitir">Sempre permitir</option>
-                        <option value="bloquear">Sempre bloquear</option>
-                      </select>
+            {tipoAcesso === 'staff' && (
+              <>
+                <label className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-surface2 cursor-pointer">
+                  <div>
+                    <p className="text-sm text-white font-medium">Super Admin</p>
+                    <p className="text-xs text-gray-500">Acesso total, ignora papéis e exceções. Também é quem gerencia essa tela.</p>
+                  </div>
+                  <div onClick={() => setIsSuperAdmin((v) => !v)} className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${isSuperAdmin ? 'bg-gold' : 'bg-white/10'}`}>
+                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${isSuperAdmin ? 'translate-x-5' : 'translate-x-1'}`} />
+                  </div>
+                </label>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Papéis</p>
+                  {roles.length === 0 ? (
+                    <p className="text-xs text-gray-500 italic">Nenhum papel cadastrado ainda — crie um na aba Papéis.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {roles.map((r) => (
+                        <label key={r.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm cursor-pointer transition-colors ${selectedRoleIds.has(r.id) ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
+                          <input type="checkbox" checked={selectedRoleIds.has(r.id)} onChange={() => toggleRole(r.id)} className="accent-gold" />
+                          {r.nome}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Exceções por tela</p>
+                    <p className="text-xs text-gray-600 mt-0.5">Sobrepõe o que os papéis já liberam, só pra esse usuário.</p>
+                  </div>
+                  {categorias.map((cat) => (
+                    <div key={cat} className="space-y-1.5">
+                      <p className="text-xs text-gray-500">{cat}</p>
+                      {permissoes.filter((p) => p.categoria === cat).map((p) => (
+                        <div key={p.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-white/10">
+                          <span className="text-sm text-gray-300">{p.nome}</span>
+                          <select
+                            value={overrides[p.id] ?? 'herdar'}
+                            onChange={(e) => setOverrides((prev) => ({ ...prev, [p.id]: e.target.value as Override }))}
+                            className="bg-surface border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50"
+                          >
+                            <option value="herdar">Herdar do papel</option>
+                            <option value="permitir">Sempre permitir</option>
+                            <option value="bloquear">Sempre bloquear</option>
+                          </select>
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
 
             {error && <div className="p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">{error}</div>}
           </div>
