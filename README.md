@@ -198,11 +198,13 @@ pelo Supabase — não precisa configurar manualmente.
 - [x] Login de clube (`profiles.clube_id`) + menu "Lançamento" (bônus/promoção/caução/pagamento) e "Extrato" por clube
 - [x] Criar usuário direto pelo front (Edge Function `criar-usuario`)
 - [x] Toggle de idioma PT/EN (navegação, login, cadastros, Permissões, Lançamento/Extrato)
+- [x] Sidebar retrátil (botão pra esconder/mostrar) + viewport meta tag pro celular
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
 - [ ] Relatórios adicionais do escopo original (rake líquido da liga, resumo de acertos, PnL)
 - [ ] Contestação de lançamento pelo clube
+- [ ] Layout responsivo completo (hoje só o viewport + sidebar retrátil; tabelas/formulários do admin ainda assumem tela grande)
 - [ ] Auditoria (histórico de importações, alterações de regras, ações de usuários)
 - [ ] Exportação Excel
 - [ ] Tradução EN dos modais de Liga/Clube/Agente/Jogador (regras financeiras SE/ENTÃO)
