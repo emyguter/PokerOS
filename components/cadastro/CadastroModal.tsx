@@ -23,7 +23,7 @@ export function CadastroModal({ open, title, onClose, onSave, saving, initialDat
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           {fields.map(field => (
             <div key={field.key}>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">{field.label}{field.required && <span className="text-gold ml-1">*</span>}</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">{field.label}{field.required && <span className="text-gray-500 ml-1">*</span>}</label>
               {field.type === 'select'
                 ? <select value={form[field.key] ?? ''} onChange={e => setForm({ ...form, [field.key]: e.target.value })} required={field.required} className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
                     {field.options?.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
@@ -33,7 +33,7 @@ export function CadastroModal({ open, title, onClose, onSave, saving, initialDat
             </div>
           ))}
           <div className="flex items-center justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
             <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
               {saving && <Loader2 size={14} className="animate-spin" />}Salvar
             </button>

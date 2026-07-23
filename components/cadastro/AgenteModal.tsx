@@ -55,7 +55,7 @@ function Sec({ title, children }: { title: string; children: React.ReactNode }) 
   return <div className="space-y-3">{title && <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">{title}</h3>}{children}</div>
 }
 function Fld({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return <div><label className="block text-sm font-medium text-gray-300 mb-1.5">{label}{required && <span className="text-gold ml-1">*</span>}</label>{children}</div>
+  return <div><label className="block text-sm font-medium text-gray-300 mb-1.5">{label}{required && <span className="text-gray-500 ml-1">*</span>}</label>{children}</div>
 }
 
 export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosIniciais, subAgentesIniciais = [], plataformas, onClose, onSave, saving, error, esconderSuperAgente }: Props) {
@@ -317,7 +317,7 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
               {subAgentes.map(a => (
                 <div key={a.id} className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-surface2">
                   <span className="text-sm text-white">{a.nome}</span>
-                  <button type="button" onClick={() => setSubAgentes(prev => prev.filter(x => x.id !== a.id))} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                  <button type="button" onClick={() => setSubAgentes(prev => prev.filter(x => x.id !== a.id))} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={13} /></button>
                 </div>
               ))}
             </Sec>
@@ -329,7 +329,7 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-gray-400">Plataforma {i + 1}</span>
                     {vinculos.length > 1 && (
-                      <button type="button" onClick={() => removeVinculo(i)} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                      <button type="button" onClick={() => removeVinculo(i)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={13} /></button>
                     )}
                   </div>
                   <select
@@ -372,7 +372,7 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
                     <p className="text-xs text-gray-500">ID novo — preencha o nickname pra cadastrar.</p>
                   )}
                   {v.status === 'conflict' && (
-                    <p className="text-xs text-red-400 flex items-center gap-1.5"><AlertTriangle size={12} />Esse ID já pertence a outro agente ({v.conflictNome}). Verifique antes de salvar.</p>
+                    <p className="text-xs text-alert flex items-center gap-1.5"><AlertTriangle size={12} />Esse ID já pertence a outro agente ({v.conflictNome}). Verifique antes de salvar.</p>
                   )}
                 </div>
               ))}
@@ -410,13 +410,13 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
                   <div key={c.id} className="p-3 rounded-lg border border-white/10 bg-surface2 space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white font-medium">{c.name}</span>
-                      <button type="button" onClick={() => removeClube(c.id)} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                      <button type="button" onClick={() => removeClube(c.id)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={13} /></button>
                     </div>
                     <p className="text-xs text-gray-500">Liga: {c.leagueName ?? '— sem liga —'} · Plataforma: {plataformaNome}</p>
                     {v ? (
                       <p className="text-xs text-gold/80">ID do agente nesse clube: {v.external_id} {v.nickname ? `(${v.nickname})` : ''}</p>
                     ) : (
-                      <p className="text-xs text-red-400 flex items-center gap-1.5">
+                      <p className="text-xs text-alert flex items-center gap-1.5">
                         <AlertTriangle size={12} />Cadastre o ID do agente na plataforma "{plataformaNome}" na seção acima.
                       </p>
                     )}
@@ -449,7 +449,7 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
                     <div key={i} className={`p-3 rounded-lg border space-y-2 ${c.is_fallback ? 'border-gold/30 bg-gold/5' : 'border-white/10 bg-surface2'}`}>
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-gray-400">{c.is_fallback ? 'SENÃO' : `SE`}</span>
-                        <button type="button" onClick={() => removeCondicao(i)} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                        <button type="button" onClick={() => removeCondicao(i)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={13} /></button>
                       </div>
                       {!c.is_fallback && (
                         <>
@@ -462,7 +462,7 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
                                   {indicadores.map(ind => <option key={ind.id} value={ind.id}>{formatIndicadorNome(ind.nome, ind.descricao)}</option>)}
                                 </select>
                                 {c.indicador_ids.length > 1 && (
-                                  <button type="button" onClick={() => removeTermo(i, ti)} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
+                                  <button type="button" onClick={() => removeTermo(i, ti)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={12} /></button>
                                 )}
                               </div>
                             ))}
@@ -495,10 +495,10 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
 
           </div>
           {error && (
-            <div className="shrink-0 mx-6 mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">{error}</div>
+            <div className="shrink-0 mx-6 mb-4 p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>
           )}
           <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
             <button type="submit" disabled={saving || !podeSalvar} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
               {saving && <Loader2 size={14} className="animate-spin" />}Salvar {esconderSuperAgente ? 'Super Agente' : 'Agente'}
             </button>

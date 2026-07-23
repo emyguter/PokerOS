@@ -7,10 +7,12 @@ import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { Plus } from 'lucide-react'
 import { MOEDAS } from '@/lib/moedas'
+import { useI18n } from '@/lib/i18n'
 
 const EMPTY: MegaLigaForm = { nome: '', moeda: 'USD' }
 
 export default function MegaLigasPage() {
+  const { t } = useI18n()
   const [items, setItems] = useState<MegaLiga[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -49,15 +51,15 @@ export default function MegaLigasPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Mega Ligas</h1>
-          <p className="text-sm text-gray-400 mt-1">Agrupa múltiplas superligas</p>
+          <h1 className="text-2xl font-semibold text-white">{t('mega_ligas.titulo')}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t('mega_ligas.subtitulo')}</p>
         </div>
         <button onClick={() => { setEditing(null); setModalOpen(true) }} className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors">
-          <Plus size={16} />Nova Mega Liga
+          <Plus size={16} />{t('mega_ligas.novo')}
         </button>
       </div>
 
-      {error && <div className="p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">{error}</div>}
+      {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
 
       <CadastroTable
         columns={[

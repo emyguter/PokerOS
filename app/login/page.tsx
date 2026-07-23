@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/lib/i18n";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const { locale, toggleLocale, t } = useI18n();
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -19,7 +21,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      setError("Email ou senha incorretos.");
+      setError(t("login.erro"));
       setLoading(false);
       return;
     }
@@ -29,23 +31,23 @@ export default function LoginPage() {
 
   return (
     <div style={{
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "var(--font-sans), sans-serif",
       background: "#0C0E0B",
       minHeight: "100vh",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       color: "#F0EDE4",
+      position: "relative",
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=DM+Sans:wght@400;500;600&display=swap');
         .input-field {
-          background: #111410;
+          background: #111510;
           color: #F0EDE4;
           border: 1px solid #2a2c20;
           border-radius: 8px;
           padding: 12px 16px;
-          font-family: 'DM Sans', sans-serif;
+          font-family: var(--font-sans), sans-serif;
           font-size: 14px;
           width: 100%;
           outline: none;
@@ -59,7 +61,7 @@ export default function LoginPage() {
           border: none;
           border-radius: 8px;
           padding: 13px;
-          font-family: 'DM Sans', sans-serif;
+          font-family: var(--font-sans), sans-serif;
           font-weight: 600;
           font-size: 15px;
           cursor: pointer;
@@ -70,35 +72,50 @@ export default function LoginPage() {
         .btn-login:disabled { opacity: 0.4; cursor: not-allowed; }
       `}</style>
 
+      <button
+        onClick={toggleLocale}
+        title={locale === "pt" ? "Switch to English" : "Mudar para Português"}
+        style={{
+          position: "absolute", top: 20, right: 20,
+          background: "#111510", border: "1px solid #2a2c20", borderRadius: 6,
+          padding: "6px 10px", fontSize: 12, fontWeight: 600, color: "#8a8a80",
+          cursor: "pointer", display: "flex", gap: 6, alignItems: "center",
+        }}
+      >
+        <span style={{ color: locale === "pt" ? "#C9A84C" : "#8a8a80" }}>PT</span>
+        <span style={{ color: "#4a4a44" }}>/</span>
+        <span style={{ color: locale === "en" ? "#C9A84C" : "#8a8a80" }}>EN</span>
+      </button>
+
       <div style={{ width: "100%", maxWidth: 400, padding: "0 24px" }}>
 
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{
             width: 56, height: 56,
-            background: "#111410",
+            background: "#111510",
             border: "1px solid #C9A84C",
             borderRadius: 12,
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 24, color: "#C9A84C",
             margin: "0 auto 16px",
           }}>◆</div>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 600, margin: "0 0 4px" }}>PokerOS</h1>
+          <h1 style={{ fontFamily: "var(--font-display), serif", fontSize: 26, fontWeight: 600, margin: "0 0 4px" }}>PokerOS</h1>
           <p style={{ color: "#5a5a52", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", margin: 0 }}>League Platform</p>
         </div>
 
         {/* Card */}
         <div style={{
-          background: "#111410",
+          background: "#111510",
           border: "1px solid #1e2018",
           borderRadius: 14,
           padding: 32,
         }}>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 500, margin: "0 0 24px" }}>Entrar</h2>
+          <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: 20, fontWeight: 500, margin: "0 0 24px" }}>{t("login.entrar")}</h2>
 
           <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
-              <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#5a5a52", margin: "0 0 6px" }}>Email</p>
+              <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#5a5a52", margin: "0 0 6px" }}>{t("login.email")}</p>
               <input
                 className="input-field"
                 type="email"
@@ -111,7 +128,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#5a5a52", margin: "0 0 6px" }}>Senha</p>
+              <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#5a5a52", margin: "0 0 6px" }}>{t("login.senha")}</p>
               <input
                 className="input-field"
                 type="password"
@@ -129,13 +146,13 @@ export default function LoginPage() {
             )}
 
             <button className="btn-login" type="submit" disabled={loading}>
-              {loading ? "Entrando..." : "Entrar"}
+              {loading ? t("login.entrando") : t("login.entrar")}
             </button>
           </form>
         </div>
 
         <p style={{ textAlign: "center", color: "#3a3a32", fontSize: 12, marginTop: 24 }}>
-          From game data to financial settlements — automatically.
+          {t("login.tagline")}
         </p>
       </div>
     </div>

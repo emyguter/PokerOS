@@ -80,7 +80,7 @@ function Sec({ title, children }: { title: string; children: React.ReactNode }) 
   return <div className="space-y-3">{title && <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">{title}</h3>}{children}</div>
 }
 function Fld({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return <div><label className="block text-sm font-medium text-gray-300 mb-1.5">{label}{required && <span className="text-gold ml-1">*</span>}</label>{children}</div>
+  return <div><label className="block text-sm font-medium text-gray-300 mb-1.5">{label}{required && <span className="text-gray-500 ml-1">*</span>}</label>{children}</div>
 }
 function NumInput({ value, onChange, placeholder }: { value: number | null; onChange: (v: number | null) => void; placeholder?: string }) {
   return <input type="number" step="any" value={value ?? ''} onChange={e => onChange(e.target.value === '' ? null : Number(e.target.value))} placeholder={placeholder} className={inputCls} />
@@ -263,7 +263,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
             <div key={i} className={`p-3 rounded-lg border space-y-2 ${c.is_fallback ? 'border-gold/30 bg-gold/5' : 'border-white/10 bg-surface2'}`}>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-gray-400">{c.is_fallback ? 'SENÃO' : `SE ${i + 1}`}</span>
-                <button type="button" onClick={() => removeCondicao(i)} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                <button type="button" onClick={() => removeCondicao(i)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={13} /></button>
               </div>
               {!c.is_fallback && (
                 <>
@@ -276,7 +276,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                           {indicadores.map(ind => <option key={ind.id} value={ind.id}>{formatIndicadorNome(ind.nome, ind.descricao)}</option>)}
                         </select>
                         {c.indicador_ids.length > 1 && (
-                          <button type="button" onClick={() => removeTermo(i, ti)} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
+                          <button type="button" onClick={() => removeTermo(i, ti)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={12} /></button>
                         )}
                       </div>
                     ))}
@@ -471,7 +471,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                     <input type="number" step="any" value={indTaxa} onChange={e => setIndTaxa(e.target.value)} placeholder="Taxa %" className="w-24 bg-surface border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50" />
                     <button type="button" onClick={() => { if (!indClub || !indTaxa) return; setIndicacoes(p => [...p, { club_id: indClub, taxa: indTaxa }]); setIndClub(""); setIndTaxa(""); }} className="px-3 py-2 bg-surface2 border border-white/10 rounded-lg text-gold hover:border-gold/50 transition-colors"><Plus size={16} /></button>
                   </div>
-                  {indicacoes.map((ind, i) => <div key={i} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-white/10 text-sm"><span className="text-gray-300">{ind.club_id}</span><span className="text-gold">{ind.taxa}%</span><button type="button" onClick={() => setIndicacoes(p => p.filter((_, j) => j !== i))} className="text-gray-500 hover:text-red-400"><Trash2 size={13} /></button></div>)}
+                  {indicacoes.map((ind, i) => <div key={i} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-white/10 text-sm"><span className="text-gray-300">{ind.club_id}</span><span className="text-gold">{ind.taxa}%</span><button type="button" onClick={() => setIndicacoes(p => p.filter((_, j) => j !== i))} className="text-gray-500 hover:text-alert"><Trash2 size={13} /></button></div>)}
                 </div>
               ) : (
                 <p className="text-xs text-gray-500 italic mt-4">Indicações ficam disponíveis apenas para clubes sem liga vinculada.</p>
@@ -479,10 +479,10 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
             </div>
           </div>
           {error && (
-            <div className="shrink-0 mx-6 mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">{error}</div>
+            <div className="shrink-0 mx-6 mb-4 p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>
           )}
           <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
             <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
               {saving && <Loader2 size={14} className="animate-spin" />}Salvar Clube
             </button>

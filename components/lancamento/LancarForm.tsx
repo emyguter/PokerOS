@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Loader2, Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useI18n } from '@/lib/i18n'
 import { TIPOS } from './ExtratoView'
 
 interface ClubeOpcao { id: string; name: string }
@@ -25,9 +26,10 @@ function hoje() {
 }
 
 export function LancarForm() {
+  const { t } = useI18n()
   const [clubes, setClubes] = useState<ClubeOpcao[]>([])
   const [clubeId, setClubeId] = useState('')
-  const [tipo, setTipo] = useState(TIPOS[0].value)
+  const [tipo, setTipo] = useState<string>(TIPOS[0].value)
   const [natureza, setNatureza] = useState<'credito' | 'debito'>('credito')
   const [valor, setValor] = useState('')
   const [descricao, setDescricao] = useState('')
@@ -89,80 +91,80 @@ export function LancarForm() {
       <form onSubmit={handleSubmit} className="rounded-xl border border-white/10 bg-surface2 p-5 space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5">Clube</label>
+            <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.clube')}</label>
             <select value={clubeId} onChange={(e) => setClubeId(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
-              <option value="">— Selecione —</option>
+              <option value="">{t('common.selecione')}</option>
               {clubes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5">Tipo</label>
+            <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.tipo')}</label>
             <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
-              {TIPOS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              {TIPOS.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
             </select>
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5">Natureza</label>
+            <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.natureza')}</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setNatureza('credito')}
-                className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${natureza === 'credito' ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+                className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${natureza === 'credito' ? 'border-success/50 bg-success/10 text-success' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
               >
-                Crédito
+                {t('lancamento.credito')}
               </button>
               <button
                 type="button"
                 onClick={() => setNatureza('debito')}
-                className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${natureza === 'debito' ? 'border-red-500/50 bg-red-500/10 text-red-400' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+                className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${natureza === 'debito' ? 'border-alert/50 bg-alert/10 text-alert' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
               >
-                Débito
+                {t('lancamento.debito')}
               </button>
             </div>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5">Valor</label>
+            <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.valor')}</label>
             <input type="text" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5">Data</label>
+            <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.data')}</label>
             <input type="date" value={data} onChange={(e) => setData(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs text-gray-500 mb-1.5">Descrição (opcional)</label>
-          <input type="text" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex: bônus de boas-vindas" className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
+          <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.descricao')}</label>
+          <input type="text" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder={t('lancamento.descricao_placeholder')} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
         </div>
 
-        {error && <div className="p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">{error}</div>}
+        {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
 
         <div className="flex justify-end">
           <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}Lançar
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}{t('lancamento.lancar')}
           </button>
         </div>
       </form>
 
       <div>
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Últimos lançamentos</p>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">{t('lancamento.ultimos_lancamentos')}</p>
         <div className="rounded-xl border border-white/10 overflow-hidden">
           {loadingRecentes ? (
-            <div className="p-8 text-center text-gray-500 text-sm">Carregando...</div>
+            <div className="p-8 text-center text-gray-500 text-sm">{t('common.carregando')}</div>
           ) : recentes.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 text-sm">Nenhum lançamento ainda.</div>
+            <div className="p-8 text-center text-gray-500 text-sm">{t('lancamento.nenhum_lancamento')}</div>
           ) : (
             <div className="divide-y divide-white/5">
               {recentes.map((l) => (
                 <div key={l.id} className="flex items-center justify-between px-4 py-3">
                   <div>
-                    <p className="text-sm text-white">{l.clubs?.name ?? '—'} <span className="text-gray-500">· {TIPOS.find((t) => t.value === l.tipo)?.label ?? l.tipo}</span></p>
+                    <p className="text-sm text-white">{l.clubs?.name ?? '—'} <span className="text-gray-500">· {t(TIPOS.find((tp) => tp.value === l.tipo)?.labelKey ?? l.tipo)}</span></p>
                     <p className="text-xs text-gray-500">{new Date(l.data_lancamento + 'T00:00:00').toLocaleDateString('pt-BR')}{l.descricao ? ` · ${l.descricao}` : ''}</p>
                   </div>
-                  <span className={`text-sm font-medium ${l.natureza === 'credito' ? 'text-emerald-400' : 'text-red-400'}`}>
+                  <span className={`text-sm font-medium ${l.natureza === 'credito' ? 'text-success' : 'text-alert'}`}>
                     {l.natureza === 'credito' ? '+' : '−'}{formatMoeda(l.valor)}
                   </span>
                 </div>

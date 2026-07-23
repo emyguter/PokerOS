@@ -3,49 +3,9 @@
 @tailwind utilities;
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background-color: #0C0E0B; color: #F0EDE4; font-family: Calibri, sans-serif; -webkit-font-smoothing: antialiased; }
+body { background-color: #0C0E0B; color: #F0EDE4; font-family: var(--font-sans), sans-serif; -webkit-font-smoothing: antialiased; }
 .app-shell { display: flex; min-height: 100vh; }
 .main-content { flex: 1; padding: 2rem 2.5rem; min-width: 0; overflow-y: auto; }
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: #111510; }
 ::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.2); border-radius: 2px; }
-
-/* Classes que o Tailwind v4 nao gera automaticamente */
-.rounded-xl { border-radius: 0.75rem; }
-.rounded-lg { border-radius: 0.5rem; }
-.rounded-2xl { border-radius: 1rem; }
-.overflow-hidden { overflow: hidden; }
-.border { border-width: 1px; border-style: solid; }
-.border-b { border-bottom-width: 1px; border-bottom-style: solid; }
-.border-t { border-top-width: 1px; border-top-style: solid; }
-.border-r { border-right-width: 1px; border-right-style: solid; }
-.bg-surface { background-color: #0C0E0B; }
-.bg-surface2 { background-color: #111510; }
-.bg-surface3 { background-color: #1A2A1A; }
-.bg-gold { background-color: #C9A84C; }
-.text-gold { color: #C9A84C; }
-.text-surface { color: #0C0E0B; }
-.border-gold { border-color: #C9A84C; }
-.border-white-10 { border-color: rgba(255,255,255,0.1); }
-[class*="border-white/10"] { border-color: rgba(255,255,255,0.1); }
-[class*="border-white/5"] { border-color: rgba(255,255,255,0.05); }
-[class*="bg-white/"] { background-color: rgba(255,255,255,0.04); }
-[class*="bg-gold/10"] { background-color: rgba(201,168,76,0.1); }
-[class*="bg-red-900/"] { background-color: rgba(127,29,29,0.25); }
-[class*="hover:bg-white/"] { }
-[class*="text-gray-400"] { color: rgba(255,255,255,0.5); }
-[class*="text-gray-300"] { color: rgba(255,255,255,0.7); }
-[class*="text-gray-500"] { color: rgba(255,255,255,0.35); }
-[class*="text-gray-600"] { color: rgba(255,255,255,0.25); }
-[class*="text-red-400"] { color: rgb(248,113,113); }
-[class*="border-red-700"] { border-color: rgb(185,28,28); }
-[class*="bg-gold/90"] { background-color: rgba(201,168,76,0.9); }
-[class*="border-gold/50"] { border-color: rgba(201,168,76,0.5); }
-.shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8); }
-.backdrop-blur-sm { backdrop-filter: blur(4px); }
-.sticky { position: sticky; }
-.top-0 { top: 0; }
-.h-screen { height: 100vh; }
-.shrink-0 { flex-shrink: 0; }
-.w-60 { width: 15rem; }
-.w-56 { width: 14rem; }

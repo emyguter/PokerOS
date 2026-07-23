@@ -6,6 +6,7 @@ import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { AgenteModal } from '@/components/cadastro/AgenteModal'
 import { Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useI18n } from '@/lib/i18n'
 
 interface Condicao {
   indicador_ids: string[]
@@ -16,6 +17,7 @@ interface Condicao {
 }
 
 export default function SuperAgentesPage() {
+  const { t } = useI18n()
   const [todos, setTodos] = useState<Agente[]>([])
   const [plataformas, setPlataformas] = useState<Plataforma[]>([])
   const [loading, setLoading] = useState(true)
@@ -131,11 +133,11 @@ export default function SuperAgentesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Super Agentes</h1>
-          <p className="text-sm text-gray-400 mt-1">Agentes que têm outros agentes vinculados abaixo</p>
+          <h1 className="text-2xl font-semibold text-white">{t('super_agentes.titulo')}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t('super_agentes.subtitulo')}</p>
         </div>
         <button onClick={() => { setEditing(null); setModalOpen(true) }} className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors">
-          <Plus size={16} />Novo Super Agente
+          <Plus size={16} />{t('super_agentes.novo')}
         </button>
       </div>
 
@@ -143,7 +145,7 @@ export default function SuperAgentesPage() {
         {superAgentes.length} super agente{superAgentes.length !== 1 ? 's' : ''} · Pra promover um Agente comum a Super Agente, vincule outro Agente a ele em "Agentes Vinculados".
       </p>
 
-      {error && <div className="p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">{error}</div>}
+      {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
 
       <CadastroTable
         columns={[

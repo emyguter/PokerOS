@@ -138,7 +138,7 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
   const tipos = [...new Set(acertos.map((a) => a.settlement_type))];
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#0C0E0B", minHeight: "100vh", color: "#F0EDE4", padding: "40px" }}>
+    <div style={{ fontFamily: "var(--font-sans), sans-serif", background: "#0C0E0B", minHeight: "100vh", color: "#F0EDE4", padding: "40px" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=DM+Sans:wght@400;500;600&display=swap');
         .card{background:#111410;border-radius:10px;border:1px solid #1e2018}
@@ -162,7 +162,7 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
 
       <div style={{ marginBottom: 32 }}>
         <p style={{ color: "#C9A84C", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>PokerOS · Acertos</p>
-        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 600, margin: 0 }}>Resumo de Acertos</h1>
+        <h1 style={{ fontFamily: "var(--font-display), serif", fontSize: 28, fontWeight: 600, margin: 0 }}>Resumo de Acertos</h1>
         <p style={{ color: "#6a6a62", fontSize: 14, marginTop: 6 }}>Selecione um import para calcular e conferir os acertos por clube</p>
       </div>
 
@@ -194,7 +194,7 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <div>
-                  <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, margin: "0 0 2px" }}>{selected.file_name}</p>
+                  <p style={{ fontFamily: "var(--font-display), serif", fontSize: 18, margin: "0 0 2px" }}>{selected.file_name}</p>
                   <p style={{ color: "#5a5a52", fontSize: 12, margin: 0 }}>{selected.leagues?.name ?? "—"}{selected.period_start && ` · ${selected.period_start} → ${selected.period_end}`}</p>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>

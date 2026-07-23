@@ -7,6 +7,7 @@ import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { ClubModal } from '@/components/cadastro/ClubModal'
 import { Plus, Filter } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useI18n } from '@/lib/i18n'
 
 interface Condicao {
   indicador_ids: string[]
@@ -27,6 +28,7 @@ function clean(form: ClubForm): ClubForm {
 }
 
 export default function ClubesPage() {
+  const { t } = useI18n()
   const [items, setItems] = useState<Club[]>([])
   const [leagues, setLeagues] = useState<League[]>([])
   const [plataformas, setPlataformas] = useState<Plataforma[]>([])
@@ -127,11 +129,11 @@ export default function ClubesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Clubes</h1>
-          <p className="text-sm text-gray-400 mt-1">Entidade principal — regras financeiras por clube</p>
+          <h1 className="text-2xl font-semibold text-white">{t('clubes.titulo')}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t('clubes.subtitulo')}</p>
         </div>
         <button onClick={() => { setEditing(null); setModalOpen(true) }} className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors">
-          <Plus size={16} />Novo Clube
+          <Plus size={16} />{t('clubes.novo')}
         </button>
       </div>
 
@@ -144,7 +146,7 @@ export default function ClubesPage() {
         <span className="text-sm text-gray-500">{items.length} clube{items.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {error && <div className="p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">{error}</div>}
+      {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
 
       <CadastroTable
         columns={[

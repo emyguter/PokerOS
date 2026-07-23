@@ -16,10 +16,11 @@ const config: Config = {
         felt:     '#1A2A1A',
         success:  '#7DC97D',
         alert:    '#E07070',
+        purple:   '#AFA9EC',
       },
       fontFamily: {
-        display: ['Georgia', 'serif'],
-        sans: ['Calibri', 'sans-serif'],
+        display: ['var(--font-display)', 'Georgia', 'serif'],
+        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
       },
     },
   },

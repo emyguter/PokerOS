@@ -7,10 +7,12 @@ import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { Plus } from 'lucide-react'
 import { MOEDAS } from '@/lib/moedas'
+import { useI18n } from '@/lib/i18n'
 
 const EMPTY: SuperLeagueForm = { name: '', moeda: 'USD', plataforma_id: null, mega_liga_id: null }
 
 export default function SuperLigasPage() {
+  const { t } = useI18n()
   const [items, setItems] = useState<SuperLeague[]>([])
   const [megaLigas, setMegaLigas] = useState<MegaLiga[]>([])
   const [loading, setLoading] = useState(true)
@@ -57,15 +59,15 @@ export default function SuperLigasPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Superligas</h1>
-          <p className="text-sm text-gray-400 mt-1">Agrupa múltiplas ligas</p>
+          <h1 className="text-2xl font-semibold text-white">{t('superligas.titulo')}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t('superligas.subtitulo')}</p>
         </div>
         <button onClick={() => { setEditing(null); setModalOpen(true) }} className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors">
-          <Plus size={16} />Nova Superliga
+          <Plus size={16} />{t('superligas.novo')}
         </button>
       </div>
 
-      {error && <div className="p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">{error}</div>}
+      {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
 
       <CadastroTable
         columns={[

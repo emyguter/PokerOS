@@ -22,7 +22,7 @@ function Sec({ title, children }: { title: string; children: React.ReactNode }) 
   return <div className="space-y-3">{title && <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">{title}</h3>}{children}</div>
 }
 function Fld({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return <div><label className="block text-sm font-medium text-gray-300 mb-1.5">{label}{required && <span className="text-gold ml-1">*</span>}</label>{children}</div>
+  return <div><label className="block text-sm font-medium text-gray-300 mb-1.5">{label}{required && <span className="text-gray-500 ml-1">*</span>}</label>{children}</div>
 }
 
 interface ClubeJogado { id: string; name: string; external_id: string | null }
@@ -155,7 +155,7 @@ export function JogadorModal({ open, editing, plataformas, onClose, onSave, savi
                   <p className="text-xs text-gold/80 mt-1.5">⚠ Jogador novo nessa plataforma. Preencha o nome para cadastrar.</p>
                 )}
                 {conflito && (
-                  <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1.5">
+                  <p className="text-xs text-alert mt-1.5 flex items-center gap-1.5">
                     <AlertTriangle size={12} />Esse ID já pertence a {conflito.nome}. Edite o jogador existente em vez de criar outro.
                   </p>
                 )}
@@ -194,7 +194,7 @@ export function JogadorModal({ open, editing, plataformas, onClose, onSave, savi
 
           </div>
           <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
             <button type="submit" disabled={saving || !podeSalvar} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
               {saving && <Loader2 size={14} className="animate-spin" />}Salvar Jogador
             </button>

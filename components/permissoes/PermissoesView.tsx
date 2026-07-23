@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus, ShieldCheck, Users as UsersIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
+import { useI18n } from '@/lib/i18n'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { RoleModal } from './RoleModal'
 import { UserModal } from './UserModal'
@@ -15,6 +16,7 @@ export interface UserRow { id: string; email: string | null; nome: string | null
 
 export function PermissoesView() {
   const { refresh: refreshMinhasPermissoes } = usePermissions()
+  const { t } = useI18n()
   const [tab, setTab] = useState<'papeis' | 'usuarios'>('papeis')
   const [permissoes, setPermissoes] = useState<Permissao[]>([])
   const [roles, setRoles] = useState<RoleRow[]>([])
@@ -76,8 +78,8 @@ export function PermissoesView() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-white">Permissões</h1>
-        <p className="text-sm text-gray-400 mt-1">Controle quem vê o quê no sistema</p>
+        <h1 className="text-2xl font-semibold text-white">{t('permissoes.titulo')}</h1>
+        <p className="text-sm text-gray-400 mt-1">{t('permissoes.subtitulo')}</p>
       </div>
 
       <div className="flex gap-2 border-b border-white/10">
@@ -85,13 +87,13 @@ export function PermissoesView() {
           onClick={() => setTab('papeis')}
           className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === 'papeis' ? 'border-gold text-gold' : 'border-transparent text-gray-400 hover:text-white'}`}
         >
-          <ShieldCheck size={14} />Papéis
+          <ShieldCheck size={14} />{t('permissoes.aba_papeis')}
         </button>
         <button
           onClick={() => setTab('usuarios')}
           className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === 'usuarios' ? 'border-gold text-gold' : 'border-transparent text-gray-400 hover:text-white'}`}
         >
-          <UsersIcon size={14} />Usuários
+          <UsersIcon size={14} />{t('permissoes.aba_usuarios')}
         </button>
       </div>
 
@@ -102,15 +104,15 @@ export function PermissoesView() {
               onClick={() => { setEditingRole(null); setRoleModalOpen(true) }}
               className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors"
             >
-              <Plus size={16} />Novo Papel
+              <Plus size={16} />{t('permissoes.novo_papel')}
             </button>
           </div>
           <CadastroTable
             columns={[
-              { key: 'nome', label: 'Papel' },
-              { key: 'descricao', label: 'Descrição', render: (v: string) => v || '—' },
-              { key: 'permissaoCount', label: 'Telas liberadas', render: (v: number) => `${v} de ${permissoes.length}` },
-              { key: 'userCount', label: 'Usuários', render: (v: number) => `${v}` },
+              { key: 'nome', label: t('permissoes.col_papel') },
+              { key: 'descricao', label: t('permissoes.col_descricao'), render: (v: string) => v || '—' },
+              { key: 'permissaoCount', label: t('permissoes.col_telas'), render: (v: number) => t('permissoes.telas_de', { v, total: permissoes.length }) },
+              { key: 'userCount', label: t('permissoes.col_usuarios'), render: (v: number) => `${v}` },
             ]}
             data={roles}
             loading={loading}
@@ -127,14 +129,14 @@ export function PermissoesView() {
               onClick={() => setNewUserModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors"
             >
-              <Plus size={16} />Novo Usuário
+              <Plus size={16} />{t('permissoes.novo_usuario')}
             </button>
           </div>
           <div className="rounded-xl border border-white/10 overflow-hidden">
           {loading ? (
-            <div className="p-8 text-center text-gray-500 text-sm">Carregando...</div>
+            <div className="p-8 text-center text-gray-500 text-sm">{t('common.carregando')}</div>
           ) : users.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 text-sm">Nenhum usuário ainda.</div>
+            <div className="p-8 text-center text-gray-500 text-sm">{t('permissoes.nenhum_usuario')}</div>
           ) : (
             <div className="divide-y divide-white/5">
               {users.map((u) => (
@@ -148,14 +150,14 @@ export function PermissoesView() {
                     {u.nome && <p className="text-xs text-gray-500">{u.email}</p>}
                   </div>
                   <div className="flex items-center gap-2">
-                    {u.is_super_admin && <span className="px-2 py-0.5 rounded-full bg-gold/15 text-gold text-xs font-medium">Super Admin</span>}
+                    {u.is_super_admin && <span className="px-2 py-0.5 rounded-full bg-gold/15 text-gold text-xs font-medium">{t('permissoes.super_admin')}</span>}
                     {u.clube_id && (
-                      <span className="px-2 py-0.5 rounded-full bg-blue-900/30 border border-blue-800/50 text-blue-300 text-xs">
-                        Clube · {clubes.find((c) => c.id === u.clube_id)?.name ?? '—'}
+                      <span className="px-2 py-0.5 rounded-full bg-purple/10 border border-purple/30 text-purple text-xs">
+                        {t('permissoes.clube_badge')} · {clubes.find((c) => c.id === u.clube_id)?.name ?? '—'}
                       </span>
                     )}
                     {u.roleNomes.map((r) => <span key={r} className="px-2 py-0.5 rounded-full bg-surface2 border border-white/10 text-gray-300 text-xs">{r}</span>)}
-                    {u.roleNomes.length === 0 && !u.is_super_admin && !u.clube_id && <span className="text-xs text-gray-600 italic">sem papel</span>}
+                    {u.roleNomes.length === 0 && !u.is_super_admin && !u.clube_id && <span className="text-xs text-gray-600 italic">{t('permissoes.sem_papel')}</span>}
                   </div>
                 </button>
               ))}
@@ -195,11 +197,11 @@ export function PermissoesView() {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDeleteRoleTarget(null)} />
           <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-sm mx-4 p-6 shadow-2xl">
-            <p className="text-white font-medium mb-1">Apagar o papel &quot;{deleteRoleTarget.nome}&quot;?</p>
-            <p className="text-sm text-gray-500 mb-5">Usuários com esse papel perdem o acesso que ele dava.</p>
+            <p className="text-white font-medium mb-1">{t('permissoes.apagar_papel_confirm', { nome: deleteRoleTarget.nome })}</p>
+            <p className="text-sm text-gray-500 mb-5">{t('permissoes.apagar_papel_desc')}</p>
             <div className="flex justify-end gap-3">
-              <button onClick={() => setDeleteRoleTarget(null)} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
-              <button onClick={handleDeleteRole} className="px-4 py-2 bg-red-900/40 border border-red-700 text-red-300 rounded-lg text-sm font-medium hover:bg-red-900/60 transition-colors">Apagar</button>
+              <button onClick={() => setDeleteRoleTarget(null)} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">{t('common.cancelar')}</button>
+              <button onClick={handleDeleteRole} className="px-4 py-2 bg-alert/15 border border-alert/40 text-alert rounded-lg text-sm font-medium hover:bg-alert/25 transition-colors">{t('permissoes.apagar')}</button>
             </div>
           </div>
         </div>

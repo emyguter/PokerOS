@@ -7,6 +7,7 @@ import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { LeagueModal } from '@/components/cadastro/LeagueModal'
 import { Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useI18n } from '@/lib/i18n'
 
 interface Condicao {
   indicador_ids: string[]
@@ -23,6 +24,7 @@ const EMPTY: LeagueForm = {
 }
 
 export default function LigasPage() {
+  const { t } = useI18n()
   const [items, setItems] = useState<League[]>([])
   const [superLeagues, setSuperLeagues] = useState<SuperLeague[]>([])
   const [plataformas, setPlataformas] = useState<Plataforma[]>([])
@@ -127,15 +129,15 @@ export default function LigasPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Ligas</h1>
-          <p className="text-sm text-gray-400 mt-1">Cada liga é um cliente da plataforma</p>
+          <h1 className="text-2xl font-semibold text-white">{t('ligas.titulo')}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t('ligas.subtitulo')}</p>
         </div>
         <button onClick={() => { setEditing(null); setModalOpen(true) }} className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors">
-          <Plus size={16} />Nova Liga
+          <Plus size={16} />{t('ligas.novo')}
         </button>
       </div>
 
-      {error && <div className="p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">{error}</div>}
+      {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
 
       <CadastroTable
         columns={[

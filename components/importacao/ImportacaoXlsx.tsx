@@ -536,7 +536,7 @@ export default function ImportacaoXlsx() {
   }, [handleFile]);
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#0C0E0B", minHeight: "100vh", color: "#F0EDE4", padding: "40px" }}>
+    <div style={{ fontFamily: "var(--font-sans), sans-serif", background: "#0C0E0B", minHeight: "100vh", color: "#F0EDE4", padding: "40px" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=DM+Sans:wght@400;500;600&display=swap');
         .drop-zone{border:1.5px dashed #3D6E3D;border-radius:12px;padding:48px 32px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:#111410}
@@ -567,7 +567,7 @@ export default function ImportacaoXlsx() {
 
       <div style={{ marginBottom: 32 }}>
         <p style={{ color: "#C9A84C", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>PokerOS · Importação</p>
-        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 600, margin: 0 }}>Importar Arquivo .xlsx</h1>
+        <h1 style={{ fontFamily: "var(--font-display), serif", fontSize: 28, fontWeight: 600, margin: 0 }}>Importar Arquivo .xlsx</h1>
         <p style={{ color: "#6a6a62", fontSize: 14, marginTop: 6 }}>PPPoker · GGPoker · Detecção automática de plataforma</p>
       </div>
 
@@ -582,7 +582,7 @@ export default function ImportacaoXlsx() {
           <input ref={inputRef} type="file" accept=".xlsx" style={{ display: "none" }}
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
           <div style={{ fontSize: 28, marginBottom: 10, color: "#C9A84C" }}>♦</div>
-          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, color: "#C9A84C", marginBottom: 4 }}>Arraste ou clique para selecionar</p>
+          <p style={{ fontFamily: "var(--font-display), serif", fontSize: 15, color: "#C9A84C", marginBottom: 4 }}>Arraste ou clique para selecionar</p>
           <p style={{ fontSize: 12, color: "#5a5a52" }}>Um arquivo .xlsx por vez</p>
         </div>
 
@@ -707,7 +707,7 @@ export default function ImportacaoXlsx() {
 
       <div style={{ maxWidth: 1100, marginTop: 48 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 16 }}>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 500, margin: 0 }}>Histórico de importações</h2>
+          <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: 20, fontWeight: 500, margin: 0 }}>Histórico de importações</h2>
           <span style={{ fontSize: 12, color: "#5a5a52" }}>{history.length} registros</span>
         </div>
         <div className="card" style={{ overflow: "hidden" }}>

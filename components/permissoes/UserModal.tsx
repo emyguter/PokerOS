@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useI18n } from '@/lib/i18n'
 import type { ClubeOpcao, Permissao, RoleRow, UserRow } from './PermissoesView'
 
 interface Props {
@@ -18,6 +19,7 @@ type Override = 'herdar' | 'permitir' | 'bloquear'
 type TipoAcesso = 'staff' | 'clube'
 
 export function UserModal({ open, user, roles, permissoes, clubes, onClose, onSaved }: Props) {
+  const { t } = useI18n()
   const [tipoAcesso, setTipoAcesso] = useState<TipoAcesso>('staff')
   const [clubeId, setClubeId] = useState('')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
@@ -105,23 +107,23 @@ export function UserModal({ open, user, roles, permissoes, clubes, onClose, onSa
           <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
 
             <div className="space-y-2">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tipo de acesso</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('user_modal.tipo_acesso')}</p>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setTipoAcesso('staff')}
                   className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipoAcesso === 'staff' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
                 >
-                  Staff da liga
-                  <p className="text-xs font-normal text-gray-500 mt-0.5">Vê as telas que o papel liberar</p>
+                  {t('user_modal.staff')}
+                  <p className="text-xs font-normal text-gray-500 mt-0.5">{t('user_modal.staff_desc')}</p>
                 </button>
                 <button
                   type="button"
                   onClick={() => setTipoAcesso('clube')}
-                  className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipoAcesso === 'clube' ? 'border-blue-500/50 bg-blue-500/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+                  className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipoAcesso === 'clube' ? 'border-purple/50 bg-purple/10 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
                 >
-                  Login de clube
-                  <p className="text-xs font-normal text-gray-500 mt-0.5">Só vê o extrato do próprio clube</p>
+                  {t('user_modal.clube')}
+                  <p className="text-xs font-normal text-gray-500 mt-0.5">{t('user_modal.clube_desc')}</p>
                 </button>
               </div>
               {tipoAcesso === 'clube' && (
@@ -130,7 +132,7 @@ export function UserModal({ open, user, roles, permissoes, clubes, onClose, onSa
                   onChange={(e) => setClubeId(e.target.value)}
                   className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50 mt-2"
                 >
-                  <option value="">— Selecione o clube —</option>
+                  <option value="">{t('user_modal.selecione_clube')}</option>
                   {clubes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               )}
@@ -138,20 +140,27 @@ export function UserModal({ open, user, roles, permissoes, clubes, onClose, onSa
 
             {tipoAcesso === 'staff' && (
               <>
-                <label className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-surface2 cursor-pointer">
+                <div className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-surface2">
                   <div>
-                    <p className="text-sm text-white font-medium">Super Admin</p>
-                    <p className="text-xs text-gray-500">Acesso total, ignora papéis e exceções. Também é quem gerencia essa tela.</p>
+                    <p className="text-sm text-white font-medium">{t('permissoes.super_admin')}</p>
+                    <p className="text-xs text-gray-500">{t('user_modal.super_admin_desc_gerencia')}</p>
                   </div>
-                  <div onClick={() => setIsSuperAdmin((v) => !v)} className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${isSuperAdmin ? 'bg-gold' : 'bg-white/10'}`}>
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${isSuperAdmin ? 'translate-x-5' : 'translate-x-1'}`} />
-                  </div>
-                </label>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={isSuperAdmin}
+                    aria-label="Super Admin"
+                    onClick={() => setIsSuperAdmin((v) => !v)}
+                    className={`w-10 h-6 rounded-full transition-colors relative shrink-0 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:ring-offset-2 focus:ring-offset-surface2 ${isSuperAdmin ? 'bg-gold' : 'bg-white/10'}`}
+                  >
+                    <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${isSuperAdmin ? 'translate-x-5' : 'translate-x-1'}`} />
+                  </button>
+                </div>
 
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Papéis</p>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('user_modal.papeis')}</p>
                   {roles.length === 0 ? (
-                    <p className="text-xs text-gray-500 italic">Nenhum papel cadastrado ainda — crie um na aba Papéis.</p>
+                    <p className="text-xs text-gray-500 italic">{t('user_modal.sem_papeis')}</p>
                   ) : (
                     <div className="space-y-1.5">
                       {roles.map((r) => (
@@ -166,8 +175,8 @@ export function UserModal({ open, user, roles, permissoes, clubes, onClose, onSa
 
                 <div className="space-y-3">
                   <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Exceções por tela</p>
-                    <p className="text-xs text-gray-600 mt-0.5">Sobrepõe o que os papéis já liberam, só pra esse usuário.</p>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('user_modal.excecoes')}</p>
+                    <p className="text-xs text-gray-600 mt-0.5">{t('user_modal.excecoes_desc')}</p>
                   </div>
                   {categorias.map((cat) => (
                     <div key={cat} className="space-y-1.5">
@@ -180,9 +189,9 @@ export function UserModal({ open, user, roles, permissoes, clubes, onClose, onSa
                             onChange={(e) => setOverrides((prev) => ({ ...prev, [p.id]: e.target.value as Override }))}
                             className="bg-surface border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50"
                           >
-                            <option value="herdar">Herdar do papel</option>
-                            <option value="permitir">Sempre permitir</option>
-                            <option value="bloquear">Sempre bloquear</option>
+                            <option value="herdar">{t('user_modal.herdar')}</option>
+                            <option value="permitir">{t('user_modal.permitir')}</option>
+                            <option value="bloquear">{t('user_modal.bloquear')}</option>
                           </select>
                         </div>
                       ))}
@@ -192,12 +201,12 @@ export function UserModal({ open, user, roles, permissoes, clubes, onClose, onSa
               </>
             )}
 
-            {error && <div className="p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">{error}</div>}
+            {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
           </div>
           <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancelar</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">{t('common.cancelar')}</button>
             <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
-              {saving && <Loader2 size={14} className="animate-spin" />}Salvar
+              {saving && <Loader2 size={14} className="animate-spin" />}{t('user_modal.salvar')}
             </button>
           </div>
         </form>

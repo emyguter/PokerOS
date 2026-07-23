@@ -7,6 +7,7 @@ import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { AgenteModal } from '@/components/cadastro/AgenteModal'
 import { Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useI18n } from '@/lib/i18n'
 
 interface Condicao {
   indicador_ids: string[]
@@ -17,6 +18,7 @@ interface Condicao {
 }
 
 export default function AgentesPage() {
+  const { t } = useI18n()
   const [items, setItems] = useState<Agente[]>([])
   const [plataformas, setPlataformas] = useState<Plataforma[]>([])
   const [filter, setFilter] = useState('')
@@ -142,24 +144,24 @@ export default function AgentesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Agentes</h1>
-          <p className="text-sm text-gray-400 mt-1">Responsáveis pelos jogadores dentro de cada clube</p>
+          <h1 className="text-2xl font-semibold text-white">{t('agentes.titulo')}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t('agentes.subtitulo')}</p>
         </div>
         <button onClick={() => { setEditing(null); setModalOpen(true) }} className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors">
-          <Plus size={16} />Novo Agente
+          <Plus size={16} />{t('agentes.novo')}
         </button>
       </div>
 
       <div className="flex items-center gap-3">
         <input
           type="text" value={filter} onChange={e => setFilter(e.target.value)}
-          placeholder="Buscar por nome..."
+          placeholder={t('common.buscar_por_nome')}
           className="bg-surface2 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gold/50 w-64"
         />
         <span className="text-sm text-gray-500">{items.length} agente{items.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {error && <div className="p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">{error}</div>}
+      {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
 
       <CadastroTable
         columns={[
