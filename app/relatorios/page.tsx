@@ -1,2 +1,3 @@
 import AcertosView from "@/components/acertos/AcertosView";
-export default function Page() { return <AcertosView />; }
+import { PermissionGuard } from "@/components/PermissionGuard";
+export default function Page() { return <PermissionGuard chave="relatorios"><AcertosView /></PermissionGuard>; }

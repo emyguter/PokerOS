@@ -1,2 +1,3 @@
 import ImportacaoXlsx from "@/components/importacao/ImportacaoXlsx";
-export default function Page() { return <ImportacaoXlsx />; }
+import { PermissionGuard } from "@/components/PermissionGuard";
+export default function Page() { return <PermissionGuard chave="importacao"><ImportacaoXlsx /></PermissionGuard>; }
