@@ -6,6 +6,7 @@ import { usePermissions } from '@/lib/permissions'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { RoleModal } from './RoleModal'
 import { UserModal } from './UserModal'
+import { NewUserModal } from './NewUserModal'
 
 export interface Permissao { id: string; chave: string; nome: string; categoria: string }
 export interface RoleRow { id: string; nome: string; descricao: string | null; permissaoCount: number; userCount: number }
@@ -27,6 +28,7 @@ export function PermissoesView() {
 
   const [userModalOpen, setUserModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<UserRow | null>(null)
+  const [newUserModalOpen, setNewUserModalOpen] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -119,7 +121,16 @@ export function PermissoesView() {
       )}
 
       {tab === 'usuarios' && (
-        <div className="rounded-xl border border-white/10 overflow-hidden">
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <button
+              onClick={() => setNewUserModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors"
+            >
+              <Plus size={16} />Novo Usuário
+            </button>
+          </div>
+          <div className="rounded-xl border border-white/10 overflow-hidden">
           {loading ? (
             <div className="p-8 text-center text-gray-500 text-sm">Carregando...</div>
           ) : users.length === 0 ? (
@@ -150,6 +161,7 @@ export function PermissoesView() {
               ))}
             </div>
           )}
+          </div>
         </div>
       )}
 
@@ -169,6 +181,14 @@ export function PermissoesView() {
         clubes={clubes}
         onClose={() => setUserModalOpen(false)}
         onSaved={async () => { setUserModalOpen(false); await load(); await refreshMinhasPermissoes() }}
+      />
+
+      <NewUserModal
+        open={newUserModalOpen}
+        roles={roles}
+        clubes={clubes}
+        onClose={() => setNewUserModalOpen(false)}
+        onSaved={async () => { setNewUserModalOpen(false); await load() }}
       />
 
       {deleteRoleTarget && (

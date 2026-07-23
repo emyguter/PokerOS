@@ -35,7 +35,7 @@
     components/lancamento/    -> LancamentoView (tabs), LancarForm, ExtratoView
     components/               -> Sidebar, Footer, PermissionGuard
     lib/                      -> types.ts, cadastro-api.ts, supabase.ts, permissions.tsx, acertos-engine.ts, indicadores.ts
-    supabase/functions/       -> Edge Functions (harmonizar-import, limpar-bronze)
+    supabase/functions/       -> Edge Functions (harmonizar-import, limpar-bronze, criar-usuario)
 
 ---
 
@@ -87,8 +87,11 @@ finais.
    arquivo do Storage e as linhas de `bronze_rows` de importações já harmonizadas (ou com erro) há
    mais de 7 dias. O registro em `imports` e os dados normalizados nunca são apagados.
 
-Deploy das Edge Functions: `supabase functions deploy <nome> --no-verify-jwt` (ver
-`supabase/functions/`).
+Deploy: `supabase functions deploy harmonizar-import --no-verify-jwt` e
+`supabase functions deploy limpar-bronze --no-verify-jwt` (chamadas por webhook/cron, sem usuário
+logado por trás). Já `criar-usuario` (usada pela tela de Permissões) é `supabase functions deploy
+criar-usuario` **sem** `--no-verify-jwt` — quem chama é sempre um usuário logado no navegador, então
+o próprio Supabase já barra chamada sem token válido antes de a function checar se é super admin.
 
 ---
 
@@ -106,6 +109,11 @@ Tela em `/admin/permissoes` (só visível/acessível pra quem é `is_super_admin
   exceções, como acima) ou **Login de clube** (`profiles.clube_id` preenchido) — esse segundo tipo
   ignora papéis/permissões por tela: o `Sidebar` detecta `clube_id` e mostra só o link "Extrato",
   travado no próprio clube.
+- **Criar usuário** (botão "Novo Usuário" na aba Usuários): cria o login direto pelo front, sem
+  precisar abrir o Supabase. Como isso exige a Admin API do Supabase (não dá pra criar usuário com
+  a anon key no navegador), passa pela Edge Function `criar-usuario`, que confere se quem tá
+  chamando é super admin antes de criar — email, senha (gerada automaticamente, com botão de
+  copiar), nome, tipo de acesso e papéis/clube tudo na mesma tela.
 
 **Importante:** hoje isso é enforcement de **front** (esconde menu, bloqueia a página client-side)
 via `lib/permissions.tsx` + `PermissionGuard`. Não é ainda uma trava no banco (RLS por permissão) —
