@@ -10,7 +10,8 @@
 | Camada | Tecnologia |
 |--------|-----------|
 | Frontend | Next.js 16 + React 19 + TypeScript |
-| Estilo | Tailwind CSS v3 |
+| Estilo | Tailwind CSS v3, fontes via `next/font` (Playfair Display + DM Sans) |
+| i18n | Toggle PT/EN client-side, sem roteamento (`lib/i18n.tsx`) |
 | Banco | Supabase (PostgreSQL) |
 | Auth | Supabase Auth (login por email/senha) |
 | Processamento assíncrono | Supabase Edge Functions (Deno) + Database Webhooks + pg_cron |
@@ -34,7 +35,8 @@
     components/acertos/       -> AcertosView
     components/lancamento/    -> LancamentoView (tabs), LancarForm, ExtratoView
     components/               -> Sidebar, Footer, PermissionGuard
-    lib/                      -> types.ts, cadastro-api.ts, supabase.ts, permissions.tsx, acertos-engine.ts, indicadores.ts
+    lib/                      -> types.ts, cadastro-api.ts, supabase.ts, permissions.tsx, acertos-engine.ts, indicadores.ts, i18n.tsx
+    lib/locales/              -> pt.ts, en.ts (dicionário do toggle de idioma)
     supabase/functions/       -> Edge Functions (harmonizar-import, limpar-bronze, criar-usuario)
 
 ---
@@ -143,6 +145,25 @@ clube acompanhar o saldo.
 
 ---
 
+## Idioma (PT/EN)
+
+Botão PT/EN no topo da Sidebar (e no canto da tela de login, que fica fora da Sidebar). Troca os
+textos na hora, guarda a escolha no `localStorage` do navegador — não mexe em rotas nem faz round
+trip com o servidor.
+
+- `lib/i18n.tsx` — `I18nProvider`/`useI18n()`, mesmo padrão do `PermissionsProvider`.
+- `lib/locales/pt.ts` e `lib/locales/en.ts` — dicionário, chaves por seção (`nav`, `login`,
+  `permissoes`, `lancamento`, `extrato`, uma por tela de cadastro, etc).
+- **Cobertura atual:** navegação, login, as 7 telas de cadastro (cabeçalho/busca/botão novo),
+  tabela genérica, Permissões e Lançamento/Extrato inteiros. Os modais grandes de Liga/Clube/Agente/
+  Jogador (formulários de regra financeira SE/ENTÃO) ainda estão só em português — é bastante texto
+  de regra de negócio pra traduzir com cuidado, fica pra uma próxima rodada.
+- Já existiu uma tentativa de i18n via `next-intl` (rotas por idioma) que nunca chegou a ser
+  ligada de verdade — foi removida em favor dessa abordagem mais simples, que é o que a operação
+  pediu (sem mudar URL).
+
+---
+
 ## Como rodar local
 
     git clone <repo> && cd PokerOS
@@ -175,6 +196,8 @@ pelo Supabase — não precisa configurar manualmente.
 - [x] Motor de cálculo de acertos (taxa fixa, variável, rakeback, weekly USD)
 - [x] Permissões por tela (papéis + exceções por usuário), com front de administração
 - [x] Login de clube (`profiles.clube_id`) + menu "Lançamento" (bônus/promoção/caução/pagamento) e "Extrato" por clube
+- [x] Criar usuário direto pelo front (Edge Function `criar-usuario`)
+- [x] Toggle de idioma PT/EN (navegação, login, cadastros, Permissões, Lançamento/Extrato)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
@@ -182,6 +205,7 @@ pelo Supabase — não precisa configurar manualmente.
 - [ ] Contestação de lançamento pelo clube
 - [ ] Auditoria (histórico de importações, alterações de regras, ações de usuários)
 - [ ] Exportação Excel
+- [ ] Tradução EN dos modais de Liga/Clube/Agente/Jogador (regras financeiras SE/ENTÃO)
 
 ---
 
