@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { processarAcertos } from "@/lib/acertos-engine";
 import * as XLSX from "xlsx";
+import { ClubAcertoCard } from "./ClubAcertoCard";
 
 interface Import {
   id: string;
@@ -17,6 +18,7 @@ interface Import {
 
 interface Acerto {
   id: string;
+  club_id: string | null;
   club_name: string;
   club_external_id: string;
   settlement_type: string;
@@ -29,6 +31,14 @@ interface Acerto {
   rebate_calculado: number;
   valor_acerto: number;
   status: string;
+  fee_mtt_valor: number;
+  fee_cash_valor: number;
+  fee_operacional_valor: number;
+  fee_spinup_valor: number;
+  taxa_cash_pct_aplicada: number | null;
+  bilhetes: number;
+  pendencias_antecipacao: number;
+  taxa_aa_home_game: number;
 }
 
 const LABELS: Record<string, string> = {
@@ -59,6 +69,7 @@ export default function AcertosView() {
   const [calculating, setCalculating] = useState(false);
   const [filterType, setFilterType] = useState("todos");
   const [search, setSearch] = useState("");
+  const [cardAberto, setCardAberto] = useState<Acerto | null>(null);
 
   useEffect(() => { loadImports(); }, []);
 
@@ -276,8 +287,17 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                         {filtered.map((a) => (
                           <tr key={a.id}>
                             <td>
-                              <p style={{ color: "#C9A84C", margin: "0 0 1px", fontSize: 13 }}>{a.club_name}</p>
-                              <p style={{ color: "#3a3a32", margin: 0, fontSize: 11 }}>{a.club_external_id}</p>
+                              <button
+                                onClick={() => setCardAberto(a)}
+                                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}
+                                title="Ver acerto no formato tradicional"
+                              >
+                                <p style={{ color: "#C9A84C", margin: "0 0 1px", fontSize: 13, textDecoration: "underline", textDecorationColor: "transparent" }}
+                                   onMouseEnter={(e) => (e.currentTarget.style.textDecorationColor = "#C9A84C")}
+                                   onMouseLeave={(e) => (e.currentTarget.style.textDecorationColor = "transparent")}
+                                >{a.club_name}</p>
+                                <p style={{ color: "#3a3a32", margin: 0, fontSize: 11 }}>{a.club_external_id}</p>
+                              </button>
                             </td>
                             <td><span style={{ fontSize: 11, color: "#7a7a70" }}>{LABELS[a.settlement_type] ?? a.settlement_type}</span></td>
                             <td style={{ textAlign: "right" }}>{fmt(a.rake_mtt)}</td>
@@ -306,6 +326,17 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
           )}
         </div>
       </div>
+
+      {cardAberto && selected && (
+        <ClubAcertoCard
+          acerto={cardAberto}
+          ligaNome={selected.leagues?.name ?? "—"}
+          periodStart={selected.period_start}
+          periodEnd={selected.period_end}
+          onClose={() => setCardAberto(null)}
+          onSaved={() => loadAcertos(selected.id)}
+        />
+      )}
     </div>
   );
 }

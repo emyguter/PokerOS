@@ -43,6 +43,16 @@ export interface AcertoCalculado {
   rebate_calculado: number;
   valor_acerto: number;
   status: string;
+  // Quebra da fee por componente — só preenchido pra taxa_dinamica, usado no
+  // card de acerto tradicional (Taxa MTT / Taxa Cash / SpinUp / Operacional
+  // cada um na sua linha, em vez de só o total).
+  fee_mtt_valor: number;
+  fee_cash_valor: number;
+  fee_operacional_valor: number;
+  fee_spinup_valor: number;
+  // % de cash efetivamente aplicado no período (fixo ou resolvido pela
+  // condição SE/ENTÃO quando taxa_tipo é variável) — pra mostrar no card.
+  taxa_cash_pct_aplicada: number | null;
 }
 
 // Condição SE/ENTÃO já resolvida em nomes de indicador (em vez de indicador_id),
@@ -113,6 +123,11 @@ function calcularAcerto(
   let fee_calculado = 0;
   let rebate_calculado = 0;
   let valor_acerto = 0;
+  let fee_mtt_valor = 0;
+  let fee_cash_valor = 0;
+  let fee_operacional_valor = 0;
+  let fee_spinup_valor = 0;
+  let taxa_cash_pct_aplicada: number | null = null;
 
   const rake_mtt    = Math.abs(row.rake_mtt ?? 0);
   const rake_cash   = Math.abs(row.rake_cash ?? 0);
@@ -122,23 +137,23 @@ function calcularAcerto(
   switch (club.settlement_type) {
     case "taxa_dinamica": {
       // Taxa Operacional do App sempre é cobrada, some com a taxa de cash (fixa ou variável).
-      const taxaOperacional = rake_cash * (club.taxa_op_pct / 100);
+      fee_operacional_valor = rake_cash * (club.taxa_op_pct / 100);
 
-      let taxaCash: number;
       if (club.taxa_tipo === "variavel") {
         // Taxa variável: pega a faixa SE/ENTÃO que bate (ex: Ganhos+Rake) e aplica sobre o rake total.
         const pct = avaliarCondicoes(condicoesClube, row);
-        taxaCash = rake_total * ((pct ?? 0) / 100);
+        taxa_cash_pct_aplicada = pct ?? 0;
+        fee_cash_valor = rake_total * ((pct ?? 0) / 100);
       } else {
         // Taxa fixa: aplica o percentual fixo de cash sobre o rake de cash.
-        taxaCash = rake_cash * ((club.fee_cash_pct ?? 0) / 100);
+        taxa_cash_pct_aplicada = club.fee_cash_pct ?? 0;
+        fee_cash_valor = rake_cash * ((club.fee_cash_pct ?? 0) / 100);
       }
 
-      fee_calculado =
-        rake_mtt * (club.fee_mtt_pct / 100) +
-        taxaCash +
-        taxaOperacional +
-        rake_spinup * ((club.spinup_pct ?? 0) / 100);
+      fee_mtt_valor = rake_mtt * (club.fee_mtt_pct / 100);
+      fee_spinup_valor = rake_spinup * ((club.spinup_pct ?? 0) / 100);
+
+      fee_calculado = fee_mtt_valor + fee_cash_valor + fee_operacional_valor + fee_spinup_valor;
       valor_acerto = fee_calculado;
       break;
     }
@@ -172,6 +187,11 @@ function calcularAcerto(
     fee_calculado:    Math.round(fee_calculado    * 100) / 100,
     rebate_calculado: Math.round(rebate_calculado * 100) / 100,
     valor_acerto:     Math.round(valor_acerto     * 100) / 100,
+    fee_mtt_valor:          Math.round(fee_mtt_valor          * 100) / 100,
+    fee_cash_valor:         Math.round(fee_cash_valor         * 100) / 100,
+    fee_operacional_valor:  Math.round(fee_operacional_valor  * 100) / 100,
+    fee_spinup_valor:       Math.round(fee_spinup_valor       * 100) / 100,
+    taxa_cash_pct_aplicada,
     status: "calculado",
   };
 }
@@ -237,6 +257,22 @@ export async function processarAcertos(importId: string): Promise<{
 
     const condicoesPorClube = await buscarCondicoesPorClube((clubs ?? []).map((c) => c.id));
 
+    // Os campos manuais do card (Bilhetes, Pendências/Antecipação, Taxa A-A
+    // Home Game) não vêm de cálculo nenhum — o usuário digita direto no card
+    // do clube. Preserva esses valores ao recalcular, senão "Recalcular"
+    // apagaria tudo que foi digitado à mão.
+    const { data: extrasExistentes } = await supabase
+      .from("acertos")
+      .select("club_external_id, bilhetes, pendencias_antecipacao, taxa_aa_home_game")
+      .eq("import_id", importId);
+    const extrasPorClube = new Map<string, { bilhetes: number; pendencias_antecipacao: number; taxa_aa_home_game: number }>(
+      (extrasExistentes ?? []).map((e) => [e.club_external_id, {
+        bilhetes: e.bilhetes ?? 0,
+        pendencias_antecipacao: e.pendencias_antecipacao ?? 0,
+        taxa_aa_home_game: e.taxa_aa_home_game ?? 0,
+      }])
+    );
+
     await supabase.from("acertos").delete().eq("import_id", importId);
 
     const acertos: AcertoCalculado[] = [];
@@ -257,6 +293,8 @@ export async function processarAcertos(importId: string): Promise<{
           rake_total: Math.abs(row.rake_total ?? 0),
           player_result: row.player_result ?? 0,
           fee_calculado: 0, rebate_calculado: 0, valor_acerto: 0,
+          fee_mtt_valor: 0, fee_cash_valor: 0, fee_operacional_valor: 0, fee_spinup_valor: 0,
+          taxa_cash_pct_aplicada: null,
           status: "sem_regra",
         });
         continue;
@@ -264,7 +302,12 @@ export async function processarAcertos(importId: string): Promise<{
       acertos.push(calcularAcerto(row as ImportRow, club, condicoesPorClube.get(club.id) ?? []));
     }
 
-    const { error: insertError } = await supabase.from("acertos").insert(acertos);
+    const acertosComExtras = acertos.map((a) => ({
+      ...a,
+      ...(extrasPorClube.get(a.club_external_id) ?? { bilhetes: 0, pendencias_antecipacao: 0, taxa_aa_home_game: 0 }),
+    }));
+
+    const { error: insertError } = await supabase.from("acertos").insert(acertosComExtras);
     if (insertError) throw new Error(insertError.message);
 
     const semRegra = acertos.filter((a) => a.status === "sem_regra").length;
