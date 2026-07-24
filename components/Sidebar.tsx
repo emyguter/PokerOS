@@ -135,8 +135,19 @@ export default function Sidebar() {
         )}
       </nav>
 
-      {/* Logout */}
-      <div className="px-3 py-4 border-t border-white/10">
+      {/* Usuário logado + Logout */}
+      <div className="px-3 py-4 border-t border-white/10 space-y-2">
+        {!loading && profile && (
+          <div className="flex items-center gap-2.5 px-3 py-1.5 min-w-0">
+            <div className="w-7 h-7 rounded-full bg-gold/15 text-gold text-xs font-semibold flex items-center justify-center shrink-0">
+              {(profile.nome || profile.email || '?').charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-white truncate">{profile.nome || profile.email}</p>
+              {profile.nome && profile.email && <p className="text-[10px] text-gray-500 truncate">{profile.email}</p>}
+            </div>
+          </div>
+        )}
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/[0.06] transition-all w-full"
