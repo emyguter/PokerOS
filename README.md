@@ -68,6 +68,21 @@ As condições SE/ENTÃO (`regra_condicoes` + `regra_condicao_termos`) permitem 
 compostas somando mais de um indicador (ex: "Ganhos + Rake"), reaproveitável em Liga, Clube ou
 Agente (`regra_entidades`).
 
+**Parsing do PPPoker (`components/importacao/ImportacaoXlsx.tsx`):** a aba "Geral da liga" não
+preenche a coluna "Geral" (total) de Ganhos do jogador nem de Ganhos do clube — só as colunas
+quebradas por tipo de jogo/taxa vêm com valor. Confirmado com a planilha de acerto manual do
+Cássio (fórmula real das abas "Taxa Dinâmica" + "BASE TX DINAMICA"):
+
+- **Rake MTT** = Taxa (jogos PPST) + Taxa (jogos não PPST)
+- **Rake Cash** = Taxa (jogos PPSR) + Taxa (jogos não PPSR)
+- **Rake Total** = Rake MTT + Rake Cash
+- **Ganhos** (player_result) = soma de Ring Games + MTT/SitNGo + SPINUP + Caribbean+ + Color Game
+  + Crash + Lucky Draw + Jackpot + Dividir EV
+
+PPST/PPSR não têm nada a ver com hierarquia de liga apesar do nome parecido — são só como o
+PPPoker rotula as duas categorias de taxa nesse relatório. Só vale pra importações novas; arquivos
+já importados antes dessa correção precisam ser reimportados pra recalcular certo.
+
 ---
 
 ## Importação de Planilhas — Arquitetura Bronze / Silver / Gold
