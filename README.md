@@ -88,9 +88,11 @@ Relatórios) já refaz as contas certas em cima do que já foi importado.
 
 **Sinal na tela de Acertos (`components/acertos/AcertosView.tsx`):** "Taxa" (fee cobrado do clube
 pelo serviço de liga) sempre aparece negativo. O antigo "Result. Jogador" virou **"Ganhos"**. Pro
-tipo de cobrança "taxa" (dinâmica ou fixa/variável), o **Valor do Acerto = Ganhos − Taxa** — a taxa
-é só um componente do acerto, não o acerto inteiro (bug corrigido: antes o Valor do Acerto repetia
-exatamente a Taxa, ignorando os Ganhos do clube no período).
+tipo de cobrança "taxa" (dinâmica ou fixa/variável), o **Valor do Acerto = Rake Total + Ganhos −
+Taxa** — confirmado com a fórmula real da planilha manual do Cássio (`=ARRED(SOMA(...);2)`, soma
+lisa de todas as linhas do card de Acerto Geral). Bug corrigido em duas partes: primeiro o Valor do
+Acerto repetia exatamente a Taxa (ignorando os Ganhos), depois — mesmo já somando os Ganhos —
+ainda faltava o Rake Total na conta.
 
 **Acerto Geral por clube (`components/acertos/ClubAcertoCard.tsx`):** clicando no nome do clube na
 tabela de Acertos abre o card no formato tradicional que a liga já usa (linha a linha: Ganhos, Rake

@@ -147,7 +147,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const rebateDisplay = -acerto.rebate_calculado
   const lancamentosLiquido = lancamentos.reduce((s, l) => s + (l.natureza === 'credito' ? l.valor : -l.valor), 0)
   const total =
-    acerto.player_result -
+    acerto.rake_total + acerto.player_result -
     acerto.fee_mtt_valor - acerto.fee_cash_valor - acerto.fee_spinup_valor - acerto.fee_operacional_valor +
     bilhetes + pendencias + security + rebateDisplay + taxaAaHomeGame + lancamentosLiquido
 
