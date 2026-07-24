@@ -18,7 +18,6 @@ export interface ClubSettings {
 export interface ImportRow {
   id: string;
   import_id: string;
-  club_id: string | null;
   club_name: string;
   club_external_id: string;
   rake_total: number;
@@ -181,7 +180,10 @@ function calcularAcerto(
 
   return {
     import_id:        row.import_id,
-    club_id:          row.club_id,
+    // Não usar row.club_id: import_rows nunca grava esse campo (só
+    // club_name/club_external_id) — o clube de verdade, já casado por
+    // external_id ou nome, é o "club" recebido aqui.
+    club_id:          club.id,
     club_name:        row.club_name,
     club_external_id: row.club_external_id,
     settlement_type:  club.settlement_type,

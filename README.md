@@ -112,6 +112,14 @@ por rake; "Lançamentos" mostra o líquido (créditos − débitos) do período;
 número final — já é a soma dos dois. Sem período no import, os lançamentos ficam de fora (não tem
 como filtrar por data).
 
+**Bug: `acertos.club_id` sempre nulo:** `calcularAcerto` gravava `club_id` a partir de
+`import_rows.club_id` — campo que a `harmonizar-import` nunca preenche (só grava
+`club_name`/`club_external_id` ali). O cálculo em si sempre usou o clube certo (casado por
+`external_id` ou nome), só o `club_id` salvo no acerto ficava nulo — quebrando silenciosamente
+tanto os Lançamentos quanto o carregamento das taxas do clube dentro do card (`Taxa Atual %`,
+Security etc, que dependem de `acerto.club_id`). Corrigido pra gravar o `id` do clube já casado.
+Acertos calculados antes dessa correção precisam só de "Recalcular" (não precisa reimportar).
+
 ---
 
 ## Importação de Planilhas — Arquitetura Bronze / Silver / Gold
