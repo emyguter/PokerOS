@@ -22,6 +22,7 @@ export interface Profile {
   nome: string | null
   is_super_admin: boolean
   clube_id: string | null
+  agente_id: string | null
 }
 
 interface PermissionsContextValue {
@@ -85,7 +86,7 @@ export function usePermissionsProvider(): PermissionsContextValue {
       return
     }
     const [{ data: profileData }, efetivas] = await Promise.all([
-      supabase.from('profiles').select('id, email, nome, is_super_admin, clube_id').eq('id', u.id).maybeSingle(),
+      supabase.from('profiles').select('id, email, nome, is_super_admin, clube_id, agente_id').eq('id', u.id).maybeSingle(),
       fetchEffectivePermissions(u.id),
     ])
     setProfile((profileData as Profile) ?? null)

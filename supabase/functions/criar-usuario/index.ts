@@ -22,9 +22,10 @@ interface Body {
   email: string;
   password: string;
   nome?: string;
-  tipoAcesso: "staff" | "clube";
+  tipoAcesso: "staff" | "clube" | "agente";
   isSuperAdmin?: boolean;
   clubeId?: string;
+  agenteId?: string;
   roleIds?: string[];
 }
 
@@ -63,8 +64,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: false, error: "Email e senha são obrigatórios." }, 400);
     }
     const ehClube = body.tipoAcesso === "clube";
+    const ehAgente = body.tipoAcesso === "agente";
     if (ehClube && !body.clubeId) {
       return jsonResponse({ ok: false, error: "Escolha o clube." }, 400);
+    }
+    if (ehAgente && !body.agenteId) {
+      return jsonResponse({ ok: false, error: "Escolha o agente." }, 400);
     }
 
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
@@ -81,13 +86,14 @@ Deno.serve(async (req) => {
       .from("profiles")
       .update({
         nome: body.nome || null,
-        is_super_admin: ehClube ? false : !!body.isSuperAdmin,
+        is_super_admin: ehClube || ehAgente ? false : !!body.isSuperAdmin,
         clube_id: ehClube ? body.clubeId : null,
+        agente_id: ehAgente ? body.agenteId : null,
       })
       .eq("id", novoId);
     if (profileErr) throw new Error(`Usuário criado, mas erro ao configurar acesso: ${profileErr.message}`);
 
-    if (!ehClube && body.roleIds && body.roleIds.length > 0) {
+    if (!ehClube && !ehAgente && body.roleIds && body.roleIds.length > 0) {
       const { error: rolesErr } = await admin
         .from("user_roles")
         .insert(body.roleIds.map((role_id) => ({ user_id: novoId, role_id })));

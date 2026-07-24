@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { BookOpen, Upload, FileText, LogOut, ShieldCheck, Wallet, Receipt, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { BookOpen, Upload, FileText, LogOut, ShieldCheck, Wallet, Receipt, PanelLeftClose, PanelLeftOpen, HandCoins } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { useI18n } from '@/lib/i18n'
@@ -44,6 +44,8 @@ export default function Sidebar() {
   // Login de clube: experiência isolada, só o próprio extrato — nada de
   // cadastros, importação ou telas internas da liga, não importa a permissão.
   const ehClube = !loading && !!profile?.clube_id
+  // Login de agente: mesma ideia, só o próprio rakeback consolidado.
+  const ehAgente = !loading && !!profile?.agente_id
 
   const nav = NAV.filter(item => loading || item.chaves.some(c => hasPermission(c)))
 
@@ -102,6 +104,16 @@ export default function Sidebar() {
           >
             <Receipt size={16} />
             {t('nav.extrato')}
+          </Link>
+        ) : ehAgente ? (
+          <Link
+            href="/agente/extrato"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              path.startsWith('/agente') ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+            }`}
+          >
+            <HandCoins size={16} />
+            {t('nav.meusGanhos')}
           </Link>
         ) : (
           <>

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
-import type { ClubeOpcao, Permissao, RoleRow, UserRow } from './PermissoesView'
+import type { AgenteOpcao, ClubeOpcao, Permissao, RoleRow, UserRow } from './PermissoesView'
 
 interface Props {
   open: boolean
@@ -11,17 +11,19 @@ interface Props {
   roles: RoleRow[]
   permissoes: Permissao[]
   clubes: ClubeOpcao[]
+  agentes: AgenteOpcao[]
   onClose: () => void
   onSaved: () => void
 }
 
 type Override = 'herdar' | 'permitir' | 'bloquear'
-type TipoAcesso = 'staff' | 'clube'
+type TipoAcesso = 'staff' | 'clube' | 'agente'
 
-export function UserModal({ open, user, roles, permissoes, clubes, onClose, onSaved }: Props) {
+export function UserModal({ open, user, roles, permissoes, clubes, agentes, onClose, onSaved }: Props) {
   const { t } = useI18n()
   const [tipoAcesso, setTipoAcesso] = useState<TipoAcesso>('staff')
   const [clubeId, setClubeId] = useState('')
+  const [agenteId, setAgenteId] = useState('')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set())
   const [overrides, setOverrides] = useState<Record<string, Override>>({})
@@ -30,8 +32,9 @@ export function UserModal({ open, user, roles, permissoes, clubes, onClose, onSa
 
   useEffect(() => {
     if (!open || !user) return
-    setTipoAcesso(user.clube_id ? 'clube' : 'staff')
+    setTipoAcesso(user.clube_id ? 'clube' : user.agente_id ? 'agente' : 'staff')
     setClubeId(user.clube_id ?? '')
+    setAgenteId(user.agente_id ?? '')
     setIsSuperAdmin(user.is_super_admin)
     setSelectedRoleIds(new Set(user.roleIds))
     setError(null)
@@ -56,18 +59,25 @@ export function UserModal({ open, user, roles, permissoes, clubes, onClose, onSa
     e.preventDefault()
     if (!user) return
     if (tipoAcesso === 'clube' && !clubeId) { setError('Escolha o clube.'); return }
+    if (tipoAcesso === 'agente' && !agenteId) { setError('Escolha o agente.'); return }
     setSaving(true); setError(null)
     try {
       const ehClube = tipoAcesso === 'clube'
+      const ehAgente = tipoAcesso === 'agente'
+      const restrito = ehClube || ehAgente
       const { error: profErr } = await supabase
         .from('profiles')
-        .update({ is_super_admin: ehClube ? false : isSuperAdmin, clube_id: ehClube ? clubeId : null })
+        .update({
+          is_super_admin: restrito ? false : isSuperAdmin,
+          clube_id: ehClube ? clubeId : null,
+          agente_id: ehAgente ? agenteId : null,
+        })
         .eq('id', user.id)
       if (profErr) throw profErr
 
       const { error: delRolesErr } = await supabase.from('user_roles').delete().eq('user_id', user.id)
       if (delRolesErr) throw delRolesErr
-      if (!ehClube && selectedRoleIds.size > 0) {
+      if (!restrito && selectedRoleIds.size > 0) {
         const { error: insRolesErr } = await supabase.from('user_roles').insert(
           Array.from(selectedRoleIds).map((role_id) => ({ user_id: user.id, role_id }))
         )
@@ -76,7 +86,7 @@ export function UserModal({ open, user, roles, permissoes, clubes, onClose, onSa
 
       const { error: delPermErr } = await supabase.from('user_permissoes').delete().eq('user_id', user.id)
       if (delPermErr) throw delPermErr
-      const overrideRows = ehClube ? [] : Object.entries(overrides)
+      const overrideRows = restrito ? [] : Object.entries(overrides)
         .filter(([, v]) => v !== 'herdar')
         .map(([permissao_id, v]) => ({ user_id: user.id, permissao_id, allow: v === 'permitir' }))
       if (overrideRows.length > 0) {
@@ -108,7 +118,7 @@ export function UserModal({ open, user, roles, permissoes, clubes, onClose, onSa
 
             <div className="space-y-2">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('user_modal.tipo_acesso')}</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setTipoAcesso('staff')}
@@ -125,6 +135,14 @@ export function UserModal({ open, user, roles, permissoes, clubes, onClose, onSa
                   {t('user_modal.clube')}
                   <p className="text-xs font-normal text-gray-500 mt-0.5">{t('user_modal.clube_desc')}</p>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoAcesso('agente')}
+                  className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipoAcesso === 'agente' ? 'border-gold/50 bg-gold/10 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+                >
+                  {t('user_modal.agente')}
+                  <p className="text-xs font-normal text-gray-500 mt-0.5">{t('user_modal.agente_desc')}</p>
+                </button>
               </div>
               {tipoAcesso === 'clube' && (
                 <select
@@ -134,6 +152,16 @@ export function UserModal({ open, user, roles, permissoes, clubes, onClose, onSa
                 >
                   <option value="">{t('user_modal.selecione_clube')}</option>
                   {clubes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              )}
+              {tipoAcesso === 'agente' && (
+                <select
+                  value={agenteId}
+                  onChange={(e) => setAgenteId(e.target.value)}
+                  className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50 mt-2"
+                >
+                  <option value="">{t('user_modal.selecione_agente')}</option>
+                  {agentes.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               )}
             </div>

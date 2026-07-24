@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { processarAcertos } from "@/lib/acertos-engine";
+import { processarAcertos, processarAcertosAgentes } from "@/lib/acertos-engine";
 import * as XLSX from "xlsx";
 import { ClubAcertoCard } from "./ClubAcertoCard";
+import { AgentesAcertosView } from "./AgentesAcertosView";
 
 interface Import {
   id: string;
@@ -62,6 +63,7 @@ const feeDisplay = (a: Acerto) => -Math.abs(a.fee_calculado);
 const valorDisplay = (a: Acerto) => (isFeeType(a) ? -a.valor_acerto : a.valor_acerto);
 
 export default function AcertosView() {
+  const [aba, setAba] = useState<"clube" | "agente">("clube");
   const [imports, setImports] = useState<Import[]>([]);
   const [selected, setSelected] = useState<Import | null>(null);
   const [acertos, setAcertos] = useState<Acerto[]>([]);
@@ -105,6 +107,8 @@ export default function AcertosView() {
     setCalculating(true);
     const result = await processarAcertos(selected.id);
     if (result.success) {
+      const resultAgentes = await processarAcertosAgentes(selected.id);
+      if (!resultAgentes.success) alert("Acertos por clube ok, mas erro no acerto de agentes: " + resultAgentes.error);
       await loadAcertos(selected.id);
       await loadImports();
     } else {
@@ -180,12 +184,22 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
         .vpos{color:#7DC97D}.vneg{color:#E07070}.vzero{color:#5a5a52}
       `}</style>
 
-      <div style={{ marginBottom: 32 }}>
+      <div style={{ marginBottom: 24 }}>
         <p style={{ color: "#C9A84C", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>PokerOS · Acertos</p>
         <h1 style={{ fontFamily: "var(--font-display), serif", fontSize: 28, fontWeight: 600, margin: 0 }}>Resumo de Acertos</h1>
-        <p style={{ color: "#6a6a62", fontSize: 14, marginTop: 6 }}>Selecione um import para calcular e conferir os acertos por clube</p>
+        <p style={{ color: "#6a6a62", fontSize: 14, marginTop: 6 }}>
+          {aba === "clube" ? "Selecione um import para calcular e conferir os acertos por clube" : "Rakeback consolidado por agente, somando todos os clubes que atende"}
+        </p>
       </div>
 
+      <div style={{ display: "flex", gap: 8, marginBottom: 24, maxWidth: 1300 }}>
+        <button className={`btn-ghost${aba === "clube" ? " active" : ""}`} onClick={() => setAba("clube")}>Por Clube</button>
+        <button className={`btn-ghost${aba === "agente" ? " active" : ""}`} onClick={() => setAba("agente")}>Por Agente</button>
+      </div>
+
+      {aba === "agente" ? (
+        <AgentesAcertosView />
+      ) : (
       <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 24, maxWidth: 1300 }}>
 
         {/* Lista imports */}
@@ -326,6 +340,7 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
           )}
         </div>
       </div>
+      )}
 
       {cardAberto && selected && (
         <ClubAcertoCard

@@ -321,3 +321,81 @@ export async function processarAcertos(importId: string): Promise<{
     return { success: false, count: 0, error: err instanceof Error ? err.message : "Erro" };
   }
 }
+
+export interface AcertoAgenteCalculado {
+  import_id: string;
+  agente_id: string;
+  clube_id: string | null;
+  agente_nome: string;
+  clube_nome: string | null;
+  rake_total: number;
+  rakeback_pct: number;
+  valor_rakeback: number;
+}
+
+// Roda junto com processarAcertos: soma o rake por jogador (import_jogadores,
+// já persistido desde a colheita bronze/silver) agrupado por Agente x Clube,
+// aplica o rakeback_pct daquele par específico (cada clube pode negociar um %
+// diferente com o mesmo agente) e grava em acertos_agentes.
+export async function processarAcertosAgentes(importId: string): Promise<{
+  success: boolean;
+  count: number;
+  error?: string;
+}> {
+  try {
+    const { data: jogadores, error: jogadoresError } = await supabase
+      .from("import_jogadores")
+      .select("agente_id, clube_id, rake_total")
+      .eq("import_id", importId)
+      .not("agente_id", "is", null);
+    if (jogadoresError) throw new Error(jogadoresError.message);
+
+    await supabase.from("acertos_agentes").delete().eq("import_id", importId);
+
+    if (!jogadores || jogadores.length === 0) return { success: true, count: 0 };
+
+    const grupos = new Map<string, { agente_id: string; clube_id: string | null; rake_total: number }>();
+    for (const j of jogadores as { agente_id: string; clube_id: string | null; rake_total: number }[]) {
+      const chave = `${j.agente_id}:${j.clube_id ?? "sem_clube"}`;
+      const atual = grupos.get(chave) ?? { agente_id: j.agente_id, clube_id: j.clube_id, rake_total: 0 };
+      atual.rake_total += j.rake_total ?? 0;
+      grupos.set(chave, atual);
+    }
+
+    const agenteIds = [...new Set([...grupos.values()].map((g) => g.agente_id))];
+    const clubeIds = [...new Set([...grupos.values()].map((g) => g.clube_id).filter((id): id is string => !!id))];
+
+    const [{ data: agentes }, { data: clubes }, { data: rakebacks }] = await Promise.all([
+      supabase.from("agentes").select("id, nome").in("id", agenteIds),
+      supabase.from("clubs").select("id, name").in("id", clubeIds),
+      supabase.from("clube_agentes").select("agente_id, clube_id, rakeback_pct").in("agente_id", agenteIds),
+    ]);
+
+    const nomeAgentePorId = new Map((agentes ?? []).map((a) => [a.id as string, a.nome as string]));
+    const nomeClubePorId = new Map((clubes ?? []).map((c) => [c.id as string, c.name as string]));
+    const rakebackPorChave = new Map(
+      (rakebacks ?? []).map((r) => [`${r.agente_id}:${r.clube_id}`, (r.rakeback_pct as number | null) ?? 0])
+    );
+
+    const acertosAgentes: AcertoAgenteCalculado[] = [...grupos.values()].map((g) => {
+      const pct = g.clube_id ? rakebackPorChave.get(`${g.agente_id}:${g.clube_id}`) ?? 0 : 0;
+      return {
+        import_id: importId,
+        agente_id: g.agente_id,
+        clube_id: g.clube_id,
+        agente_nome: nomeAgentePorId.get(g.agente_id) ?? "—",
+        clube_nome: g.clube_id ? nomeClubePorId.get(g.clube_id) ?? "—" : null,
+        rake_total: Math.round(g.rake_total * 100) / 100,
+        rakeback_pct: pct,
+        valor_rakeback: Math.round(g.rake_total * (pct / 100) * 100) / 100,
+      };
+    });
+
+    const { error: insertError } = await supabase.from("acertos_agentes").insert(acertosAgentes);
+    if (insertError) throw new Error(insertError.message);
+
+    return { success: true, count: acertosAgentes.length };
+  } catch (err) {
+    return { success: false, count: 0, error: err instanceof Error ? err.message : "Erro" };
+  }
+}

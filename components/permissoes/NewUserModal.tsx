@@ -3,17 +3,18 @@ import { useState, useEffect } from 'react'
 import { X, Loader2, Dices, Copy, Check } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
-import type { ClubeOpcao, RoleRow } from './PermissoesView'
+import type { AgenteOpcao, ClubeOpcao, RoleRow } from './PermissoesView'
 
 interface Props {
   open: boolean
   roles: RoleRow[]
   clubes: ClubeOpcao[]
+  agentes: AgenteOpcao[]
   onClose: () => void
   onSaved: () => void
 }
 
-type TipoAcesso = 'staff' | 'clube'
+type TipoAcesso = 'staff' | 'clube' | 'agente'
 
 const inputCls = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20'
 
@@ -24,7 +25,7 @@ function gerarSenha() {
   return s
 }
 
-export function NewUserModal({ open, roles, clubes, onClose, onSaved }: Props) {
+export function NewUserModal({ open, roles, clubes, agentes, onClose, onSaved }: Props) {
   const { t } = useI18n()
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
@@ -32,6 +33,7 @@ export function NewUserModal({ open, roles, clubes, onClose, onSaved }: Props) {
   const [copiado, setCopiado] = useState(false)
   const [tipoAcesso, setTipoAcesso] = useState<TipoAcesso>('staff')
   const [clubeId, setClubeId] = useState('')
+  const [agenteId, setAgenteId] = useState('')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
@@ -40,7 +42,7 @@ export function NewUserModal({ open, roles, clubes, onClose, onSaved }: Props) {
   useEffect(() => {
     if (!open) return
     setNome(''); setEmail(''); setPassword(gerarSenha()); setCopiado(false)
-    setTipoAcesso('staff'); setClubeId(''); setIsSuperAdmin(false)
+    setTipoAcesso('staff'); setClubeId(''); setAgenteId(''); setIsSuperAdmin(false)
     setSelectedRoleIds(new Set()); setError(null)
   }, [open])
 
@@ -62,6 +64,7 @@ export function NewUserModal({ open, roles, clubes, onClose, onSaved }: Props) {
     e.preventDefault()
     if (!email.trim() || !password) { setError('Email e senha são obrigatórios.'); return }
     if (tipoAcesso === 'clube' && !clubeId) { setError('Escolha o clube.'); return }
+    if (tipoAcesso === 'agente' && !agenteId) { setError('Escolha o agente.'); return }
     setSaving(true); setError(null)
     try {
       const { data, error: invokeErr } = await supabase.functions.invoke('criar-usuario', {
@@ -72,6 +75,7 @@ export function NewUserModal({ open, roles, clubes, onClose, onSaved }: Props) {
           tipoAcesso,
           isSuperAdmin,
           clubeId: tipoAcesso === 'clube' ? clubeId : undefined,
+          agenteId: tipoAcesso === 'agente' ? agenteId : undefined,
           roleIds: tipoAcesso === 'staff' ? Array.from(selectedRoleIds) : undefined,
         },
       })
@@ -119,7 +123,7 @@ export function NewUserModal({ open, roles, clubes, onClose, onSaved }: Props) {
 
             <div className="space-y-2">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('user_modal.tipo_acesso')}</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setTipoAcesso('staff')}
@@ -136,6 +140,14 @@ export function NewUserModal({ open, roles, clubes, onClose, onSaved }: Props) {
                   {t('user_modal.clube')}
                   <p className="text-xs font-normal text-gray-500 mt-0.5">{t('user_modal.clube_desc')}</p>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoAcesso('agente')}
+                  className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipoAcesso === 'agente' ? 'border-gold/50 bg-gold/10 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+                >
+                  {t('user_modal.agente')}
+                  <p className="text-xs font-normal text-gray-500 mt-0.5">{t('user_modal.agente_desc')}</p>
+                </button>
               </div>
               {tipoAcesso === 'clube' && (
                 <select
@@ -145,6 +157,16 @@ export function NewUserModal({ open, roles, clubes, onClose, onSaved }: Props) {
                 >
                   <option value="">{t('user_modal.selecione_clube')}</option>
                   {clubes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              )}
+              {tipoAcesso === 'agente' && (
+                <select
+                  value={agenteId}
+                  onChange={(e) => setAgenteId(e.target.value)}
+                  className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50 mt-2"
+                >
+                  <option value="">{t('user_modal.selecione_agente')}</option>
+                  {agentes.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               )}
             </div>
