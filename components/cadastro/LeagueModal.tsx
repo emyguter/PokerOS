@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { X, Loader2, Plus, Trash2, Search } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, Loader2, Plus, Trash2 } from 'lucide-react'
 import type { League, LeagueForm, SuperLeague, Plataforma } from '@/lib/types'
 import { MOEDAS } from '@/lib/moedas'
 import { formatIndicadorNome } from '@/lib/indicadores'
@@ -45,7 +45,6 @@ const EMPTY: LeagueForm = {
 const EMPTY_COND: Condicao = { indicador_ids: [''], operador: '>', valor: null, resultado_pct: null, is_fallback: false }
 
 const inputCls = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20'
-const inputLockedCls = 'w-full bg-surface/50 border border-white/5 rounded-lg px-3 py-2.5 text-gray-400 text-sm cursor-not-allowed'
 
 function Sec({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -67,56 +66,10 @@ function Fld({ label, required, children }: { label: string; required?: boolean;
   )
 }
 
-function IdNickRow({ idLabel, nickLabel, idValue, idPlaceholder, onIdChange, nickValue, nickPlaceholder, nickLocked, onNickChange, searching }: {
-  idLabel: string
-  nickLabel: string
-  idValue: string
-  idPlaceholder: string
-  onIdChange: (v: string) => void
-  nickValue: string
-  nickPlaceholder: string
-  nickLocked: boolean
-  onNickChange: (v: string) => void
-  searching?: boolean
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      <Fld label={idLabel}>
-        <div className="relative">
-          <input
-            type="text"
-            value={idValue}
-            onChange={e => onIdChange(e.target.value)}
-            placeholder={idPlaceholder}
-            className={inputCls}
-          />
-          {searching && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
-        </div>
-      </Fld>
-      <Fld label={nickLabel}>
-        <input
-          type="text"
-          value={nickValue}
-          onChange={e => onNickChange(e.target.value)}
-          placeholder={nickPlaceholder}
-          disabled={nickLocked}
-          className={nickLocked ? inputLockedCls : inputCls}
-        />
-      </Fld>
-    </div>
-  )
-}
-
 export function LeagueModal({ open, editing, superLeagues, plataformas, onClose, onSave, saving, error }: Props) {
   const [form, setForm] = useState<LeagueForm>(EMPTY)
   const [condicoes, setCondicoes] = useState<Condicao[]>([])
   const [indicadores, setIndicadores] = useState<Indicador[]>([])
-  const [clubeLocked, setClubeLocked] = useState(false)
-  const [usuarioLocked, setUsuarioLocked] = useState(false)
-  const [searchingClube, setSearchingClube] = useState(false)
-  const [searchingUsuario, setSearchingUsuario] = useState(false)
-  const clubeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const usuarioTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -139,8 +92,6 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
         moeda_acerto: editing.moeda_acerto ?? 'BRL',
         conversao_dia: editing.conversao_dia ?? false,
       })
-      setClubeLocked(!!editing.clube_nickname)
-      setUsuarioLocked(!!editing.operador_nickname)
 
       supabase.from('regra_entidades')
         .select('regra_id, regras(id, moeda, conversao_dia, regra_condicoes(*, regra_condicao_termos(indicador_id, ordem)))')
@@ -165,49 +116,12 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
     } else {
       setForm(EMPTY)
       setCondicoes([])
-      setClubeLocked(false)
-      setUsuarioLocked(false)
     }
   }, [editing, open])
 
   if (!open) return null
 
   const set = (k: keyof LeagueForm, v: any) => setForm(f => ({ ...f, [k]: v }))
-
-  const handleClubeIdChange = (v: string) => {
-    set('clube_ext_id', v || null)
-    set('clube_nickname', null)
-    setClubeLocked(false)
-    if (clubeTimer.current) clearTimeout(clubeTimer.current)
-    if (!v || !form.plataforma_id) return
-    clubeTimer.current = setTimeout(async () => {
-      setSearchingClube(true)
-      const { data } = await supabase
-        .from('clubs').select('name').eq('external_id', v).maybeSingle()
-      setSearchingClube(false)
-      if (data) { set('clube_nickname', data.name); setClubeLocked(true) }
-    }, 600)
-  }
-
-  const handleUsuarioIdChange = (v: string) => {
-    set('operador_ext_id', v || null)
-    set('operador_nickname', null)
-    setUsuarioLocked(false)
-    if (usuarioTimer.current) clearTimeout(usuarioTimer.current)
-    if (!v) return
-    usuarioTimer.current = setTimeout(async () => {
-      setSearchingUsuario(true)
-      const [agente, jogador, clube, liga] = await Promise.all([
-        supabase.from('agentes').select('nome').eq('external_id', v).maybeSingle(),
-        supabase.from('jogadores').select('nome').eq('external_id', v).maybeSingle(),
-        supabase.from('clubs').select('name').eq('external_id', v).maybeSingle(),
-        supabase.from('leagues').select('name').eq('clube_ext_id', v).maybeSingle(),
-      ])
-      setSearchingUsuario(false)
-      const found = agente.data?.nome || jogador.data?.nome || clube.data?.name || liga.data?.name
-      if (found) { set('operador_nickname', found); setUsuarioLocked(true) }
-    }, 600)
-  }
 
   const addCondicao = () => setCondicoes(c => [...c, { ...EMPTY_COND }])
   const addFallback = () => {
@@ -252,38 +166,34 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
               </div>
             </Sec>
 
-            <Sec title="Usuário na Plataforma">
-              <p className="text-xs text-gray-500">Cada plataforma é um clube diferente. IDs já cadastrados são preenchidos automaticamente.</p>
+            <Sec title="Identificação pra Importação">
+              <p className="text-xs text-gray-500">Usado pra reconhecer automaticamente qual liga é a planilha na hora de importar (PPPoker/GGPoker trazem esse ID no nome do arquivo ou no cabeçalho).</p>
               <Fld label="Plataforma (App)">
                 <select value={form.plataforma_id ?? ''} onChange={e => set('plataforma_id', e.target.value || null)} className={inputCls}>
                   <option value="">— Selecione —</option>
                   {plataformas.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                 </select>
               </Fld>
-              <IdNickRow
-                idLabel="ID do Clube"
-                nickLabel="Nome do Clube"
-                idValue={form.clube_ext_id ?? ''}
-                idPlaceholder="Ex: 1548056"
-                onIdChange={handleClubeIdChange}
-                nickValue={form.clube_nickname ?? ''}
-                nickPlaceholder="Preenchido automaticamente"
-                nickLocked={clubeLocked}
-                onNickChange={v => { set('clube_nickname', v || null); setClubeLocked(false) }}
-                searching={searchingClube}
-              />
-              <IdNickRow
-                idLabel="ID do Usuário"
-                nickLabel="Nome do Usuário"
-                idValue={form.operador_ext_id ?? ''}
-                idPlaceholder="Ex: 12034210"
-                onIdChange={handleUsuarioIdChange}
-                nickValue={form.operador_nickname ?? ''}
-                nickPlaceholder="Preenchido automaticamente"
-                nickLocked={usuarioLocked}
-                onNickChange={v => { set('operador_nickname', v || null); setUsuarioLocked(false) }}
-                searching={searchingUsuario}
-              />
+              <div className="grid grid-cols-2 gap-3">
+                <Fld label="ID da Liga">
+                  <input
+                    type="text"
+                    value={form.clube_ext_id ?? ''}
+                    onChange={e => set('clube_ext_id', e.target.value || null)}
+                    placeholder="Ex: 2136"
+                    className={inputCls}
+                  />
+                </Fld>
+                <Fld label="Nome da Liga (no arquivo)">
+                  <input
+                    type="text"
+                    value={form.clube_nickname ?? ''}
+                    onChange={e => set('clube_nickname', e.target.value || null)}
+                    placeholder="Como aparece na planilha"
+                    className={inputCls}
+                  />
+                </Fld>
+              </div>
             </Sec>
 
             <Sec title="Regras — Taxa do App">
