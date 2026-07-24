@@ -189,14 +189,28 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "pl
         if (header) rawEntry[String(header)] = row[idx];
       });
 
+      // A coluna "Geral" (total) tanto de Ganhos do jogador quanto de Ganhos
+      // do clube vem vazia nesse relatório do PPPoker — só as colunas
+      // quebradas por tipo de jogo/taxa vêm preenchidas. Then é preciso somar
+      // manualmente em vez de ler a coluna "Geral" (que dá sempre 0).
+      // Confirmado com a planilha de acerto manual do Cássio: MTT = Taxa
+      // (jogos PPST) + Taxa (jogos não PPST); Cash = Taxa (jogos PPSR) +
+      // Taxa (jogos não PPSR); Total = MTT + Cash.
+      const ganhos =
+        safeNum(row[9]) + safeNum(row[10]) + safeNum(row[11]) + safeNum(row[12]) +
+        safeNum(row[13]) + safeNum(row[14]) + safeNum(row[15]) + safeNum(row[16]) + safeNum(row[17]);
+      const rakeMtt = safeNum(row[23]) + safeNum(row[24]);
+      const rakeCash = safeNum(row[25]) + safeNum(row[26]);
+      const rakeSpinup = safeNum(row[27]) + safeNum(row[28]);
+
       rows.push({
         club_name: clubName,
         club_external_id: clubId,
-        player_result: safeNum(row[8]),
-        rake_total: safeNum(row[23]),
-        rake_mtt: safeNum(row[24]),
-        rake_cash: safeNum(row[25]),
-        rake_spinup: safeNum(row[30]),
+        player_result: ganhos,
+        rake_total: rakeMtt + rakeCash,
+        rake_mtt: rakeMtt,
+        rake_cash: rakeCash,
+        rake_spinup: rakeSpinup,
         fee_total: 0,
         agente_nome: "",
         agente_id_ext: "",

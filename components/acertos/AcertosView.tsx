@@ -42,6 +42,15 @@ const LABELS: Record<string, string> = {
 const fmt = (n: number) =>
   n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// Fee é sempre o que a liga cobra do clube — mostra sempre negativo. Pros
+// modelos onde o acerto é só a fee (taxa_dinamica, taxa_fixa_variavel),
+// o "Valor Acerto" fica negativo junto (é o mesmo número). Pros modelos com
+// rebate (rakeback, weekly_usd) o sinal do acerto já reflete corretamente
+// quem deve pra quem, então fica como calculado.
+const isFeeType = (a: Acerto) => a.settlement_type === "taxa_dinamica" || a.settlement_type === "taxa_fixa_variavel";
+const feeDisplay = (a: Acerto) => -Math.abs(a.fee_calculado);
+const valorDisplay = (a: Acerto) => (isFeeType(a) ? -a.valor_acerto : a.valor_acerto);
+
 export default function AcertosView() {
   const [imports, setImports] = useState<Import[]>([]);
   const [selected, setSelected] = useState<Import | null>(null);
@@ -103,10 +112,10 @@ export default function AcertosView() {
       "Rake Cash": a.rake_cash,
       "Rake Spinup": a.rake_spinup,
       "Rake Total": a.rake_total,
-      "Result. Jogador": a.player_result,
-      "Fee Calculado": a.fee_calculado,
+      Ganhos: a.player_result,
+      "Fee Calculado": feeDisplay(a),
       Rebate: a.rebate_calculado,
-      "Valor Acerto": a.valor_acerto,
+      "Valor Acerto": valorDisplay(a),
       Status: a.status,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -127,9 +136,9 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
   const totais = filtered.reduce(
     (acc, a) => ({
       rake_total:    acc.rake_total    + a.rake_total,
-      fee_calculado: acc.fee_calculado + a.fee_calculado,
+      fee_calculado: acc.fee_calculado + feeDisplay(a),
       rebate:        acc.rebate        + a.rebate_calculado,
-      valor_acerto:  acc.valor_acerto  + a.valor_acerto,
+      valor_acerto:  acc.valor_acerto  + valorDisplay(a),
     }),
     { rake_total: 0, fee_calculado: 0, rebate: 0, valor_acerto: 0 }
   );
@@ -256,7 +265,7 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                           <th style={{ textAlign: "right" }}>Rake MTT</th>
                           <th style={{ textAlign: "right" }}>Rake Cash</th>
                           <th style={{ textAlign: "right" }}>Rake Total</th>
-                          <th style={{ textAlign: "right" }}>Result. Jogador</th>
+                          <th style={{ textAlign: "right" }}>Ganhos</th>
                           <th style={{ textAlign: "right" }}>Fee</th>
                           <th style={{ textAlign: "right" }}>Rebate</th>
                           <th style={{ textAlign: "right" }}>Valor Acerto</th>
@@ -275,10 +284,10 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                             <td style={{ textAlign: "right" }}>{fmt(a.rake_cash)}</td>
                             <td style={{ textAlign: "right" }}>{fmt(a.rake_total)}</td>
                             <td style={{ textAlign: "right", color: a.player_result >= 0 ? "#7DC97D" : "#E07070" }}>{fmt(a.player_result)}</td>
-                            <td style={{ textAlign: "right", color: "#C9A84C" }}>{fmt(a.fee_calculado)}</td>
+                            <td style={{ textAlign: "right", color: "#C9A84C" }}>{fmt(feeDisplay(a))}</td>
                             <td style={{ textAlign: "right", color: "#E07070" }}>{a.rebate_calculado > 0 ? fmt(a.rebate_calculado) : "—"}</td>
                             <td style={{ textAlign: "right" }}>
-                              <strong className={a.valor_acerto > 0 ? "vpos" : a.valor_acerto < 0 ? "vneg" : "vzero"}>{fmt(a.valor_acerto)}</strong>
+                              <strong className={valorDisplay(a) > 0 ? "vpos" : valorDisplay(a) < 0 ? "vneg" : "vzero"}>{fmt(valorDisplay(a))}</strong>
                             </td>
                             <td><span className={`badge ${a.status === "calculado" ? "bok" : a.status === "sem_regra" ? "berr" : "bwarn"}`}>{a.status === "calculado" ? "✓" : a.status === "sem_regra" ? "Sem regra" : a.status}</span></td>
                           </tr>
