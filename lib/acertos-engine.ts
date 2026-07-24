@@ -154,12 +154,15 @@ function calcularAcerto(
       fee_spinup_valor = rake_spinup * ((club.spinup_pct ?? 0) / 100);
 
       fee_calculado = fee_mtt_valor + fee_cash_valor + fee_operacional_valor + fee_spinup_valor;
-      valor_acerto = fee_calculado;
+      // Valor do Acerto = Ganhos do jogador (a favor do clube) menos a taxa
+      // cobrada (custo do clube) — o fee é só um componente do acerto, não o
+      // acerto inteiro.
+      valor_acerto = row.player_result - fee_calculado;
       break;
     }
     case "taxa_fixa_variavel":
       fee_calculado = rake_total * (club.fee_mtt_pct / 100);
-      valor_acerto = fee_calculado;
+      valor_acerto = row.player_result - fee_calculado;
       break;
     case "rakeback":
       rebate_calculado = rake_total * (club.rakeback_pct / 100);

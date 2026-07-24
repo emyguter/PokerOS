@@ -115,7 +115,8 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const security = club?.security ?? 0
   const rebateDisplay = -acerto.rebate_calculado
   const total =
-    -acerto.fee_mtt_valor - acerto.fee_cash_valor - acerto.fee_spinup_valor - acerto.fee_operacional_valor +
+    acerto.player_result -
+    acerto.fee_mtt_valor - acerto.fee_cash_valor - acerto.fee_spinup_valor - acerto.fee_operacional_valor +
     bilhetes + pendencias + security + rebateDisplay + taxaAaHomeGame
 
   return (

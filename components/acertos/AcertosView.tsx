@@ -58,9 +58,8 @@ const fmt = (n: number) =>
 // o "Valor Acerto" fica negativo junto (é o mesmo número). Pros modelos com
 // rebate (rakeback, weekly_usd) o sinal do acerto já reflete corretamente
 // quem deve pra quem, então fica como calculado.
-const isFeeType = (a: Acerto) => a.settlement_type === "taxa_dinamica" || a.settlement_type === "taxa_fixa_variavel";
 const feeDisplay = (a: Acerto) => -Math.abs(a.fee_calculado);
-const valorDisplay = (a: Acerto) => (isFeeType(a) ? -a.valor_acerto : a.valor_acerto);
+const valorDisplay = (a: Acerto) => a.valor_acerto;
 
 export default function AcertosView() {
   const [aba, setAba] = useState<"clube" | "agente">("clube");

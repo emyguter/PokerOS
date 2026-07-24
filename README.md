@@ -87,9 +87,10 @@ coluna, então um `UPDATE` retroativo em `import_rows` + clicar "Recalcular" no 
 Relatórios) já refaz as contas certas em cima do que já foi importado.
 
 **Sinal na tela de Acertos (`components/acertos/AcertosView.tsx`):** "Taxa" (fee cobrado do clube
-pelo serviço de liga) sempre aparece negativo, e o "Valor do Acerto" inverte o sinal junto quando o
-tipo de cobrança é só taxa (sem rakeback) — pra bater com o extrato do clube, que é sempre um custo.
-O antigo "Result. Jogador" virou **"Ganhos"**.
+pelo serviço de liga) sempre aparece negativo. O antigo "Result. Jogador" virou **"Ganhos"**. Pro
+tipo de cobrança "taxa" (dinâmica ou fixa/variável), o **Valor do Acerto = Ganhos − Taxa** — a taxa
+é só um componente do acerto, não o acerto inteiro (bug corrigido: antes o Valor do Acerto repetia
+exatamente a Taxa, ignorando os Ganhos do clube no período).
 
 **Acerto Geral por clube (`components/acertos/ClubAcertoCard.tsx`):** clicando no nome do clube na
 tabela de Acertos abre o card no formato tradicional que a liga já usa (linha a linha: Ganhos, Rake
