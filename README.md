@@ -25,14 +25,15 @@
     app/admin/cadastro/       -> mega-ligas, superligas, ligas, clubes, super-agentes, agentes, jogadores
     app/admin/permissoes/     -> tela de Permissões (papéis e usuários)
     app/importacao/           -> upload de planilhas (.xlsx)
-    app/relatorios/           -> relatório de acertos
+    app/relatorios/           -> relatório de acertos (aba Por Clube + aba Por Agente)
     app/lancamento/           -> lançar bônus/promoção/caução/pagamento por clube + aba de extrato (staff)
     app/extrato/              -> extrato do próprio clube (login de clube, sem sidebar de staff)
+    app/agente/extrato/       -> "Meus Ganhos" do próprio agente (login de agente, sem sidebar de staff)
     app/login/                -> login (Supabase Auth)
     components/cadastro/      -> modais e tabela genérica de cadastro
-    components/permissoes/    -> PermissoesView, RoleModal, UserModal
+    components/permissoes/    -> PermissoesView, RoleModal, UserModal, NewUserModal
     components/importacao/    -> ImportacaoXlsx (fluxo bronze -> silver)
-    components/acertos/       -> AcertosView
+    components/acertos/       -> AcertosView, ClubAcertoCard (Acerto Geral por clube), AgentesAcertosView
     components/lancamento/    -> LancamentoView (tabs), LancarForm, ExtratoView
     components/               -> Sidebar, Footer, PermissionGuard
     lib/                      -> types.ts, cadastro-api.ts, supabase.ts, permissions.tsx, acertos-engine.ts, indicadores.ts, i18n.tsx
@@ -80,8 +81,24 @@ Cássio (fórmula real das abas "Taxa Dinâmica" + "BASE TX DINAMICA"):
   + Crash + Lucky Draw + Jackpot + Dividir EV
 
 PPST/PPSR não têm nada a ver com hierarquia de liga apesar do nome parecido — são só como o
-PPPoker rotula as duas categorias de taxa nesse relatório. Só vale pra importações novas; arquivos
-já importados antes dessa correção precisam ser reimportados pra recalcular certo.
+PPPoker rotula as duas categorias de taxa nesse relatório. Importações antigas não precisam ser
+reimportadas: `bronze_rows`/`import_rows.raw_data` já guarda os valores originais por nome de
+coluna, então um `UPDATE` retroativo em `import_rows` + clicar "Recalcular" no import (na tela de
+Relatórios) já refaz as contas certas em cima do que já foi importado.
+
+**Sinal na tela de Acertos (`components/acertos/AcertosView.tsx`):** "Taxa" (fee cobrado do clube
+pelo serviço de liga) sempre aparece negativo, e o "Valor do Acerto" inverte o sinal junto quando o
+tipo de cobrança é só taxa (sem rakeback) — pra bater com o extrato do clube, que é sempre um custo.
+O antigo "Result. Jogador" virou **"Ganhos"**.
+
+**Acerto Geral por clube (`components/acertos/ClubAcertoCard.tsx`):** clicando no nome do clube na
+tabela de Acertos abre o card no formato tradicional que a liga já usa (linha a linha: Ganhos, Rake
+MTT/Cash/Total, Fee MTT/Cash/Operacional/SpinUp, Rebate, WtR 4 Semanas, Bilhetes, Pendências de
+Antecipação, Taxa AA Home Game, Security, Total). `fee_calculado` do motor foi quebrado em 4
+componentes (`fee_mtt_valor`, `fee_cash_valor`, `fee_operacional_valor`, `fee_spinup_valor`) pra dar
+pra mostrar cada linha separada. Bilhetes/Pendências de Antecipação/Taxa AA Home Game são campos
+editáveis por clube/semana (gravados direto em `acertos`, preservados entre recálculos); WtR 4
+Semanas é a média móvel automática das últimas 4 importações do mesmo clube.
 
 ---
 
@@ -112,6 +129,25 @@ o próprio Supabase já barra chamada sem token válido antes de a function chec
 
 ---
 
+## Acerto de Agentes (Rakeback)
+
+Um Agente pode atender vários Clubes ao mesmo tempo (`clube_agentes`, N:N), e o **% de rakeback é
+por clube** — não é uma taxa única do agente (`clube_agentes.rakeback_pct`).
+
+- **Cálculo:** `processarAcertosAgentes` (`lib/acertos-engine.ts`), disparado junto com "Recalcular"
+  na tela de Acertos, agrupa `import_jogadores` (já existente desde o harmonizar-import, com
+  `agente_id`/`clube_id`/`rake_total` por jogador) por Agente × Clube, soma o rake e aplica o
+  `rakeback_pct` daquele par específico, gravando em `acertos_agentes` (um registro por Agente ×
+  Clube × Import).
+- **Staff (Cássio):** aba "Por Agente" em Relatórios (`components/acertos/AgentesAcertosView.tsx`)
+  — lista todos os agentes, com o total consolidado e um clique pra expandir e ver o detalhe por
+  clube (rake, %, valor do rakeback).
+- **Login de agente:** `/agente/extrato` reaproveita o mesmo componente travado no próprio
+  `profiles.agente_id` (`agenteIdFixo`) — o agente só vê o próprio consolidado, por clube, sem
+  acesso aos outros agentes.
+
+---
+
 ## Permissões
 
 Tela em `/admin/permissoes` (só visível/acessível pra quem é `is_super_admin` em `profiles`).
@@ -123,14 +159,15 @@ Tela em `/admin/permissoes` (só visível/acessível pra quem é `is_super_admin
 - Uma permissão (`permissoes`) existe pra cada tela hoje visível no menu (Mega Ligas, Superligas,
   Ligas, Clubes, Super Agentes, Agentes, Jogadores, Importação, Relatórios, Lançamento).
 - **Tipo de acesso**: ao editar um usuário, dá pra escolher entre **Staff da liga** (papéis +
-  exceções, como acima) ou **Login de clube** (`profiles.clube_id` preenchido) — esse segundo tipo
-  ignora papéis/permissões por tela: o `Sidebar` detecta `clube_id` e mostra só o link "Extrato",
-  travado no próprio clube.
+  exceções, como acima), **Login de clube** (`profiles.clube_id` preenchido) ou **Login de agente**
+  (`profiles.agente_id` preenchido) — esses dois últimos ignoram papéis/permissões por tela: o
+  `Sidebar` detecta `clube_id`/`agente_id` e mostra só um link travado ("Extrato" ou "Meus Ganhos"),
+  sem o menu completo de staff.
 - **Criar usuário** (botão "Novo Usuário" na aba Usuários): cria o login direto pelo front, sem
   precisar abrir o Supabase. Como isso exige a Admin API do Supabase (não dá pra criar usuário com
   a anon key no navegador), passa pela Edge Function `criar-usuario`, que confere se quem tá
   chamando é super admin antes de criar — email, senha (gerada automaticamente, com botão de
-  copiar), nome, tipo de acesso e papéis/clube tudo na mesma tela.
+  copiar), nome, tipo de acesso e papéis/clube/agente tudo na mesma tela.
 
 **Importante:** hoje isso é enforcement de **front** (esconde menu, bloqueia a página client-side)
 via `lib/permissions.tsx` + `PermissionGuard`. Não é ainda uma trava no banco (RLS por permissão) —
@@ -214,6 +251,10 @@ pelo Supabase — não precisa configurar manualmente.
 - [x] Criar usuário direto pelo front (Edge Function `criar-usuario`)
 - [x] Toggle de idioma PT/EN (navegação, login, cadastros, Permissões, Lançamento/Extrato)
 - [x] Sidebar retrátil (botão pra esconder/mostrar) + viewport meta tag pro celular
+- [x] Acerto Geral por clube no formato tradicional (card ao clicar no nome do clube em Relatórios)
+- [x] Acerto de Agentes: rakeback por clube (`clube_agentes.rakeback_pct`), aba "Por Agente" em
+  Relatórios pro staff, e tela própria "Meus Ganhos" pro login de agente
+- [x] Login de agente (`profiles.agente_id`) como terceiro tipo de acesso em Permissões
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
