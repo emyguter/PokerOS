@@ -177,6 +177,7 @@ export type AgentePlataforma = {
 export type AgenteClubeVinculo = {
   id: string
   clube_id: string
+  rakeback_pct: number | null
   clubs?: {
     id: string
     name: string
@@ -193,6 +194,7 @@ export type ClubeVinculado = {
   external_id: string | null
   plataforma_id: string | null
   leagueName: string | null
+  rakeback_pct: number | null
 }
 
 // ─── JOGADORES ───────────────────────────────────────────────

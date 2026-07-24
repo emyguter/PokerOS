@@ -38,7 +38,7 @@ interface Props {
   subAgentesIniciais?: { id: string; nome: string; email: string | null }[]
   plataformas: Plataforma[]
   onClose: () => void
-  onSave: (form: AgenteForm, vinculos: AgentePlataforma[], clubeIds: string[], condicoes: Condicao[], subAgenteIds: string[]) => void
+  onSave: (form: AgenteForm, vinculos: AgentePlataforma[], clubes: { id: string; rakeback_pct: number | null }[], condicoes: Condicao[], subAgenteIds: string[]) => void
   saving: boolean
   error?: string | null
   esconderSuperAgente?: boolean
@@ -164,7 +164,7 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
           .limit(5)
         setResultadosClube((data ?? []).map((c: any) => ({
           id: c.id, name: c.name, external_id: c.external_id, plataforma_id: c.plataforma_id,
-          leagueName: c.leagues?.name ?? null,
+          leagueName: c.leagues?.name ?? null, rakeback_pct: null,
         })))
       } finally {
         setBuscandoClube(false)
@@ -271,7 +271,7 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
           </h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><X size={18} /></button>
         </div>
-        <form onSubmit={e => { e.preventDefault(); if (podeSalvar) onSave(form, vinculos, clubesSelecionados.map(c => c.id), condicoesFinais(), subAgentes.map(a => a.id)) }} className="flex flex-col flex-1 min-h-0">
+        <form onSubmit={e => { e.preventDefault(); if (podeSalvar) onSave(form, vinculos, clubesSelecionados.map(c => ({ id: c.id, rakeback_pct: c.rakeback_pct })), condicoesFinais(), subAgentes.map(a => a.id)) }} className="flex flex-col flex-1 min-h-0">
           <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
 
             <Sec title="Identificação">
@@ -407,12 +407,22 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
                 const v = vinculos.find(x => x.plataforma_id === c.plataforma_id && x.external_id)
                 const plataformaNome = plataformas.find(p => p.id === c.plataforma_id)?.nome ?? '— sem plataforma —'
                 return (
-                  <div key={c.id} className="p-3 rounded-lg border border-white/10 bg-surface2 space-y-1">
+                  <div key={c.id} className="p-3 rounded-lg border border-white/10 bg-surface2 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white font-medium">{c.name}</span>
                       <button type="button" onClick={() => removeClube(c.id)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={13} /></button>
                     </div>
                     <p className="text-xs text-gray-500">Liga: {c.leagueName ?? '— sem liga —'} · Plataforma: {plataformaNome}</p>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-500 shrink-0">Rakeback nesse clube</label>
+                      <input
+                        type="number" step="any" placeholder="0"
+                        value={c.rakeback_pct ?? ''}
+                        onChange={e => setClubesSelecionados(prev => prev.map(x => x.id === c.id ? { ...x, rakeback_pct: e.target.value === '' ? null : Number(e.target.value) } : x))}
+                        className="w-20 bg-surface border border-white/10 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:border-gold/50"
+                      />
+                      <span className="text-xs text-gray-500">%</span>
+                    </div>
                     {v ? (
                       <p className="text-xs text-gold/80">ID do agente nesse clube: {v.external_id} {v.nickname ? `(${v.nickname})` : ''}</p>
                     ) : (

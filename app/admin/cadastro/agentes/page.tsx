@@ -52,13 +52,14 @@ export default function AgentesPage() {
       external_id: ca.clubs?.external_id ?? null,
       plataforma_id: ca.clubs?.plataforma_id ?? null,
       leagueName: ca.clubs?.leagues?.name ?? null,
+      rakeback_pct: ca.rakeback_pct ?? null,
     })) ?? []
 
   // Sub-agentes = outros registros de `items` que apontam pra este via superagente_id
   const subAgentesIniciais = (item: Agente | null): { id: string; nome: string; email: string | null }[] =>
     item ? items.filter(a => a.superagente_id === item.id).map(a => ({ id: a.id, nome: a.nome, email: a.email })) : []
 
-  const handleSave = async (form: AgenteForm, vinculos: AgentePlataforma[], clubeIds: string[], condicoes: Condicao[], subAgenteIds: string[]) => {
+  const handleSave = async (form: AgenteForm, vinculos: AgentePlataforma[], clubes: { id: string; rakeback_pct: number | null }[], condicoes: Condicao[], subAgenteIds: string[]) => {
     setSaving(true); setError(null)
     try {
       let agenteId: string
@@ -71,7 +72,7 @@ export default function AgentesPage() {
       }
 
       await syncAgentePlataformas(agenteId, vinculos, vinculosIniciais(editing))
-      await syncClubeAgentes(agenteId, clubeIds, clubesIniciais(editing).map(c => c.id))
+      await syncClubeAgentes(agenteId, clubes, clubesIniciais(editing).map(c => c.id))
       await syncSubAgentes(agenteId, subAgenteIds, subAgentesIniciais(editing).map(a => a.id))
 
       const { data: existingRE } = await supabase

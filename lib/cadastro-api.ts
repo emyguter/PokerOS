@@ -157,7 +157,7 @@ export async function getAgentes(filter?: string): Promise<Agente[]> {
       *,
       plataformas(id, nome, moeda),
       agente_plataformas(id, plataforma_id, external_id, nickname, plataformas(nome)),
-      clube_agentes(id, clube_id, clubs(id, name, external_id, plataforma_id, league_id, leagues(name)))
+      clube_agentes(id, clube_id, rakeback_pct, clubs(id, name, external_id, plataforma_id, league_id, leagues(name)))
     `)
     .order('nome')
   if (filter) query = query.ilike('nome', `%${filter}%`)
@@ -310,14 +310,20 @@ export async function removeAgenteFromClube(clubeId: string, agenteId: string): 
   const { error } = await supabase.from('clube_agentes').delete().eq('clube_id', clubeId).eq('agente_id', agenteId)
   if (error) throw error
 }
+export async function setRakebackClubeAgente(clubeId: string, agenteId: string, rakebackPct: number | null): Promise<void> {
+  const { error } = await supabase.from('clube_agentes').update({ rakeback_pct: rakebackPct }).eq('clube_id', clubeId).eq('agente_id', agenteId)
+  if (error) throw error
+}
 
 export async function syncClubeAgentes(
   agenteId: string,
-  clubeIdsAtuais: string[],
+  clubesAtuais: { id: string; rakeback_pct: number | null }[],
   clubeIdsIniciais: string[]
 ): Promise<void> {
+  const clubeIdsAtuais = clubesAtuais.map(c => c.id)
   const adicionados = clubeIdsAtuais.filter(id => !clubeIdsIniciais.includes(id))
   const removidos = clubeIdsIniciais.filter(id => !clubeIdsAtuais.includes(id))
   for (const clubeId of adicionados) await addAgenteToClube(clubeId, agenteId)
   for (const clubeId of removidos) await removeAgenteFromClube(clubeId, agenteId)
+  for (const c of clubesAtuais) await setRakebackClubeAgente(c.id, agenteId, c.rakeback_pct)
 }
