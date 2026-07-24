@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Inbox } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { processarAcertos, processarAcertosAgentes } from "@/lib/acertos-engine";
 import * as XLSX from "xlsx";
@@ -50,6 +51,22 @@ const LABELS: Record<string, string> = {
   sem_regra: "Sem Regra",
 };
 
+const LABELS_LANCAMENTO: Record<string, string> = {
+  bonus: "Bônus",
+  promocao: "Promoção",
+  caucao: "Caução",
+  pagamento: "Pagamento",
+  outro: "Outro",
+};
+
+interface Lancamento {
+  clube_id: string;
+  tipo: string;
+  natureza: "credito" | "debito";
+  valor: number;
+  descricao: string | null;
+}
+
 const fmt = (n: number) =>
   n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -71,6 +88,7 @@ export default function AcertosView() {
   const [filterType, setFilterType] = useState("todos");
   const [search, setSearch] = useState("");
   const [cardAberto, setCardAberto] = useState<Acerto | null>(null);
+  const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
 
   useEffect(() => { loadImports(); }, []);
 
@@ -94,12 +112,52 @@ export default function AcertosView() {
     setLoading(false);
   }, []);
 
+  // Lançamentos (bônus/promoção/caução/pagamento) do próprio clube, lançados
+  // na tela de Lançamento — pra tabela de Acertos ficar completa, o Cássio
+  // pediu que esses valores entrem no Valor do Acerto final, não só como
+  // registro solto em outra tela.
+  const loadLancamentos = useCallback(async (clubIds: string[], periodStart: string, periodEnd: string) => {
+    if (clubIds.length === 0 || !periodStart) { setLancamentos([]); return; }
+    const { data } = await supabase
+      .from("lancamentos")
+      .select("clube_id, tipo, natureza, valor, descricao")
+      .in("clube_id", clubIds)
+      .gte("data_lancamento", periodStart)
+      .lte("data_lancamento", periodEnd || periodStart);
+    setLancamentos((data as Lancamento[]) ?? []);
+  }, []);
+
   async function handleSelect(imp: Import) {
     setSelected(imp);
     setFilterType("todos");
     setSearch("");
     await loadAcertos(imp.id);
   }
+
+  useEffect(() => {
+    if (!selected || acertos.length === 0) { setLancamentos([]); return; }
+    const clubIds = [...new Set(acertos.map((a) => a.club_id).filter((id): id is string => !!id))];
+    loadLancamentos(clubIds, selected.period_start, selected.period_end);
+  }, [acertos, selected, loadLancamentos]);
+
+  // Líquido de lançamentos (créditos − débitos) por clube, no período do import selecionado.
+  const lancamentosPorClube = useMemo(() => {
+    const mapa = new Map<string, { liquido: number; itens: Lancamento[] }>();
+    for (const l of lancamentos) {
+      const atual = mapa.get(l.clube_id) ?? { liquido: 0, itens: [] };
+      atual.liquido += l.natureza === "credito" ? l.valor : -l.valor;
+      atual.itens.push(l);
+      mapa.set(l.clube_id, atual);
+    }
+    return mapa;
+  }, [lancamentos]);
+
+  const lancamentosDoClube = useCallback(
+    (clubId: string | null) => (clubId ? lancamentosPorClube.get(clubId)?.liquido ?? 0 : 0),
+    [lancamentosPorClube]
+  );
+
+  const totalFinal = useCallback((a: Acerto) => valorDisplay(a) + lancamentosDoClube(a.club_id), [lancamentosDoClube]);
 
   async function handleCalcular() {
     if (!selected) return;
@@ -129,7 +187,9 @@ export default function AcertosView() {
       Ganhos: a.player_result,
       "Fee Calculado": feeDisplay(a),
       Rebate: a.rebate_calculado,
-      "Valor Acerto": valorDisplay(a),
+      "Acerto (Rake)": valorDisplay(a),
+      Lançamentos: lancamentosDoClube(a.club_id),
+      "Valor Acerto": totalFinal(a),
       Status: a.status,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -152,9 +212,10 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
       rake_total:    acc.rake_total    + a.rake_total,
       fee_calculado: acc.fee_calculado + feeDisplay(a),
       rebate:        acc.rebate        + a.rebate_calculado,
-      valor_acerto:  acc.valor_acerto  + valorDisplay(a),
+      lancamentos:   acc.lancamentos   + lancamentosDoClube(a.club_id),
+      valor_acerto:  acc.valor_acerto  + totalFinal(a),
     }),
-    { rake_total: 0, fee_calculado: 0, rebate: 0, valor_acerto: 0 }
+    { rake_total: 0, fee_calculado: 0, rebate: 0, lancamentos: 0, valor_acerto: 0 }
   );
 
   const semRegra = acertos.filter((a) => a.status === "sem_regra").length;
@@ -220,8 +281,14 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
         {/* Painel acertos */}
         <div>
           {!selected ? (
-            <div className="card" style={{ padding: "64px 32px", textAlign: "center" }}>
-              <p style={{ color: "#3a3a32", fontSize: 14 }}>← Selecione um import</p>
+            <div className="card" style={{ padding: "64px 32px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+              <Inbox size={32} color="#3a3a32" />
+              <p style={{ color: "#8a8a80", fontSize: 15, fontWeight: 500, margin: 0 }}>Selecione um import ao lado</p>
+              <p style={{ color: "#5a5a52", fontSize: 13, margin: 0 }}>
+                {imports.filter((i) => i.status === "acertos_calculados").length} já calculado{imports.filter((i) => i.status === "acertos_calculados").length !== 1 ? "s" : ""}
+                {" · "}
+                {imports.filter((i) => i.status !== "acertos_calculados").length} aguardando cálculo
+              </p>
             </div>
           ) : (
             <>
@@ -245,11 +312,12 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
               )}
 
               {acertos.length > 0 && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 20 }}>
                   {[
                     { label: "Rake Total", value: totais.rake_total, color: "#F0EDE4" },
                     { label: "Fee Calculado", value: totais.fee_calculado, color: "#C9A84C" },
                     { label: "Rebate", value: totais.rebate, color: "#E07070" },
+                    { label: "Lançamentos", value: totais.lancamentos, color: totais.lancamentos >= 0 ? "#7DC97D" : "#E07070" },
                     { label: "Valor Acerto", value: totais.valor_acerto, color: totais.valor_acerto >= 0 ? "#7DC97D" : "#E07070" },
                   ].map((s) => (
                     <div key={s.label} className="stat">
@@ -292,6 +360,8 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                           <th style={{ textAlign: "right" }}>Ganhos</th>
                           <th style={{ textAlign: "right" }}>Fee</th>
                           <th style={{ textAlign: "right" }}>Rebate</th>
+                          <th style={{ textAlign: "right" }}>Acerto (Rake)</th>
+                          <th style={{ textAlign: "right" }}>Lançamentos</th>
                           <th style={{ textAlign: "right" }}>Valor Acerto</th>
                           <th>Status</th>
                         </tr>
@@ -319,8 +389,14 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                             <td style={{ textAlign: "right", color: a.player_result >= 0 ? "#7DC97D" : "#E07070" }}>{fmt(a.player_result)}</td>
                             <td style={{ textAlign: "right", color: "#C9A84C" }}>{fmt(feeDisplay(a))}</td>
                             <td style={{ textAlign: "right", color: "#E07070" }}>{a.rebate_calculado > 0 ? fmt(a.rebate_calculado) : "—"}</td>
+                            <td style={{ textAlign: "right", color: "#7a7a70" }}>{fmt(valorDisplay(a))}</td>
+                            <td style={{ textAlign: "right" }} title={(lancamentosPorClube.get(a.club_id ?? "")?.itens ?? []).map((l) => `${LABELS_LANCAMENTO[l.tipo] ?? l.tipo}: ${l.natureza === "credito" ? "+" : "−"}${fmt(l.valor)}`).join(" · ") || undefined}>
+                              {lancamentosDoClube(a.club_id) === 0 ? "—" : (
+                                <span className={lancamentosDoClube(a.club_id) > 0 ? "vpos" : "vneg"}>{fmt(lancamentosDoClube(a.club_id))}</span>
+                              )}
+                            </td>
                             <td style={{ textAlign: "right" }}>
-                              <strong className={valorDisplay(a) > 0 ? "vpos" : valorDisplay(a) < 0 ? "vneg" : "vzero"}>{fmt(valorDisplay(a))}</strong>
+                              <strong className={totalFinal(a) > 0 ? "vpos" : totalFinal(a) < 0 ? "vneg" : "vzero"}>{fmt(totalFinal(a))}</strong>
                             </td>
                             <td><span className={`badge ${a.status === "calculado" ? "bok" : a.status === "sem_regra" ? "berr" : "bwarn"}`}>{a.status === "calculado" ? "✓" : a.status === "sem_regra" ? "Sem regra" : a.status}</span></td>
                           </tr>
@@ -331,6 +407,7 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                   <div style={{ padding: "12px 16px", borderTop: "1px solid #1e2018", display: "flex", justifyContent: "flex-end", gap: 32 }}>
                     <span style={{ fontSize: 12, color: "#5a5a52" }}>Rake: <strong style={{ color: "#F0EDE4" }}>{fmt(totais.rake_total)}</strong></span>
                     <span style={{ fontSize: 12, color: "#5a5a52" }}>Fee: <strong style={{ color: "#C9A84C" }}>{fmt(totais.fee_calculado)}</strong></span>
+                    <span style={{ fontSize: 12, color: "#5a5a52" }}>Lançamentos: <strong style={{ color: totais.lancamentos >= 0 ? "#7DC97D" : "#E07070" }}>{fmt(totais.lancamentos)}</strong></span>
                     <span style={{ fontSize: 12, color: "#5a5a52" }}>Acerto total: <strong style={{ color: totais.valor_acerto >= 0 ? "#7DC97D" : "#E07070", fontSize: 14 }}>{fmt(totais.valor_acerto)}</strong></span>
                   </div>
                 </div>

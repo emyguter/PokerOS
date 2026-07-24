@@ -41,6 +41,22 @@ interface ClubSettings {
   security: number | null
 }
 
+interface LancamentoCard {
+  id: string
+  tipo: string
+  natureza: 'credito' | 'debito'
+  valor: number
+  descricao: string | null
+}
+
+const LABELS_LANCAMENTO: Record<string, string> = {
+  bonus: 'Bônus',
+  promocao: 'Promoção',
+  caucao: 'Caução',
+  pagamento: 'Pagamento',
+  outro: 'Outro',
+}
+
 const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtPct = (n: number | null) => (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -79,6 +95,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const [pendencias, setPendencias] = useState(acerto.pendencias_antecipacao ?? 0)
   const [taxaAaHomeGame, setTaxaAaHomeGame] = useState(acerto.taxa_aa_home_game ?? 0)
   const [saving, setSaving] = useState(false)
+  const [lancamentos, setLancamentos] = useState<LancamentoCard[]>([])
 
   useEffect(() => {
     if (acerto.club_id) {
@@ -105,6 +122,20 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       })
   }, [acerto.club_external_id])
 
+  useEffect(() => {
+    // Bônus/promoção/caução/pagamento lançados na tela de Lançamento, no
+    // mesmo período desse acerto — pra fechar o card "completo" que o
+    // Cássio pediu, não só o cálculo automático de rake.
+    if (!acerto.club_id || !periodStart) { setLancamentos([]); return }
+    supabase
+      .from('lancamentos')
+      .select('id, tipo, natureza, valor, descricao')
+      .eq('clube_id', acerto.club_id)
+      .gte('data_lancamento', periodStart)
+      .lte('data_lancamento', periodEnd || periodStart)
+      .then(({ data }) => setLancamentos(data ?? []))
+  }, [acerto.club_id, periodStart, periodEnd])
+
   const salvarExtras = useCallback(async (campo: 'bilhetes' | 'pendencias_antecipacao' | 'taxa_aa_home_game', valor: number) => {
     setSaving(true)
     await supabase.from('acertos').update({ [campo]: valor }).eq('id', acerto.id)
@@ -114,10 +145,11 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
 
   const security = club?.security ?? 0
   const rebateDisplay = -acerto.rebate_calculado
+  const lancamentosLiquido = lancamentos.reduce((s, l) => s + (l.natureza === 'credito' ? l.valor : -l.valor), 0)
   const total =
     acerto.player_result -
     acerto.fee_mtt_valor - acerto.fee_cash_valor - acerto.fee_spinup_valor - acerto.fee_operacional_valor +
-    bilhetes + pendencias + security + rebateDisplay + taxaAaHomeGame
+    bilhetes + pendencias + security + rebateDisplay + taxaAaHomeGame + lancamentosLiquido
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -167,6 +199,23 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           <Linha label="Security" value={security} />
           <Linha label="Rebate" value={rebateDisplay} />
           <Linha label="Taxa A-A HOME GAME" value={taxaAaHomeGame} editable onCommit={(v) => { setTaxaAaHomeGame(v); salvarExtras('taxa_aa_home_game', v) }} />
+
+          {lancamentos.length > 0 && (
+            <div className="py-1">
+              <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">Lançamentos do período</p>
+              {lancamentos.map((l) => (
+                <div key={l.id} className="flex items-center justify-between py-1 px-3 text-sm">
+                  <span className="text-gray-400">
+                    {LABELS_LANCAMENTO[l.tipo] ?? l.tipo}
+                    {l.descricao && <span className="text-gray-600"> · {l.descricao}</span>}
+                  </span>
+                  <span className={l.natureza === 'credito' ? 'text-success font-medium' : 'text-alert font-medium'}>
+                    {l.natureza === 'credito' ? '+' : '−'}{fmt(l.valor)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex items-center justify-between py-3 px-3 bg-surface2">
             <span className="text-white font-semibold text-sm">Total</span>

@@ -95,11 +95,20 @@ exatamente a Taxa, ignorando os Ganhos do clube no período).
 **Acerto Geral por clube (`components/acertos/ClubAcertoCard.tsx`):** clicando no nome do clube na
 tabela de Acertos abre o card no formato tradicional que a liga já usa (linha a linha: Ganhos, Rake
 MTT/Cash/Total, Fee MTT/Cash/Operacional/SpinUp, Rebate, WtR 4 Semanas, Bilhetes, Pendências de
-Antecipação, Taxa AA Home Game, Security, Total). `fee_calculado` do motor foi quebrado em 4
-componentes (`fee_mtt_valor`, `fee_cash_valor`, `fee_operacional_valor`, `fee_spinup_valor`) pra dar
-pra mostrar cada linha separada. Bilhetes/Pendências de Antecipação/Taxa AA Home Game são campos
-editáveis por clube/semana (gravados direto em `acertos`, preservados entre recálculos); WtR 4
-Semanas é a média móvel automática das últimas 4 importações do mesmo clube.
+Antecipação, Taxa AA Home Game, Security, Lançamentos do período, Total). `fee_calculado` do motor
+foi quebrado em 4 componentes (`fee_mtt_valor`, `fee_cash_valor`, `fee_operacional_valor`,
+`fee_spinup_valor`) pra dar pra mostrar cada linha separada. Bilhetes/Pendências de
+Antecipação/Taxa AA Home Game são campos editáveis por clube/semana (gravados direto em `acertos`,
+preservados entre recálculos); WtR 4 Semanas é a média móvel automática das últimas 4 importações
+do mesmo clube.
+
+**Lançamentos na tabela de Acertos:** a pedido do Cássio ("essa tabelona, só que completa"), a
+tabela de Acertos e o card tradicional agora somam os lançamentos (bônus/promoção/caução/pagamento,
+tela `/lancamento`) do próprio clube dentro do período do import (`data_lancamento` entre
+`period_start`/`period_end`). A coluna "Acerto (Rake)" continua mostrando só o cálculo automático
+por rake; "Lançamentos" mostra o líquido (créditos − débitos) do período; e "Valor Acerto" — o
+número final — já é a soma dos dois. Sem período no import, os lançamentos ficam de fora (não tem
+como filtrar por data).
 
 ---
 
