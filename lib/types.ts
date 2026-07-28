@@ -254,12 +254,27 @@ export type RegraCondicaoForm = {
   is_fallback: boolean
 }
 
+export type RegraTipo = 'faixa' | 'cotacao'
+
 export type Regra = {
   id: string
   nome: string
   created_at: string
+  tipo: RegraTipo
   condicoes: RegraCondicaoForm[]
+  moeda_origem: string | null
+  moeda_destino: string | null
+  valor_cotacao: number | null
   vinculoCount: number
+}
+
+export type RegraForm = {
+  nome: string
+  tipo: RegraTipo
+  condicoes: RegraCondicaoForm[]
+  moeda_origem: string | null
+  moeda_destino: string | null
+  valor_cotacao: number | null
 }
 
 export type EntidadeTipo = 'plataforma' | 'mega_liga' | 'superliga' | 'liga' | 'clube' | 'agente' | 'jogador'

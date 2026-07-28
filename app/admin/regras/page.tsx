@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { getRegras, createRegra, updateRegra, deleteRegra } from '@/lib/cadastro-api'
-import type { Regra, RegraCondicaoForm } from '@/lib/types'
+import type { Regra, RegraForm } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { RegraModal } from '@/components/cadastro/RegraModal'
@@ -27,11 +27,11 @@ export default function RegrasPage() {
 
   useEffect(() => { load() }, [load])
 
-  async function handleSave(nome: string, condicoes: RegraCondicaoForm[]) {
+  async function handleSave(form: RegraForm) {
     setSaving(true); setError(null)
     try {
-      if (editing) await updateRegra(editing.id, nome, condicoes)
-      else await createRegra(nome, condicoes)
+      if (editing) await updateRegra(editing.id, form)
+      else await createRegra(form)
       await load(); setModalOpen(false); setEditing(null)
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setSaving(false) }
@@ -68,7 +68,13 @@ export default function RegrasPage() {
               <button onClick={() => setVinculosRegra(row)} className="text-gold hover:underline text-left">{v}</button>
             ),
           },
-          { key: 'condicoes', label: 'Condições', render: (v: RegraCondicaoForm[]) => `${v.length} faixa${v.length !== 1 ? 's' : ''}` },
+          {
+            key: 'tipo',
+            label: 'Tipo / Condições',
+            render: (_: string, row: Regra) => row.tipo === 'cotacao'
+              ? `Cotação · 1 ${row.moeda_origem ?? '?'} = ${row.valor_cotacao ?? '?'} ${row.moeda_destino ?? '?'}`
+              : `${row.condicoes.length} faixa${row.condicoes.length !== 1 ? 's' : ''}`,
+          },
           {
             key: 'vinculoCount',
             label: 'Vínculos',

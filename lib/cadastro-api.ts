@@ -8,7 +8,7 @@ import type {
   Agente, AgenteForm, AgentePlataforma,
   Jogador, JogadorForm,
   AgenteJogador, ClubeAgente,
-  Regra, RegraCondicaoForm, RegraVinculo, EntidadeTipo,
+  Regra, RegraForm, RegraCondicaoForm, RegraVinculo, EntidadeTipo,
 } from './types'
 
 const supabase = createClient(
@@ -354,14 +354,18 @@ function mapCondicaoRow(c: CondicaoRow): RegraCondicaoForm {
 export async function getRegras(): Promise<Regra[]> {
   const { data, error } = await supabase
     .from('regras')
-    .select('id, nome, created_at, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id, ordem)), regra_entidades(id)')
+    .select('id, nome, created_at, tipo, moeda_origem, moeda_destino, valor_cotacao, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id, ordem)), regra_entidades(id)')
     .order('nome')
   if (error) throw error
   return (data ?? []).map((r: any) => ({
     id: r.id,
     nome: r.nome,
     created_at: r.created_at,
+    tipo: (r.tipo ?? 'faixa') as Regra['tipo'],
     condicoes: (r.regra_condicoes ?? []).map(mapCondicaoRow),
+    moeda_origem: r.moeda_origem ?? null,
+    moeda_destino: r.moeda_destino ?? null,
+    valor_cotacao: r.valor_cotacao ?? null,
     vinculoCount: (r.regra_entidades ?? []).length,
   }))
 }
@@ -390,19 +394,31 @@ async function salvarCondicoes(regraId: string, condicoes: RegraCondicaoForm[]):
   }
 }
 
-export async function createRegra(nome: string, condicoes: RegraCondicaoForm[]): Promise<string> {
-  const { data: nova, error } = await supabase.from('regras').insert({ nome }).select().single()
+export async function createRegra(form: RegraForm): Promise<string> {
+  const { data: nova, error } = await supabase.from('regras').insert({
+    nome: form.nome,
+    tipo: form.tipo,
+    moeda_origem: form.tipo === 'cotacao' ? form.moeda_origem : null,
+    moeda_destino: form.tipo === 'cotacao' ? form.moeda_destino : null,
+    valor_cotacao: form.tipo === 'cotacao' ? form.valor_cotacao : null,
+  }).select().single()
   if (error) throw error
-  await salvarCondicoes(nova.id, condicoes)
+  if (form.tipo === 'faixa') await salvarCondicoes(nova.id, form.condicoes)
   return nova.id
 }
 
-export async function updateRegra(id: string, nome: string, condicoes: RegraCondicaoForm[]): Promise<void> {
-  const { error } = await supabase.from('regras').update({ nome }).eq('id', id)
+export async function updateRegra(id: string, form: RegraForm): Promise<void> {
+  const { error } = await supabase.from('regras').update({
+    nome: form.nome,
+    tipo: form.tipo,
+    moeda_origem: form.tipo === 'cotacao' ? form.moeda_origem : null,
+    moeda_destino: form.tipo === 'cotacao' ? form.moeda_destino : null,
+    valor_cotacao: form.tipo === 'cotacao' ? form.valor_cotacao : null,
+  }).eq('id', id)
   if (error) throw error
   const { error: delErr } = await supabase.from('regra_condicoes').delete().eq('regra_id', id)
   if (delErr) throw delErr
-  await salvarCondicoes(id, condicoes)
+  if (form.tipo === 'faixa') await salvarCondicoes(id, form.condicoes)
 }
 
 export async function deleteRegra(id: string): Promise<void> {
@@ -524,7 +540,7 @@ export interface RegraAplicada {
 export async function getRegrasDaEntidade(tipo: EntidadeTipo, id: string): Promise<RegraAplicada[]> {
   const { data, error } = await supabase
     .from('regra_entidades')
-    .select('regra_id, de_tipo, de_id, regras(id, nome, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicadores(nome, descricao))))')
+    .select('regra_id, de_tipo, de_id, regras(id, nome, tipo, moeda_origem, moeda_destino, valor_cotacao, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicadores(nome, descricao))))')
     .eq('entidade_tipo', tipo)
     .eq('entidade_id', id)
   if (error) throw error
@@ -542,12 +558,14 @@ export async function getRegrasDaEntidade(tipo: EntidadeTipo, id: string): Promi
   }
 
   return rows.map(r => {
-    const condicoes = (r.regras?.regra_condicoes ?? []) as any[]
-    const linhas = condicoes.map(c => {
-      if (c.is_fallback) return `SENÃO → ${c.resultado_pct}%`
-      const termos = (c.regra_condicao_termos ?? []).map((t: any) => t.indicadores?.descricao || t.indicadores?.nome || '?').join(' + ')
-      return `SE ${termos} ${c.operador} ${c.valor} → ${c.resultado_pct}%`
-    })
+    const regraTipo = (r.regras?.tipo ?? 'faixa') as 'faixa' | 'cotacao'
+    const linhas = regraTipo === 'cotacao'
+      ? [`1 ${r.regras?.moeda_origem ?? '?'} = ${r.regras?.valor_cotacao ?? '?'} ${r.regras?.moeda_destino ?? '?'}`]
+      : ((r.regras?.regra_condicoes ?? []) as any[]).map(c => {
+          if (c.is_fallback) return `SENÃO → ${c.resultado_pct}%`
+          const termos = (c.regra_condicao_termos ?? []).map((t: any) => t.indicadores?.descricao || t.indicadores?.nome || '?').join(' + ')
+          return `SE ${termos} ${c.operador} ${c.valor} → ${c.resultado_pct}%`
+        })
     return {
       regra_id: r.regra_id as string,
       regra_nome: (r.regras?.nome as string) ?? '—',
