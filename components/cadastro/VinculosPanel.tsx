@@ -187,18 +187,23 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
     if (!regra || ladoPara.selecionados.length === 0) return
     setSaving(true); setError(null)
     try {
-      const de = ladoDe.selecionados[0] ? { tipo: ladoDe.tipo, id: ladoDe.selecionados[0].id } : null
-      // Multi-seleção do lado Para vale em qualquer tela: editando, o primeiro
-      // selecionado atualiza o vínculo que abriu a edição, os demais (se
-      // marcar mais de um) viram vínculos novos — todos com o mesmo De.
-      const [primeiro, ...resto] = ladoPara.selecionados
+      // Multi-seleção vale nos dois lados: o resultado é o produto cartesiano
+      // De x Para (ex: 2 Ligas x 3 Clubes = 6 vínculos). Editando, a primeira
+      // combinação atualiza o vínculo que abriu a edição; o resto vira vínculo novo.
+      const des = ladoDe.selecionados.length > 0
+        ? ladoDe.selecionados.map(d => ({ tipo: ladoDe.tipo, id: d.id }))
+        : [null]
+      const paras = ladoPara.selecionados.map(p => ({ tipo: ladoPara.tipo, id: p.id }))
+      const combos = paras.flatMap(para => des.map(de => ({ de, para })))
+
+      const [primeiro, ...resto] = combos
       if (editando) {
-        await updateVinculo(editando.id, { tipo: ladoPara.tipo, id: primeiro.id }, de)
+        await updateVinculo(editando.id, primeiro.para, primeiro.de)
       } else {
-        await addVinculo(regra.id, { tipo: ladoPara.tipo, id: primeiro.id }, de)
+        await addVinculo(regra.id, primeiro.para, primeiro.de)
       }
-      for (const para of resto) {
-        await addVinculo(regra.id, { tipo: ladoPara.tipo, id: para.id }, de)
+      for (const c of resto) {
+        await addVinculo(regra.id, c.para, c.de)
       }
       resetForm()
       await load()
@@ -268,20 +273,25 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
               {editando && <button type="button" onClick={resetForm} className="text-xs text-gray-500 hover:text-white">cancelar edição</button>}
             </div>
             <div className="flex items-start gap-3">
-              <SeletorEntidade titulo="De (quem define/cobra)" opcional lado={ladoDe} onChange={setLadoDe} />
+              <SeletorEntidade titulo="De (quem define/cobra)" opcional multi lado={ladoDe} onChange={setLadoDe} />
               <ArrowRight size={16} className="text-gray-600 shrink-0 mt-6" />
               <SeletorEntidade titulo="Para (quem recebe a regra)" multi lado={ladoPara} onChange={setLadoPara} />
             </div>
-            <button
-              type="button"
-              onClick={handleSalvar}
-              disabled={ladoPara.selecionados.length === 0 || saving}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {editando
-                ? (ladoPara.selecionados.length > 1 ? `Salvar edição + vincular a mais ${ladoPara.selecionados.length - 1}` : 'Salvar edição')
-                : (ladoPara.selecionados.length > 1 ? `Vincular a ${ladoPara.selecionados.length}` : 'Vincular')}
-            </button>
+            {(() => {
+              const totalCombos = Math.max(ladoDe.selecionados.length, 1) * ladoPara.selecionados.length
+              return (
+                <button
+                  type="button"
+                  onClick={handleSalvar}
+                  disabled={ladoPara.selecionados.length === 0 || saving}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {editando
+                    ? (totalCombos > 1 ? `Salvar edição + vincular a mais ${totalCombos - 1}` : 'Salvar edição')
+                    : (totalCombos > 1 ? `Vincular ${totalCombos} combinações` : 'Vincular')}
+                </button>
+              )
+            })()}
           </div>
 
           {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
