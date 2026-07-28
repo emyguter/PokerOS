@@ -411,9 +411,13 @@ export async function deleteRegra(id: string): Promise<void> {
 }
 
 const TABELA_ENTIDADE: Record<EntidadeTipo, { tabela: string; coluna: string }> = {
+  plataforma: { tabela: 'plataformas', coluna: 'nome' },
+  mega_liga: { tabela: 'mega_ligas', coluna: 'nome' },
+  superliga: { tabela: 'super_leagues', coluna: 'name' },
   liga: { tabela: 'leagues', coluna: 'name' },
   clube: { tabela: 'clubs', coluna: 'name' },
   agente: { tabela: 'agentes', coluna: 'nome' },
+  jogador: { tabela: 'jogadores', coluna: 'nome' },
 }
 
 export async function getVinculos(regraId: string): Promise<RegraVinculo[]> {

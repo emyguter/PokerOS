@@ -262,7 +262,7 @@ export type Regra = {
   vinculoCount: number
 }
 
-export type EntidadeTipo = 'liga' | 'clube' | 'agente'
+export type EntidadeTipo = 'plataforma' | 'mega_liga' | 'superliga' | 'liga' | 'clube' | 'agente' | 'jogador'
 
 export type RegraVinculo = {
   id: string

@@ -11,12 +11,24 @@ interface Props {
 }
 
 const TIPOS: { value: EntidadeTipo; label: string }[] = [
+  { value: 'plataforma', label: 'App' },
+  { value: 'mega_liga', label: 'Mega Liga' },
+  { value: 'superliga', label: 'Superliga' },
   { value: 'liga', label: 'Liga' },
   { value: 'clube', label: 'Clube' },
   { value: 'agente', label: 'Agente / Super Agente' },
+  { value: 'jogador', label: 'Jogador' },
 ]
 
-const LABEL_TIPO: Record<EntidadeTipo, string> = { liga: 'Liga', clube: 'Clube', agente: 'Agente' }
+const LABEL_TIPO: Record<EntidadeTipo, string> = {
+  plataforma: 'App',
+  mega_liga: 'Mega Liga',
+  superliga: 'Superliga',
+  liga: 'Liga',
+  clube: 'Clube',
+  agente: 'Agente',
+  jogador: 'Jogador',
+}
 
 export function VinculosPanel({ open, regra, onClose }: Props) {
   const [vinculos, setVinculos] = useState<RegraVinculo[]>([])
@@ -104,7 +116,7 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
 
           <div className="space-y-2 pt-2 border-t border-white/10">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Adicionar vínculo</p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {TIPOS.map(t => (
                 <button key={t.value} type="button" onClick={() => setTipoBusca(t.value)} className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${tipoBusca === t.value ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
                   {t.label}
