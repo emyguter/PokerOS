@@ -243,3 +243,32 @@ export type ClubeAgente = {
     plataformas?: { id: string; nome: string }
   }
 }
+
+// ─── REGRAS (reutilizáveis, vinculadas a Liga/Clube/Agente/Super Agente) ──
+
+export type RegraCondicaoForm = {
+  indicador_ids: string[]
+  operador: string
+  valor: number | null
+  resultado_pct: number | null
+  is_fallback: boolean
+}
+
+export type Regra = {
+  id: string
+  nome: string
+  created_at: string
+  condicoes: RegraCondicaoForm[]
+  vinculoCount: number
+}
+
+export type EntidadeTipo = 'liga' | 'clube' | 'agente'
+
+export type RegraVinculo = {
+  id: string
+  regra_id: string
+  entidade_tipo: EntidadeTipo
+  entidade_id: string
+  prioridade: number
+  entidade_nome: string
+}

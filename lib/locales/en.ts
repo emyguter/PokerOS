@@ -41,6 +41,7 @@ export const en: typeof pt = {
     super_agentes: 'Super Agents', super_agentes_desc: 'Agents of agents',
     agentes: 'Agents', agentes_desc: 'Responsible for players',
     jogadores: 'Players', jogadores_desc: 'Linked to an agent or club',
+    regras: 'Rules', regras_desc: 'Reusable IF/THEN brackets, linked to League/Club/Agent',
     sem_permissao_titulo: "You don't have permission to view this screen",
     sem_permissao_desc: 'Ask an administrator to grant access in Permissions.',
   },

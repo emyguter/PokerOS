@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Trophy, Shield, Users, Bot, Zap, User, Crown, Lock } from 'lucide-react'
+import { Trophy, Shield, Users, Bot, Zap, User, Crown, Lock, ListChecks } from 'lucide-react'
 import { usePermissions } from '@/lib/permissions'
 import { useI18n } from '@/lib/i18n'
 
@@ -13,6 +13,7 @@ const NAV = [
   { href: '/admin/cadastro/super-agentes', labelKey: 'cadastro_menu.super_agentes', descKey: 'cadastro_menu.super_agentes_desc', icon: Crown, chave: 'cadastro.super_agentes' },
   { href: '/admin/cadastro/agentes', labelKey: 'cadastro_menu.agentes', descKey: 'cadastro_menu.agentes_desc', icon: Bot, chave: 'cadastro.agentes' },
   { href: '/admin/cadastro/jogadores', labelKey: 'cadastro_menu.jogadores', descKey: 'cadastro_menu.jogadores_desc', icon: User, chave: 'cadastro.jogadores' },
+  { href: '/admin/cadastro/regras', labelKey: 'cadastro_menu.regras', descKey: 'cadastro_menu.regras_desc', icon: ListChecks, chave: 'cadastro.regras' },
 ]
 
 export default function CadastroLayout({ children }: { children: React.ReactNode }) {
