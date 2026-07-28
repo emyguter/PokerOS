@@ -6,16 +6,7 @@ import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { ClubModal } from '@/components/cadastro/ClubModal'
 import { Plus, Filter } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
-
-interface Condicao {
-  indicador_ids: string[]
-  operador: string
-  valor: number | null
-  resultado_pct: number | null
-  is_fallback: boolean
-}
 
 function clean(form: ClubForm): ClubForm {
   const f = { ...form }
@@ -51,67 +42,11 @@ export default function ClubesPage() {
 
   useEffect(() => { load() }, [load])
 
-  const handleSave = async (form: ClubForm, condicoes: Condicao[]) => {
+  const handleSave = async (form: ClubForm) => {
     setSaving(true); setError(null)
     try {
-      let clubId: string
-      if (editing) {
-        await updateClub(editing.id, clean(form))
-        clubId = editing.id
-      } else {
-        const created = await createClub(clean(form))
-        clubId = created.id
-      }
-
-      if (!form.league_id) {
-        if (condicoes.length > 0) {
-          const { data: existingRE } = await supabase
-            .from('regra_entidades')
-            .select('regra_id')
-            .eq('entidade_tipo', 'clube')
-            .eq('entidade_id', clubId)
-            .maybeSingle()
-
-          let regraId: string
-          if (existingRE) {
-            regraId = existingRE.regra_id
-            const { error: delErr } = await supabase.from('regra_condicoes').delete().eq('regra_id', regraId)
-            if (delErr) throw delErr
-          } else {
-            const { data: novaRegra, error: regraErr } = await supabase
-              .from('regras')
-              .insert({ nome: `Ajuste — ${form.name}` })
-              .select().single()
-            if (regraErr) throw regraErr
-            regraId = novaRegra.id
-            const { error: reErr } = await supabase.from('regra_entidades').insert({ regra_id: regraId, entidade_tipo: 'clube', entidade_id: clubId, prioridade: 0 })
-            if (reErr) throw reErr
-          }
-
-          const { data: condRows, error: condErr } = await supabase.from('regra_condicoes').insert(
-            condicoes.map((c, i) => ({
-              regra_id: regraId,
-              ordem: i + 1,
-              operador: c.is_fallback ? '>=' : c.operador,
-              valor: c.is_fallback ? 0 : c.valor,
-              resultado_pct: c.resultado_pct,
-              is_fallback: c.is_fallback,
-            }))
-          ).select('id')
-          if (condErr) throw condErr
-
-          const termos = condicoes.flatMap((c, i) =>
-            c.is_fallback ? [] : c.indicador_ids
-              .filter(Boolean)
-              .map((indicadorId, ti) => ({ regra_condicao_id: condRows[i].id, indicador_id: indicadorId, ordem: ti + 1 }))
-          )
-          if (termos.length > 0) {
-            const { error: termosErr } = await supabase.from('regra_condicao_termos').insert(termos)
-            if (termosErr) throw termosErr
-          }
-        }
-      }
-
+      if (editing) await updateClub(editing.id, clean(form))
+      else await createClub(clean(form))
       await load(); setModalOpen(false); setEditing(null)
     } catch (e: any) { setError(e.message) }
     finally { setSaving(false) }

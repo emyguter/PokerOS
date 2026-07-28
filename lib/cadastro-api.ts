@@ -508,3 +508,52 @@ export async function buscarEntidades(tipo: EntidadeTipo, query: string, limit =
   if (error) throw error
   return (data ?? []).map((r: any) => ({ id: r.id, nome: r[coluna] }))
 }
+
+export interface RegraAplicada {
+  regra_id: string
+  regra_nome: string
+  de_tipo: EntidadeTipo | null
+  de_nome: string | null
+  linhas: string[]
+}
+
+// Painel read-only de "qual regra vale pra essa entidade" — usado nos
+// cadastros de Liga/Clube/Agente, que não criam mais regra embutida: a
+// criação/edição em si vive só na tela de Regras, aqui é só leitura do
+// vínculo (Para = essa entidade).
+export async function getRegrasDaEntidade(tipo: EntidadeTipo, id: string): Promise<RegraAplicada[]> {
+  const { data, error } = await supabase
+    .from('regra_entidades')
+    .select('regra_id, de_tipo, de_id, regras(id, nome, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicadores(nome, descricao))))')
+    .eq('entidade_tipo', tipo)
+    .eq('entidade_id', id)
+  if (error) throw error
+  const rows = (data ?? []) as any[]
+
+  const deIdsPorTipo = new Map<EntidadeTipo, Set<string>>()
+  for (const r of rows) {
+    if (r.de_tipo && r.de_id) deIdsPorTipo.set(r.de_tipo, (deIdsPorTipo.get(r.de_tipo) ?? new Set()).add(r.de_id))
+  }
+  const deNomesPorId = new Map<string, string>()
+  for (const [deTipo, ids] of deIdsPorTipo) {
+    const { tabela, coluna } = TABELA_ENTIDADE[deTipo]
+    const { data: entRows } = await supabase.from(tabela).select(`id, ${coluna}`).in('id', [...ids])
+    for (const e of (entRows ?? []) as any[]) deNomesPorId.set(e.id, e[coluna])
+  }
+
+  return rows.map(r => {
+    const condicoes = (r.regras?.regra_condicoes ?? []) as any[]
+    const linhas = condicoes.map(c => {
+      if (c.is_fallback) return `SENÃO → ${c.resultado_pct}%`
+      const termos = (c.regra_condicao_termos ?? []).map((t: any) => t.indicadores?.descricao || t.indicadores?.nome || '?').join(' + ')
+      return `SE ${termos} ${c.operador} ${c.valor} → ${c.resultado_pct}%`
+    })
+    return {
+      regra_id: r.regra_id as string,
+      regra_nome: (r.regras?.nome as string) ?? '—',
+      de_tipo: r.de_tipo,
+      de_nome: r.de_id ? deNomesPorId.get(r.de_id) ?? '—' : null,
+      linhas,
+    }
+  })
+}
