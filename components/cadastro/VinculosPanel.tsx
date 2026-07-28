@@ -168,13 +168,17 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
     setSaving(true); setError(null)
     try {
       const de = ladoDe.selecionados[0] ? { tipo: ladoDe.tipo, id: ladoDe.selecionados[0].id } : null
+      // Multi-seleção do lado Para vale em qualquer tela: editando, o primeiro
+      // selecionado atualiza o vínculo que abriu a edição, os demais (se
+      // marcar mais de um) viram vínculos novos — todos com o mesmo De.
+      const [primeiro, ...resto] = ladoPara.selecionados
       if (editando) {
-        await updateVinculo(editando.id, { tipo: ladoPara.tipo, id: ladoPara.selecionados[0].id }, de)
+        await updateVinculo(editando.id, { tipo: ladoPara.tipo, id: primeiro.id }, de)
       } else {
-        // Multi-seleção do lado Para: um vínculo por entidade escolhida, todos com o mesmo De.
-        for (const para of ladoPara.selecionados) {
-          await addVinculo(regra.id, { tipo: ladoPara.tipo, id: para.id }, de)
-        }
+        await addVinculo(regra.id, { tipo: ladoPara.tipo, id: primeiro.id }, de)
+      }
+      for (const para of resto) {
+        await addVinculo(regra.id, { tipo: ladoPara.tipo, id: para.id }, de)
       }
       resetForm()
       await load()
@@ -246,7 +250,7 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
             <div className="flex items-start gap-3">
               <SeletorEntidade titulo="De (quem define/cobra)" opcional lado={ladoDe} onChange={setLadoDe} />
               <ArrowRight size={16} className="text-gray-600 shrink-0 mt-6" />
-              <SeletorEntidade titulo="Para (quem recebe a regra)" multi={!editando} lado={ladoPara} onChange={setLadoPara} />
+              <SeletorEntidade titulo="Para (quem recebe a regra)" multi lado={ladoPara} onChange={setLadoPara} />
             </div>
             <button
               type="button"
@@ -254,7 +258,9 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
               disabled={ladoPara.selecionados.length === 0 || saving}
               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              {editando ? 'Salvar edição' : ladoPara.selecionados.length > 1 ? `Vincular a ${ladoPara.selecionados.length}` : 'Vincular'}
+              {editando
+                ? (ladoPara.selecionados.length > 1 ? `Salvar edição + vincular a mais ${ladoPara.selecionados.length - 1}` : 'Salvar edição')
+                : (ladoPara.selecionados.length > 1 ? `Vincular a ${ladoPara.selecionados.length}` : 'Vincular')}
             </button>
           </div>
 
