@@ -264,11 +264,17 @@ export type Regra = {
 
 export type EntidadeTipo = 'plataforma' | 'mega_liga' | 'superliga' | 'liga' | 'clube' | 'agente' | 'jogador'
 
+// Vínculo tem lado (quem cobra/define a regra) e lado (quem paga/recebe) —
+// de_* pode ficar em branco pra regras "de cima" sem uma origem clara
+// (ex: taxa que a própria liga aplica, sem representar outro nível acima).
 export type RegraVinculo = {
   id: string
   regra_id: string
-  entidade_tipo: EntidadeTipo
-  entidade_id: string
+  de_tipo: EntidadeTipo | null
+  de_id: string | null
+  de_nome: string | null
+  para_tipo: EntidadeTipo
+  para_id: string
+  para_nome: string
   prioridade: number
-  entidade_nome: string
 }

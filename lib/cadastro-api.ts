@@ -420,29 +420,64 @@ const TABELA_ENTIDADE: Record<EntidadeTipo, { tabela: string; coluna: string }> 
   jogador: { tabela: 'jogadores', coluna: 'nome' },
 }
 
+type VinculoRow = {
+  id: string
+  regra_id: string
+  entidade_tipo: EntidadeTipo
+  entidade_id: string
+  de_tipo: EntidadeTipo | null
+  de_id: string | null
+  prioridade: number
+}
+
 export async function getVinculos(regraId: string): Promise<RegraVinculo[]> {
   const { data, error } = await supabase
     .from('regra_entidades')
-    .select('id, regra_id, entidade_tipo, entidade_id, prioridade')
+    .select('id, regra_id, entidade_tipo, entidade_id, de_tipo, de_id, prioridade')
     .eq('regra_id', regraId)
   if (error) throw error
-  const vinculos = (data ?? []) as Omit<RegraVinculo, 'entidade_nome'>[]
+  const vinculos = (data ?? []) as VinculoRow[]
 
-  const idsPorTipo = new Map<EntidadeTipo, string[]>()
-  for (const v of vinculos) idsPorTipo.set(v.entidade_tipo, [...(idsPorTipo.get(v.entidade_tipo) ?? []), v.entidade_id])
+  const idsPorTipo = new Map<EntidadeTipo, Set<string>>()
+  const registra = (tipo: EntidadeTipo | null, id: string | null) => {
+    if (!tipo || !id) return
+    idsPorTipo.set(tipo, (idsPorTipo.get(tipo) ?? new Set()).add(id))
+  }
+  for (const v of vinculos) { registra(v.entidade_tipo, v.entidade_id); registra(v.de_tipo, v.de_id) }
 
   const nomesPorId = new Map<string, string>()
   for (const [tipo, ids] of idsPorTipo) {
     const { tabela, coluna } = TABELA_ENTIDADE[tipo]
-    const { data: rows } = await supabase.from(tabela).select(`id, ${coluna}`).in('id', ids)
+    const { data: rows } = await supabase.from(tabela).select(`id, ${coluna}`).in('id', [...ids])
     for (const r of (rows ?? []) as any[]) nomesPorId.set(r.id, r[coluna])
   }
 
-  return vinculos.map(v => ({ ...v, entidade_nome: nomesPorId.get(v.entidade_id) ?? '—' }))
+  return vinculos.map(v => ({
+    id: v.id,
+    regra_id: v.regra_id,
+    para_tipo: v.entidade_tipo,
+    para_id: v.entidade_id,
+    para_nome: nomesPorId.get(v.entidade_id) ?? '—',
+    de_tipo: v.de_tipo,
+    de_id: v.de_id,
+    de_nome: v.de_id ? nomesPorId.get(v.de_id) ?? '—' : null,
+    prioridade: v.prioridade,
+  }))
 }
 
-export async function addVinculo(regraId: string, entidadeTipo: EntidadeTipo, entidadeId: string): Promise<void> {
-  const { error } = await supabase.from('regra_entidades').insert({ regra_id: regraId, entidade_tipo: entidadeTipo, entidade_id: entidadeId, prioridade: 0 })
+export async function addVinculo(
+  regraId: string,
+  para: { tipo: EntidadeTipo; id: string },
+  de: { tipo: EntidadeTipo; id: string } | null
+): Promise<void> {
+  const { error } = await supabase.from('regra_entidades').insert({
+    regra_id: regraId,
+    entidade_tipo: para.tipo,
+    entidade_id: para.id,
+    de_tipo: de?.tipo ?? null,
+    de_id: de?.id ?? null,
+    prioridade: 0,
+  })
   if (error) throw error
 }
 
