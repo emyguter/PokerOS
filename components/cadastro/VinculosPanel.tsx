@@ -65,6 +65,14 @@ function SeletorEntidade({ titulo, opcional, multi, lado, onChange }: { titulo: 
   function remover(id: string) {
     onChange({ ...lado, selecionados: lado.selecionados.filter(s => s.id !== id) })
   }
+  async function selecionarTodos() {
+    onChange({ ...lado, buscando: true })
+    // Sem limite de 20 aqui de propósito — "todos" precisa trazer tudo que
+    // bate com a busca (ou o tipo inteiro, se a busca estiver vazia).
+    const todos = await buscarEntidades(lado.tipo, lado.busca, 2000)
+    const idsAtuais = new Set(lado.selecionados.map(s => s.id))
+    onChange({ ...lado, resultados: todos, buscando: false, selecionados: [...lado.selecionados, ...todos.filter(t => !idsAtuais.has(t.id))] })
+  }
 
   return (
     <div className="flex-1 space-y-1.5">
@@ -97,6 +105,18 @@ function SeletorEntidade({ titulo, opcional, multi, lado, onChange }: { titulo: 
             placeholder={`Buscar ${LABEL_TIPO[lado.tipo].toLowerCase()}...`}
             className="w-full bg-surface border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs placeholder-gray-600 focus:outline-none focus:border-gold/50"
           />
+          {multi && (
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={selecionarTodos} disabled={lado.buscando} className="text-xs text-gold hover:underline disabled:opacity-40">
+                Selecionar todos{lado.busca.trim() ? ' (dessa busca)' : ` (${LABEL_TIPO[lado.tipo].toLowerCase()})`}
+              </button>
+              {lado.selecionados.length > 0 && (
+                <button type="button" onClick={() => onChange({ ...lado, selecionados: [] })} className="text-xs text-gray-500 hover:text-white">
+                  Limpar seleção
+                </button>
+              )}
+            </div>
+          )}
           <div className="max-h-32 overflow-y-auto space-y-1">
             {lado.buscando ? (
               <p className="text-xs text-gray-500 px-1">Buscando...</p>

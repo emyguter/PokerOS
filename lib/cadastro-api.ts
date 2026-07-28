@@ -500,9 +500,9 @@ export async function removeVinculo(vinculoId: string): Promise<void> {
   if (error) throw error
 }
 
-export async function buscarEntidades(tipo: EntidadeTipo, query: string): Promise<{ id: string; nome: string }[]> {
+export async function buscarEntidades(tipo: EntidadeTipo, query: string, limit = 20): Promise<{ id: string; nome: string }[]> {
   const { tabela, coluna } = TABELA_ENTIDADE[tipo]
-  let q = supabase.from(tabela).select(`id, ${coluna}`).order(coluna).limit(20)
+  let q = supabase.from(tabela).select(`id, ${coluna}`).order(coluna).limit(limit)
   if (query.trim()) q = q.ilike(coluna, `%${query.trim()}%`)
   const { data, error } = await q
   if (error) throw error
