@@ -481,6 +481,20 @@ export async function addVinculo(
   if (error) throw error
 }
 
+export async function updateVinculo(
+  vinculoId: string,
+  para: { tipo: EntidadeTipo; id: string },
+  de: { tipo: EntidadeTipo; id: string } | null
+): Promise<void> {
+  const { error } = await supabase.from('regra_entidades').update({
+    entidade_tipo: para.tipo,
+    entidade_id: para.id,
+    de_tipo: de?.tipo ?? null,
+    de_id: de?.id ?? null,
+  }).eq('id', vinculoId)
+  if (error) throw error
+}
+
 export async function removeVinculo(vinculoId: string): Promise<void> {
   const { error } = await supabase.from('regra_entidades').delete().eq('id', vinculoId)
   if (error) throw error

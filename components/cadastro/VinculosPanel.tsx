@@ -1,8 +1,8 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { X, Trash2, ArrowRight } from 'lucide-react'
+import { X, Trash2, ArrowRight, Pencil } from 'lucide-react'
 import type { Regra, RegraVinculo, EntidadeTipo } from '@/lib/types'
-import { getVinculos, addVinculo, removeVinculo, buscarEntidades } from '@/lib/cadastro-api'
+import { getVinculos, addVinculo, updateVinculo, removeVinculo, buscarEntidades } from '@/lib/cadastro-api'
 
 interface Props {
   open: boolean
@@ -30,19 +30,21 @@ const LABEL_TIPO: Record<EntidadeTipo, string> = {
   jogador: 'Jogador',
 }
 
+interface Entidade { id: string; nome: string }
+
 interface Lado {
   tipo: EntidadeTipo
   busca: string
-  resultados: { id: string; nome: string }[]
-  selecionado: { id: string; nome: string } | null
+  resultados: Entidade[]
+  selecionados: Entidade[]
   buscando: boolean
 }
 
-const LADO_INICIAL = (tipo: EntidadeTipo): Lado => ({ tipo, busca: '', resultados: [], selecionado: null, buscando: false })
+const LADO_INICIAL = (tipo: EntidadeTipo): Lado => ({ tipo, busca: '', resultados: [], selecionados: [], buscando: false })
+const LADO_COM = (tipo: EntidadeTipo, entidade: Entidade): Lado => ({ ...LADO_INICIAL(tipo), selecionados: [entidade] })
 
-function SeletorEntidade({ titulo, opcional, lado, onChange }: { titulo: string; opcional?: boolean; lado: Lado; onChange: (l: Lado) => void }) {
+function SeletorEntidade({ titulo, opcional, multi, lado, onChange }: { titulo: string; opcional?: boolean; multi?: boolean; lado: Lado; onChange: (l: Lado) => void }) {
   useEffect(() => {
-    if (lado.selecionado) return
     onChange({ ...lado, buscando: true })
     const timer = setTimeout(() => {
       buscarEntidades(lado.tipo, lado.busca).then(resultados => onChange({ ...lado, resultados, buscando: false }))
@@ -51,9 +53,22 @@ function SeletorEntidade({ titulo, opcional, lado, onChange }: { titulo: string;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lado.tipo, lado.busca])
 
+  const idsSelecionados = new Set(lado.selecionados.map(s => s.id))
+
+  function toggle(entidade: Entidade) {
+    if (multi) {
+      onChange({ ...lado, selecionados: idsSelecionados.has(entidade.id) ? lado.selecionados.filter(s => s.id !== entidade.id) : [...lado.selecionados, entidade] })
+    } else {
+      onChange({ ...lado, selecionados: [entidade] })
+    }
+  }
+  function remover(id: string) {
+    onChange({ ...lado, selecionados: lado.selecionados.filter(s => s.id !== id) })
+  }
+
   return (
     <div className="flex-1 space-y-1.5">
-      <p className="text-xs text-gray-500">{titulo}{opcional && <span className="text-gray-600"> (opcional)</span>}</p>
+      <p className="text-xs text-gray-500">{titulo}{opcional && <span className="text-gray-600"> (opcional)</span>}{multi && <span className="text-gray-600"> — pode escolher vários</span>}</p>
       <select
         value={lado.tipo}
         onChange={e => onChange({ ...LADO_INICIAL(e.target.value as EntidadeTipo) })}
@@ -61,12 +76,19 @@ function SeletorEntidade({ titulo, opcional, lado, onChange }: { titulo: string;
       >
         {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
       </select>
-      {lado.selecionado ? (
-        <div className="flex items-center justify-between px-2 py-1.5 rounded-lg border border-gold/40 bg-gold/5 text-sm text-white">
-          {lado.selecionado.nome}
-          <button type="button" onClick={() => onChange({ ...lado, selecionado: null, busca: '' })} className="text-gray-500 hover:text-alert"><X size={13} /></button>
+
+      {lado.selecionados.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {lado.selecionados.map(s => (
+            <span key={s.id} className="flex items-center gap-1 px-2 py-1 rounded-lg border border-gold/40 bg-gold/5 text-xs text-white">
+              {s.nome}
+              <button type="button" onClick={() => remover(s.id)} className="text-gray-500 hover:text-alert"><X size={11} /></button>
+            </span>
+          ))}
         </div>
-      ) : (
+      )}
+
+      {(multi || lado.selecionados.length === 0) && (
         <>
           <input
             type="text"
@@ -81,16 +103,19 @@ function SeletorEntidade({ titulo, opcional, lado, onChange }: { titulo: string;
             ) : lado.resultados.length === 0 ? (
               <p className="text-xs text-gray-500 px-1 italic">Nenhum resultado.</p>
             ) : (
-              lado.resultados.map(r => (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => onChange({ ...lado, selecionado: r })}
-                  className="w-full text-left px-2 py-1.5 rounded-lg border border-white/10 text-xs text-gray-300 hover:border-gold/40 hover:text-white transition-colors"
-                >
-                  {r.nome}
-                </button>
-              ))
+              lado.resultados.map(r => {
+                const selecionado = idsSelecionados.has(r.id)
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => toggle(r)}
+                    className={`w-full text-left px-2 py-1.5 rounded-lg border text-xs transition-colors ${selecionado ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-300 hover:border-gold/40 hover:text-white'}`}
+                  >
+                    {r.nome}
+                  </button>
+                )
+              })
             )}
           </div>
         </>
@@ -102,6 +127,7 @@ function SeletorEntidade({ titulo, opcional, lado, onChange }: { titulo: string;
 export function VinculosPanel({ open, regra, onClose }: Props) {
   const [vinculos, setVinculos] = useState<RegraVinculo[]>([])
   const [loading, setLoading] = useState(false)
+  const [editando, setEditando] = useState<RegraVinculo | null>(null)
   const [ladoDe, setLadoDe] = useState<Lado>(LADO_INICIAL('liga'))
   const [ladoPara, setLadoPara] = useState<Lado>(LADO_INICIAL('clube'))
   const [saving, setSaving] = useState(false)
@@ -115,27 +141,42 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
     finally { setLoading(false) }
   }, [regra])
 
+  function resetForm() {
+    setEditando(null)
+    setLadoDe(LADO_INICIAL('liga'))
+    setLadoPara(LADO_INICIAL('clube'))
+  }
+
   useEffect(() => {
     if (!open) return
     load()
-    setLadoDe(LADO_INICIAL('liga'))
-    setLadoPara(LADO_INICIAL('clube'))
+    resetForm()
     setError(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, load])
 
   if (!open || !regra) return null
 
-  async function handleAdd() {
-    if (!regra || !ladoPara.selecionado) return
+  function editar(v: RegraVinculo) {
+    setEditando(v)
+    setLadoDe(v.de_id && v.de_tipo ? LADO_COM(v.de_tipo, { id: v.de_id, nome: v.de_nome ?? '—' }) : LADO_INICIAL('liga'))
+    setLadoPara(LADO_COM(v.para_tipo, { id: v.para_id, nome: v.para_nome }))
+  }
+
+  async function handleSalvar() {
+    if (!regra || ladoPara.selecionados.length === 0) return
     setSaving(true); setError(null)
     try {
-      await addVinculo(
-        regra.id,
-        { tipo: ladoPara.tipo, id: ladoPara.selecionado.id },
-        ladoDe.selecionado ? { tipo: ladoDe.tipo, id: ladoDe.selecionado.id } : null
-      )
-      setLadoDe(LADO_INICIAL('liga'))
-      setLadoPara(LADO_INICIAL('clube'))
+      const de = ladoDe.selecionados[0] ? { tipo: ladoDe.tipo, id: ladoDe.selecionados[0].id } : null
+      if (editando) {
+        await updateVinculo(editando.id, { tipo: ladoPara.tipo, id: ladoPara.selecionados[0].id }, de)
+      } else {
+        // Multi-seleção do lado Para: um vínculo por entidade escolhida, todos com o mesmo De.
+        for (const para of ladoPara.selecionados) {
+          await addVinculo(regra.id, { tipo: ladoPara.tipo, id: para.id }, de)
+        }
+      }
+      resetForm()
       await load()
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setSaving(false) }
@@ -143,8 +184,11 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
 
   async function handleRemove(vinculoId: string) {
     setSaving(true); setError(null)
-    try { await removeVinculo(vinculoId); await load() }
-    catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    try {
+      await removeVinculo(vinculoId)
+      if (editando?.id === vinculoId) resetForm()
+      await load()
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setSaving(false) }
   }
 
@@ -170,7 +214,7 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
             ) : (
               <div className="space-y-1.5">
                 {vinculos.map(v => (
-                  <div key={v.id} className="flex items-center justify-between px-3 py-2 rounded-lg border border-white/10 bg-surface2">
+                  <div key={v.id} className={`flex items-center justify-between px-3 py-2 rounded-lg border ${editando?.id === v.id ? 'border-gold/50 bg-gold/5' : 'border-white/10 bg-surface2'}`}>
                     <div className="flex items-center gap-2 text-sm">
                       {v.de_id ? (
                         <>
@@ -184,7 +228,10 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
                       <span className="px-2 py-0.5 rounded-full bg-gold/10 border border-gold/30 text-gold text-xs">{LABEL_TIPO[v.para_tipo]}</span>
                       <span className="text-gray-200">{v.para_nome}</span>
                     </div>
-                    <button onClick={() => handleRemove(v.id)} disabled={saving} className="text-gray-500 hover:text-alert transition-colors disabled:opacity-40"><Trash2 size={14} /></button>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => editar(v)} disabled={saving} className="p-1 text-gray-500 hover:text-gold transition-colors disabled:opacity-40"><Pencil size={14} /></button>
+                      <button onClick={() => handleRemove(v.id)} disabled={saving} className="p-1 text-gray-500 hover:text-alert transition-colors disabled:opacity-40"><Trash2 size={14} /></button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -192,19 +239,22 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
           </div>
 
           <div className="space-y-3 pt-2 border-t border-white/10">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Novo vínculo — de quem, pra quem</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{editando ? 'Editando vínculo' : 'Novo vínculo — de quem, pra quem'}</p>
+              {editando && <button type="button" onClick={resetForm} className="text-xs text-gray-500 hover:text-white">cancelar edição</button>}
+            </div>
             <div className="flex items-start gap-3">
               <SeletorEntidade titulo="De (quem define/cobra)" opcional lado={ladoDe} onChange={setLadoDe} />
               <ArrowRight size={16} className="text-gray-600 shrink-0 mt-6" />
-              <SeletorEntidade titulo="Para (quem recebe a regra)" lado={ladoPara} onChange={setLadoPara} />
+              <SeletorEntidade titulo="Para (quem recebe a regra)" multi={!editando} lado={ladoPara} onChange={setLadoPara} />
             </div>
             <button
               type="button"
-              onClick={handleAdd}
-              disabled={!ladoPara.selecionado || saving}
+              onClick={handleSalvar}
+              disabled={ladoPara.selecionados.length === 0 || saving}
               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              Vincular
+              {editando ? 'Salvar edição' : ladoPara.selecionados.length > 1 ? `Vincular a ${ladoPara.selecionados.length}` : 'Vincular'}
             </button>
           </div>
 
