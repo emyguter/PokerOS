@@ -87,7 +87,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   const isDin = form.settlement_type === 'dinamico'
   const isUSD = form.settlement_type === 'weekly_usd'
   const isRkb = form.settlement_type === 'rakeback'
-  const isVar = form.taxa_tipo === 'variavel'
   // Liga só conta como "tem liga" quando é uma string não vazia
   const temLiga = !!form.league_id && form.league_id !== ''
 
@@ -221,33 +220,15 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
 
             <Sec title="Taxas">
               {!isRkb && (
-                <Fld label="Tipo de Taxa">
-                  <div className="flex gap-3">
-                    {['fixa', 'variavel'].map(t => (
-                      <button key={t} type="button" onClick={() => set('taxa_tipo', t)} className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${form.taxa_tipo === t ? 'border-gold bg-gold/10 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
-                        {t === 'fixa' ? 'Fixa' : 'Variável'}
-                      </button>
-                    ))}
-                  </div>
-                </Fld>
-              )}
-              {!isRkb && !isVar && (
                 <div className="grid grid-cols-2 gap-4">
                   <Fld label="Fee MTT (%)"><NumInput value={form.fee_mtt_pct} onChange={v => set('fee_mtt_pct', v)} placeholder="Ex: 8.5" /></Fld>
                   {isDin && <Fld label="Fee Cash (%)"><NumInput value={form.fee_cash_pct} onChange={v => set('fee_cash_pct', v)} placeholder="Ex: 8.5" /></Fld>}
                 </div>
               )}
-              {isVar && !isRkb && (
-                <div className="space-y-3 p-4 bg-surface2 rounded-lg border border-white/10">
-                  <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Taxa Variável</p>
-                  <Fld label="Nome"><input type="text" value={form.taxa_variavel_nome ?? ''} onChange={e => set('taxa_variavel_nome', e.target.value || null)} placeholder="Ex: 5%-15%" className={inputCls} /></Fld>
-                  <Fld label="Indicador">
-                    <select value={form.taxa_variavel_indicador ?? ''} onChange={e => set('taxa_variavel_indicador', e.target.value || null)} className={inputCls}>
-                      <option value="">Selecione</option>
-                      {['Rake', 'Ganhos+Rake', 'WTR', 'Rake Cash', 'Rake MTT'].map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                  </Fld>
-                </div>
+              {!isRkb && isDin && (
+                <p className="text-xs text-gray-500">
+                  O Fee Cash acima só é usado quando o clube <strong>não</strong> tem regra de taxa variável vinculada — se tiver, a faixa SE/ENTÃO da regra manda. Confira em "Regras" abaixo.
+                </p>
               )}
               {isRkb && <Fld label="Rakeback (%)"><NumInput value={form.rakeback_pct} onChange={v => set('rakeback_pct', v)} placeholder="Ex: 72" /></Fld>}
 
