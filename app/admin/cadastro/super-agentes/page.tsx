@@ -5,16 +5,7 @@ import type { Agente, AgenteForm, AgentePlataforma, Plataforma, ClubeVinculado }
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { AgenteModal } from '@/components/cadastro/AgenteModal'
 import { Plus } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
-
-interface Condicao {
-  indicador_ids: string[]
-  operador: string
-  valor: number | null
-  resultado_pct: number | null
-  is_fallback: boolean
-}
 
 export default function SuperAgentesPage() {
   const { t } = useI18n()
@@ -56,7 +47,7 @@ export default function SuperAgentesPage() {
       rakeback_pct: ca.rakeback_pct ?? null,
     })) ?? []
 
-  const handleSave = async (form: AgenteForm, vinculos: AgentePlataforma[], clubes: { id: string; rakeback_pct: number | null }[], condicoes: Condicao[], subAgenteIds: string[]) => {
+  const handleSave = async (form: AgenteForm, vinculos: AgentePlataforma[], clubes: { id: string; rakeback_pct: number | null }[], subAgenteIds: string[]) => {
     setSaving(true); setError(null)
     try {
       let agenteId: string
@@ -71,59 +62,6 @@ export default function SuperAgentesPage() {
       await syncAgentePlataformas(agenteId, vinculos, vinculosIniciais(editing))
       await syncClubeAgentes(agenteId, clubes, clubesIniciais(editing).map(c => c.id))
       await syncSubAgentes(agenteId, subAgenteIds, editing ? subAgentesDe(editing.id).map(a => a.id) : [])
-
-      const { data: existingRE } = await supabase
-        .from('regra_entidades')
-        .select('regra_id')
-        .eq('entidade_tipo', 'agente')
-        .eq('entidade_id', agenteId)
-        .maybeSingle()
-
-      if (condicoes.length > 0) {
-        let regraId: string
-        if (existingRE) {
-          regraId = existingRE.regra_id
-          const { error: delErr } = await supabase.from('regra_condicoes').delete().eq('regra_id', regraId)
-          if (delErr) throw delErr
-        } else {
-          const { data: novaRegra, error: regraErr } = await supabase
-            .from('regras')
-            .insert({ nome: `Rakeback — ${form.nome}` })
-            .select().single()
-          if (regraErr) throw regraErr
-          regraId = novaRegra.id
-          const { error: reErr } = await supabase.from('regra_entidades').insert({ regra_id: regraId, entidade_tipo: 'agente', entidade_id: agenteId, prioridade: 0 })
-          if (reErr) throw reErr
-        }
-        const { data: condRows, error: condErr } = await supabase.from('regra_condicoes').insert(
-          condicoes.map((c, i) => ({
-            regra_id: regraId,
-            ordem: i + 1,
-            operador: c.is_fallback ? '>=' : c.operador,
-            valor: c.is_fallback ? 0 : c.valor,
-            resultado_pct: c.resultado_pct,
-            is_fallback: c.is_fallback,
-          }))
-        ).select('id')
-        if (condErr) throw condErr
-
-        const termos = condicoes.flatMap((c, i) =>
-          c.is_fallback ? [] : c.indicador_ids
-            .filter(Boolean)
-            .map((indicadorId, ti) => ({ regra_condicao_id: condRows[i].id, indicador_id: indicadorId, ordem: ti + 1 }))
-        )
-        if (termos.length > 0) {
-          const { error: termosErr } = await supabase.from('regra_condicao_termos').insert(termos)
-          if (termosErr) throw termosErr
-        }
-      } else if (existingRE) {
-        const { error: delCondErr } = await supabase.from('regra_condicoes').delete().eq('regra_id', existingRE.regra_id)
-        if (delCondErr) throw delCondErr
-        const { error: delReErr } = await supabase.from('regra_entidades').delete().eq('regra_id', existingRE.regra_id)
-        if (delReErr) throw delReErr
-        const { error: delRegraErr } = await supabase.from('regras').delete().eq('id', existingRE.regra_id)
-        if (delRegraErr) throw delRegraErr
-      }
 
       await load(); setModalOpen(false); setEditing(null)
     } catch (e: any) { setError(e.message) }

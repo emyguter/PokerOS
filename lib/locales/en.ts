@@ -18,6 +18,7 @@ export const en: typeof pt = {
     lancamento: 'Entries',
     relatorios: 'Reports',
     permissoes: 'Permissions',
+    regras: 'Rules',
     extrato: 'Statement',
     meusGanhos: 'My Earnings',
     sair: 'Sign out',

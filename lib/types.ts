@@ -243,3 +243,53 @@ export type ClubeAgente = {
     plataformas?: { id: string; nome: string }
   }
 }
+
+// ─── REGRAS (reutilizáveis, vinculadas a Liga/Clube/Agente/Super Agente) ──
+
+export type RegraCondicaoForm = {
+  indicador_ids: string[]
+  operador: string
+  valor: number | null
+  resultado_pct: number | null
+  is_fallback: boolean
+}
+
+export type RegraTipo = 'faixa' | 'cotacao'
+
+export type Regra = {
+  id: string
+  nome: string
+  created_at: string
+  tipo: RegraTipo
+  condicoes: RegraCondicaoForm[]
+  moeda_origem: string | null
+  moeda_destino: string | null
+  valor_cotacao: number | null
+  vinculoCount: number
+}
+
+export type RegraForm = {
+  nome: string
+  tipo: RegraTipo
+  condicoes: RegraCondicaoForm[]
+  moeda_origem: string | null
+  moeda_destino: string | null
+  valor_cotacao: number | null
+}
+
+export type EntidadeTipo = 'plataforma' | 'mega_liga' | 'superliga' | 'liga' | 'clube' | 'agente' | 'jogador'
+
+// Vínculo tem lado (quem cobra/define a regra) e lado (quem paga/recebe) —
+// de_* pode ficar em branco pra regras "de cima" sem uma origem clara
+// (ex: taxa que a própria liga aplica, sem representar outro nível acima).
+export type RegraVinculo = {
+  id: string
+  regra_id: string
+  de_tipo: EntidadeTipo | null
+  de_id: string | null
+  de_nome: string | null
+  para_tipo: EntidadeTipo
+  para_id: string
+  para_nome: string
+  prioridade: number
+}

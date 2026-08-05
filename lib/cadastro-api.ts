@@ -7,7 +7,8 @@ import type {
   Club, ClubForm,
   Agente, AgenteForm, AgentePlataforma,
   Jogador, JogadorForm,
-  AgenteJogador, ClubeAgente
+  AgenteJogador, ClubeAgente,
+  Regra, RegraForm, RegraCondicaoForm, RegraVinculo, EntidadeTipo,
 } from './types'
 
 const supabase = createClient(
@@ -326,4 +327,251 @@ export async function syncClubeAgentes(
   for (const clubeId of adicionados) await addAgenteToClube(clubeId, agenteId)
   for (const clubeId of removidos) await removeAgenteFromClube(clubeId, agenteId)
   for (const c of clubesAtuais) await setRakebackClubeAgente(c.id, agenteId, c.rakeback_pct)
+}
+
+// ─── REGRAS (reutilizáveis — nascem soltas, e são vinculadas a Liga/Clube/
+// Agente/Super Agente depois, em vez de recriadas dentro de cada cadastro) ─
+
+type CondicaoRow = {
+  operador: string
+  valor: number | null
+  resultado_pct: number | null
+  is_fallback: boolean
+  regra_condicao_termos?: { indicador_id: string; ordem: number }[]
+}
+
+function mapCondicaoRow(c: CondicaoRow): RegraCondicaoForm {
+  const termos = (c.regra_condicao_termos ?? []).slice().sort((a, b) => a.ordem - b.ordem)
+  return {
+    indicador_ids: termos.length > 0 ? termos.map(t => t.indicador_id) : [''],
+    operador: c.operador,
+    valor: c.valor,
+    resultado_pct: c.resultado_pct,
+    is_fallback: c.is_fallback,
+  }
+}
+
+export async function getRegras(): Promise<Regra[]> {
+  const { data, error } = await supabase
+    .from('regras')
+    .select('id, nome, created_at, tipo, moeda_origem, moeda_destino, valor_cotacao, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id, ordem)), regra_entidades(id)')
+    .order('nome')
+  if (error) throw error
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    nome: r.nome,
+    created_at: r.created_at,
+    tipo: (r.tipo ?? 'faixa') as Regra['tipo'],
+    condicoes: (r.regra_condicoes ?? []).map(mapCondicaoRow),
+    moeda_origem: r.moeda_origem ?? null,
+    moeda_destino: r.moeda_destino ?? null,
+    valor_cotacao: r.valor_cotacao ?? null,
+    vinculoCount: (r.regra_entidades ?? []).length,
+  }))
+}
+
+async function salvarCondicoes(regraId: string, condicoes: RegraCondicaoForm[]): Promise<void> {
+  if (condicoes.length === 0) return
+  const { data: condRows, error: condErr } = await supabase.from('regra_condicoes').insert(
+    condicoes.map((c, i) => ({
+      regra_id: regraId,
+      ordem: i + 1,
+      operador: c.is_fallback ? '>=' : c.operador,
+      valor: c.is_fallback ? 0 : c.valor,
+      resultado_pct: c.resultado_pct,
+      is_fallback: c.is_fallback,
+    }))
+  ).select('id')
+  if (condErr) throw condErr
+  const termos = condicoes.flatMap((c, i) =>
+    c.is_fallback ? [] : c.indicador_ids
+      .filter(Boolean)
+      .map((indicadorId, ti) => ({ regra_condicao_id: condRows![i].id, indicador_id: indicadorId, ordem: ti + 1 }))
+  )
+  if (termos.length > 0) {
+    const { error: termosErr } = await supabase.from('regra_condicao_termos').insert(termos)
+    if (termosErr) throw termosErr
+  }
+}
+
+export async function createRegra(form: RegraForm): Promise<string> {
+  const { data: nova, error } = await supabase.from('regras').insert({
+    nome: form.nome,
+    tipo: form.tipo,
+    moeda_origem: form.tipo === 'cotacao' ? form.moeda_origem : null,
+    moeda_destino: form.tipo === 'cotacao' ? form.moeda_destino : null,
+    valor_cotacao: form.tipo === 'cotacao' ? form.valor_cotacao : null,
+  }).select().single()
+  if (error) throw error
+  if (form.tipo === 'faixa') await salvarCondicoes(nova.id, form.condicoes)
+  return nova.id
+}
+
+export async function updateRegra(id: string, form: RegraForm): Promise<void> {
+  const { error } = await supabase.from('regras').update({
+    nome: form.nome,
+    tipo: form.tipo,
+    moeda_origem: form.tipo === 'cotacao' ? form.moeda_origem : null,
+    moeda_destino: form.tipo === 'cotacao' ? form.moeda_destino : null,
+    valor_cotacao: form.tipo === 'cotacao' ? form.valor_cotacao : null,
+  }).eq('id', id)
+  if (error) throw error
+  const { error: delErr } = await supabase.from('regra_condicoes').delete().eq('regra_id', id)
+  if (delErr) throw delErr
+  if (form.tipo === 'faixa') await salvarCondicoes(id, form.condicoes)
+}
+
+export async function deleteRegra(id: string): Promise<void> {
+  const { error } = await supabase.from('regras').delete().eq('id', id)
+  if (error) throw error
+}
+
+const TABELA_ENTIDADE: Record<EntidadeTipo, { tabela: string; coluna: string }> = {
+  plataforma: { tabela: 'plataformas', coluna: 'nome' },
+  mega_liga: { tabela: 'mega_ligas', coluna: 'nome' },
+  superliga: { tabela: 'super_leagues', coluna: 'name' },
+  liga: { tabela: 'leagues', coluna: 'name' },
+  clube: { tabela: 'clubs', coluna: 'name' },
+  agente: { tabela: 'agentes', coluna: 'nome' },
+  jogador: { tabela: 'jogadores', coluna: 'nome' },
+}
+
+type VinculoRow = {
+  id: string
+  regra_id: string
+  entidade_tipo: EntidadeTipo
+  entidade_id: string
+  de_tipo: EntidadeTipo | null
+  de_id: string | null
+  prioridade: number
+}
+
+export async function getVinculos(regraId: string): Promise<RegraVinculo[]> {
+  const { data, error } = await supabase
+    .from('regra_entidades')
+    .select('id, regra_id, entidade_tipo, entidade_id, de_tipo, de_id, prioridade')
+    .eq('regra_id', regraId)
+  if (error) throw error
+  const vinculos = (data ?? []) as VinculoRow[]
+
+  const idsPorTipo = new Map<EntidadeTipo, Set<string>>()
+  const registra = (tipo: EntidadeTipo | null, id: string | null) => {
+    if (!tipo || !id) return
+    idsPorTipo.set(tipo, (idsPorTipo.get(tipo) ?? new Set()).add(id))
+  }
+  for (const v of vinculos) { registra(v.entidade_tipo, v.entidade_id); registra(v.de_tipo, v.de_id) }
+
+  const nomesPorId = new Map<string, string>()
+  for (const [tipo, ids] of idsPorTipo) {
+    const { tabela, coluna } = TABELA_ENTIDADE[tipo]
+    const { data: rows } = await supabase.from(tabela).select(`id, ${coluna}`).in('id', [...ids])
+    for (const r of (rows ?? []) as any[]) nomesPorId.set(r.id, r[coluna])
+  }
+
+  return vinculos.map(v => ({
+    id: v.id,
+    regra_id: v.regra_id,
+    para_tipo: v.entidade_tipo,
+    para_id: v.entidade_id,
+    para_nome: nomesPorId.get(v.entidade_id) ?? '—',
+    de_tipo: v.de_tipo,
+    de_id: v.de_id,
+    de_nome: v.de_id ? nomesPorId.get(v.de_id) ?? '—' : null,
+    prioridade: v.prioridade,
+  }))
+}
+
+export async function addVinculo(
+  regraId: string,
+  para: { tipo: EntidadeTipo; id: string },
+  de: { tipo: EntidadeTipo; id: string } | null
+): Promise<void> {
+  const { error } = await supabase.from('regra_entidades').insert({
+    regra_id: regraId,
+    entidade_tipo: para.tipo,
+    entidade_id: para.id,
+    de_tipo: de?.tipo ?? null,
+    de_id: de?.id ?? null,
+    prioridade: 0,
+  })
+  if (error) throw error
+}
+
+export async function updateVinculo(
+  vinculoId: string,
+  para: { tipo: EntidadeTipo; id: string },
+  de: { tipo: EntidadeTipo; id: string } | null
+): Promise<void> {
+  const { error } = await supabase.from('regra_entidades').update({
+    entidade_tipo: para.tipo,
+    entidade_id: para.id,
+    de_tipo: de?.tipo ?? null,
+    de_id: de?.id ?? null,
+  }).eq('id', vinculoId)
+  if (error) throw error
+}
+
+export async function removeVinculo(vinculoId: string): Promise<void> {
+  const { error } = await supabase.from('regra_entidades').delete().eq('id', vinculoId)
+  if (error) throw error
+}
+
+export async function buscarEntidades(tipo: EntidadeTipo, query: string, limit = 20): Promise<{ id: string; nome: string }[]> {
+  const { tabela, coluna } = TABELA_ENTIDADE[tipo]
+  let q = supabase.from(tabela).select(`id, ${coluna}`).order(coluna).limit(limit)
+  if (query.trim()) q = q.ilike(coluna, `%${query.trim()}%`)
+  const { data, error } = await q
+  if (error) throw error
+  return (data ?? []).map((r: any) => ({ id: r.id, nome: r[coluna] }))
+}
+
+export interface RegraAplicada {
+  regra_id: string
+  regra_nome: string
+  de_tipo: EntidadeTipo | null
+  de_nome: string | null
+  linhas: string[]
+}
+
+// Painel read-only de "qual regra vale pra essa entidade" — usado nos
+// cadastros de Liga/Clube/Agente, que não criam mais regra embutida: a
+// criação/edição em si vive só na tela de Regras, aqui é só leitura do
+// vínculo (Para = essa entidade).
+export async function getRegrasDaEntidade(tipo: EntidadeTipo, id: string): Promise<RegraAplicada[]> {
+  const { data, error } = await supabase
+    .from('regra_entidades')
+    .select('regra_id, de_tipo, de_id, regras(id, nome, tipo, moeda_origem, moeda_destino, valor_cotacao, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicadores(nome, descricao))))')
+    .eq('entidade_tipo', tipo)
+    .eq('entidade_id', id)
+  if (error) throw error
+  const rows = (data ?? []) as any[]
+
+  const deIdsPorTipo = new Map<EntidadeTipo, Set<string>>()
+  for (const r of rows) {
+    if (r.de_tipo && r.de_id) deIdsPorTipo.set(r.de_tipo, (deIdsPorTipo.get(r.de_tipo) ?? new Set()).add(r.de_id))
+  }
+  const deNomesPorId = new Map<string, string>()
+  for (const [deTipo, ids] of deIdsPorTipo) {
+    const { tabela, coluna } = TABELA_ENTIDADE[deTipo]
+    const { data: entRows } = await supabase.from(tabela).select(`id, ${coluna}`).in('id', [...ids])
+    for (const e of (entRows ?? []) as any[]) deNomesPorId.set(e.id, e[coluna])
+  }
+
+  return rows.map(r => {
+    const regraTipo = (r.regras?.tipo ?? 'faixa') as 'faixa' | 'cotacao'
+    const linhas = regraTipo === 'cotacao'
+      ? [`1 ${r.regras?.moeda_origem ?? '?'} = ${r.regras?.valor_cotacao ?? '?'} ${r.regras?.moeda_destino ?? '?'}`]
+      : ((r.regras?.regra_condicoes ?? []) as any[]).map(c => {
+          if (c.is_fallback) return `SENÃO → ${c.resultado_pct}%`
+          const termos = (c.regra_condicao_termos ?? []).map((t: any) => t.indicadores?.descricao || t.indicadores?.nome || '?').join(' + ')
+          return `SE ${termos} ${c.operador} ${c.valor} → ${c.resultado_pct}%`
+        })
+    return {
+      regra_id: r.regra_id as string,
+      regra_nome: (r.regras?.nome as string) ?? '—',
+      de_tipo: r.de_tipo,
+      de_nome: r.de_id ? deNomesPorId.get(r.de_id) ?? '—' : null,
+      linhas,
+    }
+  })
 }

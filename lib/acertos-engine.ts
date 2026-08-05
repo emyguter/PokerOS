@@ -138,13 +138,15 @@ function calcularAcerto(
       // Taxa Operacional do App sempre é cobrada, some com a taxa de cash (fixa ou variável).
       fee_operacional_valor = rake_cash * (club.taxa_op_pct / 100);
 
-      if (club.taxa_tipo === "variavel") {
-        // Taxa variável: pega a faixa SE/ENTÃO que bate (ex: Ganhos+Rake) e aplica sobre o rake total.
+      if (condicoesClube.length > 0) {
+        // Tem regra vinculada (Vínculos, Para = esse clube): pega a faixa
+        // SE/ENTÃO que bate (ex: Ganhos+Rake) e aplica sobre o rake total.
+        // Não depende mais de club.taxa_tipo — o vínculo é que decide.
         const pct = avaliarCondicoes(condicoesClube, row);
         taxa_cash_pct_aplicada = pct ?? 0;
         fee_cash_valor = rake_total * ((pct ?? 0) / 100);
       } else {
-        // Taxa fixa: aplica o percentual fixo de cash sobre o rake de cash.
+        // Sem regra vinculada: aplica o percentual fixo de cash sobre o rake de cash.
         taxa_cash_pct_aplicada = club.fee_cash_pct ?? 0;
         fee_cash_valor = rake_cash * ((club.fee_cash_pct ?? 0) / 100);
       }

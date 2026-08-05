@@ -16,6 +16,7 @@ export const pt = {
     lancamento: 'Lançamento',
     relatorios: 'Relatórios',
     permissoes: 'Permissões',
+    regras: 'Regras',
     extrato: 'Extrato',
     meusGanhos: 'Meus Ganhos',
     sair: 'Sair',
