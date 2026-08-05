@@ -279,6 +279,11 @@ export type RegraForm = {
 
 export type EntidadeTipo = 'plataforma' | 'mega_liga' | 'superliga' | 'liga' | 'clube' | 'agente' | 'jogador'
 
+// As 4 variáveis do clube que podem virar Fixa (% direto no cadastro) ou
+// Variável (faixa SE/ENTÃO, via vínculo de Regra) — só faz sentido quando
+// para_tipo === 'clube'; nos outros tipos de entidade fica null.
+export type CampoClube = 'fee_mtt' | 'fee_cash' | 'taxa_op' | 'spinup'
+
 // Vínculo tem lado (quem cobra/define a regra) e lado (quem paga/recebe) —
 // de_* pode ficar em branco pra regras "de cima" sem uma origem clara
 // (ex: taxa que a própria liga aplica, sem representar outro nível acima).
@@ -291,5 +296,6 @@ export type RegraVinculo = {
   para_tipo: EntidadeTipo
   para_id: string
   para_nome: string
+  campo: CampoClube | null
   prioridade: number
 }
