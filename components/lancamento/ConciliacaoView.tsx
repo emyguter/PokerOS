@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { AlertTriangle, Link2, Loader2, Pencil, Check, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
+import { errMsg } from '@/lib/errors'
 import { TIPOS } from './ExtratoView'
 
 interface Entrada {
@@ -193,7 +194,7 @@ export function ConciliacaoView() {
       if (err) throw err
       setEntradas(((data ?? []) as unknown as (Entrada & { conciliado_com: string | null })[]).filter(e => !e.conciliado_com))
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(errMsg(err))
     } finally {
       setLoading(false)
     }

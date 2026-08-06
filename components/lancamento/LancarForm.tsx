@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Loader2, Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
+import { errMsg } from '@/lib/errors'
 import { TIPOS } from './ExtratoView'
 
 interface ClubeOpcao { id: string; name: string }
@@ -88,7 +89,7 @@ export function LancarForm({ origem = 'suporte' }: { origem?: 'suporte' | 'genia
       setData(hoje())
       await loadRecentes()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(errMsg(err))
     } finally {
       setSaving(false)
     }

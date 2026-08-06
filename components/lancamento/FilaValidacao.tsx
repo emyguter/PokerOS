@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
+import { errMsg } from '@/lib/errors'
 import { TIPOS } from './ExtratoView'
 
 interface Pendente {
@@ -60,7 +61,7 @@ export function FilaValidacao() {
 
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(errMsg(err))
     } finally {
       setValidandoId(null)
     }
