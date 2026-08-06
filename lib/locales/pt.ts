@@ -89,12 +89,19 @@ export const pt = {
   },
   lancamento: {
     titulo: 'Lançamento', subtitulo: 'Bônus, promoções, caução e pagamentos por clube',
-    aba_lancar: 'Lançar', aba_extrato: 'Extrato',
+    aba_lancar: 'Lançar', aba_extrato: 'Extrato', aba_genia: 'Lançar (Genia)', aba_conciliacao: 'Conciliação',
     clube: 'Clube', tipo: 'Tipo', natureza: 'Natureza', valor: 'Valor', data: 'Data',
     descricao: 'Descrição (opcional)', descricao_placeholder: 'Ex: bônus de boas-vindas',
     credito: 'Crédito', debito: 'Débito', lancar: 'Lançar',
     ultimos_lancamentos: 'Últimos lançamentos', nenhum_lancamento: 'Nenhum lançamento ainda.',
-    tipos: { bonus: 'Bônus', promocao: 'Promoção', caucao: 'Caução', pagamento: 'Pagamento', outro: 'Outro' },
+    tipos: { bonus: 'Bônus', promocao: 'Promoção', caucao: 'Caução', pagamento: 'Pagamento', antecipacao: 'Antecipação', outro: 'Outro' },
+    status: { em_validacao: 'Em validação', pago: 'Confirmado' },
+    caucao_aviso: 'Caução entra direto na fila de validação da Genia — ela confirma o recebimento antes de virar saldo do clube.',
+    genia: {
+      subtitulo: 'Lance o que você de fato pagou ou recebeu — a Conciliação casa com o que o Suporte registrou.',
+      fila_validacao: 'Fila de validação', nenhuma_pendencia: 'Nada esperando validação.',
+      validar: 'Marcar como confirmado', validando: 'Confirmando...',
+    },
   },
   extrato: {
     titulo: 'Extrato', subtitulo: 'Lançamentos do seu clube',
@@ -105,5 +112,14 @@ export const pt = {
     col_data: 'Data', col_tipo: 'Tipo', col_descricao: 'Descrição', col_valor: 'Valor', col_saldo: 'Saldo',
     sem_clube_titulo: 'Esse login não está vinculado a um clube',
     sem_clube_desc: 'Peça pra um administrador configurar o acesso em Permissões.',
+  },
+  conciliacao: {
+    titulo: 'Conciliação', subtitulo: 'Bate o que o Suporte lançou com o que a Genia processou',
+    recalculando: 'Conciliando...',
+    pendencias_genia: 'Pendências Genia', pendencias_genia_desc: 'O Suporte lançou, a Genia ainda não tem par pra isso.',
+    pendencias_suporte: 'Pendências Suporte', pendencias_suporte_desc: 'A Genia lançou, o Suporte não tem registro correspondente.',
+    sem_pendencias: 'Sem pendências aqui.',
+    conciliados: 'Conciliados no período', vincular: 'Vincular', vincular_com: 'Vincular com',
+    selecione_par: '— Selecione o lançamento correspondente —',
   },
 }

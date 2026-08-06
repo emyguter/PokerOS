@@ -91,12 +91,19 @@ export const en: typeof pt = {
   },
   lancamento: {
     titulo: 'Entries', subtitulo: 'Bonuses, promotions, deposits and payments per club',
-    aba_lancar: 'New Entry', aba_extrato: 'Statement',
+    aba_lancar: 'New Entry', aba_extrato: 'Statement', aba_genia: 'Enter (Genia)', aba_conciliacao: 'Reconciliation',
     clube: 'Club', tipo: 'Type', natureza: 'Nature', valor: 'Amount', data: 'Date',
     descricao: 'Description (optional)', descricao_placeholder: 'E.g.: welcome bonus',
     credito: 'Credit', debito: 'Debit', lancar: 'Add Entry',
     ultimos_lancamentos: 'Latest entries', nenhum_lancamento: 'No entries yet.',
-    tipos: { bonus: 'Bonus', promocao: 'Promotion', caucao: 'Deposit', pagamento: 'Payment', outro: 'Other' },
+    tipos: { bonus: 'Bonus', promocao: 'Promotion', caucao: 'Deposit', pagamento: 'Payment', antecipacao: 'Advance', outro: 'Other' },
+    status: { em_validacao: 'Pending validation', pago: 'Confirmed' },
+    caucao_aviso: "Deposits go straight to Genia's validation queue — she confirms receipt before it becomes club balance.",
+    genia: {
+      subtitulo: "Enter what you actually paid or received — Reconciliation matches it with what Support logged.",
+      fila_validacao: 'Validation queue', nenhuma_pendencia: 'Nothing waiting on validation.',
+      validar: 'Mark as confirmed', validando: 'Confirming...',
+    },
   },
   extrato: {
     titulo: 'Statement', subtitulo: "Your club's entries",
@@ -107,5 +114,14 @@ export const en: typeof pt = {
     col_data: 'Date', col_tipo: 'Type', col_descricao: 'Description', col_valor: 'Amount', col_saldo: 'Balance',
     sem_clube_titulo: "This login isn't linked to a club",
     sem_clube_desc: 'Ask an administrator to configure access in Permissions.',
+  },
+  conciliacao: {
+    titulo: 'Reconciliation', subtitulo: 'Matches what Support logged against what Genia processed',
+    recalculando: 'Reconciling...',
+    pendencias_genia: 'Genia pending', pendencias_genia_desc: "Support logged it, Genia doesn't have a match for it yet.",
+    pendencias_suporte: 'Support pending', pendencias_suporte_desc: "Genia logged it, Support has no matching record.",
+    sem_pendencias: 'Nothing pending here.',
+    conciliados: 'Reconciled in period', vincular: 'Link', vincular_com: 'Link with',
+    selecione_par: '— Select the matching entry —',
   },
 }

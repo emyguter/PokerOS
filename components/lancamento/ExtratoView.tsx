@@ -9,6 +9,7 @@ export const TIPOS = [
   { value: 'promocao', labelKey: 'lancamento.tipos.promocao' },
   { value: 'caucao', labelKey: 'lancamento.tipos.caucao' },
   { value: 'pagamento', labelKey: 'lancamento.tipos.pagamento' },
+  { value: 'antecipacao', labelKey: 'lancamento.tipos.antecipacao' },
   { value: 'outro', labelKey: 'lancamento.tipos.outro' },
 ] as const
 
