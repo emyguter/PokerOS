@@ -27,7 +27,7 @@ function hoje() {
   return new Date().toISOString().slice(0, 10)
 }
 
-export function LancarForm({ origem = 'suporte' }: { origem?: 'suporte' | 'genia' }) {
+export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suporte' | 'genia'; onCreated?: () => void }) {
   const { t } = useI18n()
   const [clubes, setClubes] = useState<ClubeOpcao[]>([])
   const [clubeId, setClubeId] = useState('')
@@ -88,6 +88,7 @@ export function LancarForm({ origem = 'suporte' }: { origem?: 'suporte' | 'genia
       setDescricao('')
       setData(hoje())
       await loadRecentes()
+      onCreated?.()
     } catch (err) {
       setError(errMsg(err))
     } finally {

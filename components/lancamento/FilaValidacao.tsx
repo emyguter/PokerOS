@@ -22,9 +22,9 @@ function formatMoeda(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-const LABEL_ORIGEM: Record<string, string> = { suporte: 'Suporte', genia: 'Genia' }
+const LABEL_ORIGEM: Record<string, string> = { suporte: 'Suporte', genia: 'Financeiro' }
 
-export function FilaValidacao() {
+export function FilaValidacao({ refreshKey }: { refreshKey?: number } = {}) {
   const { t } = useI18n()
   const [pendentes, setPendentes] = useState<Pendente[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,7 +42,7 @@ export function FilaValidacao() {
     setLoading(false)
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load() }, [load, refreshKey])
 
   async function validar(p: Pendente) {
     setValidandoId(p.id); setError(null)
@@ -69,7 +69,7 @@ export function FilaValidacao() {
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('lancamento.genia.fila_validacao')}</p>
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('lancamento.genia.fila_validacao')} {pendentes.length > 0 && `(${pendentes.length})`}</p>
       {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
       <div className="rounded-xl border border-white/10 overflow-hidden">
         {loading ? (
