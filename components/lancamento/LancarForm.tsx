@@ -41,6 +41,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
 
   const [recentes, setRecentes] = useState<LancamentoRecente[]>([])
   const [loadingRecentes, setLoadingRecentes] = useState(true)
+  const [confirmandoDuplicata, setConfirmandoDuplicata] = useState(false)
 
   useEffect(() => {
     supabase.from('clubs').select('id, name').order('name').then(({ data }) => setClubes(data ?? []))
@@ -65,6 +66,28 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
     if (!clubeId) { setError('Escolha o clube.'); return }
     const valorNum = Number(valor.replace(',', '.'))
     if (!valorNum || valorNum <= 0) { setError('Informe um valor válido.'); return }
+
+    // Caução do Suporte pula direto pra fila da Genia — fácil de lançar
+    // duplicado sem querer, então avisa antes se já existe algo igual.
+    if (origem === 'suporte' && tipo === 'caucao') {
+      setError(null)
+      const { data: existentes } = await supabase
+        .from('lancamentos')
+        .select('id')
+        .eq('clube_id', clubeId)
+        .eq('tipo', 'caucao')
+        .eq('valor', valorNum)
+        .eq('data_lancamento', data)
+        .limit(1)
+      if ((existentes ?? []).length > 0 && !confirmandoDuplicata) {
+        setConfirmandoDuplicata(true)
+        return
+      }
+    }
+    await criar(valorNum)
+  }
+
+  async function criar(valorNum: number) {
     setSaving(true); setError(null)
     try {
       const { data: userData } = await supabase.auth.getUser()
@@ -87,6 +110,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
       setValor('')
       setDescricao('')
       setData(hoje())
+      setConfirmandoDuplicata(false)
       await loadRecentes()
       onCreated?.()
     } catch (err) {
@@ -102,14 +126,14 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.clube')}</label>
-            <select value={clubeId} onChange={(e) => setClubeId(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
+            <select value={clubeId} onChange={(e) => { setClubeId(e.target.value); setConfirmandoDuplicata(false) }} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
               <option value="">{t('common.selecione')}</option>
               {clubes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.tipo')}</label>
-            <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
+            <select value={tipo} onChange={(e) => { setTipo(e.target.value); setConfirmandoDuplicata(false) }} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
               {TIPOS.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
             </select>
           </div>
@@ -137,11 +161,11 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.valor')}</label>
-            <input type="text" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
+            <input type="text" inputMode="decimal" value={valor} onChange={(e) => { setValor(e.target.value); setConfirmandoDuplicata(false) }} placeholder="0,00" className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.data')}</label>
-            <input type="date" value={data} onChange={(e) => setData(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
+            <input type="date" value={data} onChange={(e) => { setData(e.target.value); setConfirmandoDuplicata(false) }} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
           </div>
         </div>
 
@@ -154,11 +178,24 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
           <div className="p-3 bg-gold/5 border border-gold/20 rounded-lg text-gold/90 text-xs">{t('lancamento.caucao_aviso')}</div>
         )}
 
+        {confirmandoDuplicata && (
+          <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-sm space-y-2">
+            <p className="text-alert font-medium">{t('lancamento.caucao_duplicata_titulo')}</p>
+            <p className="text-gray-400 text-xs">{t('lancamento.caucao_duplicata_desc')}</p>
+          </div>
+        )}
+
         {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
 
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {confirmandoDuplicata && (
+            <button type="button" onClick={() => setConfirmandoDuplicata(false)} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">
+              {t('common.cancelar')}
+            </button>
+          )}
           <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}{t('lancamento.lancar')}
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+            {confirmandoDuplicata ? t('lancamento.confirmar_mesmo_assim') : t('lancamento.lancar')}
           </button>
         </div>
       </form>

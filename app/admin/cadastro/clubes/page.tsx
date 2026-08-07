@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { getClubs, createClub, updateClub, deleteClub, getLeagues, getPlataformas } from '@/lib/cadastro-api'
+import { getClubs, createClub, updateClub, deleteClub, getLeagues, getPlataformas, initStoplossAtual } from '@/lib/cadastro-api'
 import type { Club, ClubForm, League, Plataforma } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
@@ -45,8 +45,10 @@ export default function ClubesPage() {
   const handleSave = async (form: ClubForm) => {
     setSaving(true); setError(null)
     try {
-      if (editing) await updateClub(editing.id, clean(form))
-      else await createClub(clean(form))
+      const stoplossEraNulo = !editing || editing.stoploss_inicial == null
+      const formLimpo = clean(form)
+      const saved = editing ? await updateClub(editing.id, formLimpo) : await createClub(formLimpo)
+      if (stoplossEraNulo && formLimpo.stoploss_inicial != null) await initStoplossAtual(saved.id, formLimpo.stoploss_inicial)
       await load(); setModalOpen(false); setEditing(null)
     } catch (e: any) { setError(e.message) }
     finally { setSaving(false) }

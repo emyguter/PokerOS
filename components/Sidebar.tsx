@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { BookOpen, Upload, FileText, LogOut, ShieldCheck, Wallet, Receipt, PanelLeftClose, PanelLeftOpen, HandCoins, ListChecks, Landmark } from 'lucide-react'
+import { BookOpen, Upload, FileText, LogOut, ShieldCheck, Wallet, Receipt, PanelLeftClose, PanelLeftOpen, HandCoins, ListChecks, Landmark, Gauge } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { useI18n } from '@/lib/i18n'
@@ -15,6 +15,7 @@ const NAV = [
   { href: '/importacao', labelKey: 'nav.importacao', icon: Upload, chaves: ['importacao'] },
   { href: '/lancamento', labelKey: 'nav.lancamento', icon: Wallet, chaves: ['lancamento'] },
   { href: '/financeiro', labelKey: 'nav.financeiro', icon: Landmark, chaves: ['lancamento.genia'] },
+  { href: '/stoploss', labelKey: 'nav.stoploss', icon: Gauge, chaves: ['stoploss'] },
   { href: '/relatorios', labelKey: 'nav.relatorios', icon: FileText, chaves: ['relatorios'] },
   { href: '/admin/regras', labelKey: 'nav.regras', icon: ListChecks, chaves: ['regras'] },
 ]

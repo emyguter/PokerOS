@@ -13,7 +13,7 @@ export interface Entrada {
   origem: 'suporte' | 'genia'
   status: string | null
   clube_id: string
-  clubs: { name: string } | null
+  clubs: { name: string; stoploss_atual: number | null } | null
 }
 
 export type Motivo = 'sem_par' | 'divergencia'
@@ -70,7 +70,7 @@ export function useConciliacao() {
     try {
       let query = supabase
         .from('lancamentos')
-        .select('id, tipo, natureza, valor, descricao, data_lancamento, origem, status, clube_id, conciliado_com, clubs(name)')
+        .select('id, tipo, natureza, valor, descricao, data_lancamento, origem, status, clube_id, conciliado_com, clubs(name, stoploss_atual)')
         .neq('tipo', 'caucao')
         .gte('data_lancamento', dataInicio)
         .order('data_lancamento', { ascending: true })
@@ -141,13 +141,40 @@ export function useConciliacao() {
 
   // Persiste os pares que bateram certinho, pra não reprocessar toda vez —
   // e some da lista na próxima carga (filtro `!conciliado_com` no load).
+  // Antecipação é a única que compõe o Stoploss do clube, e só quando
+  // concilia (antes disso é só uma promessa, igual Caução até a Genia confirmar).
   useEffect(() => {
     if (conciliadosAgora.length === 0) return
     setProcessando(true)
-    Promise.all(conciliadosAgora.flatMap(({ suporte, genia }) => [
-      supabase.from('lancamentos').update({ conciliado_com: genia.id, conciliado_em: new Date().toISOString() }).eq('id', suporte.id),
-      supabase.from('lancamentos').update({ conciliado_com: suporte.id, conciliado_em: new Date().toISOString() }).eq('id', genia.id),
-    ])).then(() => { setProcessando(false); load() })
+    ;(async () => {
+      const agora = new Date().toISOString()
+      await Promise.all(conciliadosAgora.flatMap(({ suporte, genia }) => [
+        supabase.from('lancamentos').update({ conciliado_com: genia.id, conciliado_em: agora }).eq('id', suporte.id),
+        supabase.from('lancamentos').update({ conciliado_com: suporte.id, conciliado_em: agora }).eq('id', genia.id),
+      ]))
+
+      const antecipacoes = conciliadosAgora.filter(({ suporte }) => suporte.tipo === 'antecipacao')
+      if (antecipacoes.length > 0) {
+        const { data: userData } = await supabase.auth.getUser()
+        for (const { suporte } of antecipacoes) {
+          const atual = suporte.clubs?.stoploss_atual ?? 0
+          const delta = suporte.natureza === 'credito' ? suporte.valor : -suporte.valor
+          const resultante = atual + delta
+          await supabase.from('clubs').update({ stoploss_atual: resultante }).eq('id', suporte.clube_id)
+          await supabase.from('stoploss_historico').insert({
+            clube_id: suporte.clube_id,
+            tipo: 'antecipacao',
+            valor_delta: delta,
+            valor_resultante: resultante,
+            motivo: 'Antecipação conciliada',
+            lancamento_id: suporte.id,
+            criado_por: userData.user?.id ?? null,
+          })
+        }
+      }
+
+      setProcessando(false); load()
+    })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conciliadosAgora])
 
