@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ListChecks } from 'lucide-react'
-import type { EntidadeTipo } from '@/lib/types'
+import type { EntidadeTipo, CampoClube } from '@/lib/types'
 import { getRegrasDaEntidade, type RegraAplicada } from '@/lib/cadastro-api'
 
 interface Props {
@@ -18,6 +18,34 @@ const LABEL_TIPO: Record<EntidadeTipo, string> = {
   clube: 'Clube',
   agente: 'Agente',
   jogador: 'Jogador',
+}
+
+const LABEL_CAMPO: Record<CampoClube, string> = {
+  fee_mtt: 'Fee MTT', fee_cash: 'Fee Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp',
+}
+
+function RegraCard({ r }: { r: RegraAplicada }) {
+  return (
+    <div className="p-3 bg-surface2 rounded-lg border border-white/10 space-y-2">
+      <p className="text-xs text-gray-400">
+        {r.de_nome && (
+          <>Vem de <span className="text-gold font-medium">{LABEL_TIPO[r.de_tipo!]} {r.de_nome}</span>: </>
+        )}
+        <span className="text-white font-medium">{r.regra_nome}</span>
+      </p>
+      {r.linhas.length > 0 ? (
+        <div className="space-y-1.5">
+          {r.linhas.map((linha, i) => (
+            <div key={i} className="text-xs text-gray-400 bg-surface px-3 py-2 rounded border border-white/5">
+              {linha.split('→').map((parte, pi) => pi === 0 ? parte : <span key={pi}>→<span className="text-gold">{parte}</span></span>)}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-gray-500 italic">Regra ainda sem condições configuradas.</p>
+      )}
+    </div>
+  )
 }
 
 // Painel read-only — a criação/edição de regra e o vínculo com Liga/Clube/
@@ -51,29 +79,30 @@ export function RegrasAplicadas({ entidadeTipo, entidadeId }: Props) {
         <p className="text-xs text-gray-500">Carregando...</p>
       ) : regras.length === 0 ? (
         <p className="text-xs text-gray-500 italic">Nenhuma regra vinculada ainda.</p>
+      ) : entidadeTipo === 'clube' ? (
+        // Clube pode ter até 4 vínculos independentes (um por campo) — agrupa
+        // pra ficar claro qual regra vale pra qual taxa.
+        <div className="space-y-4">
+          {(Object.keys(LABEL_CAMPO) as CampoClube[]).map(campo => {
+            const doGrupo = regras.filter(r => r.campo === campo)
+            if (doGrupo.length === 0) return null
+            return (
+              <div key={campo} className="space-y-2">
+                <p className="text-xs font-semibold text-gold">{LABEL_CAMPO[campo]}</p>
+                {doGrupo.map(r => <RegraCard key={r.regra_id} r={r} />)}
+              </div>
+            )
+          })}
+          {regras.some(r => !r.campo) && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-gray-500">Sem campo definido</p>
+              {regras.filter(r => !r.campo).map(r => <RegraCard key={r.regra_id} r={r} />)}
+            </div>
+          )}
+        </div>
       ) : (
         <div className="space-y-2">
-          {regras.map(r => (
-            <div key={r.regra_id} className="p-3 bg-surface2 rounded-lg border border-white/10 space-y-2">
-              <p className="text-xs text-gray-400">
-                {r.de_nome && (
-                  <>Vem de <span className="text-gold font-medium">{LABEL_TIPO[r.de_tipo!]} {r.de_nome}</span>: </>
-                )}
-                <span className="text-white font-medium">{r.regra_nome}</span>
-              </p>
-              {r.linhas.length > 0 ? (
-                <div className="space-y-1.5">
-                  {r.linhas.map((linha, i) => (
-                    <div key={i} className="text-xs text-gray-400 bg-surface px-3 py-2 rounded border border-white/5">
-                      {linha.split('→').map((parte, pi) => pi === 0 ? parte : <span key={pi}>→<span className="text-gold">{parte}</span></span>)}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-gray-500 italic">Regra ainda sem condições configuradas.</p>
-              )}
-            </div>
-          ))}
+          {regras.map(r => <RegraCard key={r.regra_id} r={r} />)}
         </div>
       )}
     </div>

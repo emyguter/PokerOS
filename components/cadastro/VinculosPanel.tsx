@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { X, Trash2, ArrowRight, Pencil } from 'lucide-react'
-import type { Regra, RegraVinculo, EntidadeTipo } from '@/lib/types'
+import type { Regra, RegraVinculo, EntidadeTipo, CampoClube } from '@/lib/types'
 import { getVinculos, addVinculo, updateVinculo, removeVinculo, buscarEntidades } from '@/lib/cadastro-api'
 
 interface Props {
@@ -28,6 +28,17 @@ const LABEL_TIPO: Record<EntidadeTipo, string> = {
   clube: 'Clube',
   agente: 'Agente',
   jogador: 'Jogador',
+}
+
+const CAMPOS_CLUBE: { value: CampoClube; label: string }[] = [
+  { value: 'fee_mtt', label: 'Fee MTT' },
+  { value: 'fee_cash', label: 'Fee Cash' },
+  { value: 'taxa_op', label: 'Taxa Operacional' },
+  { value: 'spinup', label: 'SpinUp' },
+]
+
+const LABEL_CAMPO: Record<CampoClube, string> = {
+  fee_mtt: 'Fee MTT', fee_cash: 'Fee Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp',
 }
 
 interface Entidade { id: string; nome: string }
@@ -150,6 +161,7 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
   const [editando, setEditando] = useState<RegraVinculo | null>(null)
   const [ladoDe, setLadoDe] = useState<Lado>(LADO_INICIAL('liga'))
   const [ladoPara, setLadoPara] = useState<Lado>(LADO_INICIAL('clube'))
+  const [campo, setCampo] = useState<CampoClube>('fee_cash')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -165,6 +177,7 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
     setEditando(null)
     setLadoDe(LADO_INICIAL('liga'))
     setLadoPara(LADO_INICIAL('clube'))
+    setCampo('fee_cash')
   }
 
   useEffect(() => {
@@ -181,6 +194,7 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
     setEditando(v)
     setLadoDe(v.de_id && v.de_tipo ? LADO_COM(v.de_tipo, { id: v.de_id, nome: v.de_nome ?? '—' }) : LADO_INICIAL('liga'))
     setLadoPara(LADO_COM(v.para_tipo, { id: v.para_id, nome: v.para_nome }))
+    setCampo(v.campo ?? 'fee_cash')
   }
 
   async function handleSalvar() {
@@ -195,15 +209,16 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
         : [null]
       const paras = ladoPara.selecionados.map(p => ({ tipo: ladoPara.tipo, id: p.id }))
       const combos = paras.flatMap(para => des.map(de => ({ de, para })))
+      const campoParaSalvar = ladoPara.tipo === 'clube' ? campo : null
 
       const [primeiro, ...resto] = combos
       if (editando) {
-        await updateVinculo(editando.id, primeiro.para, primeiro.de)
+        await updateVinculo(editando.id, primeiro.para, primeiro.de, campoParaSalvar)
       } else {
-        await addVinculo(regra.id, primeiro.para, primeiro.de)
+        await addVinculo(regra.id, primeiro.para, primeiro.de, campoParaSalvar)
       }
       for (const c of resto) {
-        await addVinculo(regra.id, c.para, c.de)
+        await addVinculo(regra.id, c.para, c.de, campoParaSalvar)
       }
       resetForm()
       await load()
@@ -256,6 +271,9 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
                       )}
                       <span className="px-2 py-0.5 rounded-full bg-gold/10 border border-gold/30 text-gold text-xs">{LABEL_TIPO[v.para_tipo]}</span>
                       <span className="text-gray-200">{v.para_nome}</span>
+                      {v.campo && (
+                        <span className="px-2 py-0.5 rounded-full bg-surface border border-white/10 text-gray-400 text-xs">{LABEL_CAMPO[v.campo]}</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1">
                       <button onClick={() => editar(v)} disabled={saving} className="p-1 text-gray-500 hover:text-gold transition-colors disabled:opacity-40"><Pencil size={14} /></button>
@@ -277,6 +295,18 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
               <ArrowRight size={16} className="text-gray-600 shrink-0 mt-6" />
               <SeletorEntidade titulo="Para (quem recebe a regra)" multi lado={ladoPara} onChange={setLadoPara} />
             </div>
+            {ladoPara.tipo === 'clube' && (
+              <div className="space-y-1.5">
+                <p className="text-xs text-gray-500">Campo <span className="text-gray-600">— qual taxa do clube essa regra substitui</span></p>
+                <select
+                  value={campo}
+                  onChange={e => setCampo(e.target.value as CampoClube)}
+                  className="w-full bg-surface border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-gold/50"
+                >
+                  {CAMPOS_CLUBE.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+              </div>
+            )}
             {(() => {
               const totalCombos = Math.max(ladoDe.selecionados.length, 1) * ladoPara.selecionados.length
               return (

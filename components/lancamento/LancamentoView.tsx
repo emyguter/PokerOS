@@ -1,13 +1,22 @@
 'use client'
 import { useState } from 'react'
-import { PlusCircle, Receipt } from 'lucide-react'
+import { PlusCircle, Receipt, AlertCircle } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { LancarForm } from './LancarForm'
 import { ExtratoView } from './ExtratoView'
+import { PendenciasSuporte } from './PendenciasSuporte'
+
+type Tab = 'lancar' | 'extrato' | 'pendencias'
+
+const ABAS: { key: Tab; labelKey: string; icon: typeof PlusCircle }[] = [
+  { key: 'lancar', labelKey: 'lancamento.aba_lancar', icon: PlusCircle },
+  { key: 'extrato', labelKey: 'lancamento.aba_extrato', icon: Receipt },
+  { key: 'pendencias', labelKey: 'lancamento.aba_pendencias', icon: AlertCircle },
+]
 
 export function LancamentoView() {
   const { t } = useI18n()
-  const [tab, setTab] = useState<'lancar' | 'extrato'>('lancar')
+  const [tab, setTab] = useState<Tab>('lancar')
 
   return (
     <div className="space-y-6">
@@ -17,21 +26,20 @@ export function LancamentoView() {
       </div>
 
       <div className="flex gap-2 border-b border-white/10">
-        <button
-          onClick={() => setTab('lancar')}
-          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === 'lancar' ? 'border-gold text-gold' : 'border-transparent text-gray-400 hover:text-white'}`}
-        >
-          <PlusCircle size={14} />{t('lancamento.aba_lancar')}
-        </button>
-        <button
-          onClick={() => setTab('extrato')}
-          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === 'extrato' ? 'border-gold text-gold' : 'border-transparent text-gray-400 hover:text-white'}`}
-        >
-          <Receipt size={14} />{t('lancamento.aba_extrato')}
-        </button>
+        {ABAS.map(({ key, labelKey, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === key ? 'border-gold text-gold' : 'border-transparent text-gray-400 hover:text-white'}`}
+          >
+            <Icon size={14} />{t(labelKey)}
+          </button>
+        ))}
       </div>
 
-      {tab === 'lancar' ? <LancarForm /> : <ExtratoView />}
+      {tab === 'lancar' && <LancarForm origem="suporte" />}
+      {tab === 'extrato' && <ExtratoView />}
+      {tab === 'pendencias' && <PendenciasSuporte />}
     </div>
   )
 }

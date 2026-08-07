@@ -9,6 +9,7 @@ export const TIPOS = [
   { value: 'promocao', labelKey: 'lancamento.tipos.promocao' },
   { value: 'caucao', labelKey: 'lancamento.tipos.caucao' },
   { value: 'pagamento', labelKey: 'lancamento.tipos.pagamento' },
+  { value: 'antecipacao', labelKey: 'lancamento.tipos.antecipacao' },
   { value: 'outro', labelKey: 'lancamento.tipos.outro' },
 ] as const
 
@@ -50,6 +51,10 @@ export function ExtratoView({ clubeIdFixo }: { clubeIdFixo?: string }) {
       .from('lancamentos')
       .select('id, tipo, natureza, valor, descricao, data_lancamento, created_at')
       .eq('clube_id', clubeId)
+      // Só o que o Suporte registrou conta pro saldo do clube — o que a
+      // Genia lança é o espelho interno de conferência (Conciliação), não
+      // uma transação nova. Contar os dois duplicaria o valor no extrato.
+      .eq('origem', 'suporte')
       .order('data_lancamento', { ascending: true })
       .order('created_at', { ascending: true })
     if (tipoFiltro) query = query.eq('tipo', tipoFiltro)

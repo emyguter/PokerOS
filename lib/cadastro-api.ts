@@ -8,7 +8,7 @@ import type {
   Agente, AgenteForm, AgentePlataforma,
   Jogador, JogadorForm,
   AgenteJogador, ClubeAgente,
-  Regra, RegraForm, RegraCondicaoForm, RegraVinculo, EntidadeTipo,
+  Regra, RegraForm, RegraCondicaoForm, RegraVinculo, EntidadeTipo, CampoClube,
 } from './types'
 
 const supabase = createClient(
@@ -443,13 +443,14 @@ type VinculoRow = {
   entidade_id: string
   de_tipo: EntidadeTipo | null
   de_id: string | null
+  campo: CampoClube | null
   prioridade: number
 }
 
 export async function getVinculos(regraId: string): Promise<RegraVinculo[]> {
   const { data, error } = await supabase
     .from('regra_entidades')
-    .select('id, regra_id, entidade_tipo, entidade_id, de_tipo, de_id, prioridade')
+    .select('id, regra_id, entidade_tipo, entidade_id, de_tipo, de_id, campo, prioridade')
     .eq('regra_id', regraId)
   if (error) throw error
   const vinculos = (data ?? []) as VinculoRow[]
@@ -477,6 +478,7 @@ export async function getVinculos(regraId: string): Promise<RegraVinculo[]> {
     de_tipo: v.de_tipo,
     de_id: v.de_id,
     de_nome: v.de_id ? nomesPorId.get(v.de_id) ?? '—' : null,
+    campo: v.campo,
     prioridade: v.prioridade,
   }))
 }
@@ -484,7 +486,8 @@ export async function getVinculos(regraId: string): Promise<RegraVinculo[]> {
 export async function addVinculo(
   regraId: string,
   para: { tipo: EntidadeTipo; id: string },
-  de: { tipo: EntidadeTipo; id: string } | null
+  de: { tipo: EntidadeTipo; id: string } | null,
+  campo?: CampoClube | null
 ): Promise<void> {
   const { error } = await supabase.from('regra_entidades').insert({
     regra_id: regraId,
@@ -492,6 +495,7 @@ export async function addVinculo(
     entidade_id: para.id,
     de_tipo: de?.tipo ?? null,
     de_id: de?.id ?? null,
+    campo: para.tipo === 'clube' ? (campo ?? null) : null,
     prioridade: 0,
   })
   if (error) throw error
@@ -500,13 +504,15 @@ export async function addVinculo(
 export async function updateVinculo(
   vinculoId: string,
   para: { tipo: EntidadeTipo; id: string },
-  de: { tipo: EntidadeTipo; id: string } | null
+  de: { tipo: EntidadeTipo; id: string } | null,
+  campo?: CampoClube | null
 ): Promise<void> {
   const { error } = await supabase.from('regra_entidades').update({
     entidade_tipo: para.tipo,
     entidade_id: para.id,
     de_tipo: de?.tipo ?? null,
     de_id: de?.id ?? null,
+    campo: para.tipo === 'clube' ? (campo ?? null) : null,
   }).eq('id', vinculoId)
   if (error) throw error
 }
@@ -530,17 +536,19 @@ export interface RegraAplicada {
   regra_nome: string
   de_tipo: EntidadeTipo | null
   de_nome: string | null
+  campo: CampoClube | null
   linhas: string[]
 }
 
 // Painel read-only de "qual regra vale pra essa entidade" — usado nos
 // cadastros de Liga/Clube/Agente, que não criam mais regra embutida: a
 // criação/edição em si vive só na tela de Regras, aqui é só leitura do
-// vínculo (Para = essa entidade).
+// vínculo (Para = essa entidade). Pra Clube, um vínculo pode valer só pra
+// um campo específico (Fee MTT/Cash/Operacional/SpinUp) — vem junto no `campo`.
 export async function getRegrasDaEntidade(tipo: EntidadeTipo, id: string): Promise<RegraAplicada[]> {
   const { data, error } = await supabase
     .from('regra_entidades')
-    .select('regra_id, de_tipo, de_id, regras(id, nome, tipo, moeda_origem, moeda_destino, valor_cotacao, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicadores(nome, descricao))))')
+    .select('regra_id, de_tipo, de_id, campo, regras(id, nome, tipo, moeda_origem, moeda_destino, valor_cotacao, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicadores(nome, descricao))))')
     .eq('entidade_tipo', tipo)
     .eq('entidade_id', id)
   if (error) throw error
@@ -571,6 +579,7 @@ export async function getRegrasDaEntidade(tipo: EntidadeTipo, id: string): Promi
       regra_nome: (r.regras?.nome as string) ?? '—',
       de_tipo: r.de_tipo,
       de_nome: r.de_id ? deNomesPorId.get(r.de_id) ?? '—' : null,
+      campo: r.campo ?? null,
       linhas,
     }
   })

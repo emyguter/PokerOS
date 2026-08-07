@@ -72,9 +72,16 @@ type RegraCondicaoRow = {
   regra_condicao_termos?: { indicador_id: string }[];
 };
 
+type CampoClube = "fee_mtt" | "fee_cash" | "taxa_op" | "spinup";
+
 type RegraEntidadeRow = {
   entidade_id: string;
+  campo: CampoClube | null;
   regras?: { regra_condicoes?: RegraCondicaoRow[] } | null;
+};
+
+const CONDICOES_VAZIAS: Record<CampoClube, CondicaoAvaliavel[]> = {
+  fee_mtt: [], fee_cash: [], taxa_op: [], spinup: [],
 };
 
 // Mapeia o nome de um indicador pro valor real dele numa linha importada.
@@ -117,7 +124,7 @@ function avaliarCondicoes(condicoes: CondicaoAvaliavel[], row: ImportRow): numbe
 function calcularAcerto(
   row: ImportRow,
   club: ClubSettings,
-  condicoesClube: CondicaoAvaliavel[]
+  condicoesPorCampo: Record<CampoClube, CondicaoAvaliavel[]>
 ): AcertoCalculado {
   let fee_calculado = 0;
   let rebate_calculado = 0;
@@ -135,24 +142,38 @@ function calcularAcerto(
 
   switch (club.settlement_type) {
     case "taxa_dinamica": {
-      // Taxa Operacional do App sempre é cobrada, some com a taxa de cash (fixa ou variável).
-      fee_operacional_valor = rake_cash * (club.taxa_op_pct / 100);
-
-      if (condicoesClube.length > 0) {
-        // Tem regra vinculada (Vínculos, Para = esse clube): pega a faixa
-        // SE/ENTÃO que bate (ex: Ganhos+Rake) e aplica sobre o rake total.
-        // Não depende mais de club.taxa_tipo — o vínculo é que decide.
-        const pct = avaliarCondicoes(condicoesClube, row);
+      // Cash é a única das 4 que, quando variável, multiplica sobre o Rake
+      // Total (comportamento já validado com a planilha do Cássio); as
+      // outras 3, variável ou fixa, sempre usam a própria base de rake.
+      if (condicoesPorCampo.fee_cash.length > 0) {
+        const pct = avaliarCondicoes(condicoesPorCampo.fee_cash, row);
         taxa_cash_pct_aplicada = pct ?? 0;
         fee_cash_valor = rake_total * ((pct ?? 0) / 100);
       } else {
-        // Sem regra vinculada: aplica o percentual fixo de cash sobre o rake de cash.
         taxa_cash_pct_aplicada = club.fee_cash_pct ?? 0;
         fee_cash_valor = rake_cash * ((club.fee_cash_pct ?? 0) / 100);
       }
 
-      fee_mtt_valor = rake_mtt * (club.fee_mtt_pct / 100);
-      fee_spinup_valor = rake_spinup * ((club.spinup_pct ?? 0) / 100);
+      if (condicoesPorCampo.fee_mtt.length > 0) {
+        const pct = avaliarCondicoes(condicoesPorCampo.fee_mtt, row);
+        fee_mtt_valor = rake_mtt * ((pct ?? 0) / 100);
+      } else {
+        fee_mtt_valor = rake_mtt * (club.fee_mtt_pct / 100);
+      }
+
+      if (condicoesPorCampo.taxa_op.length > 0) {
+        const pct = avaliarCondicoes(condicoesPorCampo.taxa_op, row);
+        fee_operacional_valor = rake_cash * ((pct ?? 0) / 100);
+      } else {
+        fee_operacional_valor = rake_cash * (club.taxa_op_pct / 100);
+      }
+
+      if (condicoesPorCampo.spinup.length > 0) {
+        const pct = avaliarCondicoes(condicoesPorCampo.spinup, row);
+        fee_spinup_valor = rake_spinup * ((pct ?? 0) / 100);
+      } else {
+        fee_spinup_valor = rake_spinup * ((club.spinup_pct ?? 0) / 100);
+      }
 
       fee_calculado = fee_mtt_valor + fee_cash_valor + fee_operacional_valor + fee_spinup_valor;
       // Valor do Acerto = soma de todas as variáveis do período (confirmado
@@ -203,9 +224,11 @@ function calcularAcerto(
   };
 }
 
-// Busca as regras SE/ENTÃO (com os termos de indicador já resolvidos em nome) de cada clube.
-async function buscarCondicoesPorClube(clubIds: string[]): Promise<Map<string, CondicaoAvaliavel[]>> {
-  const mapa = new Map<string, CondicaoAvaliavel[]>();
+// Busca as regras SE/ENTÃO (com os termos de indicador já resolvidos em nome) de cada
+// clube, separadas por campo (Fee MTT/Cash/Operacional/SpinUp) — cada uma pode ou não
+// ter um vínculo próprio; sem vínculo pro campo, o cálculo cai pro % fixo do cadastro.
+async function buscarCondicoesPorClube(clubIds: string[]): Promise<Map<string, Record<CampoClube, CondicaoAvaliavel[]>>> {
+  const mapa = new Map<string, Record<CampoClube, CondicaoAvaliavel[]>>();
   if (clubIds.length === 0) return mapa;
 
   const { data: indicadores } = await supabase.from("indicadores").select("id, nome");
@@ -213,11 +236,12 @@ async function buscarCondicoesPorClube(clubIds: string[]): Promise<Map<string, C
 
   const { data: regraEntidades } = await supabase
     .from("regra_entidades")
-    .select("entidade_id, regras(regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id)))")
+    .select("entidade_id, campo, regras(regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id)))")
     .eq("entidade_tipo", "clube")
     .in("entidade_id", clubIds);
 
   for (const re of (regraEntidades ?? []) as RegraEntidadeRow[]) {
+    if (!re.campo) continue; // vínculo antigo sem campo definido — ignora, cai pro % fixo
     const condicoesBrutas = re.regras?.regra_condicoes ?? [];
     const condicoes: CondicaoAvaliavel[] = condicoesBrutas.map((c) => ({
       operador: c.operador,
@@ -228,7 +252,9 @@ async function buscarCondicoesPorClube(clubIds: string[]): Promise<Map<string, C
         .map((t) => nomeIndicadorPorId.get(t.indicador_id))
         .filter((nome): nome is string => !!nome),
     }));
-    mapa.set(re.entidade_id, condicoes);
+    const atual = mapa.get(re.entidade_id) ?? { ...CONDICOES_VAZIAS };
+    atual[re.campo] = condicoes;
+    mapa.set(re.entidade_id, atual);
   }
 
   return mapa;
@@ -306,7 +332,7 @@ export async function processarAcertos(importId: string): Promise<{
         });
         continue;
       }
-      acertos.push(calcularAcerto(row as ImportRow, club, condicoesPorClube.get(club.id) ?? []));
+      acertos.push(calcularAcerto(row as ImportRow, club, condicoesPorClube.get(club.id) ?? CONDICOES_VAZIAS));
     }
 
     const acertosComExtras = acertos.map((a) => ({

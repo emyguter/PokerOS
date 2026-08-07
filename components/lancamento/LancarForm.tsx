@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Loader2, Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
+import { errMsg } from '@/lib/errors'
 import { TIPOS } from './ExtratoView'
 
 interface ClubeOpcao { id: string; name: string }
@@ -14,6 +15,7 @@ interface LancamentoRecente {
   valor: number
   descricao: string | null
   data_lancamento: string
+  status: string | null
   clubs: { name: string } | null
 }
 
@@ -25,7 +27,7 @@ function hoje() {
   return new Date().toISOString().slice(0, 10)
 }
 
-export function LancarForm() {
+export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suporte' | 'genia'; onCreated?: () => void }) {
   const { t } = useI18n()
   const [clubes, setClubes] = useState<ClubeOpcao[]>([])
   const [clubeId, setClubeId] = useState('')
@@ -48,12 +50,13 @@ export function LancarForm() {
     setLoadingRecentes(true)
     const { data } = await supabase
       .from('lancamentos')
-      .select('id, tipo, natureza, valor, descricao, data_lancamento, clubs(name)')
+      .select('id, tipo, natureza, valor, descricao, data_lancamento, status, clubs(name)')
+      .eq('origem', origem)
       .order('created_at', { ascending: false })
       .limit(10)
     setRecentes((data ?? []) as unknown as LancamentoRecente[])
     setLoadingRecentes(false)
-  }, [])
+  }, [origem])
 
   useEffect(() => { loadRecentes() }, [loadRecentes])
 
@@ -65,6 +68,10 @@ export function LancarForm() {
     setSaving(true); setError(null)
     try {
       const { data: userData } = await supabase.auth.getUser()
+      // Genia sempre lança "em validação" até confirmar o pagamento. Suporte
+      // não tem status — exceto Caução, que pula direto pra fila da Genia
+      // (é como se ela mesma tivesse lançado, só falta ela validar).
+      const status = origem === 'genia' || tipo === 'caucao' ? 'em_validacao' : null
       const { error: insErr } = await supabase.from('lancamentos').insert({
         clube_id: clubeId,
         tipo,
@@ -73,14 +80,17 @@ export function LancarForm() {
         descricao: descricao || null,
         data_lancamento: data,
         criado_por: userData.user?.id ?? null,
+        origem,
+        status,
       })
       if (insErr) throw insErr
       setValor('')
       setDescricao('')
       setData(hoje())
       await loadRecentes()
+      onCreated?.()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(errMsg(err))
     } finally {
       setSaving(false)
     }
@@ -140,6 +150,10 @@ export function LancarForm() {
           <input type="text" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder={t('lancamento.descricao_placeholder')} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
         </div>
 
+        {origem === 'suporte' && tipo === 'caucao' && (
+          <div className="p-3 bg-gold/5 border border-gold/20 rounded-lg text-gold/90 text-xs">{t('lancamento.caucao_aviso')}</div>
+        )}
+
         {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
 
         <div className="flex justify-end">
@@ -164,9 +178,16 @@ export function LancarForm() {
                     <p className="text-sm text-white">{l.clubs?.name ?? '—'} <span className="text-gray-500">· {t(TIPOS.find((tp) => tp.value === l.tipo)?.labelKey ?? l.tipo)}</span></p>
                     <p className="text-xs text-gray-500">{new Date(l.data_lancamento + 'T00:00:00').toLocaleDateString('pt-BR')}{l.descricao ? ` · ${l.descricao}` : ''}</p>
                   </div>
-                  <span className={`text-sm font-medium ${l.natureza === 'credito' ? 'text-success' : 'text-alert'}`}>
-                    {l.natureza === 'credito' ? '+' : '−'}{formatMoeda(l.valor)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {l.status && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full border ${l.status === 'pago' ? 'border-success/30 bg-success/10 text-success' : 'border-gold/30 bg-gold/10 text-gold'}`}>
+                        {t(`lancamento.status.${l.status}`)}
+                      </span>
+                    )}
+                    <span className={`text-sm font-medium ${l.natureza === 'credito' ? 'text-success' : 'text-alert'}`}>
+                      {l.natureza === 'credito' ? '+' : '−'}{formatMoeda(l.valor)}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>

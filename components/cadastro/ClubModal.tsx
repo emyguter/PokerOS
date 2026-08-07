@@ -225,17 +225,17 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                   {isDin && <Fld label="Fee Cash (%)"><NumInput value={form.fee_cash_pct} onChange={v => set('fee_cash_pct', v)} placeholder="Ex: 8.5" /></Fld>}
                 </div>
               )}
-              {!isRkb && isDin && (
-                <p className="text-xs text-gray-500">
-                  O Fee Cash acima só é usado quando o clube <strong>não</strong> tem regra de taxa variável vinculada — se tiver, a faixa SE/ENTÃO da regra manda. Confira em "Regras" abaixo.
-                </p>
-              )}
               {isRkb && <Fld label="Rakeback (%)"><NumInput value={form.rakeback_pct} onChange={v => set('rakeback_pct', v)} placeholder="Ex: 72" /></Fld>}
 
               <div className="grid grid-cols-2 gap-4">
                 <Fld label="Taxa Operacional"><NumInput value={form.taxa_op_pct} onChange={v => set('taxa_op_pct', v)} placeholder="Ex: 9" /></Fld>
                 {isDin && <Fld label="SpinUp (%)"><NumInput value={form.spinup_pct} onChange={v => set('spinup_pct', v)} placeholder="Ex: 3" /></Fld>}
               </div>
+              {!isRkb && isDin && (
+                <p className="text-xs text-gray-500">
+                  Fee MTT, Fee Cash, Taxa Operacional e SpinUp acima só valem pro campo que <strong>não</strong> tiver regra variável vinculada — se tiver, a faixa SE/ENTÃO da regra manda pra aquele campo específico. Confira em "Regras" abaixo.
+                </p>
+              )}
 
               <div className="space-y-2">
                 <label className="flex items-center gap-3 cursor-pointer w-fit">
