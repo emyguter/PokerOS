@@ -95,6 +95,7 @@ export type Club = {
   taxa_op_tipo: string | null
   caucao_atual: number | null
   stoploss_inicial: number | null
+  stoploss_atual: number | null
   plataforma_id: string | null
   operador_ext_id: string | null
   operador_nickname: string | null
@@ -298,4 +299,38 @@ export type RegraVinculo = {
   para_nome: string
   campo: CampoClube | null
   prioridade: number
+}
+
+// ─── STOPLOSS ────────────────────────────────────────────────
+// clubs.stoploss_inicial: travado depois de definido uma vez (histórico só
+// pra trás, o Cassio quer ver de onde partiu). clubs.stoploss_atual: saldo
+// corrente, mexido por Antecipação conciliada e por ajuste do Suporte
+// aprovado pelo Admin — cada mexida também gera uma linha em stoploss_historico.
+
+export type StoplossAjusteStatus = 'pendente' | 'aprovado' | 'rejeitado'
+
+export type StoplossAjuste = {
+  id: string
+  clube_id: string
+  natureza: 'credito' | 'debito'
+  valor: number
+  justificativa: string
+  status: StoplossAjusteStatus
+  criado_por: string | null
+  criado_em: string
+  aprovado_por: string | null
+  aprovado_em: string | null
+  clubs?: { name: string; stoploss_atual: number | null }
+}
+
+export type StoplossHistoricoTipo = 'inicial' | 'antecipacao' | 'ajuste_suporte'
+
+export type StoplossHistoricoItem = {
+  id: string
+  clube_id: string
+  tipo: StoplossHistoricoTipo
+  valor_delta: number
+  valor_resultante: number
+  motivo: string | null
+  criado_em: string
 }

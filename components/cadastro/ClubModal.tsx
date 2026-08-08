@@ -89,6 +89,8 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   const isRkb = form.settlement_type === 'rakeback'
   // Liga só conta como "tem liga" quando é uma string não vazia
   const temLiga = !!form.league_id && form.league_id !== ''
+  // Stoploss Inicial só pode ser definido uma vez — depois disso o campo trava.
+  const stoplossTravado = editing?.stoploss_inicial != null
 
   const handleClubeIdChange = (v: string) => {
     set('external_id', v || null)
@@ -268,7 +270,17 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               {adv && (
                 <div className="mt-4 grid grid-cols-2 gap-4">
                   <Fld label="Caução Atual"><NumInput value={form.caucao_atual} onChange={v => set('caucao_atual', v)} placeholder="Ex: 1000" /></Fld>
-                  <Fld label="Stoploss Inicial"><NumInput value={form.stoploss_inicial} onChange={v => set('stoploss_inicial', v)} placeholder="Ex: 5000" /></Fld>
+                  <Fld label="Stoploss Inicial">
+                    {stoplossTravado ? (
+                      <input type="text" value={form.stoploss_inicial ?? ''} disabled className={inputLockedCls} />
+                    ) : (
+                      <NumInput value={form.stoploss_inicial} onChange={v => set('stoploss_inicial', v)} placeholder="Ex: 5000" />
+                    )}
+                    {stoplossTravado && <p className="text-xs text-gray-500 mt-1.5">Travado depois de definido — o histórico do clube parte daqui.</p>}
+                  </Fld>
+                  {editing?.stoploss_atual != null && (
+                    <div className="col-span-2 text-sm text-gray-400">Stoploss Atual: <span className="text-gold font-medium">{editing.stoploss_atual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> <span className="text-xs text-gray-600">(ajustado na tela de Controle de Stoploss)</span></div>
+                  )}
                 </div>
               )}
 
