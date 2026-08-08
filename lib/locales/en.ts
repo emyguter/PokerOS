@@ -100,7 +100,6 @@ export const en: typeof pt = {
     ultimos_lancamentos: 'Latest entries', nenhum_lancamento: 'No entries yet.',
     tipos: { bonus: 'Bonus', promocao: 'Promotion', caucao: 'Deposit', pagamento: 'Payment', antecipacao: 'Advance', outro: 'Other' },
     status: { em_validacao: 'Pending validation', pago: 'Confirmed' },
-    caucao_aviso: "Deposits go straight to Finance's confirmation queue — they confirm receipt before it becomes club balance.",
     caucao_duplicata_titulo: 'A deposit entry with this amount and date already exists',
     caucao_duplicata_desc: 'Confirm this is not a duplicate before adding it again?',
     confirmar_mesmo_assim: 'Confirm anyway',

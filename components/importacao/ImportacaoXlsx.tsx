@@ -440,13 +440,21 @@ export default function ImportacaoXlsx() {
           setHarmonStatus(row.harmonization_status);
           if (row.harmonization_status === "harmonizado") {
             setStep("done");
-            setImportError(row.harmonization_error ? { titulo: "Concluído com avisos", detalhe: row.harmonization_error } : null);
+            setImportError(row.harmonization_error ? {
+              titulo: "Concluído com avisos",
+              detalhe: row.harmonization_error,
+              acao: "O aviso costuma ser sobre uma linha específica — confira os dados em Acertos, o restante da importação não foi afetado.",
+            } : null);
             setJogadorStats(row.jogadores_ok != null ? { ok: row.jogadores_ok, erros: [] } : null);
             setImportingId(null);
             loadHistory();
           } else if (row.harmonization_status === "erro") {
             setStep("error");
-            setImportError({ titulo: "Erro ao processar", detalhe: row.harmonization_error ?? "Erro desconhecido durante a harmonização." });
+            setImportError({
+              titulo: "Erro ao processar",
+              detalhe: row.harmonization_error ?? "Erro desconhecido durante a harmonização.",
+              acao: "Confira se a planilha segue o formato esperado (colunas e abas do relatório da plataforma). Se persistir, chame o time técnico com o nome do arquivo e a mensagem acima — os dados originais continuam guardados, não precisa reimportar do zero.",
+            });
             setImportingId(null);
             loadHistory();
           }
@@ -704,7 +712,12 @@ export default function ImportacaoXlsx() {
             <p style={{ color: importError ? "#C9A84C" : "#7DC97D", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
               {importError ? "⚠ Concluído com avisos" : "✓ Importação concluída"}
             </p>
-            {importError && <p style={{ color: "#7a7a70", fontSize: 12, marginBottom: 8 }}>{importError.detalhe}</p>}
+            {importError && <p style={{ color: "#7a7a70", fontSize: 12, marginBottom: importError.acao ? 4 : 8 }}>{importError.detalhe}</p>}
+            {importError?.acao && (
+              <p style={{ color: "#7a7a70", fontSize: 12, marginBottom: 8, padding: "8px 12px", background: "#1a1008", borderRadius: 6, borderLeft: "3px solid #C9A84C" }}>
+                💡 {importError.acao}
+              </p>
+            )}
             {jogadorStats && (
               <p style={{ color: "#5a5a52", fontSize: 12, marginBottom: 4 }}>
                 Jogadores: <span style={{ color: "#7DC97D" }}>{jogadorStats.ok} processados</span>

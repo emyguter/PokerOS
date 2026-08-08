@@ -98,7 +98,6 @@ export const pt = {
     ultimos_lancamentos: 'Últimos lançamentos', nenhum_lancamento: 'Nenhum lançamento ainda.',
     tipos: { bonus: 'Bônus', promocao: 'Promoção', caucao: 'Caução', pagamento: 'Pagamento', antecipacao: 'Antecipação', outro: 'Outro' },
     status: { em_validacao: 'Em validação', pago: 'Confirmado' },
-    caucao_aviso: 'Caução entra direto na fila de confirmação do Financeiro — ele confirma o recebimento antes de virar saldo do clube.',
     caucao_duplicata_titulo: 'Já existe um lançamento de caução com esse valor nessa data',
     caucao_duplicata_desc: 'Confirma que não é duplicado antes de lançar de novo?',
     confirmar_mesmo_assim: 'Confirmar mesmo assim',
