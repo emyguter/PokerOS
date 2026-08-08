@@ -57,10 +57,13 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
 
   const [agentesLista, setAgentesLista] = useState<AgenteOpcao[]>([])
 
+  // "Agentes Vinculados" só faz sentido em Super Agente — é o que faz um
+  // agente virar Super Agente. Num Agente comum, não tem o que vincular
+  // abaixo dele.
   const STEPS: ModalStep[] = [
     { key: 'identificacao', label: 'Identificação' },
     ...(esconderSuperAgente ? [] : [{ key: 'hierarquia', label: 'Hierarquia' }]),
-    { key: 'sub_agentes', label: 'Agentes Vinculados' },
+    ...(esconderSuperAgente ? [{ key: 'sub_agentes', label: 'Agentes Vinculados' }] : []),
     { key: 'plataformas', label: 'Plataformas' },
     { key: 'clubes', label: 'Clubes' },
     { key: 'rakeback', label: 'Rakeback do Jogador' },

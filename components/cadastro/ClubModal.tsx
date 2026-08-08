@@ -63,29 +63,53 @@ function NumInput({ value, onChange, placeholder }: { value: number | null; onCh
 export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave, saving, error }: Props) {
   const [form, setForm] = useState<ClubForm>(EMPTY)
   const [step, setStep] = useState('identificacao')
-  const [indicacoes, setIndicacoes] = useState<{ club_id: string; taxa: string }[]>([])
-  const [indClub, setIndClub] = useState('')
+  const [indicacoes, setIndicacoes] = useState<{ club_id: string; club_nome: string; taxa: string }[]>([])
+  const [indClub, setIndClub] = useState<{ id: string; nome: string } | null>(null)
   const [indTaxa, setIndTaxa] = useState('')
+  const [buscaIndClub, setBuscaIndClub] = useState('')
+  const [resultadosIndClub, setResultadosIndClub] = useState<{ id: string; name: string; external_id: string | null; plataformaNome: string | null }[]>([])
+  const [buscandoIndClub, setBuscandoIndClub] = useState(false)
+  const indClubTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [clubeLocked, setClubeLocked] = useState(false)
   const [searchingClube, setSearchingClube] = useState(false)
   const [clubeNaoEncontrado, setClubeNaoEncontrado] = useState(false)
-  const [usuarioLocked, setUsuarioLocked] = useState(false)
-  const [searchingUsuario, setSearchingUsuario] = useState(false)
-  const [usuarioNaoEncontrado, setUsuarioNaoEncontrado] = useState(false)
 
   const clubeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const usuarioTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     setForm(editing ? toForm(editing) : EMPTY)
     setStep('identificacao')
     setIndicacoes([])
-    setIndClub('')
+    setIndClub(null)
     setIndTaxa('')
+    setBuscaIndClub('')
+    setResultadosIndClub([])
     setClubeLocked(!!editing?.name && !!editing?.external_id)
-    setUsuarioLocked(!!editing?.operador_nickname)
   }, [editing, open])
+
+  useEffect(() => {
+    if (indClubTimer.current) clearTimeout(indClubTimer.current)
+    if (!buscaIndClub.trim()) { setResultadosIndClub([]); return }
+    indClubTimer.current = setTimeout(async () => {
+      setBuscandoIndClub(true)
+      try {
+        const q = buscaIndClub.trim()
+        let query = supabase
+          .from('clubs')
+          .select('id, name, external_id, plataformas(nome)')
+          .or(`name.ilike.%${q}%,external_id.ilike.%${q}%`)
+          .limit(6)
+        if (editing) query = query.neq('id', editing.id)
+        const { data } = await query
+        setResultadosIndClub((data ?? []).map((c: any) => ({
+          id: c.id, name: c.name, external_id: c.external_id, plataformaNome: c.plataformas?.nome ?? null,
+        })))
+      } finally {
+        setBuscandoIndClub(false)
+      }
+    }, 400)
+  }, [buscaIndClub, editing])
 
   if (!open) return null
 
@@ -93,8 +117,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   const isDin = form.settlement_type === 'dinamico'
   const isUSD = form.settlement_type === 'weekly_usd'
   const isRkb = form.settlement_type === 'rakeback'
-  // Liga só conta como "tem liga" quando é uma string não vazia
-  const temLiga = !!form.league_id && form.league_id !== ''
   // Stoploss Inicial só pode ser definido uma vez — depois disso o campo trava.
   const stoplossTravado = editing?.stoploss_inicial != null
 
@@ -116,33 +138,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
         }
       } finally {
         setSearchingClube(false)
-      }
-    }, 500)
-  }
-
-  const handleUsuarioIdChange = (v: string) => {
-    set('operador_ext_id', v || null)
-    set('operador_nickname', null)
-    setUsuarioLocked(false)
-    setUsuarioNaoEncontrado(false)
-    if (usuarioTimer.current) clearTimeout(usuarioTimer.current)
-    if (!v.trim()) return
-    usuarioTimer.current = setTimeout(async () => {
-      setSearchingUsuario(true)
-      try {
-        const [agente, jogador, liga] = await Promise.all([
-          supabase.from('agentes').select('nome').eq('external_id', v.trim()).maybeSingle(),
-          supabase.from('jogadores').select('nome').eq('external_id', v.trim()).maybeSingle(),
-          supabase.from('leagues').select('name').eq('clube_ext_id', v.trim()).maybeSingle(),
-        ])
-        const found = agente.data?.nome || jogador.data?.nome || liga.data?.name
-        if (found) {
-          set('operador_nickname', found); setUsuarioLocked(true); setUsuarioNaoEncontrado(false)
-        } else {
-          setUsuarioNaoEncontrado(true)
-        }
-      } finally {
-        setSearchingUsuario(false)
       }
     }, 500)
   }
@@ -203,27 +198,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               />
               {clubeNaoEncontrado && !clubeLocked && (
                 <p className="text-xs text-gold/80 mt-1.5">⚠ Clube não encontrado. Preencha o nome para cadastrá-lo.</p>
-              )}
-            </Fld>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Fld label="ID do Usuário">
-              <div className="relative">
-                <input type="text" value={form.operador_ext_id ?? ''} onChange={e => handleUsuarioIdChange(e.target.value)} placeholder="Ex: 12034210" className={inputCls} />
-                {searchingUsuario && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
-              </div>
-            </Fld>
-            <Fld label="Nome do Usuário">
-              <input
-                type="text"
-                value={form.operador_nickname ?? ''}
-                onChange={e => { set('operador_nickname', e.target.value || null); setUsuarioLocked(false) }}
-                placeholder="Preenchido automaticamente"
-                disabled={usuarioLocked}
-                className={usuarioLocked ? inputLockedCls : inputCls}
-              />
-              {usuarioNaoEncontrado && !usuarioLocked && (
-                <p className="text-xs text-gold/80 mt-1.5">⚠ Usuário não encontrado. Preencha o nome para cadastrá-lo.</p>
               )}
             </Fld>
           </div>
@@ -292,19 +266,45 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
             )}
           </div>
 
-          {!temLiga ? (
-            <div className="space-y-3 mt-4">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">Indicações</h3>
-              <div className="flex gap-2">
-                <input type="text" value={indClub} onChange={e => setIndClub(e.target.value)} placeholder="ID do clube indicado" className="flex-1 bg-surface border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50" />
+          <div className="space-y-3 mt-4">
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">Indicações</h3>
+            {indClub ? (
+              <div className="flex items-center gap-2">
+                <div className="flex-1 flex items-center justify-between px-3 py-2 bg-surface2 border border-gold/30 rounded-lg text-sm">
+                  <span className="text-white">{indClub.nome}</span>
+                  <button type="button" onClick={() => setIndClub(null)} className="text-gray-500 hover:text-alert"><Trash2 size={13} /></button>
+                </div>
                 <input type="number" step="any" value={indTaxa} onChange={e => setIndTaxa(e.target.value)} placeholder="Taxa %" className="w-24 bg-surface border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50" />
-                <button type="button" onClick={() => { if (!indClub || !indTaxa) return; setIndicacoes(p => [...p, { club_id: indClub, taxa: indTaxa }]); setIndClub(""); setIndTaxa(""); }} className="px-3 py-2 bg-surface2 border border-white/10 rounded-lg text-gold hover:border-gold/50 transition-colors"><Plus size={16} /></button>
+                <button
+                  type="button"
+                  onClick={() => { if (!indClub || !indTaxa) return; setIndicacoes(p => [...p, { club_id: indClub.id, club_nome: indClub.nome, taxa: indTaxa }]); setIndClub(null); setIndTaxa(''); setBuscaIndClub('') }}
+                  className="px-3 py-2 bg-surface2 border border-white/10 rounded-lg text-gold hover:border-gold/50 transition-colors"
+                ><Plus size={16} /></button>
               </div>
-              {indicacoes.map((ind, i) => <div key={i} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-white/10 text-sm"><span className="text-gray-300">{ind.club_id}</span><span className="text-gold">{ind.taxa}%</span><button type="button" onClick={() => setIndicacoes(p => p.filter((_, j) => j !== i))} className="text-gray-500 hover:text-alert"><Trash2 size={13} /></button></div>)}
-            </div>
-          ) : (
-            <p className="text-xs text-gray-500 italic mt-4">Indicações ficam disponíveis apenas para clubes sem liga vinculada.</p>
-          )}
+            ) : (
+              <div className="relative">
+                <input
+                  type="text" value={buscaIndClub} onChange={e => setBuscaIndClub(e.target.value)}
+                  placeholder="Buscar clube por ID ou nome..." className={inputCls}
+                />
+                {buscandoIndClub && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
+                {resultadosIndClub.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-surface2 border border-white/10 rounded-lg overflow-hidden shadow-xl">
+                    {resultadosIndClub.map(c => (
+                      <button
+                        key={c.id} type="button"
+                        onClick={() => { setIndClub({ id: c.id, nome: c.name }); setBuscaIndClub(''); setResultadosIndClub([]) }}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-white/5 transition-colors"
+                      >
+                        {c.name} <span className="text-gray-500">(ID: {c.external_id ?? '—'}{c.plataformaNome ? ` · ${c.plataformaNome}` : ''})</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {indicacoes.map((ind, i) => <div key={i} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-white/10 text-sm"><span className="text-gray-300">{ind.club_nome}</span><span className="text-gold">{ind.taxa}%</span><button type="button" onClick={() => setIndicacoes(p => p.filter((_, j) => j !== i))} className="text-gray-500 hover:text-alert"><Trash2 size={13} /></button></div>)}
+          </div>
         </>
       )}
     </StepModal>
