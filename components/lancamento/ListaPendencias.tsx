@@ -101,7 +101,9 @@ export function ListaPendencias({ itens, ladoOposto, vazio, onSalvarValor, onVin
             )}
 
             {item.motivo === 'sem_par' && (
-              <div className="flex items-center gap-2">
+              <div className="space-y-1.5">
+                <p className="text-xs text-gray-500">{t('conciliacao.sem_par_motivo')}</p>
+                <div className="flex items-center gap-2">
                 <select
                   value={vinculando[e.id] ?? ''}
                   onChange={ev => setVinculando(v => ({ ...v, [e.id]: ev.target.value }))}
@@ -121,6 +123,7 @@ export function ListaPendencias({ itens, ladoOposto, vazio, onSalvarValor, onVin
                 >
                   <Link2 size={12} />{t('conciliacao.vincular')}
                 </button>
+                </div>
               </div>
             )}
           </div>

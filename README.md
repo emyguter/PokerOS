@@ -257,6 +257,13 @@ pelo Supabase — não precisa configurar manualmente.
 
 ---
 
+## Migrations
+
+Mudança de schema vira um `.sql` versionado em `supabase/migrations/`, commitado junto com o PR
+que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome e como aplicar.
+
+---
+
 ## MVP — Status
 
 ### Concluído
@@ -275,6 +282,8 @@ pelo Supabase — não precisa configurar manualmente.
 - [x] Acerto de Agentes: rakeback por clube (`clube_agentes.rakeback_pct`), aba "Por Agente" em
   Relatórios pro staff, e tela própria "Meus Ganhos" pro login de agente
 - [x] Login de agente (`profiles.agente_id`) como terceiro tipo de acesso em Permissões
+- [x] Controle de Stoploss por clube (inicial travado, atual auditável, ajuste do Suporte com
+  aprovação do papel Admin) + migrations versionadas em `supabase/migrations/`
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

@@ -133,29 +133,32 @@ export function ExtratoView({ clubeIdFixo }: { clubeIdFixo?: string }) {
       )}
 
       {clubeId && (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-xl border border-white/10 bg-surface2 p-4 flex items-center gap-3">
-            <ArrowUpCircle className="text-success shrink-0" size={22} />
-            <div>
-              <p className="text-xs text-gray-500">{t('extrato.creditos')}</p>
-              <p className="text-lg font-semibold text-success">{formatMoeda(totalCredito)}</p>
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-white/10 bg-surface2 p-4 flex items-center gap-3">
+              <ArrowUpCircle className="text-success shrink-0" size={22} />
+              <div>
+                <p className="text-xs text-gray-500">{t('extrato.creditos')}</p>
+                <p className="text-lg font-semibold text-success">{formatMoeda(totalCredito)}</p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-surface2 p-4 flex items-center gap-3">
+              <ArrowDownCircle className="text-alert shrink-0" size={22} />
+              <div>
+                <p className="text-xs text-gray-500">{t('extrato.debitos')}</p>
+                <p className="text-lg font-semibold text-alert">{formatMoeda(totalDebito)}</p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-gold/30 bg-gold/5 p-4 flex items-center gap-3">
+              <Wallet className="text-gold shrink-0" size={22} />
+              <div>
+                <p className="text-xs text-gray-500">{t('extrato.saldo')}</p>
+                <p className={`text-lg font-semibold ${saldoFinal >= 0 ? 'text-gold' : 'text-alert'}`}>{formatMoeda(saldoFinal)}</p>
+              </div>
             </div>
           </div>
-          <div className="rounded-xl border border-white/10 bg-surface2 p-4 flex items-center gap-3">
-            <ArrowDownCircle className="text-alert shrink-0" size={22} />
-            <div>
-              <p className="text-xs text-gray-500">{t('extrato.debitos')}</p>
-              <p className="text-lg font-semibold text-alert">{formatMoeda(totalDebito)}</p>
-            </div>
-          </div>
-          <div className="rounded-xl border border-gold/30 bg-gold/5 p-4 flex items-center gap-3">
-            <Wallet className="text-gold shrink-0" size={22} />
-            <div>
-              <p className="text-xs text-gray-500">{t('extrato.saldo')}</p>
-              <p className={`text-lg font-semibold ${saldoFinal >= 0 ? 'text-gold' : 'text-alert'}`}>{formatMoeda(saldoFinal)}</p>
-            </div>
-          </div>
-        </div>
+          <p className="text-xs text-gray-500">{t('extrato.saldo_nota')}</p>
+        </>
       )}
 
       <div className="rounded-xl border border-white/10 overflow-hidden">

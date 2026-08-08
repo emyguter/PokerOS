@@ -100,7 +100,6 @@ export const en: typeof pt = {
     ultimos_lancamentos: 'Latest entries', nenhum_lancamento: 'No entries yet.',
     tipos: { bonus: 'Bonus', promocao: 'Promotion', caucao: 'Deposit', pagamento: 'Payment', antecipacao: 'Advance', outro: 'Other' },
     status: { em_validacao: 'Pending validation', pago: 'Confirmed' },
-    caucao_aviso: "Deposits go straight to Finance's confirmation queue — they confirm receipt before it becomes club balance.",
     caucao_duplicata_titulo: 'A deposit entry with this amount and date already exists',
     caucao_duplicata_desc: 'Confirm this is not a duplicate before adding it again?',
     confirmar_mesmo_assim: 'Confirm anyway',
@@ -121,6 +120,7 @@ export const en: typeof pt = {
     col_data: 'Date', col_tipo: 'Type', col_descricao: 'Description', col_valor: 'Amount', col_saldo: 'Balance',
     sem_clube_titulo: "This login isn't linked to a club",
     sem_clube_desc: 'Ask an administrator to configure access in Permissions.',
+    saldo_nota: "This balance only counts what Support logged — what Finance records is internal double-checking (see Reconciliation), not counted again to avoid duplicating it.",
   },
   conciliacao: {
     titulo: 'Reconciliation', subtitulo: 'Matches what Support logged against what Finance processed',
@@ -130,6 +130,8 @@ export const en: typeof pt = {
     sem_pendencias: 'Nothing pending here.',
     conciliados: 'Reconciled in period', vincular: 'Link', vincular_com: 'Link with',
     selecione_par: '— Select the matching entry —',
+    janela_nota: 'Automatically reconciles entries up to 7 days apart (matches the weekly closing cycle). Outside that window, link them manually.',
+    sem_par_motivo: 'No match within the 7-day closing window — link manually if this is the same entry:',
   },
   stoploss: {
     titulo: 'Stoploss Control', subtitulo: 'Loss limit per club — initial, current and Support adjustments',

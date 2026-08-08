@@ -174,10 +174,6 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
           <input type="text" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder={t('lancamento.descricao_placeholder')} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
         </div>
 
-        {origem === 'suporte' && tipo === 'caucao' && (
-          <div className="p-3 bg-gold/5 border border-gold/20 rounded-lg text-gold/90 text-xs">{t('lancamento.caucao_aviso')}</div>
-        )}
-
         {confirmandoDuplicata && (
           <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-sm space-y-2">
             <p className="text-alert font-medium">{t('lancamento.caucao_duplicata_titulo')}</p>

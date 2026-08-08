@@ -90,9 +90,10 @@ export default function JogadoresPage() {
         open={modalOpen}
         editing={editing}
         plataformas={plataformas}
-        onClose={() => { setModalOpen(false); setEditing(null) }}
+        onClose={() => { setModalOpen(false); setEditing(null); setError(null) }}
         onSave={handleSave}
         saving={saving}
+        error={error}
       />
       <ConfirmDelete open={!!deleteTarget} name={deleteTarget?.nome ?? ''} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} saving={saving} />
     </div>

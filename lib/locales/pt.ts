@@ -98,7 +98,6 @@ export const pt = {
     ultimos_lancamentos: 'Últimos lançamentos', nenhum_lancamento: 'Nenhum lançamento ainda.',
     tipos: { bonus: 'Bônus', promocao: 'Promoção', caucao: 'Caução', pagamento: 'Pagamento', antecipacao: 'Antecipação', outro: 'Outro' },
     status: { em_validacao: 'Em validação', pago: 'Confirmado' },
-    caucao_aviso: 'Caução entra direto na fila de confirmação do Financeiro — ele confirma o recebimento antes de virar saldo do clube.',
     caucao_duplicata_titulo: 'Já existe um lançamento de caução com esse valor nessa data',
     caucao_duplicata_desc: 'Confirma que não é duplicado antes de lançar de novo?',
     confirmar_mesmo_assim: 'Confirmar mesmo assim',
@@ -119,6 +118,7 @@ export const pt = {
     col_data: 'Data', col_tipo: 'Tipo', col_descricao: 'Descrição', col_valor: 'Valor', col_saldo: 'Saldo',
     sem_clube_titulo: 'Esse login não está vinculado a um clube',
     sem_clube_desc: 'Peça pra um administrador configurar o acesso em Permissões.',
+    saldo_nota: 'O saldo aqui conta só o que o Suporte lançou — o que o Financeiro registra é conferência interna (ver Conciliação), não soma de novo pra não duplicar.',
   },
   conciliacao: {
     titulo: 'Conciliação', subtitulo: 'Bate o que o Suporte lançou com o que o Financeiro processou',
@@ -128,6 +128,8 @@ export const pt = {
     sem_pendencias: 'Sem pendências aqui.',
     conciliados: 'Conciliados no período', vincular: 'Vincular', vincular_com: 'Vincular com',
     selecione_par: '— Selecione o lançamento correspondente —',
+    janela_nota: 'Concilia automaticamente lançamentos de até 7 dias de diferença (acompanha o fechamento semanal). Fora dessa janela, precisa vincular manualmente.',
+    sem_par_motivo: 'Sem par dentro dos 7 dias do fechamento — vincula manualmente se for o mesmo lançamento:',
   },
   stoploss: {
     titulo: 'Controle de Stoploss', subtitulo: 'Limite de perda por clube — inicial, atual e ajustes do Suporte',

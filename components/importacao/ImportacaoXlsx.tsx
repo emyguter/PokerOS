@@ -4,6 +4,16 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
 
+// Mesmo rótulo em todo lugar que mostra harmonization_status — card ao vivo e
+// tabela de histórico usavam palavras diferentes pro mesmo estado, dando a
+// impressão de serem coisas diferentes acontecendo ao mesmo tempo.
+function harmonizationLabel(status: string): string {
+  if (status === "harmonizado") return "✓ Harmonizado";
+  if (status === "erro") return "✗ Erro";
+  if (status === "processando") return "⏳ Processando";
+  return "⏳ Pendente";
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Plataforma = { id: string; nome: string; moeda: string };
@@ -405,6 +415,7 @@ export default function ImportacaoXlsx() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [jogadorStats, setJogadorStats] = useState<{ ok: number; erros: string[] } | null>(null);
 
+  const [harmonStatus, setHarmonStatus] = useState<string>("pendente");
   const [platformAction, setPlatformAction] = useState<"new" | "existing" | null>(null);
   const [newPlatformName, setNewPlatformName] = useState("");
   const [selectedExistingPlatform, setSelectedExistingPlatform] = useState("");
@@ -426,15 +437,24 @@ export default function ImportacaoXlsx() {
         { event: "UPDATE", schema: "public", table: "imports", filter: `id=eq.${importingId}` },
         (payload) => {
           const row = payload.new as { harmonization_status: string; harmonization_error: string | null; jogadores_ok: number | null };
+          setHarmonStatus(row.harmonization_status);
           if (row.harmonization_status === "harmonizado") {
             setStep("done");
-            setImportError(row.harmonization_error ? { titulo: "Concluído com avisos", detalhe: row.harmonization_error } : null);
+            setImportError(row.harmonization_error ? {
+              titulo: "Concluído com avisos",
+              detalhe: row.harmonization_error,
+              acao: "O aviso costuma ser sobre uma linha específica — confira os dados em Acertos, o restante da importação não foi afetado.",
+            } : null);
             setJogadorStats(row.jogadores_ok != null ? { ok: row.jogadores_ok, erros: [] } : null);
             setImportingId(null);
             loadHistory();
           } else if (row.harmonization_status === "erro") {
             setStep("error");
-            setImportError({ titulo: "Erro ao processar", detalhe: row.harmonization_error ?? "Erro desconhecido durante a harmonização." });
+            setImportError({
+              titulo: "Erro ao processar",
+              detalhe: row.harmonization_error ?? "Erro desconhecido durante a harmonização.",
+              acao: "Confira se a planilha segue o formato esperado (colunas e abas do relatório da plataforma). Se persistir, chame o time técnico com o nome do arquivo e a mensagem acima — os dados originais continuam guardados, não precisa reimportar do zero.",
+            });
             setImportingId(null);
             loadHistory();
           }
@@ -532,6 +552,7 @@ export default function ImportacaoXlsx() {
       if (bronzeErr) throw { titulo: "Erro ao registrar dados brutos", detalhe: bronzeErr.message };
 
       setJogadorStats(null);
+      setHarmonStatus("pendente");
       setStep("sent");
       setImportingId(importData.id);
       setParsed(null); setFile(null); setResolvedPlatformId(null);
@@ -679,7 +700,7 @@ export default function ImportacaoXlsx() {
 
         {step === "sent" && (
           <div className="card" style={{ padding: 16, borderColor: "#C9A84C" }}>
-            <p style={{ color: "#C9A84C", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>⏳ Arquivo recebido — processando em segundo plano</p>
+            <p style={{ color: "#C9A84C", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{harmonizationLabel(harmonStatus)}</p>
             <p style={{ color: "#7a7a70", fontSize: 12 }}>
               Isso normalmente leva alguns segundos. Esta tela atualiza sozinha quando terminar — não precisa recarregar a página.
             </p>
@@ -691,7 +712,12 @@ export default function ImportacaoXlsx() {
             <p style={{ color: importError ? "#C9A84C" : "#7DC97D", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
               {importError ? "⚠ Concluído com avisos" : "✓ Importação concluída"}
             </p>
-            {importError && <p style={{ color: "#7a7a70", fontSize: 12, marginBottom: 8 }}>{importError.detalhe}</p>}
+            {importError && <p style={{ color: "#7a7a70", fontSize: 12, marginBottom: importError.acao ? 4 : 8 }}>{importError.detalhe}</p>}
+            {importError?.acao && (
+              <p style={{ color: "#7a7a70", fontSize: 12, marginBottom: 8, padding: "8px 12px", background: "#1a1008", borderRadius: 6, borderLeft: "3px solid #C9A84C" }}>
+                💡 {importError.acao}
+              </p>
+            )}
             {jogadorStats && (
               <p style={{ color: "#5a5a52", fontSize: 12, marginBottom: 4 }}>
                 Jogadores: <span style={{ color: "#7DC97D" }}>{jogadorStats.ok} processados</span>
@@ -742,10 +768,7 @@ export default function ImportacaoXlsx() {
                     <td style={{ color: "#7a7a70", fontSize: 12 }}>{entry.period_start ? `${entry.period_start} → ${entry.period_end}` : "—"}</td>
                     <td>
                       <span className={`badge ${entry.harmonization_status === "harmonizado" ? "badge-ok" : entry.harmonization_status === "erro" ? "badge-error" : "badge-processing"}`}>
-                        {entry.harmonization_status === "harmonizado" ? "✓ Harmonizado"
-                          : entry.harmonization_status === "erro" ? "✗ Erro"
-                          : entry.harmonization_status === "processando" ? "⏳ Processando"
-                          : "⏳ Pendente"}
+                        {harmonizationLabel(entry.harmonization_status)}
                       </span>
                     </td>
                     <td style={{ fontSize: 12, color: "#7a7a70" }}>{new Date(entry.created_at).toLocaleString("pt-BR")}</td>

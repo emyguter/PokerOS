@@ -161,6 +161,9 @@ export default function AcertosView() {
 
   async function handleCalcular() {
     if (!selected) return;
+    if (acertos.length > 0 && !window.confirm("Recalcular sobrescreve os acertos desse import — Bilhetes, Pendências de Antecipação e Taxa AA Home Game editados manualmente por clube são preservados, o resto é recalculado do zero. Continuar?")) {
+      return;
+    }
     setCalculating(true);
     const result = await processarAcertos(selected.id);
     if (result.success) {
@@ -360,9 +363,9 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                           <th style={{ textAlign: "right" }}>Ganhos</th>
                           <th style={{ textAlign: "right" }}>Fee</th>
                           <th style={{ textAlign: "right" }}>Rebate</th>
-                          <th style={{ textAlign: "right" }}>Acerto (Rake)</th>
+                          <th style={{ textAlign: "right" }} title="Só o cálculo automático em cima do rake importado — não inclui bônus, caução, pagamentos etc. lançados à parte.">Acerto (Rake)</th>
                           <th style={{ textAlign: "right" }}>Lançamentos</th>
-                          <th style={{ textAlign: "right" }}>Valor Acerto</th>
+                          <th style={{ textAlign: "right" }} title="Acerto (Rake) + Lançamentos do período — esse é o número final a cobrar/pagar do clube.">Valor Acerto</th>
                           <th>Status</th>
                         </tr>
                       </thead>
