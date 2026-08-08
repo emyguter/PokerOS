@@ -7,6 +7,7 @@ import { getVinculos, addVinculo, updateVinculo, removeVinculo, buscarEntidades 
 interface Props {
   open: boolean
   regra: Regra | null
+  resumo?: string
   onClose: () => void
 }
 
@@ -155,7 +156,7 @@ function SeletorEntidade({ titulo, opcional, multi, lado, onChange }: { titulo: 
   )
 }
 
-export function VinculosPanel({ open, regra, onClose }: Props) {
+export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
   const [vinculos, setVinculos] = useState<RegraVinculo[]>([])
   const [loading, setLoading] = useState(false)
   const [editando, setEditando] = useState<RegraVinculo | null>(null)
@@ -243,7 +244,7 @@ export function VinculosPanel({ open, regra, onClose }: Props) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
           <div>
             <h2 className="text-lg font-semibold text-white">Vínculos — {regra.nome}</h2>
-            <p className="text-xs text-gray-500">De quem pra quem essa regra vale</p>
+            <p className="text-xs text-gray-500">{resumo ? resumo : 'De quem pra quem essa regra vale'}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><X size={18} /></button>
         </div>

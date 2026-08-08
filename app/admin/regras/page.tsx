@@ -1,6 +1,8 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { getRegras, createRegra, updateRegra, deleteRegra } from '@/lib/cadastro-api'
+import { supabase } from '@/lib/supabase'
+import { formatIndicadorNome } from '@/lib/indicadores'
 import type { Regra, RegraForm } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
@@ -8,8 +10,28 @@ import { RegraModal } from '@/components/cadastro/RegraModal'
 import { VinculosPanel } from '@/components/cadastro/VinculosPanel'
 import { Plus, Link2 } from 'lucide-react'
 
+interface IndicadorInfo { nome: string; descricao: string | null }
+
+// Frase em linguagem simples do que a regra faz — em vez de só "3 faixas",
+// pra quem não é técnico entender sem abrir o formulário.
+function resumoRegra(r: Regra, indicadores: Map<string, IndicadorInfo>): string {
+  if (r.tipo === 'cotacao') {
+    return `1 ${r.moeda_origem ?? '?'} = ${r.valor_cotacao ?? '?'} ${r.moeda_destino ?? '?'}`
+  }
+  if (r.condicoes.length === 0) return 'Sem condições ainda'
+  return r.condicoes.map(c => {
+    if (c.is_fallback) return `SENÃO → ${c.resultado_pct ?? '?'}%`
+    const termos = c.indicador_ids
+      .filter(Boolean)
+      .map(id => { const ind = indicadores.get(id); return ind ? formatIndicadorNome(ind.nome, ind.descricao) : '?' })
+      .join(' + ')
+    return `SE ${termos || '?'} ${c.operador} ${c.valor ?? '?'} → ${c.resultado_pct ?? '?'}%`
+  }).join(', ')
+}
+
 export default function RegrasPage() {
   const [items, setItems] = useState<Regra[]>([])
+  const [indicadores, setIndicadores] = useState<Map<string, IndicadorInfo>>(new Map())
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Regra | null>(null)
@@ -27,12 +49,28 @@ export default function RegrasPage() {
 
   useEffect(() => { load() }, [load])
 
+  useEffect(() => {
+    supabase.from('indicadores').select('id, nome, descricao').then(({ data }) => {
+      setIndicadores(new Map((data ?? []).map(i => [i.id as string, { nome: i.nome as string, descricao: i.descricao as string | null }])))
+    })
+  }, [])
+
   async function handleSave(form: RegraForm) {
     setSaving(true); setError(null)
     try {
-      if (editing) await updateRegra(editing.id, form)
-      else await createRegra(form)
-      await load(); setModalOpen(false); setEditing(null)
+      if (editing) {
+        await updateRegra(editing.id, form)
+        await load()
+      } else {
+        // Regra nova não serve pra nada até ser vinculada a alguém — em vez
+        // de fechar e deixar órfã, já abre o painel de vínculo na sequência.
+        const novoId = await createRegra(form)
+        const lista = await getRegras()
+        setItems(lista)
+        const nova = lista.find(r => r.id === novoId)
+        if (nova) setVinculosRegra(nova)
+      }
+      setModalOpen(false); setEditing(null)
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setSaving(false) }
   }
@@ -70,17 +108,17 @@ export default function RegrasPage() {
           },
           {
             key: 'tipo',
-            label: 'Tipo / Condições',
-            render: (_: string, row: Regra) => row.tipo === 'cotacao'
-              ? `Cotação · 1 ${row.moeda_origem ?? '?'} = ${row.valor_cotacao ?? '?'} ${row.moeda_destino ?? '?'}`
-              : `${row.condicoes.length} faixa${row.condicoes.length !== 1 ? 's' : ''}`,
+            label: 'O que faz',
+            render: (_: string, row: Regra) => (
+              <span className="text-xs text-gray-300">{resumoRegra(row, indicadores)}</span>
+            ),
           },
           {
             key: 'vinculoCount',
             label: 'Vínculos',
             render: (v: number, row: Regra) => (
-              <button onClick={() => setVinculosRegra(row)} className="flex items-center gap-1.5 text-sm text-gray-300 hover:text-gold transition-colors">
-                <Link2 size={13} />{v}
+              <button onClick={() => setVinculosRegra(row)} className={`flex items-center gap-1.5 text-sm transition-colors ${v === 0 ? 'text-gold hover:underline' : 'text-gray-300 hover:text-gold'}`}>
+                <Link2 size={13} />{v === 0 ? 'Vincular agora' : v}
               </button>
             ),
           },
@@ -103,6 +141,7 @@ export default function RegrasPage() {
       <VinculosPanel
         open={!!vinculosRegra}
         regra={vinculosRegra}
+        resumo={vinculosRegra ? resumoRegra(vinculosRegra, indicadores) : undefined}
         onClose={() => { setVinculosRegra(null); load() }}
       />
 
