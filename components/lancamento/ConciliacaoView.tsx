@@ -37,6 +37,7 @@ export function ConciliacaoView() {
           <input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/50" />
         </div>
       </div>
+      <p className="text-xs text-gray-500">{t('conciliacao.janela_nota')}</p>
 
       {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
 

@@ -18,7 +18,7 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setError(t("login.erro"));
@@ -26,7 +26,18 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/admin/cadastro/superligas");
+    // Login de clube/agente é uma experiência travada (Sidebar esconde o menu
+    // de staff pra eles) — manda direto pro único destino que faz sentido, em
+    // vez de cair no Cadastro e bater na tela de "sem permissão".
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("clube_id, agente_id")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    if (profile?.clube_id) router.push("/extrato");
+    else if (profile?.agente_id) router.push("/agente/extrato");
+    else router.push("/admin/cadastro/superligas");
   }
 
   return (

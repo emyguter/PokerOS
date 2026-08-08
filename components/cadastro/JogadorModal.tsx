@@ -11,6 +11,7 @@ interface Props {
   onClose: () => void
   onSave: (form: JogadorForm) => void
   saving: boolean
+  error?: string | null
 }
 
 const EMPTY: JogadorForm = { nome: '', telefone: null, external_id: '', plataforma_id: null }
@@ -27,7 +28,7 @@ function Fld({ label, required, children }: { label: string; required?: boolean;
 
 interface ClubeJogado { id: string; name: string; external_id: string | null }
 
-export function JogadorModal({ open, editing, plataformas, onClose, onSave, saving }: Props) {
+export function JogadorModal({ open, editing, plataformas, onClose, onSave, saving, error }: Props) {
   const [form, setForm] = useState<JogadorForm>(EMPTY)
   const [nomeLocked, setNomeLocked] = useState(false)
   const [searching, setSearching] = useState(false)
@@ -193,6 +194,9 @@ export function JogadorModal({ open, editing, plataformas, onClose, onSave, savi
             )}
 
           </div>
+          {error && (
+            <div className="shrink-0 mx-6 mb-4 p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>
+          )}
           <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
             <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
             <button type="submit" disabled={saving || !podeSalvar} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">

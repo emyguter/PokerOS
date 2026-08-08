@@ -4,6 +4,16 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
 
+// Mesmo rótulo em todo lugar que mostra harmonization_status — card ao vivo e
+// tabela de histórico usavam palavras diferentes pro mesmo estado, dando a
+// impressão de serem coisas diferentes acontecendo ao mesmo tempo.
+function harmonizationLabel(status: string): string {
+  if (status === "harmonizado") return "✓ Harmonizado";
+  if (status === "erro") return "✗ Erro";
+  if (status === "processando") return "⏳ Processando";
+  return "⏳ Pendente";
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Plataforma = { id: string; nome: string; moeda: string };
@@ -405,6 +415,7 @@ export default function ImportacaoXlsx() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [jogadorStats, setJogadorStats] = useState<{ ok: number; erros: string[] } | null>(null);
 
+  const [harmonStatus, setHarmonStatus] = useState<string>("pendente");
   const [platformAction, setPlatformAction] = useState<"new" | "existing" | null>(null);
   const [newPlatformName, setNewPlatformName] = useState("");
   const [selectedExistingPlatform, setSelectedExistingPlatform] = useState("");
@@ -426,6 +437,7 @@ export default function ImportacaoXlsx() {
         { event: "UPDATE", schema: "public", table: "imports", filter: `id=eq.${importingId}` },
         (payload) => {
           const row = payload.new as { harmonization_status: string; harmonization_error: string | null; jogadores_ok: number | null };
+          setHarmonStatus(row.harmonization_status);
           if (row.harmonization_status === "harmonizado") {
             setStep("done");
             setImportError(row.harmonization_error ? { titulo: "Concluído com avisos", detalhe: row.harmonization_error } : null);
@@ -532,6 +544,7 @@ export default function ImportacaoXlsx() {
       if (bronzeErr) throw { titulo: "Erro ao registrar dados brutos", detalhe: bronzeErr.message };
 
       setJogadorStats(null);
+      setHarmonStatus("pendente");
       setStep("sent");
       setImportingId(importData.id);
       setParsed(null); setFile(null); setResolvedPlatformId(null);
@@ -679,7 +692,7 @@ export default function ImportacaoXlsx() {
 
         {step === "sent" && (
           <div className="card" style={{ padding: 16, borderColor: "#C9A84C" }}>
-            <p style={{ color: "#C9A84C", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>⏳ Arquivo recebido — processando em segundo plano</p>
+            <p style={{ color: "#C9A84C", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{harmonizationLabel(harmonStatus)}</p>
             <p style={{ color: "#7a7a70", fontSize: 12 }}>
               Isso normalmente leva alguns segundos. Esta tela atualiza sozinha quando terminar — não precisa recarregar a página.
             </p>
@@ -742,10 +755,7 @@ export default function ImportacaoXlsx() {
                     <td style={{ color: "#7a7a70", fontSize: 12 }}>{entry.period_start ? `${entry.period_start} → ${entry.period_end}` : "—"}</td>
                     <td>
                       <span className={`badge ${entry.harmonization_status === "harmonizado" ? "badge-ok" : entry.harmonization_status === "erro" ? "badge-error" : "badge-processing"}`}>
-                        {entry.harmonization_status === "harmonizado" ? "✓ Harmonizado"
-                          : entry.harmonization_status === "erro" ? "✗ Erro"
-                          : entry.harmonization_status === "processando" ? "⏳ Processando"
-                          : "⏳ Pendente"}
+                        {harmonizationLabel(entry.harmonization_status)}
                       </span>
                     </td>
                     <td style={{ fontSize: 12, color: "#7a7a70" }}>{new Date(entry.created_at).toLocaleString("pt-BR")}</td>
