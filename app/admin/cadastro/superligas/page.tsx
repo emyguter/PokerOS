@@ -93,7 +93,7 @@ export default function SuperLigasPage() {
         fields={[
           { key: 'name', label: 'Nome', type: 'text', required: true, placeholder: 'Ex: Grupo Brasil' },
           { key: 'moeda', label: 'Moeda', type: 'select', required: true, options: MOEDAS },
-          { key: 'mega_liga_id', label: 'Mega Liga', type: 'select', options: mlOptions }
+          { key: 'mega_liga_id', label: 'Mega Liga', type: 'busca', options: mlOptions }
         ]}
       />
 

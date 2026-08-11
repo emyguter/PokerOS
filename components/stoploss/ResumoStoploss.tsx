@@ -4,10 +4,11 @@ import { ChevronDown, ChevronUp, Loader2, Send } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
+import { BuscaSelect } from '@/components/BuscaSelect'
 import type { StoplossAjuste } from '@/lib/types'
 
 interface ClubeOpcao { id: string; name: string }
-interface ClubeResumo { name: string; stoploss_inicial: number | null; stoploss_atual: number | null; caucao_atual: number | null }
+interface ClubeResumo { name: string; stoploss_inicial: number | null; stoploss_atual: number | null; caucao_atual: number | null; ratio_caucao_stoploss: number | null }
 
 function formatMoeda(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -43,7 +44,7 @@ export function ResumoStoploss() {
     if (!clubeId) { setClube(null); setAjustes([]); return }
     setLoading(true)
     const [{ data: c }, { data: a }] = await Promise.all([
-      supabase.from('clubs').select('name, stoploss_inicial, stoploss_atual, caucao_atual').eq('id', clubeId).single(),
+      supabase.from('clubs').select('name, stoploss_inicial, stoploss_atual, caucao_atual, ratio_caucao_stoploss').eq('id', clubeId).single(),
       supabase.from('stoploss_ajustes').select('*').eq('clube_id', clubeId).order('criado_em', { ascending: false }).limit(20),
     ])
     setClube(c ?? null)
@@ -83,10 +84,12 @@ export function ResumoStoploss() {
     <div className="space-y-6">
       <div className="max-w-xs">
         <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.clube')}</label>
-        <select value={clubeId} onChange={e => { setClubeId(e.target.value); setSucesso(false) }} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
-          <option value="">{t('common.selecione')}</option>
-          {clubes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <BuscaSelect
+          value={clubeId}
+          onChange={v => { setClubeId(v); setSucesso(false) }}
+          opcoes={clubes.map(c => ({ id: c.id, nome: c.name }))}
+          placeholder={t('common.selecione')}
+        />
       </div>
 
       {!clubeId ? (
@@ -109,6 +112,9 @@ export function ResumoStoploss() {
               <p className="text-lg font-semibold text-white">{clube?.caucao_atual != null ? formatMoeda(clube.caucao_atual) : '—'}</p>
             </div>
           </div>
+          <p className="text-xs text-gray-500">
+            {t('stoploss.ratio_ativo', { ratio: clube?.ratio_caucao_stoploss ?? 1 })}
+          </p>
 
           <div className="rounded-xl border border-white/10 bg-surface2/50 p-5 space-y-4">
             <button type="button" onClick={() => setAberto(v => !v)} className="flex items-center gap-2 text-sm font-medium text-gold hover:text-gold/80 transition-colors">

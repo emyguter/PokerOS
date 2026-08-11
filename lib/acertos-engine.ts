@@ -86,7 +86,11 @@ const CONDICOES_VAZIAS: Record<CampoClube, CondicaoAvaliavel[]> = {
 
 // Mapeia o nome de um indicador pro valor real dele numa linha importada.
 // `fee_total` e `num_mãos` ainda não têm dado de origem — voltam 0 até existir a coluna.
-function valorIndicador(nome: string, row: ImportRow): number {
+// WtR (Win to Rake) é a razão bruta Ganhos/Rake — não multiplicado por 100 —
+// pra bater com a escala que o Cássio usa nas condições das regras (ex: < -1.25).
+// WtR 4 Semanas é a média dessa razão nos últimos 4 acertos do clube
+// (incluindo o período atual), já vem calculado em `wtr4Semanas`.
+function valorIndicador(nome: string, row: ImportRow, wtr4Semanas: number | null): number {
   switch (nome) {
     case "rake":
       return Math.abs(row.rake_total ?? 0);
@@ -98,6 +102,10 @@ function valorIndicador(nome: string, row: ImportRow): number {
       return Math.abs(row.rake_spinup ?? 0);
     case "resultado_jogador":
       return row.player_result ?? 0;
+    case "wtr":
+      return row.rake_total ? (row.player_result ?? 0) / row.rake_total : 0;
+    case "wtr_4_semanas":
+      return wtr4Semanas ?? 0;
     default:
       return 0;
   }
@@ -106,10 +114,10 @@ function valorIndicador(nome: string, row: ImportRow): number {
 // Avalia as condições SE/ENTÃO de uma regra (em ordem) contra os dados da linha.
 // Cada condição pode somar vários indicadores ("Ganhos + Rake"). A primeira que bater
 // vence; se nenhuma bater, usa a condição SENÃO (fallback), se existir.
-function avaliarCondicoes(condicoes: CondicaoAvaliavel[], row: ImportRow): number | null {
+function avaliarCondicoes(condicoes: CondicaoAvaliavel[], row: ImportRow, wtr4Semanas: number | null): number | null {
   for (const c of condicoes) {
     if (c.is_fallback || c.valor == null) continue;
-    const soma = c.indicadorNomes.reduce((acc, nome) => acc + valorIndicador(nome, row), 0);
+    const soma = c.indicadorNomes.reduce((acc, nome) => acc + valorIndicador(nome, row, wtr4Semanas), 0);
     const bate =
       c.operador === ">" ? soma > c.valor :
       c.operador === ">=" ? soma >= c.valor :
@@ -124,7 +132,8 @@ function avaliarCondicoes(condicoes: CondicaoAvaliavel[], row: ImportRow): numbe
 function calcularAcerto(
   row: ImportRow,
   club: ClubSettings,
-  condicoesPorCampo: Record<CampoClube, CondicaoAvaliavel[]>
+  condicoesPorCampo: Record<CampoClube, CondicaoAvaliavel[]>,
+  wtr4Semanas: number | null
 ): AcertoCalculado {
   let fee_calculado = 0;
   let rebate_calculado = 0;
@@ -146,7 +155,7 @@ function calcularAcerto(
       // Total (comportamento já validado com a planilha do Cássio); as
       // outras 3, variável ou fixa, sempre usam a própria base de rake.
       if (condicoesPorCampo.fee_cash.length > 0) {
-        const pct = avaliarCondicoes(condicoesPorCampo.fee_cash, row);
+        const pct = avaliarCondicoes(condicoesPorCampo.fee_cash, row, wtr4Semanas);
         taxa_cash_pct_aplicada = pct ?? 0;
         fee_cash_valor = rake_total * ((pct ?? 0) / 100);
       } else {
@@ -155,21 +164,21 @@ function calcularAcerto(
       }
 
       if (condicoesPorCampo.fee_mtt.length > 0) {
-        const pct = avaliarCondicoes(condicoesPorCampo.fee_mtt, row);
+        const pct = avaliarCondicoes(condicoesPorCampo.fee_mtt, row, wtr4Semanas);
         fee_mtt_valor = rake_mtt * ((pct ?? 0) / 100);
       } else {
         fee_mtt_valor = rake_mtt * (club.fee_mtt_pct / 100);
       }
 
       if (condicoesPorCampo.taxa_op.length > 0) {
-        const pct = avaliarCondicoes(condicoesPorCampo.taxa_op, row);
+        const pct = avaliarCondicoes(condicoesPorCampo.taxa_op, row, wtr4Semanas);
         fee_operacional_valor = rake_cash * ((pct ?? 0) / 100);
       } else {
         fee_operacional_valor = rake_cash * (club.taxa_op_pct / 100);
       }
 
       if (condicoesPorCampo.spinup.length > 0) {
-        const pct = avaliarCondicoes(condicoesPorCampo.spinup, row);
+        const pct = avaliarCondicoes(condicoesPorCampo.spinup, row, wtr4Semanas);
         fee_spinup_valor = rake_spinup * ((pct ?? 0) / 100);
       } else {
         fee_spinup_valor = rake_spinup * ((club.spinup_pct ?? 0) / 100);
@@ -260,6 +269,34 @@ async function buscarCondicoesPorClube(clubIds: string[]): Promise<Map<string, R
   return mapa;
 }
 
+// Últimos até-3 acertos anteriores de cada clube (excluindo o import atual),
+// pra compor o WtR 4 Semanas junto com a linha sendo calculada agora — mesma
+// lógica já usada no card de Acerto (ClubAcertoCard: média de Ganhos/Rake dos
+// últimos 4 acertos, incluindo o período atual).
+async function buscarHistoricoWtr(clubExternalIds: string[], importIdAtual: string): Promise<Map<string, { player_result: number; rake_total: number }[]>> {
+  const mapa = new Map<string, { player_result: number; rake_total: number }[]>();
+  if (clubExternalIds.length === 0) return mapa;
+
+  const { data } = await supabase
+    .from("acertos")
+    .select("club_external_id, player_result, rake_total, imports(period_start)")
+    .in("club_external_id", clubExternalIds)
+    .neq("import_id", importIdAtual)
+    .order("imports(period_start)", { ascending: false });
+
+  for (const row of (data ?? []) as unknown as { club_external_id: string; player_result: number; rake_total: number }[]) {
+    const lista = mapa.get(row.club_external_id) ?? [];
+    if (lista.length < 3) { lista.push(row); mapa.set(row.club_external_id, lista); }
+  }
+  return mapa;
+}
+
+function calcularWtr4Semanas(row: ImportRow, historico: { player_result: number; rake_total: number }[]): number | null {
+  const candidatos = [{ player_result: row.player_result ?? 0, rake_total: row.rake_total ?? 0 }, ...historico].filter((r) => r.rake_total);
+  if (candidatos.length === 0) return null;
+  return candidatos.reduce((s, r) => s + r.player_result / r.rake_total, 0) / candidatos.length;
+}
+
 export async function processarAcertos(importId: string): Promise<{
   success: boolean;
   count: number;
@@ -289,6 +326,10 @@ export async function processarAcertos(importId: string): Promise<{
     );
 
     const condicoesPorClube = await buscarCondicoesPorClube((clubs ?? []).map((c) => c.id));
+    const historicoWtrPorClube = await buscarHistoricoWtr(
+      [...new Set((rows as ImportRow[]).map((r) => r.club_external_id))],
+      importId
+    );
 
     // Os campos manuais do card (Bilhetes, Pendências/Antecipação, Taxa A-A
     // Home Game) não vêm de cálculo nenhum — o usuário digita direto no card
@@ -332,7 +373,8 @@ export async function processarAcertos(importId: string): Promise<{
         });
         continue;
       }
-      acertos.push(calcularAcerto(row as ImportRow, club, condicoesPorClube.get(club.id) ?? CONDICOES_VAZIAS));
+      const wtr4Semanas = calcularWtr4Semanas(row as ImportRow, historicoWtrPorClube.get(row.club_external_id) ?? []);
+      acertos.push(calcularAcerto(row as ImportRow, club, condicoesPorClube.get(club.id) ?? CONDICOES_VAZIAS, wtr4Semanas));
     }
 
     const acertosComExtras = acertos.map((a) => ({

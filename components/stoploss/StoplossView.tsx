@@ -1,20 +1,22 @@
 'use client'
 import { useState } from 'react'
-import { Gauge, Receipt, ClipboardCheck } from 'lucide-react'
+import { LayoutList, Gauge, Receipt, ClipboardCheck } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { usePermissions } from '@/lib/permissions'
+import { RelatorioStoploss } from './RelatorioStoploss'
 import { ResumoStoploss } from './ResumoStoploss'
 import { ExtratoStoploss } from './ExtratoStoploss'
 import { FilaAprovacaoStoploss } from './FilaAprovacaoStoploss'
 
-type Tab = 'resumo' | 'extrato' | 'fila'
+type Tab = 'relatorio' | 'resumo' | 'extrato' | 'fila'
 
 export function StoplossView() {
   const { t } = useI18n()
   const { hasPermission } = usePermissions()
-  const [tab, setTab] = useState<Tab>('resumo')
+  const [tab, setTab] = useState<Tab>('relatorio')
 
   const abas: { key: Tab; labelKey: string; icon: typeof Gauge }[] = [
+    { key: 'relatorio', labelKey: 'stoploss.aba_relatorio', icon: LayoutList },
     { key: 'resumo', labelKey: 'stoploss.aba_resumo', icon: Gauge },
     { key: 'extrato', labelKey: 'stoploss.aba_extrato', icon: Receipt },
     ...(hasPermission('stoploss.aprovar') ? [{ key: 'fila' as Tab, labelKey: 'stoploss.aba_fila', icon: ClipboardCheck }] : []),
@@ -39,6 +41,7 @@ export function StoplossView() {
         ))}
       </div>
 
+      {tab === 'relatorio' && <RelatorioStoploss />}
       {tab === 'resumo' && <ResumoStoploss />}
       {tab === 'extrato' && <ExtratoStoploss />}
       {tab === 'fila' && hasPermission('stoploss.aprovar') && <FilaAprovacaoStoploss />}

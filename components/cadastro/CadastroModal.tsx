@@ -1,8 +1,12 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { X, Loader2 } from 'lucide-react'
+import { BuscaSelect } from '@/components/BuscaSelect'
 interface FieldOption { value: string; label: string }
-interface Field { key: string; label: string; type: 'text' | 'number' | 'select'; required?: boolean; placeholder?: string; options?: FieldOption[] }
+// 'select' é pra opções fixas (enum, ex: moeda). 'busca' é pra listas de
+// entidades nomeadas (ex: Mega Liga) — vira busca com sugestão em vez de
+// dropdown. A entrada com value:'' em options vira o rótulo "vazio" da busca.
+interface Field { key: string; label: string; type: 'text' | 'number' | 'select' | 'busca'; required?: boolean; placeholder?: string; options?: FieldOption[] }
 interface Props { open: boolean; title: string; onClose: () => void; onSave: (data: any) => void; saving: boolean; initialData: Record<string, any>; fields: Field[] }
 export function CadastroModal({ open, title, onClose, onSave, saving, initialData, fields }: Props) {
   const [form, setForm] = useState<Record<string, any>>(initialData)
@@ -28,6 +32,14 @@ export function CadastroModal({ open, title, onClose, onSave, saving, initialDat
                 ? <select value={form[field.key] ?? ''} onChange={e => setForm({ ...form, [field.key]: e.target.value })} required={field.required} className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
                     {field.options?.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                   </select>
+                : field.type === 'busca'
+                ? <BuscaSelect
+                    value={form[field.key] ?? ''}
+                    onChange={v => setForm({ ...form, [field.key]: v })}
+                    opcoes={(field.options ?? []).filter(o => o.value !== '').map(o => ({ id: o.value, nome: o.label }))}
+                    vazio={field.options?.find(o => o.value === '')?.label}
+                    className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50"
+                  />
                 : <input type={field.type} value={form[field.key] ?? ''} onChange={e => setForm({ ...form, [field.key]: field.type === 'number' ? (e.target.value === '' ? null : Number(e.target.value)) : e.target.value })} required={field.required} placeholder={field.placeholder} step={field.type === 'number' ? 'any' : undefined} className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50" />
               }
             </div>

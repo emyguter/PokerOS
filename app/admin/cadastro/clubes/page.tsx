@@ -5,6 +5,7 @@ import type { Club, ClubForm, League, Plataforma } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { ClubModal } from '@/components/cadastro/ClubModal'
+import { BuscaSelect } from '@/components/BuscaSelect'
 import { Plus, Filter } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 
@@ -12,7 +13,7 @@ function clean(form: ClubForm): ClubForm {
   const f = { ...form }
   if (f.settlement_type === 'rakeback') { f.fee_mtt_pct = null; f.fee_cash_pct = null; f.spinup_pct = null; f.crypto_rebate_pct = null; f.taxa_variavel_nome = null; f.taxa_variavel_indicador = null; f.taxa_variavel_regra = null }
   if (f.settlement_type === 'weekly_usd') { f.fee_cash_pct = null; f.spinup_pct = null; f.rakeback_pct = null }
-  if (f.settlement_type === 'dinamico') { f.crypto_rebate_pct = null; f.rakeback_pct = null }
+  if (f.settlement_type === 'taxa_dinamica') { f.crypto_rebate_pct = null; f.rakeback_pct = null }
   if (f.taxa_tipo === 'fixa') { f.taxa_variavel_nome = null; f.taxa_variavel_indicador = null; f.taxa_variavel_regra = null }
   if (!f.rebate_ativo) f.rebate_pct = null
   return f
@@ -76,10 +77,15 @@ export default function ClubesPage() {
 
       <div className="flex items-center gap-3">
         <Filter size={16} className="text-gray-400" />
-        <select value={filter} onChange={e => setFilter(e.target.value)} className="bg-surface2 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50">
-          <option value="">Todas as ligas</option>
-          {leagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-        </select>
+        <div className="w-56">
+          <BuscaSelect
+            value={filter}
+            onChange={setFilter}
+            opcoes={leagues.map(l => ({ id: l.id, nome: l.name }))}
+            vazio="Todas as ligas"
+            className="bg-surface2 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50 w-full"
+          />
+        </div>
         <span className="text-sm text-gray-500">{items.length} clube{items.length !== 1 ? 's' : ''}</span>
       </div>
 

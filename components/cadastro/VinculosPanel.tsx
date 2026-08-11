@@ -3,11 +3,13 @@ import { useState, useEffect, useCallback } from 'react'
 import { X, Trash2, ArrowRight, Pencil } from 'lucide-react'
 import type { Regra, RegraVinculo, EntidadeTipo, CampoClube } from '@/lib/types'
 import { getVinculos, addVinculo, updateVinculo, removeVinculo, buscarEntidades } from '@/lib/cadastro-api'
+import { campoFromCondicoes } from '@/lib/indicadores'
 
 interface Props {
   open: boolean
   regra: Regra | null
   resumo?: string
+  indicadorNomePorId: Map<string, string>
   onClose: () => void
 }
 
@@ -30,13 +32,6 @@ const LABEL_TIPO: Record<EntidadeTipo, string> = {
   agente: 'Agente',
   jogador: 'Jogador',
 }
-
-const CAMPOS_CLUBE: { value: CampoClube; label: string }[] = [
-  { value: 'fee_mtt', label: 'Fee MTT' },
-  { value: 'fee_cash', label: 'Fee Cash' },
-  { value: 'taxa_op', label: 'Taxa Operacional' },
-  { value: 'spinup', label: 'SpinUp' },
-]
 
 const LABEL_CAMPO: Record<CampoClube, string> = {
   fee_mtt: 'Fee MTT', fee_cash: 'Fee Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp',
@@ -156,13 +151,12 @@ function SeletorEntidade({ titulo, opcional, multi, lado, onChange }: { titulo: 
   )
 }
 
-export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
+export function VinculosPanel({ open, regra, resumo, indicadorNomePorId, onClose }: Props) {
   const [vinculos, setVinculos] = useState<RegraVinculo[]>([])
   const [loading, setLoading] = useState(false)
   const [editando, setEditando] = useState<RegraVinculo | null>(null)
   const [ladoDe, setLadoDe] = useState<Lado>(LADO_INICIAL('liga'))
   const [ladoPara, setLadoPara] = useState<Lado>(LADO_INICIAL('clube'))
-  const [campo, setCampo] = useState<CampoClube>('fee_cash')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -178,7 +172,6 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
     setEditando(null)
     setLadoDe(LADO_INICIAL('liga'))
     setLadoPara(LADO_INICIAL('clube'))
-    setCampo('fee_cash')
   }
 
   useEffect(() => {
@@ -195,7 +188,6 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
     setEditando(v)
     setLadoDe(v.de_id && v.de_tipo ? LADO_COM(v.de_tipo, { id: v.de_id, nome: v.de_nome ?? '—' }) : LADO_INICIAL('liga'))
     setLadoPara(LADO_COM(v.para_tipo, { id: v.para_id, nome: v.para_nome }))
-    setCampo(v.campo ?? 'fee_cash')
   }
 
   async function handleSalvar() {
@@ -210,7 +202,10 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
         : [null]
       const paras = ladoPara.selecionados.map(p => ({ tipo: ladoPara.tipo, id: p.id }))
       const combos = paras.flatMap(para => des.map(de => ({ de, para })))
-      const campoParaSalvar = ladoPara.tipo === 'clube' ? campo : null
+      // Campo do clube que a regra substitui já vem do indicador usado na
+      // condição da própria regra (Rake Cash → Fee Cash, Rake MTT → Fee MTT,
+      // Rake Spinup → SpinUp) — não pergunta de novo aqui.
+      const campoParaSalvar: CampoClube | null = ladoPara.tipo === 'clube' ? campoFromCondicoes(regra.condicoes, indicadorNomePorId) : null
 
       const [primeiro, ...resto] = combos
       if (editando) {
@@ -296,18 +291,14 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
               <ArrowRight size={16} className="text-gray-600 shrink-0 mt-6" />
               <SeletorEntidade titulo="Para (quem recebe a regra)" multi lado={ladoPara} onChange={setLadoPara} />
             </div>
-            {ladoPara.tipo === 'clube' && (
-              <div className="space-y-1.5">
-                <p className="text-xs text-gray-500">Campo <span className="text-gray-600">— qual taxa do clube essa regra substitui</span></p>
-                <select
-                  value={campo}
-                  onChange={e => setCampo(e.target.value as CampoClube)}
-                  className="w-full bg-surface border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-gold/50"
-                >
-                  {CAMPOS_CLUBE.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                </select>
-              </div>
-            )}
+            {ladoPara.tipo === 'clube' && (() => {
+              const campo = campoFromCondicoes(regra.condicoes, indicadorNomePorId)
+              return campo ? (
+                <p className="text-xs text-gray-500">Essa regra vai substituir <span className="text-gold">{LABEL_CAMPO[campo]}</span> do clube (indicador usado na condição).</p>
+              ) : (
+                <p className="text-xs text-alert">Essa regra não usa Rake Cash / Rake MTT / Rake Spinup na condição, então não dá pra saber qual taxa do clube ela substitui — o vínculo não vai afetar nenhum cálculo até a regra usar um desses indicadores.</p>
+              )
+            })()}
             {(() => {
               const totalCombos = Math.max(ladoDe.selecionados.length, 1) * ladoPara.selecionados.length
               return (

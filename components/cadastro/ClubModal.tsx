@@ -6,6 +6,7 @@ import { MOEDAS } from '@/lib/moedas'
 import { supabase } from '@/lib/supabase'
 import { RegrasAplicadas } from './RegrasAplicadas'
 import { StepModal, type ModalStep } from './StepModal'
+import { BuscaSelect } from '@/components/BuscaSelect'
 
 interface Props {
   open: boolean
@@ -19,11 +20,11 @@ interface Props {
 }
 
 const EMPTY: ClubForm = {
-  league_id: null, name: '', external_id: null, settlement_type: 'dinamico', moeda: 'BRL',
+  league_id: null, name: '', external_id: null, settlement_type: 'taxa_dinamica', moeda: 'BRL',
   taxa_tipo: 'fixa', fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: 9, taxa_op_tipo: 'fixa',
   spinup_pct: null, rebate_pct: null, crypto_rebate_pct: null, rakeback_pct: null, security: null,
   taxa_variavel_nome: null, taxa_variavel_indicador: null, taxa_variavel_regra: null,
-  caucao_atual: null, stoploss_inicial: null,
+  caucao_atual: null, stoploss_inicial: null, ratio_caucao_stoploss: null,
   plataforma_id: null, operador_ext_id: null, operador_nickname: null, rebate_ativo: false,
 }
 
@@ -46,6 +47,7 @@ function toForm(c: Club): ClubForm {
     crypto_rebate_pct: c.crypto_rebate_pct, rakeback_pct: c.rakeback_pct, security: c.security,
     taxa_variavel_nome: c.taxa_variavel_nome, taxa_variavel_indicador: c.taxa_variavel_indicador,
     taxa_variavel_regra: c.taxa_variavel_regra, caucao_atual: c.caucao_atual, stoploss_inicial: c.stoploss_inicial,
+    ratio_caucao_stoploss: c.ratio_caucao_stoploss,
     plataforma_id: c.plataforma_id ?? null,
     operador_ext_id: c.operador_ext_id ?? null,
     operador_nickname: c.operador_nickname ?? null,
@@ -114,7 +116,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   if (!open) return null
 
   const set = (k: keyof ClubForm, v: any) => setForm(f => ({ ...f, [k]: v }))
-  const isDin = form.settlement_type === 'dinamico'
+  const isDin = form.settlement_type === 'taxa_dinamica'
   const isUSD = form.settlement_type === 'weekly_usd'
   const isRkb = form.settlement_type === 'rakeback'
   // Stoploss Inicial só pode ser definido uma vez — depois disso o campo trava.
@@ -163,10 +165,13 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
             </select>
           </Fld>
           <Fld label="Liga (opcional)">
-            <select value={form.league_id ?? ''} onChange={e => set('league_id', e.target.value || null)} className={inputCls}>
-              <option value="">— Nenhuma —</option>
-              {leagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
+            <BuscaSelect
+              value={form.league_id ?? ''}
+              onChange={v => set('league_id', v || null)}
+              opcoes={leagues.map(l => ({ id: l.id, nome: l.name }))}
+              vazio="— Nenhuma —"
+              className={inputCls}
+            />
           </Fld>
         </div>
       )}
@@ -246,7 +251,13 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       )}
 
       {step === 'regras' && (
-        <RegrasAplicadas entidadeTipo="clube" entidadeId={editing?.id ?? null} />
+        <RegrasAplicadas
+          entidadeTipo="clube"
+          entidadeId={editing?.id ?? null}
+          settlementType={form.settlement_type}
+          feeCashPct={form.fee_cash_pct}
+          feeMttPct={form.fee_mtt_pct}
+        />
       )}
 
       {step === 'garantias' && (
@@ -264,6 +275,10 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
             {editing?.stoploss_atual != null && (
               <div className="col-span-2 text-sm text-gray-400">Stoploss Atual: <span className="text-gold font-medium">{editing.stoploss_atual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> <span className="text-xs text-gray-600">(ajustado na tela de Controle de Stoploss)</span></div>
             )}
+            <Fld label="Ratio Caução → Stoploss">
+              <NumInput value={form.ratio_caucao_stoploss} onChange={v => set('ratio_caucao_stoploss', v)} placeholder="Ex: 2" />
+              <p className="text-xs text-gray-500 mt-1.5">Quanto soma no Stoploss pra cada real de Caução confirmada. Ex: 2 = ratio 1:2 (R$1 de caução vira R$2 de Stoploss). Vazio = ratio 1:1 (R$1 de caução vira R$1 de Stoploss).</p>
+            </Fld>
           </div>
 
           <div className="space-y-3 mt-4">

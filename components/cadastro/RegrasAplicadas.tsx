@@ -1,14 +1,25 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ListChecks } from 'lucide-react'
+import { ListChecks, AlertTriangle } from 'lucide-react'
 import type { EntidadeTipo, CampoClube } from '@/lib/types'
 import { getRegrasDaEntidade, type RegraAplicada } from '@/lib/cadastro-api'
 
 interface Props {
   entidadeTipo: EntidadeTipo
   entidadeId: string | null
+  // Só usados quando entidadeTipo === 'clube', pra avisar quando Fee Cash ou
+  // Fee MTT ficariam sem nenhuma taxa de verdade (nem regra vinculada, nem
+  // % fixo) — nesse caso só uma parte do rake estaria sendo cobrada.
+  settlementType?: string
+  feeCashPct?: number | null
+  feeMttPct?: number | null
 }
+
+const CAMPOS_CRITICOS: { campo: CampoClube; label: string }[] = [
+  { campo: 'fee_cash', label: 'Fee Cash' },
+  { campo: 'fee_mtt', label: 'Fee MTT' },
+]
 
 const LABEL_TIPO: Record<EntidadeTipo, string> = {
   plataforma: 'App',
@@ -52,7 +63,7 @@ function RegraCard({ r }: { r: RegraAplicada }) {
 // Agente agora vivem só na tela de Regras (/admin/regras). Esse cadastro
 // só mostra o que já está vinculado, pra quem tá editando saber de onde
 // vem a taxa aplicada.
-export function RegrasAplicadas({ entidadeTipo, entidadeId }: Props) {
+export function RegrasAplicadas({ entidadeTipo, entidadeId, settlementType, feeCashPct, feeMttPct }: Props) {
   const [regras, setRegras] = useState<RegraAplicada[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -64,8 +75,22 @@ export function RegrasAplicadas({ entidadeTipo, entidadeId }: Props) {
       .finally(() => setLoading(false))
   }, [entidadeTipo, entidadeId])
 
+  const pctFixo: Record<string, number | null | undefined> = { fee_cash: feeCashPct, fee_mtt: feeMttPct }
+  const camposSemTaxa = entidadeTipo === 'clube' && settlementType === 'taxa_dinamica'
+    ? CAMPOS_CRITICOS.filter(({ campo }) => !regras.some(r => r.campo === campo) && !pctFixo[campo])
+    : []
+
   return (
     <div className="space-y-2">
+      {camposSemTaxa.length > 0 && (
+        <div className="flex items-start gap-2 p-3 rounded-lg border border-alert/30 bg-alert/10 text-alert text-xs">
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+          <p>
+            {camposSemTaxa.map(c => c.label).join(' e ')} sem regra vinculada e sem % fixo definido na etapa Taxas —
+            {camposSemTaxa.length > 1 ? ' esses rakes' : ' esse rake'} não vão gerar fee nenhuma, só parte do rake do clube estará sendo cobrada.
+          </p>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Regras aplicadas</p>
         <Link href="/admin/regras" className="flex items-center gap-1 text-xs text-gold hover:underline">

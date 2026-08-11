@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
+import { BuscaSelect } from '@/components/BuscaSelect'
 import type { AgenteOpcao, ClubeOpcao, Permissao, RoleRow, UserRow } from './PermissoesView'
 
 interface Props {
@@ -145,24 +146,24 @@ export function UserModal({ open, user, roles, permissoes, clubes, agentes, onCl
                 </button>
               </div>
               {tipoAcesso === 'clube' && (
-                <select
-                  value={clubeId}
-                  onChange={(e) => setClubeId(e.target.value)}
-                  className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50 mt-2"
-                >
-                  <option value="">{t('user_modal.selecione_clube')}</option>
-                  {clubes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <div className="mt-2">
+                  <BuscaSelect
+                    value={clubeId}
+                    onChange={setClubeId}
+                    opcoes={clubes.map(c => ({ id: c.id, nome: c.name }))}
+                    placeholder={t('user_modal.selecione_clube')}
+                  />
+                </div>
               )}
               {tipoAcesso === 'agente' && (
-                <select
-                  value={agenteId}
-                  onChange={(e) => setAgenteId(e.target.value)}
-                  className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50 mt-2"
-                >
-                  <option value="">{t('user_modal.selecione_agente')}</option>
-                  {agentes.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
+                <div className="mt-2">
+                  <BuscaSelect
+                    value={agenteId}
+                    onChange={setAgenteId}
+                    opcoes={agentes.map(a => ({ id: a.id, nome: a.name }))}
+                    placeholder={t('user_modal.selecione_agente')}
+                  />
+                </div>
               )}
             </div>
 
