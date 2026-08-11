@@ -58,28 +58,27 @@ export function FilaValidacao({ refreshKey }: { refreshKey?: number } = {}) {
         const { error: clubErr } = await supabase.from('clubs').update({ caucao_atual: atual + delta }).eq('id', p.clube_id)
         if (clubErr) throw clubErr
 
-        // Ratio Caução → Stoploss: só entra se o clube tiver o ratio
-        // configurado, e só pra Caução mesmo (não qualquer lançamento).
-        const ratio = p.clubs?.ratio_caucao_stoploss
-        if (ratio != null) {
-          const stoplossAtual = p.clubs?.stoploss_atual ?? 0
-          const stoplossDelta = delta * ratio
-          const stoplossResultante = stoplossAtual + stoplossDelta
-          const { error: stoplossErr } = await supabase.from('clubs').update({ stoploss_atual: stoplossResultante }).eq('id', p.clube_id)
-          if (stoplossErr) throw stoplossErr
+        // Ratio Caução → Stoploss: sem ratio configurado, vale 1:1 (cada real
+        // de caução vira 1 real de Stoploss) — sempre ativo, só pra Caução
+        // mesmo (não qualquer lançamento).
+        const ratio = p.clubs?.ratio_caucao_stoploss ?? 1
+        const stoplossAtual = p.clubs?.stoploss_atual ?? 0
+        const stoplossDelta = delta * ratio
+        const stoplossResultante = stoplossAtual + stoplossDelta
+        const { error: stoplossErr } = await supabase.from('clubs').update({ stoploss_atual: stoplossResultante }).eq('id', p.clube_id)
+        if (stoplossErr) throw stoplossErr
 
-          const { data: userData } = await supabase.auth.getUser()
-          const { error: histErr } = await supabase.from('stoploss_historico').insert({
-            clube_id: p.clube_id,
-            tipo: 'caucao',
-            valor_delta: stoplossDelta,
-            valor_resultante: stoplossResultante,
-            motivo: `Caução confirmada (ratio ${ratio}x)`,
-            lancamento_id: p.id,
-            criado_por: userData.user?.id ?? null,
-          })
-          if (histErr) throw histErr
-        }
+        const { data: userData } = await supabase.auth.getUser()
+        const { error: histErr } = await supabase.from('stoploss_historico').insert({
+          clube_id: p.clube_id,
+          tipo: 'caucao',
+          valor_delta: stoplossDelta,
+          valor_resultante: stoplossResultante,
+          motivo: `Caução confirmada (ratio ${ratio}x)`,
+          lancamento_id: p.id,
+          criado_por: userData.user?.id ?? null,
+        })
+        if (histErr) throw histErr
       }
 
       await load()

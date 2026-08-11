@@ -110,9 +110,7 @@ export function ResumoStoploss() {
             </div>
           </div>
           <p className="text-xs text-gray-500">
-            {clube?.ratio_caucao_stoploss != null
-              ? t('stoploss.ratio_ativo', { ratio: clube.ratio_caucao_stoploss })
-              : t('stoploss.ratio_inativo')}
+            {t('stoploss.ratio_ativo', { ratio: clube?.ratio_caucao_stoploss ?? 1 })}
           </p>
 
           <div className="rounded-xl border border-white/10 bg-surface2/50 p-5 space-y-4">

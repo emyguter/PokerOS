@@ -145,7 +145,6 @@ export const en: typeof pt = {
     col_data: 'Date', col_tipo: 'Type', col_motivo: 'Reason', col_delta: 'Change', col_resultante: 'Balance after',
     tipo_inicial: 'Initial registration', tipo_antecipacao: 'Advance', tipo_ajuste: 'Support adjustment', tipo_caucao: 'Deposit (ratio)',
     ratio_ativo: "This club's Deposit → Stoploss ratio: {ratio}x — every real of confirmed deposit adds {ratio} to Stoploss.",
-    ratio_inativo: 'No Deposit → Stoploss ratio set for this club — deposits do not affect Stoploss (set it in the Club registration).',
     fila_vazia: 'Nothing awaiting approval.',
     aprovar: 'Approve', rejeitar: 'Reject',
     status: { pendente: 'Pending', aprovado: 'Approved', rejeitado: 'Rejected' },

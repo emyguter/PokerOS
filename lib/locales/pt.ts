@@ -143,7 +143,6 @@ export const pt = {
     col_data: 'Data', col_tipo: 'Tipo', col_motivo: 'Motivo', col_delta: 'Variação', col_resultante: 'Saldo após',
     tipo_inicial: 'Cadastro inicial', tipo_antecipacao: 'Antecipação', tipo_ajuste: 'Ajuste do Suporte', tipo_caucao: 'Caução (ratio)',
     ratio_ativo: 'Ratio Caução → Stoploss deste clube: {ratio}x — cada real de caução confirmada soma {ratio} no Stoploss.',
-    ratio_inativo: 'Sem ratio Caução → Stoploss configurado pra esse clube — caução não mexe no Stoploss (ajuste no Cadastro do Clube).',
     fila_vazia: 'Nada aguardando aprovação.',
     aprovar: 'Aprovar', rejeitar: 'Rejeitar',
     status: { pendente: 'Pendente', aprovado: 'Aprovado', rejeitado: 'Rejeitado' },

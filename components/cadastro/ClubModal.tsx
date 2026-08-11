@@ -267,7 +267,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
             )}
             <Fld label="Ratio Caução → Stoploss">
               <NumInput value={form.ratio_caucao_stoploss} onChange={v => set('ratio_caucao_stoploss', v)} placeholder="Ex: 2" />
-              <p className="text-xs text-gray-500 mt-1.5">Quanto soma no Stoploss pra cada real de Caução confirmada. Ex: 2 = ratio 1:2 (R$1 de caução vira R$2 de Stoploss). Vazio = Caução não mexe no Stoploss desse clube.</p>
+              <p className="text-xs text-gray-500 mt-1.5">Quanto soma no Stoploss pra cada real de Caução confirmada. Ex: 2 = ratio 1:2 (R$1 de caução vira R$2 de Stoploss). Vazio = ratio 1:1 (R$1 de caução vira R$1 de Stoploss).</p>
             </Fld>
           </div>
 
