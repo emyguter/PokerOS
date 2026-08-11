@@ -142,6 +142,7 @@ export default function RegrasPage() {
         open={!!vinculosRegra}
         regra={vinculosRegra}
         resumo={vinculosRegra ? resumoRegra(vinculosRegra, indicadores) : undefined}
+        indicadorNomePorId={new Map([...indicadores].map(([id, info]) => [id, info.nome]))}
         onClose={() => { setVinculosRegra(null); load() }}
       />
 
