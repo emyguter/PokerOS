@@ -347,7 +347,7 @@ export type StoplossAjuste = {
   clubs?: { name: string }
 }
 
-export type StoplossHistoricoTipo = 'inicial' | 'antecipacao' | 'ajuste_suporte' | 'caucao' | 'margem_monitoria'
+export type StoplossHistoricoTipo = 'inicial' | 'antecipacao' | 'ajuste_suporte' | 'caucao' | 'margem_monitoria' | 'bug_ppp'
 
 export type StoplossHistoricoItem = {
   id: string

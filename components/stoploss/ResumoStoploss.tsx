@@ -6,7 +6,7 @@ import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
 import { usePermissions } from '@/lib/permissions'
 import { BuscaSelect } from '@/components/BuscaSelect'
-import { getStoplossAtual, aplicarMargemMonitoria, retirarMargemMonitoria } from '@/lib/stoploss'
+import { getStoplossAtual, aplicarMargemMonitoria, retirarMargemMonitoria, aplicarAjusteBugPpp } from '@/lib/stoploss'
 import type { StoplossAjuste } from '@/lib/types'
 
 interface ClubeOpcao { id: string; name: string }
@@ -41,6 +41,14 @@ export function ResumoStoploss() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sucesso, setSucesso] = useState(false)
+
+  const [abertoBug, setAbertoBug] = useState(false)
+  const [naturezaBug, setNaturezaBug] = useState<'credito' | 'debito'>('debito')
+  const [valorBug, setValorBug] = useState('')
+  const [descricaoBug, setDescricaoBug] = useState('')
+  const [savingBug, setSavingBug] = useState(false)
+  const [erroBug, setErroBug] = useState<string | null>(null)
+  const [sucessoBug, setSucessoBug] = useState(false)
 
   useEffect(() => {
     supabase.from('clubs').select('id, name').order('name').then(({ data }) => setClubes(data ?? []))
@@ -99,6 +107,26 @@ export function ResumoStoploss() {
       setError(errMsg(err))
     } finally {
       setSaving(false)
+    }
+  }
+
+  // "Bug do PPPoker": correção manual pra quando a plataforma reporta rake/
+  // resultado errado — já tratado como liberado pela gerência, aplica direto
+  // no Stoploss sem passar pela fila de aprovação (diferente do ajuste acima).
+  async function enviarAjusteBug(e: React.FormEvent) {
+    e.preventDefault()
+    const valorNum = Number(valorBug.replace(',', '.'))
+    if (!valorNum || valorNum <= 0) { setErroBug('Informe um valor válido.'); return }
+    if (!descricaoBug.trim()) { setErroBug('Descreva o que aconteceu (ex: rake duplicado no relatório do dia X).'); return }
+    setSavingBug(true); setErroBug(null); setSucessoBug(false)
+    try {
+      await aplicarAjusteBugPpp(clubeId, naturezaBug, valorNum, descricaoBug.trim())
+      setValorBug(''); setDescricaoBug(''); setSucessoBug(true); setAbertoBug(false)
+      await load()
+    } catch (err) {
+      setErroBug(errMsg(err))
+    } finally {
+      setSavingBug(false)
     }
   }
 
@@ -188,6 +216,41 @@ export function ResumoStoploss() {
                 <div className="flex justify-end">
                   <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
                     {saving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}{t('stoploss.enviar_solicitacao')}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-alert/20 bg-alert/[0.03] p-5 space-y-4">
+            <button type="button" onClick={() => setAbertoBug(v => !v)} className="flex items-center gap-2 text-sm font-medium text-alert hover:text-alert/80 transition-colors">
+              {abertoBug ? <ChevronUp size={16} /> : <ChevronDown size={16} />}{t('stoploss.bug_ppp_abrir')}
+            </button>
+            <p className="text-xs text-gray-500">{t('stoploss.bug_ppp_desc')}</p>
+            {sucessoBug && <p className="text-xs text-success">{t('stoploss.bug_ppp_aplicado')}</p>}
+            {abertoBug && (
+              <form onSubmit={enviarAjusteBug} className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.natureza')}</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button type="button" onClick={() => setNaturezaBug('credito')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${naturezaBug === 'credito' ? 'border-success/50 bg-success/10 text-success' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>{t('lancamento.credito')}</button>
+                      <button type="button" onClick={() => setNaturezaBug('debito')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${naturezaBug === 'debito' ? 'border-alert/50 bg-alert/10 text-alert' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>{t('lancamento.debito')}</button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.valor')}</label>
+                    <input type="text" inputMode="decimal" value={valorBug} onChange={e => setValorBug(e.target.value)} placeholder="0,00" className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.bug_ppp_o_que_houve')}</label>
+                  <input type="text" value={descricaoBug} onChange={e => setDescricaoBug(e.target.value)} placeholder={t('stoploss.bug_ppp_placeholder')} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
+                </div>
+                {erroBug && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroBug}</div>}
+                <div className="flex justify-end">
+                  <button type="submit" disabled={savingBug} className="flex items-center gap-2 px-5 py-2 bg-alert text-white rounded-lg text-sm font-semibold hover:bg-alert/90 disabled:opacity-50 transition-colors">
+                    {savingBug ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}{t('stoploss.bug_ppp_aplicar')}
                   </button>
                 </div>
               </form>

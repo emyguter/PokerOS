@@ -4,7 +4,7 @@ import { supabase } from './supabase'
 // 'inicial' e 'caucao' ficam de fora de propósito: 'inicial' já é a base
 // (clubs.stoploss_inicial) e 'caucao' virou recálculo ao vivo (caucao_atual
 // × ratio), não soma incremental por evento.
-const TIPOS_QUE_SOMAM = ['antecipacao', 'ajuste_suporte', 'margem_monitoria'] as const
+const TIPOS_QUE_SOMAM = ['antecipacao', 'ajuste_suporte', 'margem_monitoria', 'bug_ppp'] as const
 
 interface ClubeBaseStoploss {
   id: string
@@ -72,6 +72,25 @@ export async function aplicarMargemMonitoria(clubeId: string): Promise<void> {
 
   const { error: clubErr } = await supabase.from('clubs').update({ margem_monitoria_ativa: true }).eq('id', clubeId)
   if (clubErr) throw clubErr
+}
+
+// "Bug do PPPoker": correção manual pra quando a plataforma reporta rake/
+// resultado errado. Tratado como já liberado pela gerência — o Suporte
+// lança direto, sem fila de aprovação (diferente do Ajuste normal).
+export async function aplicarAjusteBugPpp(clubeId: string, natureza: 'credito' | 'debito', valor: number, descricao: string): Promise<void> {
+  const stoplossAtual = await getStoplossAtual(clubeId)
+  const delta = natureza === 'credito' ? valor : -valor
+  const { data: userData } = await supabase.auth.getUser()
+
+  const { error: histErr } = await supabase.from('stoploss_historico').insert({
+    clube_id: clubeId,
+    tipo: 'bug_ppp',
+    valor_delta: delta,
+    valor_resultante: stoplossAtual + delta,
+    motivo: `Bug do PPPoker: ${descricao}`,
+    criado_por: userData.user?.id ?? null,
+  })
+  if (histErr) throw histErr
 }
 
 // Reverte a Margem de Monitoria ativa (soma um delta negativo igual ao que

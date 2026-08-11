@@ -17,6 +17,7 @@ const TIPO_LABEL: Record<StoplossHistoricoTipo, string> = {
   ajuste_suporte: 'stoploss.tipo_ajuste',
   caucao: 'stoploss.tipo_caucao',
   margem_monitoria: 'stoploss.tipo_margem',
+  bug_ppp: 'stoploss.tipo_bug_ppp',
 }
 
 export function ExtratoStoploss() {
