@@ -9,7 +9,7 @@ import { Plus } from 'lucide-react'
 import { MOEDAS } from '@/lib/moedas'
 import { useI18n } from '@/lib/i18n'
 
-const EMPTY: SuperLeagueForm = { name: '', moeda: 'USD', plataforma_id: null, mega_liga_id: null }
+const EMPTY: SuperLeagueForm = { name: '', moeda: 'USD', plataforma_id: null, mega_liga_id: null, projeto: null }
 
 export default function SuperLigasPage() {
   const { t } = useI18n()
@@ -75,6 +75,7 @@ export default function SuperLigasPage() {
           { key: 'moeda', label: 'Moeda' },
           { key: 'plataformas', label: 'Plataforma', render: (_: any, row: SuperLeague) => row.plataformas?.nome ?? '—' },
           { key: 'mega_ligas', label: 'Mega Liga', render: (_: any, row: SuperLeague) => row.mega_ligas?.nome ?? '—' },
+          { key: 'projeto', label: 'Projeto', render: (v: string | null) => v ?? '—' },
           { key: 'created_at', label: 'Criado em', render: (v: string) => new Date(v).toLocaleDateString('pt-BR') }
         ]}
         data={items}
@@ -89,11 +90,12 @@ export default function SuperLigasPage() {
         onClose={() => { setModalOpen(false); setEditing(null) }}
         onSave={handleSave}
         saving={saving}
-        initialData={editing ? { name: editing.name, moeda: editing.moeda, plataforma_id: editing.plataforma_id, mega_liga_id: editing.mega_liga_id } : EMPTY}
+        initialData={editing ? { name: editing.name, moeda: editing.moeda, plataforma_id: editing.plataforma_id, mega_liga_id: editing.mega_liga_id, projeto: editing.projeto } : EMPTY}
         fields={[
           { key: 'name', label: 'Nome', type: 'text', required: true, placeholder: 'Ex: Grupo Brasil' },
           { key: 'moeda', label: 'Moeda', type: 'select', required: true, options: MOEDAS },
-          { key: 'mega_liga_id', label: 'Mega Liga', type: 'busca', options: mlOptions }
+          { key: 'mega_liga_id', label: 'Mega Liga', type: 'busca', options: mlOptions },
+          { key: 'projeto', label: 'Projeto (opcional)', type: 'text', placeholder: 'Deixe em branco se já herda da Mega Liga' },
         ]}
       />
 

@@ -4,6 +4,7 @@ import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
+import { getStoplossAtual } from '@/lib/stoploss'
 import type { StoplossAjuste } from '@/lib/types'
 
 function formatMoeda(v: number) {
@@ -23,7 +24,7 @@ export function FilaAprovacaoStoploss() {
     setLoading(true)
     const { data } = await supabase
       .from('stoploss_ajustes')
-      .select('*, clubs(name, stoploss_atual)')
+      .select('*, clubs(name)')
       .eq('status', 'pendente')
       .order('criado_em', { ascending: true })
     setPendentes((data ?? []) as unknown as StoplossAjuste[])
@@ -36,12 +37,9 @@ export function FilaAprovacaoStoploss() {
     setProcessandoId(a.id); setError(null)
     try {
       const { data: userData } = await supabase.auth.getUser()
-      const atual = a.clubs?.stoploss_atual ?? 0
+      const atual = await getStoplossAtual(a.clube_id)
       const delta = a.natureza === 'credito' ? a.valor : -a.valor
       const resultante = atual + delta
-
-      const { error: clubErr } = await supabase.from('clubs').update({ stoploss_atual: resultante }).eq('id', a.clube_id)
-      if (clubErr) throw clubErr
 
       const { error: updErr } = await supabase.from('stoploss_ajustes').update({
         status: 'aprovado', aprovado_por: userData.user?.id ?? null, aprovado_em: new Date().toISOString(),

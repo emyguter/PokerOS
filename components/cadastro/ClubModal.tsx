@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { RegrasAplicadas } from './RegrasAplicadas'
 import { StepModal, type ModalStep } from './StepModal'
 import { BuscaSelect } from '@/components/BuscaSelect'
+import { getStoplossAtual } from '@/lib/stoploss'
 
 interface Props {
   open: boolean
@@ -24,7 +25,7 @@ const EMPTY: ClubForm = {
   taxa_tipo: 'fixa', fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: 9, taxa_op_tipo: 'fixa',
   spinup_pct: null, rebate_pct: null, crypto_rebate_pct: null, rakeback_pct: null, security: null,
   taxa_variavel_nome: null, taxa_variavel_indicador: null, taxa_variavel_regra: null,
-  caucao_atual: null, stoploss_inicial: null, ratio_caucao_stoploss: null,
+  caucao_atual: null, stoploss_inicial: null, ratio_caucao_stoploss: null, projeto: null,
   plataforma_id: null, operador_ext_id: null, operador_nickname: null, rebate_ativo: false,
 }
 
@@ -47,7 +48,7 @@ function toForm(c: Club): ClubForm {
     crypto_rebate_pct: c.crypto_rebate_pct, rakeback_pct: c.rakeback_pct, security: c.security,
     taxa_variavel_nome: c.taxa_variavel_nome, taxa_variavel_indicador: c.taxa_variavel_indicador,
     taxa_variavel_regra: c.taxa_variavel_regra, caucao_atual: c.caucao_atual, stoploss_inicial: c.stoploss_inicial,
-    ratio_caucao_stoploss: c.ratio_caucao_stoploss,
+    ratio_caucao_stoploss: c.ratio_caucao_stoploss, projeto: c.projeto ?? null,
     plataforma_id: c.plataforma_id ?? null,
     operador_ext_id: c.operador_ext_id ?? null,
     operador_nickname: c.operador_nickname ?? null,
@@ -78,6 +79,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   const [clubeNaoEncontrado, setClubeNaoEncontrado] = useState(false)
 
   const clubeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [stoplossAtual, setStoplossAtual] = useState<number | null>(null)
 
   useEffect(() => {
     setForm(editing ? toForm(editing) : EMPTY)
@@ -88,6 +90,8 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     setBuscaIndClub('')
     setResultadosIndClub([])
     setClubeLocked(!!editing?.name && !!editing?.external_id)
+    setStoplossAtual(null)
+    if (editing) getStoplossAtual(editing.id).then(setStoplossAtual)
   }, [editing, open])
 
   useEffect(() => {
@@ -172,6 +176,9 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               vazio="— Nenhuma —"
               className={inputCls}
             />
+          </Fld>
+          <Fld label="Projeto (opcional)">
+            <input type="text" value={form.projeto ?? ''} onChange={e => set('projeto', e.target.value || null)} placeholder="Ex: Sul HG — só se esse clube não herdar de nenhuma liga" className={inputCls} />
           </Fld>
         </div>
       )}
@@ -272,8 +279,8 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               )}
               {stoplossTravado && <p className="text-xs text-gray-500 mt-1.5">Travado depois de definido — o histórico do clube parte daqui.</p>}
             </Fld>
-            {editing?.stoploss_atual != null && (
-              <div className="col-span-2 text-sm text-gray-400">Stoploss Atual: <span className="text-gold font-medium">{editing.stoploss_atual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> <span className="text-xs text-gray-600">(ajustado na tela de Controle de Stoploss)</span></div>
+            {stoplossAtual != null && (
+              <div className="col-span-2 text-sm text-gray-400">Stoploss Atual: <span className="text-gold font-medium">{stoplossAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> <span className="text-xs text-gray-600">(calculado ao vivo — Inicial + Caução×Ratio + ajustes)</span></div>
             )}
             <Fld label="Ratio Caução → Stoploss">
               <NumInput value={form.ratio_caucao_stoploss} onChange={v => set('ratio_caucao_stoploss', v)} placeholder="Ex: 2" />
