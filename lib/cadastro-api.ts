@@ -9,6 +9,7 @@ import type {
   Jogador, JogadorForm,
   AgenteJogador, ClubeAgente,
   Regra, RegraForm, RegraCondicaoForm, RegraVinculo, EntidadeTipo, CampoClube,
+  MoedaCotacao, MoedaCotacaoForm,
 } from './types'
 
 const supabase = createClient(
@@ -35,6 +36,40 @@ export async function updatePlataforma(id: string, form: PlataformaForm): Promis
 }
 export async function deletePlataforma(id: string): Promise<void> {
   const { error } = await supabase.from('plataformas').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ─── MOEDAS COTAÇÃO ──────────────────────────────────────────
+
+export async function getMoedasCotacao(): Promise<MoedaCotacao[]> {
+  const { data, error } = await supabase.from('moedas_cotacao').select('*').order('moeda')
+  if (error) throw error
+  return data
+}
+export async function createMoedaCotacao(form: MoedaCotacaoForm): Promise<MoedaCotacao> {
+  const { data, error } = await supabase.from('moedas_cotacao').insert(form).select().single()
+  if (error) throw error
+  return data
+}
+export async function updateMoedaCotacao(id: string, form: MoedaCotacaoForm): Promise<MoedaCotacao> {
+  const { data, error } = await supabase.from('moedas_cotacao').update(form).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}
+export async function deleteMoedaCotacao(id: string): Promise<void> {
+  const { error } = await supabase.from('moedas_cotacao').delete().eq('id', id)
+  if (error) throw error
+}
+
+// Chamado pelo popup de "Cotação do Dia" na tela de Acertos: grava o valor
+// confirmado/preenchido pro dia de hoje (data local, não UTC — cotação é
+// por dia do usuário, não por fuso do servidor).
+export async function confirmarCotacaoDoDia(moeda: string, valor: number): Promise<void> {
+  const hoje = new Date()
+  const dataLocal = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`
+  const { error } = await supabase
+    .from('moedas_cotacao')
+    .upsert({ moeda, tipo: 'cotacao_dia', valor, atualizado_em: dataLocal }, { onConflict: 'moeda' })
   if (error) throw error
 }
 

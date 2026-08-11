@@ -73,6 +73,27 @@ export type LeagueForm = {
   conversao_dia: boolean
 }
 
+// ─── CADASTRO DE MOEDAS ──────────────────────────────────────
+// Taxa de câmbio por moeda estrangeira. 'padrao' fica valendo até trocar
+// manualmente; 'cotacao_dia' precisa ser confirmada/preenchida toda vez que
+// for calcular Acertos naquele dia (ver `atualizado_em`).
+export type MoedaCotacaoTipo = 'padrao' | 'cotacao_dia'
+
+export type MoedaCotacao = {
+  id: string
+  moeda: string
+  tipo: MoedaCotacaoTipo
+  valor: number | null
+  atualizado_em: string | null
+  created_at: string
+}
+
+export type MoedaCotacaoForm = {
+  moeda: string
+  tipo: MoedaCotacaoTipo
+  valor: number | null
+}
+
 export type Club = {
   id: string
   league_id: string | null
