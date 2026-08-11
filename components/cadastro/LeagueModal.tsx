@@ -20,7 +20,8 @@ interface Props {
 const EMPTY: LeagueForm = {
   name: '', moeda: 'BRL', taxa_app_pct: null, ratio: null, super_league_id: null,
   plataforma_id: null, clube_ext_id: null, clube_nickname: null,
-  operador_ext_id: null, operador_nickname: null, moeda_acerto: 'BRL', conversao_dia: false
+  operador_ext_id: null, operador_nickname: null, moeda_acerto: 'BRL', conversao_dia: false,
+  projeto: null,
 }
 
 const inputCls = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20'
@@ -60,6 +61,7 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
         operador_nickname: editing.operador_nickname ?? null,
         moeda_acerto: editing.moeda_acerto ?? 'BRL',
         conversao_dia: editing.conversao_dia ?? false,
+        projeto: editing.projeto ?? null,
       })
     } else {
       setForm(EMPTY)
@@ -111,6 +113,9 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
                 </Fld>
                 <p className="text-xs text-gray-500 pt-7">Moeda é a que a liga reporta o rake. Moeda do Acerto é a que o acerto fecha — só difere quando precisa converter (ative “Conversão do Dia” abaixo).</p>
               </div>
+              <Fld label="Projeto (opcional)">
+                <input type="text" value={form.projeto ?? ''} onChange={e => set('projeto', e.target.value || null)} placeholder="Ex: Órion — deixe em branco se já herda da Superliga/Mega Liga" className={inputCls} />
+              </Fld>
             </Sec>
 
             <Sec title="Identificação pra Importação">

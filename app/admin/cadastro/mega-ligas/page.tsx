@@ -9,7 +9,7 @@ import { Plus } from 'lucide-react'
 import { MOEDAS } from '@/lib/moedas'
 import { useI18n } from '@/lib/i18n'
 
-const EMPTY: MegaLigaForm = { nome: '', moeda: 'USD' }
+const EMPTY: MegaLigaForm = { nome: '', moeda: 'USD', projeto: null }
 
 export default function MegaLigasPage() {
   const { t } = useI18n()
@@ -65,6 +65,7 @@ export default function MegaLigasPage() {
         columns={[
           { key: 'nome', label: 'Nome' },
           { key: 'moeda', label: 'Moeda' },
+          { key: 'projeto', label: 'Projeto', render: (v: string | null) => v ?? '—' },
           { key: 'created_at', label: 'Criado em', render: (v: string) => new Date(v).toLocaleDateString('pt-BR') }
         ]}
         data={items}
@@ -82,7 +83,8 @@ export default function MegaLigasPage() {
         initialData={editing ?? EMPTY}
         fields={[
           { key: 'nome', label: 'Nome', type: 'text', required: true, placeholder: 'Ex: Super Group' },
-          { key: 'moeda', label: 'Moeda', type: 'select', required: true, options: MOEDAS }
+          { key: 'moeda', label: 'Moeda', type: 'select', required: true, options: MOEDAS },
+          { key: 'projeto', label: 'Projeto (opcional)', type: 'text', placeholder: 'Ex: LP — tudo embaixo herda esse projeto' },
         ]}
       />
 

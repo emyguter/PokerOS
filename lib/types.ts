@@ -14,12 +14,14 @@ export type MegaLiga = {
   id: string
   nome: string
   moeda: string
+  projeto: string | null
   created_at: string
 }
 
 export type MegaLigaForm = {
   nome: string
   moeda: string
+  projeto: string | null
 }
 
 export type SuperLeague = {
@@ -28,6 +30,7 @@ export type SuperLeague = {
   moeda: string
   plataforma_id: string | null
   mega_liga_id: string | null
+  projeto: string | null
   created_at: string
   plataformas?: Plataforma
   mega_ligas?: MegaLiga
@@ -38,6 +41,7 @@ export type SuperLeagueForm = {
   moeda: string
   plataforma_id: string | null
   mega_liga_id: string | null
+  projeto: string | null
 }
 
 export type League = {
@@ -54,6 +58,7 @@ export type League = {
   operador_nickname: string | null
   moeda_acerto: string | null
   conversao_dia: boolean
+  projeto: string | null
   created_at: string
   super_leagues?: SuperLeague & { plataformas?: Plataforma }
 }
@@ -71,6 +76,7 @@ export type LeagueForm = {
   operador_nickname: string | null
   moeda_acerto: string | null
   conversao_dia: boolean
+  projeto: string | null
 }
 
 // ─── CADASTRO DE MOEDAS ──────────────────────────────────────
@@ -119,6 +125,7 @@ export type Club = {
   stoploss_atual: number | null
   ratio_caucao_stoploss: number | null
   margem_monitoria_ativa: boolean
+  projeto: string | null
   plataforma_id: string | null
   operador_ext_id: string | null
   operador_nickname: string | null
@@ -149,6 +156,7 @@ export type ClubForm = {
   caucao_atual: number | null
   stoploss_inicial: number | null
   ratio_caucao_stoploss: number | null
+  projeto: string | null
   plataforma_id: string | null
   operador_ext_id: string | null
   operador_nickname: string | null

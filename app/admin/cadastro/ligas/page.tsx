@@ -11,7 +11,8 @@ import { useI18n } from '@/lib/i18n'
 const EMPTY: LeagueForm = {
   name: '', moeda: 'BRL', taxa_app_pct: null, ratio: null, super_league_id: null,
   plataforma_id: null, clube_ext_id: null, clube_nickname: null,
-  operador_ext_id: null, operador_nickname: null, moeda_acerto: 'BRL', conversao_dia: false
+  operador_ext_id: null, operador_nickname: null, moeda_acerto: 'BRL', conversao_dia: false,
+  projeto: null,
 }
 
 export default function LigasPage() {
@@ -76,6 +77,7 @@ export default function LigasPage() {
           { key: 'plataformas', label: 'Plataforma', render: (_: any, row: League) => row.super_leagues?.plataformas?.nome ?? '—' },
           { key: 'super_leagues', label: 'Superliga', render: (_: any, row: League) => row.super_leagues?.name ?? '—' },
           { key: 'conversao_dia', label: 'Conv. Dia', render: (v: boolean) => v ? '✓' : '—' },
+          { key: 'projeto', label: 'Projeto', render: (v: string | null) => v ?? '—' },
         ]}
         data={items}
         loading={loading}

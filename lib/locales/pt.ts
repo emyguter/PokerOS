@@ -136,6 +136,7 @@ export const pt = {
     titulo: 'Controle de Stoploss', subtitulo: 'Limite de perda por clube — inicial, atual e ajustes do Suporte',
     aba_relatorio: 'Relatório', aba_resumo: 'Resumo', aba_extrato: 'Extrato', aba_fila: 'Fila de Aprovação',
     clube: 'Clube', liga: 'Liga', ratio: 'Ratio', total: 'Total', buscar_clube: 'Buscar clube ou liga...',
+    projeto: 'Projeto', todos_projetos: 'Todos os projetos',
     selecione_clube: 'Selecione um clube.',
     stoploss_inicial: 'Stoploss Inicial', stoploss_atual: 'Stoploss Atual', caucao_atual: 'Caução Atual',
     solicitar_ajuste: 'Solicitar ajuste', natureza: 'Natureza', valor: 'Valor', justificativa: 'Justificativa',

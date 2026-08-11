@@ -25,7 +25,7 @@ const EMPTY: ClubForm = {
   taxa_tipo: 'fixa', fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: 9, taxa_op_tipo: 'fixa',
   spinup_pct: null, rebate_pct: null, crypto_rebate_pct: null, rakeback_pct: null, security: null,
   taxa_variavel_nome: null, taxa_variavel_indicador: null, taxa_variavel_regra: null,
-  caucao_atual: null, stoploss_inicial: null, ratio_caucao_stoploss: null,
+  caucao_atual: null, stoploss_inicial: null, ratio_caucao_stoploss: null, projeto: null,
   plataforma_id: null, operador_ext_id: null, operador_nickname: null, rebate_ativo: false,
 }
 
@@ -48,7 +48,7 @@ function toForm(c: Club): ClubForm {
     crypto_rebate_pct: c.crypto_rebate_pct, rakeback_pct: c.rakeback_pct, security: c.security,
     taxa_variavel_nome: c.taxa_variavel_nome, taxa_variavel_indicador: c.taxa_variavel_indicador,
     taxa_variavel_regra: c.taxa_variavel_regra, caucao_atual: c.caucao_atual, stoploss_inicial: c.stoploss_inicial,
-    ratio_caucao_stoploss: c.ratio_caucao_stoploss,
+    ratio_caucao_stoploss: c.ratio_caucao_stoploss, projeto: c.projeto ?? null,
     plataforma_id: c.plataforma_id ?? null,
     operador_ext_id: c.operador_ext_id ?? null,
     operador_nickname: c.operador_nickname ?? null,
@@ -176,6 +176,9 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               vazio="— Nenhuma —"
               className={inputCls}
             />
+          </Fld>
+          <Fld label="Projeto (opcional)">
+            <input type="text" value={form.projeto ?? ''} onChange={e => set('projeto', e.target.value || null)} placeholder="Ex: Sul HG — só se esse clube não herdar de nenhuma liga" className={inputCls} />
           </Fld>
         </div>
       )}
