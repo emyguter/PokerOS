@@ -42,18 +42,22 @@ export default function RegrasPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    try { setItems(await getRegras()) }
+    try {
+      // Busca indicadores junto — se algum foi criado direto no Supabase
+      // enquanto essa página já estava aberta, ele aparece assim que a
+      // lista de regras recarrega (não só quando a página é recarregada).
+      const [regras, { data: ind }] = await Promise.all([
+        getRegras(),
+        supabase.from('indicadores').select('id, nome, descricao'),
+      ])
+      setItems(regras)
+      setIndicadores(new Map((ind ?? []).map(i => [i.id as string, { nome: i.nome as string, descricao: i.descricao as string | null }])))
+    }
     catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setLoading(false) }
   }, [])
 
   useEffect(() => { load() }, [load])
-
-  useEffect(() => {
-    supabase.from('indicadores').select('id, nome, descricao').then(({ data }) => {
-      setIndicadores(new Map((data ?? []).map(i => [i.id as string, { nome: i.nome as string, descricao: i.descricao as string | null }])))
-    })
-  }, [])
 
   async function handleSave(form: RegraForm) {
     setSaving(true); setError(null)
