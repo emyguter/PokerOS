@@ -133,8 +133,9 @@ export const pt = {
   },
   stoploss: {
     titulo: 'Controle de Stoploss', subtitulo: 'Limite de perda por clube — inicial, atual e ajustes do Suporte',
-    aba_resumo: 'Resumo', aba_extrato: 'Extrato', aba_fila: 'Fila de Aprovação',
-    clube: 'Clube', selecione_clube: 'Selecione um clube.',
+    aba_relatorio: 'Relatório', aba_resumo: 'Resumo', aba_extrato: 'Extrato', aba_fila: 'Fila de Aprovação',
+    clube: 'Clube', liga: 'Liga', ratio: 'Ratio', total: 'Total', buscar_clube: 'Buscar clube ou liga...',
+    selecione_clube: 'Selecione um clube.',
     stoploss_inicial: 'Stoploss Inicial', stoploss_atual: 'Stoploss Atual', caucao_atual: 'Caução Atual',
     solicitar_ajuste: 'Solicitar ajuste', natureza: 'Natureza', valor: 'Valor', justificativa: 'Justificativa',
     justificativa_placeholder: 'Ex: liberado pela gerência, bug do PPPoker...',

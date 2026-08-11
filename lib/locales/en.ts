@@ -135,8 +135,9 @@ export const en: typeof pt = {
   },
   stoploss: {
     titulo: 'Stoploss Control', subtitulo: 'Loss limit per club — initial, current and Support adjustments',
-    aba_resumo: 'Overview', aba_extrato: 'Statement', aba_fila: 'Approval Queue',
-    clube: 'Club', selecione_clube: 'Select a club.',
+    aba_relatorio: 'Report', aba_resumo: 'Club Detail', aba_extrato: 'Statement', aba_fila: 'Approval Queue',
+    clube: 'Club', liga: 'League', ratio: 'Ratio', total: 'Total', buscar_clube: 'Search club or league...',
+    selecione_clube: 'Select a club.',
     stoploss_inicial: 'Initial Stoploss', stoploss_atual: 'Current Stoploss', caucao_atual: 'Current Deposit',
     solicitar_ajuste: 'Request adjustment', natureza: 'Nature', valor: 'Amount', justificativa: 'Justification',
     justificativa_placeholder: 'E.g.: cleared by management, PPPoker bug...',
