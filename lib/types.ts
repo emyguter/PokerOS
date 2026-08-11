@@ -96,6 +96,7 @@ export type Club = {
   caucao_atual: number | null
   stoploss_inicial: number | null
   stoploss_atual: number | null
+  ratio_caucao_stoploss: number | null
   plataforma_id: string | null
   operador_ext_id: string | null
   operador_nickname: string | null
@@ -125,6 +126,7 @@ export type ClubForm = {
   taxa_op_tipo: string | null
   caucao_atual: number | null
   stoploss_inicial: number | null
+  ratio_caucao_stoploss: number | null
   plataforma_id: string | null
   operador_ext_id: string | null
   operador_nickname: string | null
@@ -323,7 +325,7 @@ export type StoplossAjuste = {
   clubs?: { name: string; stoploss_atual: number | null }
 }
 
-export type StoplossHistoricoTipo = 'inicial' | 'antecipacao' | 'ajuste_suporte'
+export type StoplossHistoricoTipo = 'inicial' | 'antecipacao' | 'ajuste_suporte' | 'caucao'
 
 export type StoplossHistoricoItem = {
   id: string

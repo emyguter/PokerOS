@@ -15,7 +15,7 @@ interface Pendente {
   data_lancamento: string
   origem: 'suporte' | 'genia'
   clube_id: string
-  clubs: { name: string; caucao_atual: number | null } | null
+  clubs: { name: string; caucao_atual: number | null; stoploss_atual: number | null; ratio_caucao_stoploss: number | null } | null
 }
 
 function formatMoeda(v: number) {
@@ -35,7 +35,7 @@ export function FilaValidacao({ refreshKey }: { refreshKey?: number } = {}) {
     setLoading(true)
     const { data } = await supabase
       .from('lancamentos')
-      .select('id, tipo, natureza, valor, descricao, data_lancamento, origem, clube_id, clubs(name, caucao_atual)')
+      .select('id, tipo, natureza, valor, descricao, data_lancamento, origem, clube_id, clubs(name, caucao_atual, stoploss_atual, ratio_caucao_stoploss)')
       .eq('status', 'em_validacao')
       .order('data_lancamento', { ascending: true })
     setPendentes((data ?? []) as unknown as Pendente[])
@@ -57,6 +57,29 @@ export function FilaValidacao({ refreshKey }: { refreshKey?: number } = {}) {
         const delta = p.natureza === 'credito' ? p.valor : -p.valor
         const { error: clubErr } = await supabase.from('clubs').update({ caucao_atual: atual + delta }).eq('id', p.clube_id)
         if (clubErr) throw clubErr
+
+        // Ratio Caução → Stoploss: só entra se o clube tiver o ratio
+        // configurado, e só pra Caução mesmo (não qualquer lançamento).
+        const ratio = p.clubs?.ratio_caucao_stoploss
+        if (ratio != null) {
+          const stoplossAtual = p.clubs?.stoploss_atual ?? 0
+          const stoplossDelta = delta * ratio
+          const stoplossResultante = stoplossAtual + stoplossDelta
+          const { error: stoplossErr } = await supabase.from('clubs').update({ stoploss_atual: stoplossResultante }).eq('id', p.clube_id)
+          if (stoplossErr) throw stoplossErr
+
+          const { data: userData } = await supabase.auth.getUser()
+          const { error: histErr } = await supabase.from('stoploss_historico').insert({
+            clube_id: p.clube_id,
+            tipo: 'caucao',
+            valor_delta: stoplossDelta,
+            valor_resultante: stoplossResultante,
+            motivo: `Caução confirmada (ratio ${ratio}x)`,
+            lancamento_id: p.id,
+            criado_por: userData.user?.id ?? null,
+          })
+          if (histErr) throw histErr
+        }
       }
 
       await load()

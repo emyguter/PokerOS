@@ -7,7 +7,7 @@ import { errMsg } from '@/lib/errors'
 import type { StoplossAjuste } from '@/lib/types'
 
 interface ClubeOpcao { id: string; name: string }
-interface ClubeResumo { name: string; stoploss_inicial: number | null; stoploss_atual: number | null; caucao_atual: number | null }
+interface ClubeResumo { name: string; stoploss_inicial: number | null; stoploss_atual: number | null; caucao_atual: number | null; ratio_caucao_stoploss: number | null }
 
 function formatMoeda(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -43,7 +43,7 @@ export function ResumoStoploss() {
     if (!clubeId) { setClube(null); setAjustes([]); return }
     setLoading(true)
     const [{ data: c }, { data: a }] = await Promise.all([
-      supabase.from('clubs').select('name, stoploss_inicial, stoploss_atual, caucao_atual').eq('id', clubeId).single(),
+      supabase.from('clubs').select('name, stoploss_inicial, stoploss_atual, caucao_atual, ratio_caucao_stoploss').eq('id', clubeId).single(),
       supabase.from('stoploss_ajustes').select('*').eq('clube_id', clubeId).order('criado_em', { ascending: false }).limit(20),
     ])
     setClube(c ?? null)
@@ -109,6 +109,11 @@ export function ResumoStoploss() {
               <p className="text-lg font-semibold text-white">{clube?.caucao_atual != null ? formatMoeda(clube.caucao_atual) : '—'}</p>
             </div>
           </div>
+          <p className="text-xs text-gray-500">
+            {clube?.ratio_caucao_stoploss != null
+              ? t('stoploss.ratio_ativo', { ratio: clube.ratio_caucao_stoploss })
+              : t('stoploss.ratio_inativo')}
+          </p>
 
           <div className="rounded-xl border border-white/10 bg-surface2/50 p-5 space-y-4">
             <button type="button" onClick={() => setAberto(v => !v)} className="flex items-center gap-2 text-sm font-medium text-gold hover:text-gold/80 transition-colors">
