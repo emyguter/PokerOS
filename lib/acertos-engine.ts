@@ -318,6 +318,14 @@ export async function processarAcertos(importId: string): Promise<{
 
     if (clubsError) throw new Error(clubsError.message);
 
+    // Liga/plataforma do import, pra pré-cadastro automático herdar — o
+    // clube que aparece na planilha mas ainda não foi cadastrado.
+    const { data: importInfo } = await supabase
+      .from("imports")
+      .select("league_id, plataforma_id")
+      .eq("id", importId)
+      .single();
+
     const clubByExtId = new Map<string, ClubSettings>(
       (clubs ?? []).filter((c) => c.external_id).map((c) => [String(c.external_id), c])
     );
@@ -352,26 +360,50 @@ export async function processarAcertos(importId: string): Promise<{
     const acertos: AcertoCalculado[] = [];
 
     for (const row of rows as ImportRow[]) {
-      const club =
+      let club =
         clubByExtId.get(String(row.club_external_id)) ??
         clubByName.get(row.club_name.toLowerCase().trim());
 
       if (!club) {
-        acertos.push({
-          import_id: row.import_id, club_id: null,
-          club_name: row.club_name, club_external_id: row.club_external_id,
-          settlement_type: "sem_regra",
-          rake_mtt: Math.abs(row.rake_mtt ?? 0),
-          rake_cash: Math.abs(row.rake_cash ?? 0),
-          rake_spinup: Math.abs(row.rake_spinup ?? 0),
-          rake_total: Math.abs(row.rake_total ?? 0),
-          player_result: row.player_result ?? 0,
-          fee_calculado: 0, rebate_calculado: 0, valor_acerto: 0,
-          fee_mtt_valor: 0, fee_cash_valor: 0, fee_operacional_valor: 0, fee_spinup_valor: 0,
-          taxa_cash_pct_aplicada: null,
-          status: "sem_regra",
-        });
-        continue;
+        // Pré-cadastro automático: o clube apareceu na planilha mas ainda
+        // não foi cadastrado — cria só com o básico (nome, ID externo,
+        // liga/plataforma do import). Taxas, regras, caução e stoploss
+        // ficam em branco de propósito, pra alguém completar depois (a
+        // etapa Regras do Cadastro avisa quando falta configurar).
+        const { data: novoClube } = await supabase
+          .from("clubs")
+          .insert({
+            name: row.club_name,
+            external_id: row.club_external_id,
+            league_id: importInfo?.league_id ?? null,
+            plataforma_id: importInfo?.plataforma_id ?? null,
+            fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: null, spinup_pct: null,
+            caucao_atual: null, stoploss_inicial: null,
+          })
+          .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct")
+          .single();
+
+        if (!novoClube) {
+          acertos.push({
+            import_id: row.import_id, club_id: null,
+            club_name: row.club_name, club_external_id: row.club_external_id,
+            settlement_type: "sem_regra",
+            rake_mtt: Math.abs(row.rake_mtt ?? 0),
+            rake_cash: Math.abs(row.rake_cash ?? 0),
+            rake_spinup: Math.abs(row.rake_spinup ?? 0),
+            rake_total: Math.abs(row.rake_total ?? 0),
+            player_result: row.player_result ?? 0,
+            fee_calculado: 0, rebate_calculado: 0, valor_acerto: 0,
+            fee_mtt_valor: 0, fee_cash_valor: 0, fee_operacional_valor: 0, fee_spinup_valor: 0,
+            taxa_cash_pct_aplicada: null,
+            status: "sem_regra",
+          });
+          continue;
+        }
+
+        club = novoClube as ClubSettings;
+        clubByExtId.set(String(club.external_id), club);
+        clubByName.set(club.name.toLowerCase().trim(), club);
       }
       const wtr4Semanas = calcularWtr4Semanas(row as ImportRow, historicoWtrPorClube.get(row.club_external_id) ?? []);
       acertos.push(calcularAcerto(row as ImportRow, club, condicoesPorClube.get(club.id) ?? CONDICOES_VAZIAS, wtr4Semanas));
