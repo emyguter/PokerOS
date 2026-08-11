@@ -97,11 +97,19 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
                     className={inputCls}
                   />
                 </Fld>
+                <Fld label="Moeda">
+                  <select value={form.moeda ?? 'BRL'} onChange={e => set('moeda', e.target.value)} className={inputCls}>
+                    {MOEDAS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select>
+                </Fld>
+              </div>
+              <div className="grid grid-cols-2 gap-4 items-start">
                 <Fld label="Moeda do Acerto">
                   <select value={form.moeda_acerto ?? 'BRL'} onChange={e => set('moeda_acerto', e.target.value)} className={inputCls}>
                     {MOEDAS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                   </select>
                 </Fld>
+                <p className="text-xs text-gray-500 pt-7">Moeda é a que a liga reporta o rake. Moeda do Acerto é a que o acerto fecha — só difere quando precisa converter (ative “Conversão do Dia” abaixo).</p>
               </div>
             </Sec>
 
