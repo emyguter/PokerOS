@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { errMsg } from '@/lib/errors'
+import { getStoplossAtual } from '@/lib/stoploss'
 
 export interface Entrada {
   id: string
@@ -13,7 +14,7 @@ export interface Entrada {
   origem: 'suporte' | 'genia'
   status: string | null
   clube_id: string
-  clubs: { name: string; stoploss_atual: number | null } | null
+  clubs: { name: string } | null
 }
 
 export type Motivo = 'sem_par' | 'divergencia'
@@ -70,7 +71,7 @@ export function useConciliacao() {
     try {
       let query = supabase
         .from('lancamentos')
-        .select('id, tipo, natureza, valor, descricao, data_lancamento, origem, status, clube_id, conciliado_com, clubs(name, stoploss_atual)')
+        .select('id, tipo, natureza, valor, descricao, data_lancamento, origem, status, clube_id, conciliado_com, clubs(name)')
         .neq('tipo', 'caucao')
         .gte('data_lancamento', dataInicio)
         .order('data_lancamento', { ascending: true })
@@ -157,10 +158,11 @@ export function useConciliacao() {
       if (antecipacoes.length > 0) {
         const { data: userData } = await supabase.auth.getUser()
         for (const { suporte } of antecipacoes) {
-          const atual = suporte.clubs?.stoploss_atual ?? 0
+          // Stoploss Atual é recalculado ao vivo — só precisa registrar o
+          // delta no histórico, não somar num campo salvo.
+          const atual = await getStoplossAtual(suporte.clube_id)
           const delta = suporte.natureza === 'credito' ? suporte.valor : -suporte.valor
           const resultante = atual + delta
-          await supabase.from('clubs').update({ stoploss_atual: resultante }).eq('id', suporte.clube_id)
           await supabase.from('stoploss_historico').insert({
             clube_id: suporte.clube_id,
             tipo: 'antecipacao',

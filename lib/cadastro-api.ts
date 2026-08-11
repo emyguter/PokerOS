@@ -185,12 +185,11 @@ export async function deleteClub(id: string): Promise<void> {
 }
 
 // Primeira vez que o Stoploss Inicial é definido (cadastro trava depois
-// disso — ver ClubModal): espelha o valor pra stoploss_atual e abre a
-// primeira linha do histórico, pra sempre dar pra ver de onde o clube partiu.
+// disso — ver ClubModal): abre a primeira linha do histórico, pra sempre dar
+// pra ver de onde o clube partiu (Stoploss Atual é calculado ao vivo a
+// partir de clubs.stoploss_inicial, não precisa espelhar em outro campo).
 export async function initStoplossAtual(clubeId: string, valor: number): Promise<void> {
   const { data: userData } = await supabase.auth.getUser()
-  const { error: updErr } = await supabase.from('clubs').update({ stoploss_atual: valor }).eq('id', clubeId)
-  if (updErr) throw updErr
   const { error: histErr } = await supabase.from('stoploss_historico').insert({
     clube_id: clubeId,
     tipo: 'inicial',

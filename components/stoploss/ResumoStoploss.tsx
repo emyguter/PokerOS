@@ -1,14 +1,16 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { ChevronDown, ChevronUp, Loader2, Send } from 'lucide-react'
+import { ChevronDown, ChevronUp, Loader2, Send, ShieldAlert } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
+import { usePermissions } from '@/lib/permissions'
 import { BuscaSelect } from '@/components/BuscaSelect'
+import { getStoplossAtual, aplicarMargemMonitoria, retirarMargemMonitoria } from '@/lib/stoploss'
 import type { StoplossAjuste } from '@/lib/types'
 
 interface ClubeOpcao { id: string; name: string }
-interface ClubeResumo { name: string; stoploss_inicial: number | null; stoploss_atual: number | null; caucao_atual: number | null; ratio_caucao_stoploss: number | null }
+interface ClubeResumo { name: string; stoploss_inicial: number | null; caucao_atual: number | null; ratio_caucao_stoploss: number | null; margem_monitoria_ativa: boolean }
 
 function formatMoeda(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -22,11 +24,15 @@ const STATUS_CLS: Record<string, string> = {
 
 export function ResumoStoploss() {
   const { t } = useI18n()
+  const { hasPermission } = usePermissions()
   const [clubes, setClubes] = useState<ClubeOpcao[]>([])
   const [clubeId, setClubeId] = useState('')
   const [clube, setClube] = useState<ClubeResumo | null>(null)
+  const [stoplossAtual, setStoplossAtual] = useState<number | null>(null)
   const [ajustes, setAjustes] = useState<StoplossAjuste[]>([])
   const [loading, setLoading] = useState(false)
+  const [processandoMargem, setProcessandoMargem] = useState(false)
+  const [erroMargem, setErroMargem] = useState<string | null>(null)
 
   const [aberto, setAberto] = useState(false)
   const [natureza, setNatureza] = useState<'credito' | 'debito'>('debito')
@@ -41,18 +47,34 @@ export function ResumoStoploss() {
   }, [])
 
   const load = useCallback(async () => {
-    if (!clubeId) { setClube(null); setAjustes([]); return }
+    if (!clubeId) { setClube(null); setStoplossAtual(null); setAjustes([]); return }
     setLoading(true)
-    const [{ data: c }, { data: a }] = await Promise.all([
-      supabase.from('clubs').select('name, stoploss_inicial, stoploss_atual, caucao_atual, ratio_caucao_stoploss').eq('id', clubeId).single(),
+    const [{ data: c }, atual, { data: a }] = await Promise.all([
+      supabase.from('clubs').select('name, stoploss_inicial, caucao_atual, ratio_caucao_stoploss, margem_monitoria_ativa').eq('id', clubeId).single(),
+      getStoplossAtual(clubeId),
       supabase.from('stoploss_ajustes').select('*').eq('clube_id', clubeId).order('criado_em', { ascending: false }).limit(20),
     ])
     setClube(c ?? null)
+    setStoplossAtual(atual)
     setAjustes((a ?? []) as StoplossAjuste[])
     setLoading(false)
   }, [clubeId])
 
   useEffect(() => { load() }, [load])
+
+  async function handleAplicarMargem() {
+    setProcessandoMargem(true); setErroMargem(null)
+    try { await aplicarMargemMonitoria(clubeId); await load() }
+    catch (err) { setErroMargem(errMsg(err)) }
+    finally { setProcessandoMargem(false) }
+  }
+
+  async function handleRetirarMargem() {
+    setProcessandoMargem(true); setErroMargem(null)
+    try { await retirarMargemMonitoria(clubeId); await load() }
+    catch (err) { setErroMargem(errMsg(err)) }
+    finally { setProcessandoMargem(false) }
+  }
 
   async function enviarSolicitacao(e: React.FormEvent) {
     e.preventDefault()
@@ -105,7 +127,7 @@ export function ResumoStoploss() {
             </div>
             <div className="rounded-xl border border-gold/30 bg-gold/5 p-4">
               <p className="text-xs text-gray-500">{t('stoploss.stoploss_atual')}</p>
-              <p className="text-lg font-semibold text-gold">{clube?.stoploss_atual != null ? formatMoeda(clube.stoploss_atual) : '—'}</p>
+              <p className="text-lg font-semibold text-gold">{stoplossAtual != null ? formatMoeda(stoplossAtual) : '—'}</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-surface2 p-4">
               <p className="text-xs text-gray-500">{t('stoploss.caucao_atual')}</p>
@@ -115,6 +137,28 @@ export function ResumoStoploss() {
           <p className="text-xs text-gray-500">
             {t('stoploss.ratio_ativo', { ratio: clube?.ratio_caucao_stoploss ?? 1 })}
           </p>
+
+          {erroMargem && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroMargem}</div>}
+
+          {clube?.margem_monitoria_ativa ? (
+            <div className="flex items-center justify-between p-3 rounded-lg border border-gold/30 bg-gold/5">
+              <p className="text-xs text-gray-300 flex items-center gap-2"><ShieldAlert size={14} className="text-gold" />{t('stoploss.margem_ativa')}</p>
+              {hasPermission('stoploss.aprovar') && (
+                <button type="button" onClick={handleRetirarMargem} disabled={processandoMargem} className="text-xs text-gold hover:underline disabled:opacity-50">
+                  {t('stoploss.margem_retirar')}
+                </button>
+              )}
+            </div>
+          ) : hasPermission('stoploss.margem_monitoria') && (
+            <button
+              type="button"
+              onClick={handleAplicarMargem}
+              disabled={processandoMargem}
+              className="flex items-center gap-2 px-4 py-2 border border-gold/30 text-gold rounded-lg text-sm font-medium hover:bg-gold/10 disabled:opacity-50 transition-colors w-fit"
+            >
+              {processandoMargem ? <Loader2 size={14} className="animate-spin" /> : <ShieldAlert size={14} />}{t('stoploss.margem_aplicar')}
+            </button>
+          )}
 
           <div className="rounded-xl border border-white/10 bg-surface2/50 p-5 space-y-4">
             <button type="button" onClick={() => setAberto(v => !v)} className="flex items-center gap-2 text-sm font-medium text-gold hover:text-gold/80 transition-colors">

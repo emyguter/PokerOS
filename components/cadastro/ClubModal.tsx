@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { RegrasAplicadas } from './RegrasAplicadas'
 import { StepModal, type ModalStep } from './StepModal'
 import { BuscaSelect } from '@/components/BuscaSelect'
+import { getStoplossAtual } from '@/lib/stoploss'
 
 interface Props {
   open: boolean
@@ -78,6 +79,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   const [clubeNaoEncontrado, setClubeNaoEncontrado] = useState(false)
 
   const clubeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [stoplossAtual, setStoplossAtual] = useState<number | null>(null)
 
   useEffect(() => {
     setForm(editing ? toForm(editing) : EMPTY)
@@ -88,6 +90,8 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     setBuscaIndClub('')
     setResultadosIndClub([])
     setClubeLocked(!!editing?.name && !!editing?.external_id)
+    setStoplossAtual(null)
+    if (editing) getStoplossAtual(editing.id).then(setStoplossAtual)
   }, [editing, open])
 
   useEffect(() => {
@@ -272,8 +276,8 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               )}
               {stoplossTravado && <p className="text-xs text-gray-500 mt-1.5">Travado depois de definido — o histórico do clube parte daqui.</p>}
             </Fld>
-            {editing?.stoploss_atual != null && (
-              <div className="col-span-2 text-sm text-gray-400">Stoploss Atual: <span className="text-gold font-medium">{editing.stoploss_atual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> <span className="text-xs text-gray-600">(ajustado na tela de Controle de Stoploss)</span></div>
+            {stoplossAtual != null && (
+              <div className="col-span-2 text-sm text-gray-400">Stoploss Atual: <span className="text-gold font-medium">{stoplossAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> <span className="text-xs text-gray-600">(calculado ao vivo — Inicial + Caução×Ratio + ajustes)</span></div>
             )}
             <Fld label="Ratio Caução → Stoploss">
               <NumInput value={form.ratio_caucao_stoploss} onChange={v => set('ratio_caucao_stoploss', v)} placeholder="Ex: 2" />

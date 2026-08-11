@@ -3,12 +3,12 @@ import { useState, useEffect, useMemo } from 'react'
 import { Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
+import { getStoplossAtualBatch } from '@/lib/stoploss'
 
 interface ClubeLinha {
   id: string
   name: string
   stoploss_inicial: number | null
-  stoploss_atual: number | null
   caucao_atual: number | null
   ratio_caucao_stoploss: number | null
   leagues: { name: string } | null
@@ -21,15 +21,21 @@ function formatMoeda(v: number) {
 export function RelatorioStoploss() {
   const { t } = useI18n()
   const [clubes, setClubes] = useState<ClubeLinha[]>([])
+  const [stoplossAtualPorClube, setStoplossAtualPorClube] = useState<Map<string, number>>(new Map())
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState('')
 
   useEffect(() => {
     supabase
       .from('clubs')
-      .select('id, name, stoploss_inicial, stoploss_atual, caucao_atual, ratio_caucao_stoploss, leagues(name)')
+      .select('id, name, stoploss_inicial, caucao_atual, ratio_caucao_stoploss, leagues(name)')
       .order('name')
-      .then(({ data }) => { setClubes((data ?? []) as unknown as ClubeLinha[]); setLoading(false) })
+      .then(async ({ data }) => {
+        const lista = (data ?? []) as unknown as ClubeLinha[]
+        setClubes(lista)
+        setStoplossAtualPorClube(await getStoplossAtualBatch(lista.map(c => c.id)))
+        setLoading(false)
+      })
   }, [])
 
   const filtrados = useMemo(() => {
@@ -39,9 +45,9 @@ export function RelatorioStoploss() {
   }, [clubes, busca])
 
   const totais = useMemo(() => filtrados.reduce((acc, c) => ({
-    stoploss: acc.stoploss + (c.stoploss_atual ?? 0),
+    stoploss: acc.stoploss + (stoplossAtualPorClube.get(c.id) ?? 0),
     caucao: acc.caucao + (c.caucao_atual ?? 0),
-  }), { stoploss: 0, caucao: 0 }), [filtrados])
+  }), { stoploss: 0, caucao: 0 }), [filtrados, stoplossAtualPorClube])
 
   return (
     <div className="space-y-3">
@@ -80,7 +86,7 @@ export function RelatorioStoploss() {
                     <td className="px-4 py-3 text-white">{c.name}</td>
                     <td className="px-4 py-3 text-gray-400">{c.leagues?.name ?? '—'}</td>
                     <td className="px-4 py-3 text-right text-gray-300">{c.stoploss_inicial != null ? formatMoeda(c.stoploss_inicial) : '—'}</td>
-                    <td className="px-4 py-3 text-right text-gold font-medium">{c.stoploss_atual != null ? formatMoeda(c.stoploss_atual) : '—'}</td>
+                    <td className="px-4 py-3 text-right text-gold font-medium">{formatMoeda(stoplossAtualPorClube.get(c.id) ?? 0)}</td>
                     <td className="px-4 py-3 text-right text-gray-300">{c.caucao_atual != null ? formatMoeda(c.caucao_atual) : '—'}</td>
                     <td className="px-4 py-3 text-right text-gray-500">{c.ratio_caucao_stoploss ?? 1}x</td>
                   </tr>
