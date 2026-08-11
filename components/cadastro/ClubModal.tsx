@@ -20,7 +20,7 @@ interface Props {
 }
 
 const EMPTY: ClubForm = {
-  league_id: null, name: '', external_id: null, settlement_type: 'dinamico', moeda: 'BRL',
+  league_id: null, name: '', external_id: null, settlement_type: 'taxa_dinamica', moeda: 'BRL',
   taxa_tipo: 'fixa', fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: 9, taxa_op_tipo: 'fixa',
   spinup_pct: null, rebate_pct: null, crypto_rebate_pct: null, rakeback_pct: null, security: null,
   taxa_variavel_nome: null, taxa_variavel_indicador: null, taxa_variavel_regra: null,
@@ -116,7 +116,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   if (!open) return null
 
   const set = (k: keyof ClubForm, v: any) => setForm(f => ({ ...f, [k]: v }))
-  const isDin = form.settlement_type === 'dinamico'
+  const isDin = form.settlement_type === 'taxa_dinamica'
   const isUSD = form.settlement_type === 'weekly_usd'
   const isRkb = form.settlement_type === 'rakeback'
   // Stoploss Inicial só pode ser definido uma vez — depois disso o campo trava.
@@ -251,7 +251,13 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       )}
 
       {step === 'regras' && (
-        <RegrasAplicadas entidadeTipo="clube" entidadeId={editing?.id ?? null} />
+        <RegrasAplicadas
+          entidadeTipo="clube"
+          entidadeId={editing?.id ?? null}
+          settlementType={form.settlement_type}
+          feeCashPct={form.fee_cash_pct}
+          feeMttPct={form.fee_mtt_pct}
+        />
       )}
 
       {step === 'garantias' && (

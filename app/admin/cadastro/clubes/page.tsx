@@ -13,7 +13,7 @@ function clean(form: ClubForm): ClubForm {
   const f = { ...form }
   if (f.settlement_type === 'rakeback') { f.fee_mtt_pct = null; f.fee_cash_pct = null; f.spinup_pct = null; f.crypto_rebate_pct = null; f.taxa_variavel_nome = null; f.taxa_variavel_indicador = null; f.taxa_variavel_regra = null }
   if (f.settlement_type === 'weekly_usd') { f.fee_cash_pct = null; f.spinup_pct = null; f.rakeback_pct = null }
-  if (f.settlement_type === 'dinamico') { f.crypto_rebate_pct = null; f.rakeback_pct = null }
+  if (f.settlement_type === 'taxa_dinamica') { f.crypto_rebate_pct = null; f.rakeback_pct = null }
   if (f.taxa_tipo === 'fixa') { f.taxa_variavel_nome = null; f.taxa_variavel_indicador = null; f.taxa_variavel_regra = null }
   if (!f.rebate_ativo) f.rebate_pct = null
   return f
