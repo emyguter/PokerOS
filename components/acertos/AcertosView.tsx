@@ -4,9 +4,11 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Inbox } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { processarAcertos, processarAcertosAgentes } from "@/lib/acertos-engine";
+import { confirmarCotacaoDoDia } from "@/lib/cadastro-api";
 import * as XLSX from "xlsx";
 import { ClubAcertoCard } from "./ClubAcertoCard";
 import { AgentesAcertosView } from "./AgentesAcertosView";
+import { CotacaoDoDiaModal } from "./CotacaoDoDiaModal";
 
 interface Import {
   id: string;
@@ -15,7 +17,7 @@ interface Import {
   period_end: string;
   status: string;
   created_at: string;
-  leagues: { name: string } | null;
+  leagues: { name: string; moeda: string; moeda_acerto: string | null; conversao_dia: boolean } | null;
 }
 
 interface Acerto {
@@ -85,6 +87,7 @@ export default function AcertosView() {
   const [acertos, setAcertos] = useState<Acerto[]>([]);
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
+  const [cotacaoPendente, setCotacaoPendente] = useState<{ importId: string; moeda: string; valorAtual: number | null } | null>(null);
   const [filterType, setFilterType] = useState("todos");
   const [search, setSearch] = useState("");
   const [cardAberto, setCardAberto] = useState<Acerto | null>(null);
@@ -95,7 +98,7 @@ export default function AcertosView() {
   async function loadImports() {
     const { data } = await supabase
       .from("imports")
-      .select("*, leagues(name)")
+      .select("*, leagues(name, moeda, moeda_acerto, conversao_dia)")
       .order("created_at", { ascending: false })
       .limit(30);
     if (data) setImports(data as Import[]);
@@ -159,22 +162,63 @@ export default function AcertosView() {
 
   const totalFinal = useCallback((a: Acerto) => valorDisplay(a) + lancamentosDoClube(a.club_id), [lancamentosDoClube]);
 
-  async function handleCalcular() {
-    if (!selected) return;
-    if (acertos.length > 0 && !window.confirm("Recalcular sobrescreve os acertos desse import — Bilhetes, Pendências de Antecipação e Taxa AA Home Game editados manualmente por clube são preservados, o resto é recalculado do zero. Continuar?")) {
-      return;
-    }
+  function dataLocalHoje() {
+    const hoje = new Date();
+    return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+  }
+
+  // Liga com "Conversão do dia" ligada e moeda marcada como Cotação do Dia
+  // (Cadastro de Moedas) precisa da taxa de hoje confirmada antes de calcular
+  // — se já foi confirmada hoje, não pergunta de novo.
+  async function verificarCotacaoDoDia(imp: Import): Promise<{ moeda: string; valorAtual: number | null } | null> {
+    const liga = imp.leagues;
+    if (!liga?.conversao_dia || !liga.moeda || liga.moeda === liga.moeda_acerto) return null;
+    const { data } = await supabase
+      .from("moedas_cotacao")
+      .select("tipo, valor, atualizado_em")
+      .eq("moeda", liga.moeda)
+      .maybeSingle();
+    if (!data || data.tipo !== "cotacao_dia") return null;
+    if (data.atualizado_em === dataLocalHoje()) return null;
+    return { moeda: liga.moeda, valorAtual: data.valor };
+  }
+
+  async function executarCalculo(importId: string) {
     setCalculating(true);
-    const result = await processarAcertos(selected.id);
+    const result = await processarAcertos(importId);
     if (result.success) {
-      const resultAgentes = await processarAcertosAgentes(selected.id);
+      const resultAgentes = await processarAcertosAgentes(importId);
       if (!resultAgentes.success) alert("Acertos por clube ok, mas erro no acerto de agentes: " + resultAgentes.error);
-      await loadAcertos(selected.id);
+      await loadAcertos(importId);
       await loadImports();
     } else {
       alert("Erro: " + result.error);
     }
     setCalculating(false);
+  }
+
+  async function handleCalcular() {
+    if (!selected) return;
+    if (acertos.length > 0 && !window.confirm("Recalcular sobrescreve os acertos desse import — Bilhetes, Pendências de Antecipação e Taxa AA Home Game editados manualmente por clube são preservados, o resto é recalculado do zero. Continuar?")) {
+      return;
+    }
+    const pendente = await verificarCotacaoDoDia(selected);
+    if (pendente) { setCotacaoPendente({ importId: selected.id, ...pendente }); return; }
+    await executarCalculo(selected.id);
+  }
+
+  async function handleConfirmarCotacao(valor: number) {
+    if (!cotacaoPendente) return;
+    setCalculating(true);
+    try {
+      await confirmarCotacaoDoDia(cotacaoPendente.moeda, valor);
+      const importId = cotacaoPendente.importId;
+      setCotacaoPendente(null);
+      await executarCalculo(importId);
+    } catch (e) {
+      alert("Erro ao salvar cotação: " + (e instanceof Error ? e.message : String(e)));
+      setCalculating(false);
+    }
   }
 
   function handleExport() {
@@ -429,6 +473,16 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
           periodEnd={selected.period_end}
           onClose={() => setCardAberto(null)}
           onSaved={() => loadAcertos(selected.id)}
+        />
+      )}
+
+      {cotacaoPendente && (
+        <CotacaoDoDiaModal
+          moeda={cotacaoPendente.moeda}
+          valorAtual={cotacaoPendente.valorAtual}
+          saving={calculating}
+          onConfirm={handleConfirmarCotacao}
+          onCancel={() => setCotacaoPendente(null)}
         />
       )}
     </div>

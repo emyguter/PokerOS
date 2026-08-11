@@ -42,6 +42,7 @@ export const pt = {
     super_agentes: 'Super Agentes', super_agentes_desc: 'Agentes de agentes',
     agentes: 'Agentes', agentes_desc: 'Responsáveis por jogadores',
     jogadores: 'Jogadores', jogadores_desc: 'Vinculados a agente ou clube',
+    moedas: 'Moedas', moedas_desc: 'Taxa de câmbio pra Conversão do Dia',
     sem_permissao_titulo: 'Você não tem permissão pra ver essa tela',
     sem_permissao_desc: 'Peça pra um administrador liberar o acesso em Permissões.',
   },
