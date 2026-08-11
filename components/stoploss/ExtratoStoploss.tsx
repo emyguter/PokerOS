@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
+import { BuscaSelect } from '@/components/BuscaSelect'
 import type { StoplossHistoricoItem, StoplossHistoricoTipo } from '@/lib/types'
 
 interface ClubeOpcao { id: string; name: string }
@@ -46,10 +47,12 @@ export function ExtratoStoploss() {
     <div className="space-y-5">
       <div className="max-w-xs">
         <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.clube')}</label>
-        <select value={clubeId} onChange={e => setClubeId(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
-          <option value="">{t('common.selecione')}</option>
-          {clubes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <BuscaSelect
+          value={clubeId}
+          onChange={setClubeId}
+          opcoes={clubes.map(c => ({ id: c.id, nome: c.name }))}
+          placeholder={t('common.selecione')}
+        />
       </div>
 
       <div className="rounded-xl border border-white/10 overflow-hidden">

@@ -4,6 +4,7 @@ import { Loader2, Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
+import { BuscaSelect } from '@/components/BuscaSelect'
 import { TIPOS } from './ExtratoView'
 
 interface ClubeOpcao { id: string; name: string }
@@ -126,10 +127,12 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.clube')}</label>
-            <select value={clubeId} onChange={(e) => { setClubeId(e.target.value); setConfirmandoDuplicata(false) }} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
-              <option value="">{t('common.selecione')}</option>
-              {clubes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            <BuscaSelect
+              value={clubeId}
+              onChange={v => { setClubeId(v); setConfirmandoDuplicata(false) }}
+              opcoes={clubes.map(c => ({ id: c.id, nome: c.name }))}
+              placeholder={t('common.selecione')}
+            />
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.tipo')}</label>

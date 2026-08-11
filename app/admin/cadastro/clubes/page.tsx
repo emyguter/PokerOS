@@ -5,6 +5,7 @@ import type { Club, ClubForm, League, Plataforma } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { ClubModal } from '@/components/cadastro/ClubModal'
+import { BuscaSelect } from '@/components/BuscaSelect'
 import { Plus, Filter } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 
@@ -76,10 +77,15 @@ export default function ClubesPage() {
 
       <div className="flex items-center gap-3">
         <Filter size={16} className="text-gray-400" />
-        <select value={filter} onChange={e => setFilter(e.target.value)} className="bg-surface2 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50">
-          <option value="">Todas as ligas</option>
-          {leagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-        </select>
+        <div className="w-56">
+          <BuscaSelect
+            value={filter}
+            onChange={setFilter}
+            opcoes={leagues.map(l => ({ id: l.id, nome: l.name }))}
+            vazio="Todas as ligas"
+            className="bg-surface2 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50 w-full"
+          />
+        </div>
         <span className="text-sm text-gray-500">{items.length} clube{items.length !== 1 ? 's' : ''}</span>
       </div>
 

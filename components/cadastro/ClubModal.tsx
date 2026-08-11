@@ -6,6 +6,7 @@ import { MOEDAS } from '@/lib/moedas'
 import { supabase } from '@/lib/supabase'
 import { RegrasAplicadas } from './RegrasAplicadas'
 import { StepModal, type ModalStep } from './StepModal'
+import { BuscaSelect } from '@/components/BuscaSelect'
 
 interface Props {
   open: boolean
@@ -164,10 +165,13 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
             </select>
           </Fld>
           <Fld label="Liga (opcional)">
-            <select value={form.league_id ?? ''} onChange={e => set('league_id', e.target.value || null)} className={inputCls}>
-              <option value="">— Nenhuma —</option>
-              {leagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
+            <BuscaSelect
+              value={form.league_id ?? ''}
+              onChange={v => set('league_id', v || null)}
+              opcoes={leagues.map(l => ({ id: l.id, nome: l.name }))}
+              vazio="— Nenhuma —"
+              className={inputCls}
+            />
           </Fld>
         </div>
       )}

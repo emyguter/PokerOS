@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Loader2, Send } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
+import { BuscaSelect } from '@/components/BuscaSelect'
 import type { StoplossAjuste } from '@/lib/types'
 
 interface ClubeOpcao { id: string; name: string }
@@ -83,10 +84,12 @@ export function ResumoStoploss() {
     <div className="space-y-6">
       <div className="max-w-xs">
         <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.clube')}</label>
-        <select value={clubeId} onChange={e => { setClubeId(e.target.value); setSucesso(false) }} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
-          <option value="">{t('common.selecione')}</option>
-          {clubes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <BuscaSelect
+          value={clubeId}
+          onChange={v => { setClubeId(v); setSucesso(false) }}
+          opcoes={clubes.map(c => ({ id: c.id, nome: c.name }))}
+          placeholder={t('common.selecione')}
+        />
       </div>
 
       {!clubeId ? (

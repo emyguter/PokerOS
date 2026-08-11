@@ -4,6 +4,7 @@ import { X, Loader2 } from 'lucide-react'
 import type { League, LeagueForm, SuperLeague, Plataforma } from '@/lib/types'
 import { MOEDAS } from '@/lib/moedas'
 import { RegrasAplicadas } from './RegrasAplicadas'
+import { BuscaSelect } from '@/components/BuscaSelect'
 
 interface Props {
   open: boolean
@@ -69,7 +70,6 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
 
   const set = (k: keyof LeagueForm, v: any) => setForm(f => ({ ...f, [k]: v }))
 
-  const slOptions = [{ value: '', label: '— Nenhuma —' }, ...superLeagues.map(sl => ({ value: sl.id, label: sl.name }))]
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -89,9 +89,13 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
               </Fld>
               <div className="grid grid-cols-2 gap-4">
                 <Fld label="Superliga">
-                  <select value={form.super_league_id ?? ''} onChange={e => set('super_league_id', e.target.value || null)} className={inputCls}>
-                    {slOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                  <BuscaSelect
+                    value={form.super_league_id ?? ''}
+                    onChange={v => set('super_league_id', v || null)}
+                    opcoes={superLeagues.map(sl => ({ id: sl.id, nome: sl.name }))}
+                    vazio="— Nenhuma —"
+                    className={inputCls}
+                  />
                 </Fld>
                 <Fld label="Moeda do Acerto">
                   <select value={form.moeda_acerto ?? 'BRL'} onChange={e => set('moeda_acerto', e.target.value)} className={inputCls}>

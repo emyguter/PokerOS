@@ -5,6 +5,7 @@ import type { Agente, AgenteForm, AgentePlataforma, Plataforma, ClubeVinculado }
 import { supabase } from '@/lib/supabase'
 import { RegrasAplicadas } from './RegrasAplicadas'
 import { StepModal, type ModalStep } from './StepModal'
+import { BuscaSelect } from '@/components/BuscaSelect'
 
 interface VinculoState extends AgentePlataforma {
   searching: boolean
@@ -226,10 +227,13 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
 
       {step === 'hierarquia' && !esconderSuperAgente && (
         <Fld label="Super Agente">
-          <select value={form.superagente_id ?? ''} onChange={e => set('superagente_id', e.target.value || null)} className={inputCls}>
-            <option value="">— Nenhum (agente direto) —</option>
-            {agentesDisponiveis.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
-          </select>
+          <BuscaSelect
+            value={form.superagente_id ?? ''}
+            onChange={v => set('superagente_id', v || null)}
+            opcoes={agentesDisponiveis.map(a => ({ id: a.id, nome: a.nome }))}
+            vazio="— Nenhum (agente direto) —"
+            className={inputCls}
+          />
           <p className="text-xs text-gray-500 mt-1.5">Se esse agente responde a um Super Agente, selecione acima. Deixe em branco se ele é direto.</p>
         </Fld>
       )}
