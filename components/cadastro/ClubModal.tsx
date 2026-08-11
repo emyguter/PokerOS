@@ -213,7 +213,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
         <>
           {!isRkb && (
             <div className="grid grid-cols-2 gap-4">
-              <Fld label="Fee MTT (%)"><NumInput value={form.fee_mtt_pct} onChange={v => set('fee_mtt_pct', v)} placeholder="Ex: 8.5" /></Fld>
+              <Fld label={isDin ? 'Fee MTT (%)' : 'Taxa da Liga (%)'}><NumInput value={form.fee_mtt_pct} onChange={v => set('fee_mtt_pct', v)} placeholder="Ex: 8.5" /></Fld>
               {isDin && <Fld label="Fee Cash (%)"><NumInput value={form.fee_cash_pct} onChange={v => set('fee_cash_pct', v)} placeholder="Ex: 8.5" /></Fld>}
             </div>
           )}
