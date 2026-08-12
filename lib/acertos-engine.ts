@@ -56,7 +56,7 @@ export interface AcertoCalculado {
 
 // Condição SE/ENTÃO já resolvida em nomes de indicador (em vez de indicador_id),
 // pronta pra ser avaliada contra uma linha importada.
-interface CondicaoAvaliavel {
+export interface CondicaoAvaliavel {
   operador: string;
   valor: number | null;
   resultado_pct: number | null;
@@ -72,7 +72,7 @@ type RegraCondicaoRow = {
   regra_condicao_termos?: { indicador_id: string }[];
 };
 
-type CampoClube = "fee_mtt" | "fee_cash" | "taxa_op" | "spinup";
+export type CampoClube = "fee_mtt" | "fee_cash" | "taxa_op" | "spinup";
 
 type RegraEntidadeRow = {
   entidade_id: string;
@@ -80,7 +80,7 @@ type RegraEntidadeRow = {
   regras?: { regra_condicoes?: RegraCondicaoRow[] } | null;
 };
 
-const CONDICOES_VAZIAS: Record<CampoClube, CondicaoAvaliavel[]> = {
+export const CONDICOES_VAZIAS: Record<CampoClube, CondicaoAvaliavel[]> = {
   fee_mtt: [], fee_cash: [], taxa_op: [], spinup: [],
 };
 
@@ -90,7 +90,7 @@ const CONDICOES_VAZIAS: Record<CampoClube, CondicaoAvaliavel[]> = {
 // pra bater com a escala que o Cássio usa nas condições das regras (ex: < -1.25).
 // WtR 4 Semanas é a média dessa razão nos últimos 4 acertos do clube
 // (incluindo o período atual), já vem calculado em `wtr4Semanas`.
-function valorIndicador(nome: string, row: ImportRow, wtr4Semanas: number | null): number {
+export function valorIndicador(nome: string, row: ImportRow, wtr4Semanas: number | null): number {
   switch (nome) {
     case "rake":
       return Math.abs(row.rake_total ?? 0);
@@ -114,7 +114,7 @@ function valorIndicador(nome: string, row: ImportRow, wtr4Semanas: number | null
 // Avalia as condições SE/ENTÃO de uma regra (em ordem) contra os dados da linha.
 // Cada condição pode somar vários indicadores ("Ganhos + Rake"). A primeira que bater
 // vence; se nenhuma bater, usa a condição SENÃO (fallback), se existir.
-function avaliarCondicoes(condicoes: CondicaoAvaliavel[], row: ImportRow, wtr4Semanas: number | null): number | null {
+export function avaliarCondicoes(condicoes: CondicaoAvaliavel[], row: ImportRow, wtr4Semanas: number | null): number | null {
   for (const c of condicoes) {
     if (c.is_fallback || c.valor == null) continue;
     const soma = c.indicadorNomes.reduce((acc, nome) => acc + valorIndicador(nome, row, wtr4Semanas), 0);
@@ -129,7 +129,7 @@ function avaliarCondicoes(condicoes: CondicaoAvaliavel[], row: ImportRow, wtr4Se
   return condicoes.find((c) => c.is_fallback)?.resultado_pct ?? null;
 }
 
-function calcularAcerto(
+export function calcularAcerto(
   row: ImportRow,
   club: ClubSettings,
   condicoesPorCampo: Record<CampoClube, CondicaoAvaliavel[]>,
