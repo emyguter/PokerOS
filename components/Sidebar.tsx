@@ -16,7 +16,7 @@ const NAV = [
   { href: '/lancamento', labelKey: 'nav.lancamento', icon: Wallet, chaves: ['lancamento'] },
   { href: '/financeiro', labelKey: 'nav.financeiro', icon: Landmark, chaves: ['lancamento.genia'] },
   { href: '/stoploss', labelKey: 'nav.stoploss', icon: Gauge, chaves: ['stoploss'] },
-  { href: '/relatorios', labelKey: 'nav.relatorios', icon: FileText, chaves: ['relatorios'] },
+  { href: '/relatorios', labelKey: 'nav.relatorios', icon: FileText, chaves: ['relatorios', 'relatorios.acertos', 'relatorios.lancamentos'] },
   { href: '/admin/regras', labelKey: 'nav.regras', icon: ListChecks, chaves: ['regras'] },
 ]
 

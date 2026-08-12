@@ -162,4 +162,10 @@ export const pt = {
     escopo_obrigatorio: 'Escolhe se o ajuste vira Stoploss Inicial ou vale só essa semana antes de aprovar.',
     escopo_col: 'Escopo',
   },
+  relatorios: {
+    aba_acertos: 'Acertos', aba_lancamentos: 'Lançamentos',
+    titulo_lancamentos: 'Relatório de Lançamentos', subtitulo_lancamentos: 'Consulta lançamentos de todos os clubes, sem precisar escolher um por vez',
+    todos_clubes: 'Todos os clubes', natureza: 'Natureza', origem: 'Origem', status: 'Status',
+    limite_500: 'Mostrando os 500 mais recentes — estreite o filtro pra ver tudo.',
+  },
 }

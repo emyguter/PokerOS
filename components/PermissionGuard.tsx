@@ -3,12 +3,13 @@ import { Lock } from 'lucide-react'
 import { usePermissions } from '@/lib/permissions'
 import { useI18n } from '@/lib/i18n'
 
-export function PermissionGuard({ chave, children }: { chave: string; children: React.ReactNode }) {
+export function PermissionGuard({ chave, children }: { chave: string | string[]; children: React.ReactNode }) {
   const { loading, hasPermission } = usePermissions()
   const { t } = useI18n()
 
   if (loading) return null
-  if (!hasPermission(chave)) {
+  const chaves = Array.isArray(chave) ? chave : [chave]
+  if (!chaves.some(hasPermission)) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
         <Lock size={28} className="text-gray-600" />
