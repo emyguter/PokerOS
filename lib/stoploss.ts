@@ -7,7 +7,7 @@ import type { StoplossAjuste, StoplossEscopo } from './types'
 // × ratio), não soma incremental por evento.
 const TIPOS_QUE_SOMAM = ['antecipacao', 'ajuste_suporte', 'margem_monitoria', 'bug_ppp'] as const
 
-interface ClubeBaseStoploss {
+export interface ClubeBaseStoploss {
   id: string
   stoploss_inicial: number | null
   caucao_atual: number | null
@@ -15,7 +15,7 @@ interface ClubeBaseStoploss {
   hora_virada_semana: number | null
 }
 
-interface HistoricoRow {
+export interface HistoricoRow {
   clube_id: string
   valor_delta: number
   escopo: StoplossEscopo
@@ -44,7 +44,7 @@ export function inicioSemanaAtual(horaVirada: number, agora: Date = new Date()):
 // passada: ignora lançamento que ainda não tinha acontecido naquela data, e
 // usa a semana daquela data (não a de hoje) pra decidir se um 'semanal' já
 // tinha expirado.
-function somarHistorico(rows: HistoricoRow[], horaVirada: number, asOf: Date = new Date()): number {
+export function somarHistorico(rows: HistoricoRow[], horaVirada: number, asOf: Date = new Date()): number {
   const inicioSemana = inicioSemanaAtual(horaVirada, asOf)
   return rows.reduce((soma, h) => {
     const criadoEm = new Date(h.criado_em)

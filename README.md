@@ -257,6 +257,36 @@ pelo Supabase — não precisa configurar manualmente.
 
 ---
 
+## Testes
+
+    npm test
+
+Testes automatizados (Vitest) cobrindo as partes de cálculo puro mais sensíveis do app —
+funções que não fazem chamada de rede, então rodam em milissegundos e não precisam de um projeto
+Supabase de verdade:
+
+- `lib/__tests__/acertos-engine.test.ts` — motor de cálculo de Acertos (`valorIndicador`,
+  `avaliarCondicoes`, `calcularAcerto`) pros 4 tipos de cobrança (`taxa_dinamica` fixa e variável,
+  `taxa_fixa_variavel`, `rakeback`, `weekly_usd`), incluindo a regra de que Fee Cash variável
+  multiplica sobre o Rake Total e não sobre o Rake Cash.
+- `lib/__tests__/stoploss.test.ts` — virada de semana (`inicioSemanaAtual`, a lógica de fuso BRL
+  fixo UTC-3 mais delicada do sistema), fórmula do Stoploss Atual e o corte de ajuste
+  Permanente/Só-essa-semana (`somarHistorico`), incluindo reconstrução "como estava numa data
+  passada".
+- `lib/__tests__/indicadores.test.ts` — mapeamento indicador → campo do clube
+  (`campoFromCondicoes`), com teste de regressão do bug do indicador "Rake" (total) não reconhecido
+  que já quebrou um vínculo de verdade.
+
+`valorIndicador`, `avaliarCondicoes`, `calcularAcerto` e `somarHistorico` foram exportados de
+`lib/acertos-engine.ts`/`lib/stoploss.ts` especificamente pra dar pra testar direto (antes só as
+funções com I/O de banco eram exportadas) — não muda nenhum comportamento.
+
+**Cobertura atual:** só a lógica de cálculo pura. Fluxos que dependem do Supabase (importação,
+salvar cadastro, aprovar ajuste) ainda não têm teste automatizado — hoje isso é validado testando
+manualmente na tela a cada mudança, como já vinha sendo feito.
+
+---
+
 ## Migrations
 
 Mudança de schema vira um `.sql` versionado em `supabase/migrations/`, commitado junto com o PR
@@ -296,6 +326,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   768px; acima disso continua a sidebar de mesa retrátil de sempre. Telas principais (Acertos,
   Importação, Relatórios, Stoploss) com padding/tabelas ajustados pra não estourar a largura no
   celular
+- [x] `clubs_historico`: snapshot automático (trigger no banco) de caução/ratio/stoploss
+  inicial/taxas toda vez que o cadastro do clube muda — dá pra reconstruir "como o clube estava"
+  numa data qualquer. Filtro de Período no Relatório de Stoploss usa isso pra mostrar Stoploss
+  Atual/Caução/Ratio como estavam numa semana já importada, não só hoje
+- [x] Índices nas colunas de chave estrangeira mais usadas (`clube_id`, `agente_id`, `regra_id`,
+  `import_id`, etc) — Postgres não indexa FK automaticamente, e a maioria das consultas do app
+  filtra por essas colunas
+- [x] Testes automatizados (Vitest) do motor de cálculo de Acertos, Stoploss e do mapeamento
+  indicador→campo — ver seção "Testes"
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
