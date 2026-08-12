@@ -82,13 +82,13 @@ export function FilaAprovacaoStoploss() {
             {pendentes.map(a => {
               const escopo = escopoPorAjuste[a.id]
               return (
-                <div key={a.id} className="flex items-center justify-between px-4 py-3 gap-3">
+                <div key={a.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 py-3 gap-3">
                   <div>
                     <p className="text-sm text-white">{a.clubs?.name ?? '—'}</p>
                     <p className="text-xs text-gray-500">{a.justificativa}</p>
                     <p className="text-xs text-gray-600">{new Date(a.criado_em).toLocaleDateString('pt-BR')}</p>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 sm:shrink-0">
                     <span className={`text-sm font-medium ${a.natureza === 'credito' ? 'text-success' : 'text-alert'}`}>{a.natureza === 'credito' ? '+' : '−'}{formatMoeda(a.valor)}</span>
                     <div className="flex items-center gap-1">
                       <button

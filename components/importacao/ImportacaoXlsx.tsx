@@ -571,9 +571,11 @@ export default function ImportacaoXlsx() {
   }, [handleFile]);
 
   return (
-    <div style={{ fontFamily: "var(--font-sans), sans-serif", background: "#0C0E0B", minHeight: "100vh", color: "#F0EDE4", padding: "40px" }}>
+    <div className="importacao-view-root" style={{ fontFamily: "var(--font-sans), sans-serif", background: "#0C0E0B", minHeight: "100vh", color: "#F0EDE4" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=DM+Sans:wght@400;500;600&display=swap');
+        .importacao-view-root{padding:40px}
+        @media (max-width:768px){.importacao-view-root{padding:16px}}
         .drop-zone{border:1.5px dashed #3D6E3D;border-radius:12px;padding:48px 32px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:#111410}
         .drop-zone:hover,.drop-zone.drag-over{border-color:#C9A84C;background:#16180f}
         .btn-gold{background:#C9A84C;color:#0C0E0B;border:none;border-radius:8px;padding:10px 24px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:14px;cursor:pointer;transition:opacity .15s}
@@ -756,26 +758,28 @@ export default function ImportacaoXlsx() {
           ) : history.length === 0 ? (
             <div style={{ padding: 24, textAlign: "center", color: "#3a3a32", fontSize: 13 }}>Nenhuma importação ainda</div>
           ) : (
-            <table>
-              <thead>
-                <tr><th>Arquivo</th><th>Plataforma</th><th>Período</th><th>Status</th><th>Data</th></tr>
-              </thead>
-              <tbody>
-                {history.map(entry => (
-                  <tr key={entry.id}>
-                    <td style={{ color: "#C9A84C", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.file_name}</td>
-                    <td style={{ color: "#7a7a70" }}>{entry.plataformas?.nome ?? entry.app_source ?? "—"}</td>
-                    <td style={{ color: "#7a7a70", fontSize: 12 }}>{entry.period_start ? `${entry.period_start} → ${entry.period_end}` : "—"}</td>
-                    <td>
-                      <span className={`badge ${entry.harmonization_status === "harmonizado" ? "badge-ok" : entry.harmonization_status === "erro" ? "badge-error" : "badge-processing"}`}>
-                        {harmonizationLabel(entry.harmonization_status)}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: 12, color: "#7a7a70" }}>{new Date(entry.created_at).toLocaleString("pt-BR")}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div style={{ overflowX: "auto" }}>
+              <table>
+                <thead>
+                  <tr><th>Arquivo</th><th>Plataforma</th><th>Período</th><th>Status</th><th>Data</th></tr>
+                </thead>
+                <tbody>
+                  {history.map(entry => (
+                    <tr key={entry.id}>
+                      <td style={{ color: "#C9A84C", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.file_name}</td>
+                      <td style={{ color: "#7a7a70" }}>{entry.plataformas?.nome ?? entry.app_source ?? "—"}</td>
+                      <td style={{ color: "#7a7a70", fontSize: 12 }}>{entry.period_start ? `${entry.period_start} → ${entry.period_end}` : "—"}</td>
+                      <td>
+                        <span className={`badge ${entry.harmonization_status === "harmonizado" ? "badge-ok" : entry.harmonization_status === "erro" ? "badge-error" : "badge-processing"}`}>
+                          {harmonizationLabel(entry.harmonization_status)}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: 12, color: "#7a7a70" }}>{new Date(entry.created_at).toLocaleString("pt-BR")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>

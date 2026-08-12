@@ -277,19 +277,33 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
 - [x] Login de clube (`profiles.clube_id`) + menu "Lançamento" (bônus/promoção/caução/pagamento) e "Extrato" por clube
 - [x] Criar usuário direto pelo front (Edge Function `criar-usuario`)
 - [x] Toggle de idioma PT/EN (navegação, login, cadastros, Permissões, Lançamento/Extrato)
-- [x] Sidebar retrátil (botão pra esconder/mostrar) + viewport meta tag pro celular
+- [x] Sidebar retrátil no desktop (botão pra esconder/mostrar) + viewport meta tag pro celular
 - [x] Acerto Geral por clube no formato tradicional (card ao clicar no nome do clube em Relatórios)
 - [x] Acerto de Agentes: rakeback por clube (`clube_agentes.rakeback_pct`), aba "Por Agente" em
   Relatórios pro staff, e tela própria "Meus Ganhos" pro login de agente
 - [x] Login de agente (`profiles.agente_id`) como terceiro tipo de acesso em Permissões
 - [x] Controle de Stoploss por clube (inicial travado, atual auditável, ajuste do Suporte com
-  aprovação do papel Admin) + migrations versionadas em `supabase/migrations/`
+  aprovação do papel Admin, escopo Permanente/Só essa Semana com hora de virada por clube) +
+  migrations versionadas em `supabase/migrations/`
+- [x] Ajuste "Bug do PPPoker" e Margem de Monitoria (10% autoaplicável, uso único) no Stoploss
+- [x] Campo "Projeto" (Mega Liga/Superliga/Liga/Clube) com herança em cascata, usado pra agrupar o
+  Relatório de Stoploss
+- [x] Relatório de Lançamentos em `/relatorios` (consulta cross-clube, filtro multi-clube tipo
+  Excel via `BuscaSelectMulti`), com permissão própria (`relatorios.lancamentos`) separada da de
+  Acertos — dá pra liberar só esse relatório pra um setor (ex: CS) sem abrir Lançamento/Financeiro
+  de verdade
+- [x] Sidebar responsiva: vira gaveta (menu hambúrguer, sobreposta com fundo escurecido) abaixo de
+  768px; acima disso continua a sidebar de mesa retrátil de sempre. Telas principais (Acertos,
+  Importação, Relatórios, Stoploss) com padding/tabelas ajustados pra não estourar a largura no
+  celular
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
 - [ ] Relatórios adicionais do escopo original (rake líquido da liga, resumo de acertos, PnL)
 - [ ] Contestação de lançamento pelo clube
-- [ ] Layout responsivo completo (hoje só o viewport + sidebar retrátil; tabelas/formulários do admin ainda assumem tela grande)
+- [ ] Layout responsivo completo — sidebar (gaveta no celular) e as telas principais já se adaptam;
+  falta revisar formulário a formulário os modais grandes de cadastro (Liga/Clube/Agente), que ainda
+  podem ficar apertados em telas bem pequenas
 - [ ] Auditoria (histórico de importações, alterações de regras, ações de usuários)
 - [ ] Exportação Excel
 - [ ] Tradução EN dos modais de Liga/Clube/Agente/Jogador (regras financeiras SE/ENTÃO)

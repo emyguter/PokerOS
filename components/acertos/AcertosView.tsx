@@ -269,9 +269,11 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
   const tipos = [...new Set(acertos.map((a) => a.settlement_type))];
 
   return (
-    <div style={{ fontFamily: "var(--font-sans), sans-serif", background: "#0C0E0B", minHeight: "100vh", color: "#F0EDE4", padding: "40px" }}>
+    <div className="acertos-view-root" style={{ fontFamily: "var(--font-sans), sans-serif", background: "#0C0E0B", minHeight: "100vh", color: "#F0EDE4" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=DM+Sans:wght@400;500;600&display=swap');
+        .acertos-view-root{padding:40px}
+        @media (max-width:768px){.acertos-view-root{padding:16px}}
         .card{background:#111410;border-radius:10px;border:1px solid #1e2018}
         .btn-gold{background:#C9A84C;color:#0C0E0B;border:none;border-radius:8px;padding:10px 20px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:13px;cursor:pointer;transition:opacity .15s}
         .btn-gold:hover{opacity:.85}.btn-gold:disabled{opacity:.4;cursor:not-allowed}
