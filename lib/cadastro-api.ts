@@ -184,6 +184,47 @@ export async function deleteClub(id: string): Promise<void> {
   if (error) throw error
 }
 
+// ─── INDICAÇÕES (um clube indica outro, ganha % sobre o rake do indicado) ──
+
+export interface IndicacaoRow {
+  id: string
+  club_indicado_id: string
+  nome: string
+  taxa_indicacao_pct: number
+}
+
+export async function getIndicacoes(clubeId: string): Promise<IndicacaoRow[]> {
+  const { data, error } = await supabase
+    .from('club_indicacoes')
+    .select('id, club_indicado_id, taxa_indicacao_pct')
+    .eq('club_id', clubeId)
+  if (error) throw error
+  const linhas = data ?? []
+  if (linhas.length === 0) return []
+  const ids = [...new Set(linhas.map(l => l.club_indicado_id))]
+  const { data: clubesData, error: clubesErr } = await supabase.from('clubs').select('id, name').in('id', ids)
+  if (clubesErr) throw clubesErr
+  const nomePorId = new Map((clubesData ?? []).map(c => [c.id, c.name]))
+  return linhas.map(l => ({
+    id: l.id,
+    club_indicado_id: l.club_indicado_id,
+    nome: nomePorId.get(l.club_indicado_id) ?? '—',
+    taxa_indicacao_pct: l.taxa_indicacao_pct ?? 0,
+  }))
+}
+
+export async function addIndicacao(clubeId: string, clubeIndicadoId: string, taxaPct: number): Promise<void> {
+  const { error } = await supabase.from('club_indicacoes').insert({
+    club_id: clubeId, club_indicado_id: clubeIndicadoId, taxa_indicacao_pct: taxaPct,
+  })
+  if (error) throw error
+}
+
+export async function removeIndicacao(id: string): Promise<void> {
+  const { error } = await supabase.from('club_indicacoes').delete().eq('id', id)
+  if (error) throw error
+}
+
 // Primeira vez que o Stoploss Inicial é definido (cadastro trava depois
 // disso — ver ClubModal): abre a primeira linha do histórico, pra sempre dar
 // pra ver de onde o clube partiu (Stoploss Atual é calculado ao vivo a
