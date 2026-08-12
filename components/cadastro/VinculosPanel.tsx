@@ -245,7 +245,42 @@ export function VinculosPanel({ open, regra, resumo, indicadorNomePorId, onClose
         </div>
 
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
-          <div className="space-y-2">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{editando ? 'Editando vínculo' : 'Novo vínculo — de quem, pra quem'}</p>
+              {editando && <button type="button" onClick={resetForm} className="text-xs text-gray-500 hover:text-white">cancelar edição</button>}
+            </div>
+            <div className="flex items-start gap-3">
+              <SeletorEntidade titulo="De (quem define/cobra)" opcional multi lado={ladoDe} onChange={setLadoDe} />
+              <ArrowRight size={16} className="text-gray-600 shrink-0 mt-6" />
+              <SeletorEntidade titulo="Para (quem recebe a regra)" multi lado={ladoPara} onChange={setLadoPara} />
+            </div>
+            {ladoPara.tipo === 'clube' && (() => {
+              const campo = campoFromCondicoes(regra.condicoes, indicadorNomePorId)
+              return campo ? (
+                <p className="text-xs text-gray-500">Essa regra vai substituir <span className="text-gold">{LABEL_CAMPO[campo]}</span> do clube (indicador usado na condição).</p>
+              ) : (
+                <p className="text-xs text-alert">Essa regra não usa Rake Cash / Rake MTT / Rake Spinup na condição, então não dá pra saber qual taxa do clube ela substitui — o vínculo não vai afetar nenhum cálculo até a regra usar um desses indicadores.</p>
+              )
+            })()}
+            {(() => {
+              const totalCombos = Math.max(ladoDe.selecionados.length, 1) * ladoPara.selecionados.length
+              return (
+                <button
+                  type="button"
+                  onClick={handleSalvar}
+                  disabled={ladoPara.selecionados.length === 0 || saving}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {editando
+                    ? (totalCombos > 1 ? `Salvar edição + vincular a mais ${totalCombos - 1}` : 'Salvar edição')
+                    : (totalCombos > 1 ? `Vincular ${totalCombos} combinações` : 'Vincular')}
+                </button>
+              )
+            })()}
+          </div>
+
+          <div className="space-y-2 pt-2 border-t border-white/10">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Vínculos ativos</p>
             {loading ? (
               <p className="text-sm text-gray-500">Carregando...</p>
@@ -279,41 +314,6 @@ export function VinculosPanel({ open, regra, resumo, indicadorNomePorId, onClose
                 ))}
               </div>
             )}
-          </div>
-
-          <div className="space-y-3 pt-2 border-t border-white/10">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{editando ? 'Editando vínculo' : 'Novo vínculo — de quem, pra quem'}</p>
-              {editando && <button type="button" onClick={resetForm} className="text-xs text-gray-500 hover:text-white">cancelar edição</button>}
-            </div>
-            <div className="flex items-start gap-3">
-              <SeletorEntidade titulo="De (quem define/cobra)" opcional multi lado={ladoDe} onChange={setLadoDe} />
-              <ArrowRight size={16} className="text-gray-600 shrink-0 mt-6" />
-              <SeletorEntidade titulo="Para (quem recebe a regra)" multi lado={ladoPara} onChange={setLadoPara} />
-            </div>
-            {ladoPara.tipo === 'clube' && (() => {
-              const campo = campoFromCondicoes(regra.condicoes, indicadorNomePorId)
-              return campo ? (
-                <p className="text-xs text-gray-500">Essa regra vai substituir <span className="text-gold">{LABEL_CAMPO[campo]}</span> do clube (indicador usado na condição).</p>
-              ) : (
-                <p className="text-xs text-alert">Essa regra não usa Rake Cash / Rake MTT / Rake Spinup na condição, então não dá pra saber qual taxa do clube ela substitui — o vínculo não vai afetar nenhum cálculo até a regra usar um desses indicadores.</p>
-              )
-            })()}
-            {(() => {
-              const totalCombos = Math.max(ladoDe.selecionados.length, 1) * ladoPara.selecionados.length
-              return (
-                <button
-                  type="button"
-                  onClick={handleSalvar}
-                  disabled={ladoPara.selecionados.length === 0 || saving}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  {editando
-                    ? (totalCombos > 1 ? `Salvar edição + vincular a mais ${totalCombos - 1}` : 'Salvar edição')
-                    : (totalCombos > 1 ? `Vincular ${totalCombos} combinações` : 'Vincular')}
-                </button>
-              )
-            })()}
           </div>
 
           {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
