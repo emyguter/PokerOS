@@ -29,12 +29,12 @@ export function StoplossView() {
         <p className="text-sm text-gray-400 mt-1">{t('stoploss.subtitulo')}</p>
       </div>
 
-      <div className="flex gap-2 border-b border-white/10">
+      <div className="flex gap-2 border-b border-white/10 overflow-x-auto">
         {abas.map(({ key, labelKey, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === key ? 'border-gold text-gold' : 'border-transparent text-gray-400 hover:text-white'}`}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px whitespace-nowrap shrink-0 transition-colors ${tab === key ? 'border-gold text-gold' : 'border-transparent text-gray-400 hover:text-white'}`}
           >
             <Icon size={14} />{t(labelKey)}
           </button>

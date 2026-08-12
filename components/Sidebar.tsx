@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { BookOpen, Upload, FileText, LogOut, ShieldCheck, Wallet, Receipt, PanelLeftClose, PanelLeftOpen, HandCoins, ListChecks, Landmark, Gauge } from 'lucide-react'
+import { BookOpen, Upload, FileText, LogOut, ShieldCheck, Wallet, Receipt, PanelLeftClose, PanelLeftOpen, HandCoins, ListChecks, Landmark, Gauge, Menu, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { useI18n } from '@/lib/i18n'
@@ -26,6 +26,9 @@ export default function Sidebar() {
   const { loading, profile, isSuperAdmin, hasPermission } = usePermissions()
   const { locale, toggleLocale, t } = useI18n()
   const [collapsed, setCollapsed] = useState(false)
+  // Menu vira gaveta (drawer) sobreposta no celular — fechada por padrão,
+  // e fecha sozinha assim que o usuário navega pra outra tela.
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
     if (localStorage.getItem(COLLAPSED_KEY) === '1') setCollapsed(true)
@@ -52,38 +55,8 @@ export default function Sidebar() {
 
   const nav = NAV.filter(item => loading || item.chaves.some(c => hasPermission(c)))
 
-  if (collapsed) {
-    return (
-      <button
-        onClick={toggleCollapsed}
-        title={t('nav.mostrar_menu')}
-        className="fixed top-4 left-4 z-40 w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 bg-surface2 text-gray-400 hover:text-white hover:border-white/20 transition-colors"
-      >
-        <PanelLeftOpen size={16} />
-      </button>
-    )
-  }
-
-  return (
-    <aside className="w-60 shrink-0 h-screen sticky top-0 border-r border-white/10 bg-surface2 flex flex-col">
-      {/* Logo */}
-      <div className="px-4 py-5 border-b border-white/10 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 border border-gold/60 rounded-lg flex items-center justify-center text-gold text-lg shrink-0">◆</div>
-          <div className="min-w-0">
-            <div className="text-gold font-bold text-base tracking-wide font-display truncate">PokerOS</div>
-            <div className="text-white/30 text-xs tracking-widest uppercase" style={{fontSize: '9px'}}>League Platform</div>
-          </div>
-        </div>
-        <button
-          onClick={toggleCollapsed}
-          title={t('nav.esconder_menu')}
-          className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-        >
-          <PanelLeftClose size={16} />
-        </button>
-      </div>
-
+  const navBody = (
+    <>
       <div className="px-4 pt-3">
         <button
           onClick={toggleLocale}
@@ -101,6 +74,7 @@ export default function Sidebar() {
         {ehClube ? (
           <Link
             href="/extrato"
+            onClick={() => setMobileOpen(false)}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
               path.startsWith('/extrato') ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
             }`}
@@ -111,6 +85,7 @@ export default function Sidebar() {
         ) : ehAgente ? (
           <Link
             href="/agente/extrato"
+            onClick={() => setMobileOpen(false)}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
               path.startsWith('/agente') ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
             }`}
@@ -126,6 +101,7 @@ export default function Sidebar() {
                 <Link
                   key={href}
                   href={href}
+                  onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                     active ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
                   }`}
@@ -138,6 +114,7 @@ export default function Sidebar() {
             {isSuperAdmin && (
               <Link
                 href="/admin/permissoes"
+                onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                   path.startsWith('/admin/permissoes') ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
                 }`}
@@ -171,6 +148,76 @@ export default function Sidebar() {
           {t('nav.sair')}
         </button>
       </div>
-    </aside>
+    </>
+  )
+
+  const logo = (
+    <div className="flex items-center gap-3 min-w-0">
+      <div className="w-9 h-9 border border-gold/60 rounded-lg flex items-center justify-center text-gold text-lg shrink-0">◆</div>
+      <div className="min-w-0">
+        <div className="text-gold font-bold text-base tracking-wide font-display truncate">PokerOS</div>
+        <div className="text-white/30 text-xs tracking-widest uppercase" style={{fontSize: '9px'}}>League Platform</div>
+      </div>
+    </div>
+  )
+
+  return (
+    <>
+      {/* Botão hambúrguer — só no celular, sempre visível (a gaveta some por padrão) */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        title={t('nav.mostrar_menu')}
+        className="md:hidden fixed top-4 left-4 z-40 w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 bg-surface2 text-gray-400 hover:text-white hover:border-white/20 transition-colors"
+      >
+        <Menu size={16} />
+      </button>
+
+      {/* Gaveta do celular — sobrepõe o conteúdo, com fundo escurecido atrás */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          <aside className="relative w-72 max-w-[85vw] h-full border-r border-white/10 bg-surface2 flex flex-col">
+            <div className="px-4 py-5 border-b border-white/10 flex items-center justify-between gap-2">
+              {logo}
+              <button
+                onClick={() => setMobileOpen(false)}
+                title={t('nav.esconder_menu')}
+                className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {navBody}
+          </aside>
+        </div>
+      )}
+
+      {/* Sidebar de mesa — igual antes, com botão de recolher; escondida no celular */}
+      <div className="hidden md:block">
+        {collapsed ? (
+          <button
+            onClick={toggleCollapsed}
+            title={t('nav.mostrar_menu')}
+            className="fixed top-4 left-4 z-40 w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 bg-surface2 text-gray-400 hover:text-white hover:border-white/20 transition-colors"
+          >
+            <PanelLeftOpen size={16} />
+          </button>
+        ) : (
+          <aside className="w-60 shrink-0 h-screen sticky top-0 border-r border-white/10 bg-surface2 flex flex-col">
+            <div className="px-4 py-5 border-b border-white/10 flex items-center justify-between gap-2">
+              {logo}
+              <button
+                onClick={toggleCollapsed}
+                title={t('nav.esconder_menu')}
+                className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <PanelLeftClose size={16} />
+              </button>
+            </div>
+            {navBody}
+          </aside>
+        )}
+      </div>
+    </>
   )
 }

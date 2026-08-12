@@ -32,7 +32,7 @@ export function RelatoriosView() {
   return (
     <div>
       {abas.length > 1 && (
-        <div className="flex gap-2 border-b border-white/10 px-10 pt-6" style={{ background: '#0C0E0B' }}>
+        <div className="flex gap-2 border-b border-white/10 px-4 md:px-10 pt-6 overflow-x-auto" style={{ background: '#0C0E0B' }}>
           {abas.map(({ key, labelKey, icon: Icon }) => (
             <button
               key={key}
@@ -47,7 +47,7 @@ export function RelatoriosView() {
 
       {abaAtiva === 'acertos' && <AcertosView />}
       {abaAtiva === 'lancamentos' && (
-        <div style={{ background: '#0C0E0B', minHeight: '100vh', padding: '40px' }} className="space-y-6">
+        <div style={{ background: '#0C0E0B', minHeight: '100vh' }} className="space-y-6 p-4 md:p-10">
           <div>
             <h1 className="text-2xl font-semibold text-white">{t('relatorios.titulo_lancamentos')}</h1>
             <p className="text-sm text-gray-400 mt-1">{t('relatorios.subtitulo_lancamentos')}</p>

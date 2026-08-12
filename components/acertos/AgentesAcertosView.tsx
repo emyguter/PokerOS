@@ -125,26 +125,28 @@ export function AgentesAcertosView({ agenteIdFixo }: { agenteIdFixo?: string } =
                   <p style={{ color: '#7DC97D', fontSize: 16, fontWeight: 600, margin: 0 }}>{fmt(a.valor_rakeback)}</p>
                 </button>
                 {aberto && (
-                  <table style={{ marginBottom: 4 }}>
-                    <thead>
-                      <tr>
-                        <th style={{ paddingLeft: 40 }}>Clube</th>
-                        <th style={{ textAlign: 'right' }}>Rake</th>
-                        <th style={{ textAlign: 'right' }}>%</th>
-                        <th style={{ textAlign: 'right' }}>Rakeback</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...a.clubes.values()].map((c) => (
-                        <tr key={c.clube_nome}>
-                          <td style={{ paddingLeft: 40, color: '#d0cdc5' }}>{c.clube_nome}</td>
-                          <td style={{ textAlign: 'right' }}>{fmt(c.rake_total)}</td>
-                          <td style={{ textAlign: 'right', color: '#7a7a70' }}>{fmt(c.rakeback_pct)}%</td>
-                          <td style={{ textAlign: 'right', color: '#7DC97D' }}>{fmt(c.valor_rakeback)}</td>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ marginBottom: 4 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ paddingLeft: 40 }}>Clube</th>
+                          <th style={{ textAlign: 'right' }}>Rake</th>
+                          <th style={{ textAlign: 'right' }}>%</th>
+                          <th style={{ textAlign: 'right' }}>Rakeback</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {[...a.clubes.values()].map((c) => (
+                          <tr key={c.clube_nome}>
+                            <td style={{ paddingLeft: 40, color: '#d0cdc5' }}>{c.clube_nome}</td>
+                            <td style={{ textAlign: 'right' }}>{fmt(c.rake_total)}</td>
+                            <td style={{ textAlign: 'right', color: '#7a7a70' }}>{fmt(c.rakeback_pct)}%</td>
+                            <td style={{ textAlign: 'right', color: '#7DC97D' }}>{fmt(c.valor_rakeback)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             )
