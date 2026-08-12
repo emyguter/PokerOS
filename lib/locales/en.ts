@@ -160,5 +160,14 @@ export const en: typeof pt = {
     fila_vazia: 'Nothing awaiting approval.',
     aprovar: 'Approve', rejeitar: 'Reject',
     status: { pendente: 'Pending', aprovado: 'Approved', rejeitado: 'Rejected' },
+    escopo_permanente: 'Becomes Initial Stoploss', escopo_semanal: 'This week only',
+    escopo_obrigatorio: 'Choose whether the adjustment becomes Initial Stoploss or only counts this week before approving.',
+    escopo_col: 'Scope',
+  },
+  relatorios: {
+    aba_acertos: 'Settlements', aba_lancamentos: 'Entries',
+    titulo_lancamentos: 'Entries Report', subtitulo_lancamentos: 'Query entries across every club, without picking one at a time',
+    todos_clubes: 'All clubs', natureza: 'Nature', origem: 'Origin', status: 'Status',
+    limite_500: 'Showing the 500 most recent — narrow the filter to see everything.',
   },
 }

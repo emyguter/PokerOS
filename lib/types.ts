@@ -125,6 +125,7 @@ export type Club = {
   stoploss_atual: number | null
   ratio_caucao_stoploss: number | null
   margem_monitoria_ativa: boolean
+  hora_virada_semana: number
   projeto: string | null
   plataforma_id: string | null
   operador_ext_id: string | null
@@ -156,6 +157,7 @@ export type ClubForm = {
   caucao_atual: number | null
   stoploss_inicial: number | null
   ratio_caucao_stoploss: number | null
+  hora_virada_semana: number
   projeto: string | null
   plataforma_id: string | null
   operador_ext_id: string | null
@@ -356,11 +358,13 @@ export type StoplossAjuste = {
 }
 
 export type StoplossHistoricoTipo = 'inicial' | 'antecipacao' | 'ajuste_suporte' | 'caucao' | 'margem_monitoria' | 'bug_ppp'
+export type StoplossEscopo = 'permanente' | 'semanal'
 
 export type StoplossHistoricoItem = {
   id: string
   clube_id: string
   tipo: StoplossHistoricoTipo
+  escopo: StoplossEscopo
   valor_delta: number
   valor_resultante: number
   motivo: string | null

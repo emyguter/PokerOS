@@ -1,3 +1,3 @@
-import AcertosView from "@/components/acertos/AcertosView";
+import { RelatoriosView } from "@/components/relatorios/RelatoriosView";
 import { PermissionGuard } from "@/components/PermissionGuard";
-export default function Page() { return <PermissionGuard chave="relatorios"><AcertosView /></PermissionGuard>; }
+export default function Page() { return <PermissionGuard chave={["relatorios", "relatorios.acertos", "relatorios.lancamentos"]}><RelatoriosView /></PermissionGuard>; }
