@@ -29,18 +29,22 @@ create or replace function fn_clubs_historico() returns trigger as $$
 declare
   campos text[] := array[]::text[];
 begin
+  -- Cast explícito pra ::text em cada append: sem ele, o Postgres as vezes
+  -- resolve "text[] || 'palavra'" como se fosse concatenar dois arrays (tenta
+  -- interpretar 'palavra' como literal de array, tipo "{a,b}") em vez de
+  -- adicionar o texto como item novo — e quebra com "malformed array literal".
   if TG_OP = 'UPDATE' then
-    if new.caucao_atual is distinct from old.caucao_atual then campos := campos || 'caucao_atual'; end if;
-    if new.ratio_caucao_stoploss is distinct from old.ratio_caucao_stoploss then campos := campos || 'ratio_caucao_stoploss'; end if;
-    if new.stoploss_inicial is distinct from old.stoploss_inicial then campos := campos || 'stoploss_inicial'; end if;
-    if new.fee_cash_pct is distinct from old.fee_cash_pct then campos := campos || 'fee_cash_pct'; end if;
-    if new.fee_mtt_pct is distinct from old.fee_mtt_pct then campos := campos || 'fee_mtt_pct'; end if;
-    if new.taxa_op_pct is distinct from old.taxa_op_pct then campos := campos || 'taxa_op_pct'; end if;
-    if new.spinup_pct is distinct from old.spinup_pct then campos := campos || 'spinup_pct'; end if;
-    if new.hora_virada_semana is distinct from old.hora_virada_semana then campos := campos || 'hora_virada_semana'; end if;
+    if new.caucao_atual is distinct from old.caucao_atual then campos := campos || 'caucao_atual'::text; end if;
+    if new.ratio_caucao_stoploss is distinct from old.ratio_caucao_stoploss then campos := campos || 'ratio_caucao_stoploss'::text; end if;
+    if new.stoploss_inicial is distinct from old.stoploss_inicial then campos := campos || 'stoploss_inicial'::text; end if;
+    if new.fee_cash_pct is distinct from old.fee_cash_pct then campos := campos || 'fee_cash_pct'::text; end if;
+    if new.fee_mtt_pct is distinct from old.fee_mtt_pct then campos := campos || 'fee_mtt_pct'::text; end if;
+    if new.taxa_op_pct is distinct from old.taxa_op_pct then campos := campos || 'taxa_op_pct'::text; end if;
+    if new.spinup_pct is distinct from old.spinup_pct then campos := campos || 'spinup_pct'::text; end if;
+    if new.hora_virada_semana is distinct from old.hora_virada_semana then campos := campos || 'hora_virada_semana'::text; end if;
     if array_length(campos, 1) is null then return new; end if;
   else
-    campos := array['criacao'];
+    campos := array['criacao']::text[];
   end if;
 
   insert into clubs_historico (
