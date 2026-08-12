@@ -137,6 +137,7 @@ export const pt = {
     aba_relatorio: 'Relatório', aba_resumo: 'Resumo', aba_extrato: 'Extrato', aba_fila: 'Fila de Aprovação',
     clube: 'Clube', liga: 'Liga', ratio: 'Ratio', total: 'Total', buscar_clube: 'Buscar clube ou liga...',
     projeto: 'Projeto', todos_projetos: 'Todos os projetos',
+    periodo: 'Período', periodo_atual: 'Atual', periodo_aviso: 'Mostrando como o Stoploss estava em {periodo} — valores reconstruídos pelo histórico.',
     selecione_clube: 'Selecione um clube.',
     stoploss_inicial: 'Stoploss Inicial', stoploss_atual: 'Stoploss Atual', caucao_atual: 'Caução Atual',
     solicitar_ajuste: 'Solicitar ajuste', natureza: 'Natureza', valor: 'Valor', justificativa: 'Justificativa',

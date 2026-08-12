@@ -139,6 +139,7 @@ export const en: typeof pt = {
     aba_relatorio: 'Report', aba_resumo: 'Club Detail', aba_extrato: 'Statement', aba_fila: 'Approval Queue',
     clube: 'Club', liga: 'League', ratio: 'Ratio', total: 'Total', buscar_clube: 'Search club or league...',
     projeto: 'Project', todos_projetos: 'All projects',
+    periodo: 'Period', periodo_atual: 'Current', periodo_aviso: 'Showing how Stoploss stood on {periodo} — values reconstructed from history.',
     selecione_clube: 'Select a club.',
     stoploss_inicial: 'Initial Stoploss', stoploss_atual: 'Current Stoploss', caucao_atual: 'Current Deposit',
     solicitar_ajuste: 'Request adjustment', natureza: 'Nature', valor: 'Amount', justificativa: 'Justification',
