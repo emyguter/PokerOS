@@ -8,6 +8,7 @@ import { RegrasAplicadas } from './RegrasAplicadas'
 import { StepModal, type ModalStep } from './StepModal'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { getStoplossAtual } from '@/lib/stoploss'
+import { getIndicacoes, addIndicacao, removeIndicacao, type IndicacaoRow } from '@/lib/cadastro-api'
 
 interface Props {
   open: boolean
@@ -66,7 +67,9 @@ function NumInput({ value, onChange, placeholder }: { value: number | null; onCh
 export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave, saving, error }: Props) {
   const [form, setForm] = useState<ClubForm>(EMPTY)
   const [step, setStep] = useState('identificacao')
-  const [indicacoes, setIndicacoes] = useState<{ club_id: string; club_nome: string; taxa: string }[]>([])
+  const [indicacoes, setIndicacoes] = useState<IndicacaoRow[]>([])
+  const [salvandoIndicacao, setSalvandoIndicacao] = useState(false)
+  const [erroIndicacao, setErroIndicacao] = useState<string | null>(null)
   const [indClub, setIndClub] = useState<{ id: string; nome: string } | null>(null)
   const [indTaxa, setIndTaxa] = useState('')
   const [buscaIndClub, setBuscaIndClub] = useState('')
@@ -85,14 +88,45 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     setForm(editing ? toForm(editing) : EMPTY)
     setStep('identificacao')
     setIndicacoes([])
+    setErroIndicacao(null)
     setIndClub(null)
     setIndTaxa('')
     setBuscaIndClub('')
     setResultadosIndClub([])
     setClubeLocked(!!editing?.name && !!editing?.external_id)
     setStoplossAtual(null)
-    if (editing) getStoplossAtual(editing.id).then(setStoplossAtual)
+    if (editing) {
+      getStoplossAtual(editing.id).then(setStoplossAtual)
+      getIndicacoes(editing.id).then(setIndicacoes).catch(e => setErroIndicacao(e instanceof Error ? e.message : String(e)))
+    }
   }, [editing, open])
+
+  async function adicionarIndicacao() {
+    if (!editing || !indClub || !indTaxa) return
+    setSalvandoIndicacao(true); setErroIndicacao(null)
+    try {
+      await addIndicacao(editing.id, indClub.id, Number(indTaxa))
+      setIndicacoes(await getIndicacoes(editing.id))
+      setIndClub(null); setIndTaxa(''); setBuscaIndClub('')
+    } catch (e) {
+      setErroIndicacao(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSalvandoIndicacao(false)
+    }
+  }
+
+  async function removerIndicacaoSalva(id: string) {
+    if (!editing) return
+    setSalvandoIndicacao(true); setErroIndicacao(null)
+    try {
+      await removeIndicacao(id)
+      setIndicacoes(await getIndicacoes(editing.id))
+    } catch (e) {
+      setErroIndicacao(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSalvandoIndicacao(false)
+    }
+  }
 
   useEffect(() => {
     if (indClubTimer.current) clearTimeout(indClubTimer.current)
@@ -290,42 +324,56 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
 
           <div className="space-y-3 mt-4">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">Indicações</h3>
-            {indClub ? (
-              <div className="flex items-center gap-2">
-                <div className="flex-1 flex items-center justify-between px-3 py-2 bg-surface2 border border-gold/30 rounded-lg text-sm">
-                  <span className="text-white">{indClub.nome}</span>
-                  <button type="button" onClick={() => setIndClub(null)} className="text-gray-500 hover:text-alert"><Trash2 size={13} /></button>
-                </div>
-                <input type="number" step="any" value={indTaxa} onChange={e => setIndTaxa(e.target.value)} placeholder="Taxa %" className="w-24 bg-surface border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50" />
-                <button
-                  type="button"
-                  onClick={() => { if (!indClub || !indTaxa) return; setIndicacoes(p => [...p, { club_id: indClub.id, club_nome: indClub.nome, taxa: indTaxa }]); setIndClub(null); setIndTaxa(''); setBuscaIndClub('') }}
-                  className="px-3 py-2 bg-surface2 border border-white/10 rounded-lg text-gold hover:border-gold/50 transition-colors"
-                ><Plus size={16} /></button>
-              </div>
+            {!editing ? (
+              <p className="text-xs text-gray-500 italic">Salve o cadastro primeiro pra poder indicar outro clube.</p>
             ) : (
-              <div className="relative">
-                <input
-                  type="text" value={buscaIndClub} onChange={e => setBuscaIndClub(e.target.value)}
-                  placeholder="Buscar clube por ID ou nome..." className={inputCls}
-                />
-                {buscandoIndClub && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
-                {resultadosIndClub.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-surface2 border border-white/10 rounded-lg overflow-hidden shadow-xl">
-                    {resultadosIndClub.map(c => (
-                      <button
-                        key={c.id} type="button"
-                        onClick={() => { setIndClub({ id: c.id, nome: c.name }); setBuscaIndClub(''); setResultadosIndClub([]) }}
-                        className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-white/5 transition-colors"
-                      >
-                        {c.name} <span className="text-gray-500">(ID: {c.external_id ?? '—'}{c.plataformaNome ? ` · ${c.plataformaNome}` : ''})</span>
-                      </button>
-                    ))}
+              <>
+                {erroIndicacao && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroIndicacao}</div>}
+                {indClub ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center justify-between px-3 py-2 bg-surface2 border border-gold/30 rounded-lg text-sm">
+                      <span className="text-white">{indClub.nome}</span>
+                      <button type="button" onClick={() => setIndClub(null)} className="text-gray-500 hover:text-alert"><Trash2 size={13} /></button>
+                    </div>
+                    <input type="number" step="any" value={indTaxa} onChange={e => setIndTaxa(e.target.value)} placeholder="Taxa %" className="w-24 bg-surface border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50" />
+                    <button
+                      type="button"
+                      onClick={adicionarIndicacao}
+                      disabled={!indTaxa || salvandoIndicacao}
+                      className="px-3 py-2 bg-surface2 border border-white/10 rounded-lg text-gold hover:border-gold/50 disabled:opacity-40 transition-colors"
+                    ><Plus size={16} /></button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="text" value={buscaIndClub} onChange={e => setBuscaIndClub(e.target.value)}
+                      placeholder="Buscar clube por ID ou nome..." className={inputCls}
+                    />
+                    {buscandoIndClub && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
+                    {resultadosIndClub.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-surface2 border border-white/10 rounded-lg overflow-hidden shadow-xl">
+                        {resultadosIndClub.map(c => (
+                          <button
+                            key={c.id} type="button"
+                            onClick={() => { setIndClub({ id: c.id, nome: c.name }); setBuscaIndClub(''); setResultadosIndClub([]) }}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-white/5 transition-colors"
+                          >
+                            {c.name} <span className="text-gray-500">(ID: {c.external_id ?? '—'}{c.plataformaNome ? ` · ${c.plataformaNome}` : ''})</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+                {indicacoes.map(ind => (
+                  <div key={ind.id} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-white/10 text-sm">
+                    <span className="text-gray-300">{ind.nome}</span>
+                    <span className="text-gold">{ind.taxa_indicacao_pct}%</span>
+                    <button type="button" onClick={() => removerIndicacaoSalva(ind.id)} disabled={salvandoIndicacao} className="text-gray-500 hover:text-alert disabled:opacity-40"><Trash2 size={13} /></button>
+                  </div>
+                ))}
+              </>
             )}
-            {indicacoes.map((ind, i) => <div key={i} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-white/10 text-sm"><span className="text-gray-300">{ind.club_nome}</span><span className="text-gold">{ind.taxa}%</span><button type="button" onClick={() => setIndicacoes(p => p.filter((_, j) => j !== i))} className="text-gray-500 hover:text-alert"><Trash2 size={13} /></button></div>)}
           </div>
         </>
       )}
