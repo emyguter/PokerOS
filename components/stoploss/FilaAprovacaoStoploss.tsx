@@ -4,8 +4,8 @@ import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
-import { getStoplossAtual } from '@/lib/stoploss'
-import type { StoplossAjuste } from '@/lib/types'
+import { aprovarAjusteSuporte } from '@/lib/stoploss'
+import type { StoplossAjuste, StoplossEscopo } from '@/lib/types'
 
 function formatMoeda(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -18,6 +18,7 @@ export function FilaAprovacaoStoploss() {
   const [pendentes, setPendentes] = useState<StoplossAjuste[]>([])
   const [loading, setLoading] = useState(true)
   const [processandoId, setProcessandoId] = useState<string | null>(null)
+  const [escopoPorAjuste, setEscopoPorAjuste] = useState<Record<string, StoplossEscopo>>({})
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -34,24 +35,16 @@ export function FilaAprovacaoStoploss() {
   useEffect(() => { load() }, [load])
 
   async function aprovar(a: StoplossAjuste) {
+    const escopo = escopoPorAjuste[a.id]
+    if (!escopo) { setError(t('stoploss.escopo_obrigatorio')); return }
     setProcessandoId(a.id); setError(null)
     try {
-      const { data: userData } = await supabase.auth.getUser()
-      const atual = await getStoplossAtual(a.clube_id)
-      const delta = a.natureza === 'credito' ? a.valor : -a.valor
-      const resultante = atual + delta
-
-      const { error: updErr } = await supabase.from('stoploss_ajustes').update({
-        status: 'aprovado', aprovado_por: userData.user?.id ?? null, aprovado_em: new Date().toISOString(),
-      }).eq('id', a.id)
-      if (updErr) throw updErr
-
-      const { error: histErr } = await supabase.from('stoploss_historico').insert({
-        clube_id: a.clube_id, tipo: 'ajuste_suporte', valor_delta: delta, valor_resultante: resultante,
-        motivo: a.justificativa, ajuste_id: a.id, criado_por: a.criado_por,
+      await aprovarAjusteSuporte(a, escopo)
+      setEscopoPorAjuste(m => {
+        const resto = { ...m }
+        delete resto[a.id]
+        return resto
       })
-      if (histErr) throw histErr
-
       await load()
     } catch (err) {
       setError(errMsg(err))
@@ -86,24 +79,39 @@ export function FilaAprovacaoStoploss() {
           <div className="p-8 text-center text-gray-500 text-sm">{t('stoploss.fila_vazia')}</div>
         ) : (
           <div className="divide-y divide-white/5">
-            {pendentes.map(a => (
-              <div key={a.id} className="flex items-center justify-between px-4 py-3 gap-3">
-                <div>
-                  <p className="text-sm text-white">{a.clubs?.name ?? '—'}</p>
-                  <p className="text-xs text-gray-500">{a.justificativa}</p>
-                  <p className="text-xs text-gray-600">{new Date(a.criado_em).toLocaleDateString('pt-BR')}</p>
+            {pendentes.map(a => {
+              const escopo = escopoPorAjuste[a.id]
+              return (
+                <div key={a.id} className="flex items-center justify-between px-4 py-3 gap-3">
+                  <div>
+                    <p className="text-sm text-white">{a.clubs?.name ?? '—'}</p>
+                    <p className="text-xs text-gray-500">{a.justificativa}</p>
+                    <p className="text-xs text-gray-600">{new Date(a.criado_em).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className={`text-sm font-medium ${a.natureza === 'credito' ? 'text-success' : 'text-alert'}`}>{a.natureza === 'credito' ? '+' : '−'}{formatMoeda(a.valor)}</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setEscopoPorAjuste(m => ({ ...m, [a.id]: 'permanente' }))}
+                        className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${escopo === 'permanente' ? 'border-gold/50 bg-gold/10 text-gold' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+                      >{t('stoploss.escopo_permanente')}</button>
+                      <button
+                        type="button"
+                        onClick={() => setEscopoPorAjuste(m => ({ ...m, [a.id]: 'semanal' }))}
+                        className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${escopo === 'semanal' ? 'border-gold/50 bg-gold/10 text-gold' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+                      >{t('stoploss.escopo_semanal')}</button>
+                    </div>
+                    <button onClick={() => rejeitar(a)} disabled={processandoId === a.id} className="flex items-center gap-1.5 px-3 py-1.5 border border-alert/30 text-alert rounded-lg text-xs font-semibold hover:bg-alert/10 disabled:opacity-50 transition-colors">
+                      <XCircle size={12} />{t('stoploss.rejeitar')}
+                    </button>
+                    <button onClick={() => aprovar(a)} disabled={processandoId === a.id || !escopo} className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-surface rounded-lg text-xs font-semibold hover:bg-gold/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                      {processandoId === a.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}{t('stoploss.aprovar')}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className={`text-sm font-medium ${a.natureza === 'credito' ? 'text-success' : 'text-alert'}`}>{a.natureza === 'credito' ? '+' : '−'}{formatMoeda(a.valor)}</span>
-                  <button onClick={() => rejeitar(a)} disabled={processandoId === a.id} className="flex items-center gap-1.5 px-3 py-1.5 border border-alert/30 text-alert rounded-lg text-xs font-semibold hover:bg-alert/10 disabled:opacity-50 transition-colors">
-                    <XCircle size={12} />{t('stoploss.rejeitar')}
-                  </button>
-                  <button onClick={() => aprovar(a)} disabled={processandoId === a.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-surface rounded-lg text-xs font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
-                    {processandoId === a.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}{t('stoploss.aprovar')}
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

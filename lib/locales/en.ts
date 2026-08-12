@@ -160,5 +160,8 @@ export const en: typeof pt = {
     fila_vazia: 'Nothing awaiting approval.',
     aprovar: 'Approve', rejeitar: 'Reject',
     status: { pendente: 'Pending', aprovado: 'Approved', rejeitado: 'Rejected' },
+    escopo_permanente: 'Becomes Initial Stoploss', escopo_semanal: 'This week only',
+    escopo_obrigatorio: 'Choose whether the adjustment becomes Initial Stoploss or only counts this week before approving.',
+    escopo_col: 'Scope',
   },
 }

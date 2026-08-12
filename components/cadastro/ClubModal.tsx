@@ -27,6 +27,7 @@ const EMPTY: ClubForm = {
   spinup_pct: null, rebate_pct: null, crypto_rebate_pct: null, rakeback_pct: null, security: null,
   taxa_variavel_nome: null, taxa_variavel_indicador: null, taxa_variavel_regra: null,
   caucao_atual: null, stoploss_inicial: null, ratio_caucao_stoploss: null, projeto: null,
+  hora_virada_semana: 2,
   plataforma_id: null, operador_ext_id: null, operador_nickname: null, rebate_ativo: false,
 }
 
@@ -50,6 +51,7 @@ function toForm(c: Club): ClubForm {
     taxa_variavel_nome: c.taxa_variavel_nome, taxa_variavel_indicador: c.taxa_variavel_indicador,
     taxa_variavel_regra: c.taxa_variavel_regra, caucao_atual: c.caucao_atual, stoploss_inicial: c.stoploss_inicial,
     ratio_caucao_stoploss: c.ratio_caucao_stoploss, projeto: c.projeto ?? null,
+    hora_virada_semana: c.hora_virada_semana ?? 2,
     plataforma_id: c.plataforma_id ?? null,
     operador_ext_id: c.operador_ext_id ?? null,
     operador_nickname: c.operador_nickname ?? null,
@@ -319,6 +321,12 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
             <Fld label="Ratio Caução → Stoploss">
               <NumInput value={form.ratio_caucao_stoploss} onChange={v => set('ratio_caucao_stoploss', v)} placeholder="Ex: 2" />
               <p className="text-xs text-gray-500 mt-1.5">Quanto soma no Stoploss pra cada real de Caução confirmada. Ex: 2 = ratio 1:2 (R$1 de caução vira R$2 de Stoploss). Vazio = ratio 1:1 (R$1 de caução vira R$1 de Stoploss).</p>
+            </Fld>
+            <Fld label="Hora de virada da semana">
+              <select value={form.hora_virada_semana} onChange={e => set('hora_virada_semana', Number(e.target.value))} className={inputCls}>
+                {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>)}
+              </select>
+              <p className="text-xs text-gray-500 mt-1.5">Horário de Brasília em que a semana desse clube vira segunda-feira — define até quando um ajuste “Só essa semana” continua contando no Stoploss. Padrão: 02:00.</p>
             </Fld>
           </div>
 

@@ -36,7 +36,7 @@ export function ExtratoStoploss() {
     setLoading(true)
     const { data } = await supabase
       .from('stoploss_historico')
-      .select('id, clube_id, tipo, valor_delta, valor_resultante, motivo, criado_em')
+      .select('id, clube_id, tipo, escopo, valor_delta, valor_resultante, motivo, criado_em')
       .eq('clube_id', clubeId)
       .order('criado_em', { ascending: false })
     setItens((data ?? []) as StoplossHistoricoItem[])
@@ -80,7 +80,10 @@ export function ExtratoStoploss() {
                 {itens.map(i => (
                   <tr key={i.id} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
                     <td className="px-4 py-3 text-gray-400">{new Date(i.criado_em).toLocaleDateString('pt-BR')}</td>
-                    <td className="px-4 py-3 text-gray-300">{t(TIPO_LABEL[i.tipo])}</td>
+                    <td className="px-4 py-3 text-gray-300">
+                      {t(TIPO_LABEL[i.tipo])}
+                      {i.escopo === 'semanal' && <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full border border-gold/30 text-gold">{t('stoploss.escopo_semanal')}</span>}
+                    </td>
                     <td className="px-4 py-3 text-gray-400">{i.motivo || '—'}</td>
                     <td className={`px-4 py-3 text-right font-medium ${i.valor_delta >= 0 ? 'text-success' : 'text-alert'}`}>{i.valor_delta >= 0 ? '+' : ''}{formatMoeda(i.valor_delta)}</td>
                     <td className="px-4 py-3 text-right text-gray-300">{formatMoeda(i.valor_resultante)}</td>
