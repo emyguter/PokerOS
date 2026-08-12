@@ -40,10 +40,16 @@ export function inicioSemanaAtual(horaVirada: number, agora: Date = new Date()):
 // Ajuste 'semanal' só soma no Stoploss Atual enquanto estiver dentro da
 // semana em que foi criado — depois da virada, some sozinho da conta (mas
 // continua no Extrato pra sempre, só não conta mais no total ao vivo).
-function somarHistorico(rows: HistoricoRow[], horaVirada: number): number {
-  const inicioSemana = inicioSemanaAtual(horaVirada)
+// `asOf` simula "agora" pra poder reconstruir como o total estava numa data
+// passada: ignora lançamento que ainda não tinha acontecido naquela data, e
+// usa a semana daquela data (não a de hoje) pra decidir se um 'semanal' já
+// tinha expirado.
+function somarHistorico(rows: HistoricoRow[], horaVirada: number, asOf: Date = new Date()): number {
+  const inicioSemana = inicioSemanaAtual(horaVirada, asOf)
   return rows.reduce((soma, h) => {
-    if (h.escopo === 'semanal' && new Date(h.criado_em) < inicioSemana) return soma
+    const criadoEm = new Date(h.criado_em)
+    if (criadoEm > asOf) return soma
+    if (h.escopo === 'semanal' && criadoEm < inicioSemana) return soma
     return soma + (h.valor_delta ?? 0)
   }, 0)
 }
@@ -55,21 +61,65 @@ export function calcularStoplossAtual(club: ClubeBaseStoploss, somaHistorico: nu
   return inicial + contribuicaoCaucao + somaHistorico
 }
 
-export async function getStoplossAtual(clubeId: string): Promise<number> {
-  const [{ data: club }, { data: historico }] = await Promise.all([
-    supabase.from('clubs').select(SELECT_BASE).eq('id', clubeId).single(),
+const SELECT_HISTORICO_BASE = 'club_id, caucao_atual, ratio_caucao_stoploss, stoploss_inicial, hora_virada_semana, alterado_em'
+
+// Snapshot de clubs_historico mais recente até `asOf` (a "foto" do clube
+// naquela data) — cai pro valor ao vivo de `clubs` só se o clube não tiver
+// nenhum snapshot antes dessa data (não deveria acontecer depois do backfill
+// da migração, mas é uma rede de segurança).
+async function baseClubeAsOf(clubeId: string, asOf: Date): Promise<ClubeBaseStoploss> {
+  const { data } = await supabase
+    .from('clubs_historico')
+    .select(SELECT_HISTORICO_BASE)
+    .eq('club_id', clubeId)
+    .lte('alterado_em', asOf.toISOString())
+    .order('alterado_em', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (data) return { id: clubeId, caucao_atual: data.caucao_atual, ratio_caucao_stoploss: data.ratio_caucao_stoploss, stoploss_inicial: data.stoploss_inicial, hora_virada_semana: data.hora_virada_semana }
+  const { data: live } = await supabase.from('clubs').select(SELECT_BASE).eq('id', clubeId).single()
+  return live ?? { id: clubeId, stoploss_inicial: 0, caucao_atual: 0, ratio_caucao_stoploss: 1, hora_virada_semana: 2 }
+}
+
+async function basesClubesAsOf(clubeIds: string[], asOf: Date): Promise<Map<string, ClubeBaseStoploss>> {
+  const mapa = new Map<string, ClubeBaseStoploss>()
+  const { data } = await supabase
+    .from('clubs_historico')
+    .select(SELECT_HISTORICO_BASE)
+    .in('club_id', clubeIds)
+    .lte('alterado_em', asOf.toISOString())
+    .order('alterado_em', { ascending: false })
+  for (const row of (data ?? [])) {
+    if (!mapa.has(row.club_id)) {
+      mapa.set(row.club_id, { id: row.club_id, caucao_atual: row.caucao_atual, ratio_caucao_stoploss: row.ratio_caucao_stoploss, stoploss_inicial: row.stoploss_inicial, hora_virada_semana: row.hora_virada_semana })
+    }
+  }
+  const faltantes = clubeIds.filter(id => !mapa.has(id))
+  if (faltantes.length > 0) {
+    const { data: live } = await supabase.from('clubs').select(SELECT_BASE).in('id', faltantes)
+    for (const c of (live ?? []) as ClubeBaseStoploss[]) mapa.set(c.id, c)
+  }
+  return mapa
+}
+
+// `asOf`: quando informado, reconstrói o Stoploss Atual como ele estava
+// naquela data (caução/ratio/inicial vêm de `clubs_historico`, e só entram
+// lançamentos que já tinham acontecido até ali) — usado pelo filtro de
+// Período do Relatório de Stoploss. Sem `asOf`, é o valor ao vivo de sempre.
+export async function getStoplossAtual(clubeId: string, asOf?: Date): Promise<number> {
+  const [baseClube, { data: historico }] = await Promise.all([
+    asOf ? baseClubeAsOf(clubeId, asOf) : supabase.from('clubs').select(SELECT_BASE).eq('id', clubeId).single().then(r => r.data ?? { id: clubeId, stoploss_inicial: 0, caucao_atual: 0, ratio_caucao_stoploss: 1, hora_virada_semana: 2 }),
     supabase.from('stoploss_historico').select('valor_delta, escopo, criado_em').eq('clube_id', clubeId).in('tipo', TIPOS_QUE_SOMAM),
   ])
-  const baseClube = club ?? { id: clubeId, stoploss_inicial: 0, caucao_atual: 0, ratio_caucao_stoploss: 1, hora_virada_semana: 2 }
-  const soma = somarHistorico((historico ?? []) as HistoricoRow[], baseClube.hora_virada_semana ?? 2)
+  const soma = somarHistorico((historico ?? []) as HistoricoRow[], baseClube.hora_virada_semana ?? 2, asOf)
   return calcularStoplossAtual(baseClube, soma)
 }
 
-export async function getStoplossAtualBatch(clubeIds: string[]): Promise<Map<string, number>> {
+export async function getStoplossAtualBatch(clubeIds: string[], asOf?: Date): Promise<Map<string, number>> {
   const mapa = new Map<string, number>()
   if (clubeIds.length === 0) return mapa
-  const [{ data: clubes }, { data: historico }] = await Promise.all([
-    supabase.from('clubs').select(SELECT_BASE).in('id', clubeIds),
+  const [basesPorClube, { data: historico }] = await Promise.all([
+    asOf ? basesClubesAsOf(clubeIds, asOf) : supabase.from('clubs').select(SELECT_BASE).in('id', clubeIds).then(r => new Map(((r.data ?? []) as ClubeBaseStoploss[]).map(c => [c.id, c]))),
     supabase.from('stoploss_historico').select('clube_id, valor_delta, escopo, criado_em').in('clube_id', clubeIds).in('tipo', TIPOS_QUE_SOMAM),
   ])
   const linhasPorClube = new Map<string, HistoricoRow[]>()
@@ -78,11 +128,19 @@ export async function getStoplossAtualBatch(clubeIds: string[]): Promise<Map<str
     lista.push(h)
     linhasPorClube.set(h.clube_id, lista)
   }
-  for (const c of (clubes ?? []) as ClubeBaseStoploss[]) {
-    const soma = somarHistorico(linhasPorClube.get(c.id) ?? [], c.hora_virada_semana ?? 2)
-    mapa.set(c.id, calcularStoplossAtual(c, soma))
+  for (const [id, c] of basesPorClube) {
+    const soma = somarHistorico(linhasPorClube.get(id) ?? [], c.hora_virada_semana ?? 2, asOf)
+    mapa.set(id, calcularStoplossAtual(c, soma))
   }
   return mapa
+}
+
+// Snapshot de caução/ratio de cada clube numa data — usado pelo Relatório de
+// Stoploss pra mostrar essas colunas também "como estavam" quando o filtro
+// de Período não é o atual (evita misturar Stoploss histórico com Caução de
+// hoje na mesma linha, o que ficaria inconsistente).
+export async function getBasesClubesAsOf(clubeIds: string[], asOf: Date): Promise<Map<string, ClubeBaseStoploss>> {
+  return basesClubesAsOf(clubeIds, asOf)
 }
 
 // Líder do Suporte aplica direto, sem fila de aprovação — mas só uma vez
