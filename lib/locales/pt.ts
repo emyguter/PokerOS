@@ -102,6 +102,9 @@ export const pt = {
     caucao_duplicata_titulo: 'Já existe um lançamento de caução com esse valor nessa data',
     caucao_duplicata_desc: 'Confirma que não é duplicado antes de lançar de novo?',
     confirmar_mesmo_assim: 'Confirmar mesmo assim',
+    editar_titulo: 'Editar lançamento',
+    excluir_titulo: 'Excluir lançamento',
+    excluir_desc: 'Tem certeza que deseja excluir esse lançamento? Essa ação não pode ser desfeita — se já tiver sido confirmado (ex: Caução), o saldo do clube não é ajustado automaticamente.',
     genia: {
       titulo: 'Financeiro',
       subtitulo: 'Lance o que de fato foi pago ou recebido, e dê o check quando acertar — a Conciliação casa com o que o Suporte registrou.',

@@ -1,9 +1,11 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { ArrowDownCircle, ArrowUpCircle, Wallet } from 'lucide-react'
+import { ArrowDownCircle, ArrowUpCircle, Wallet, Pencil, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { BuscaSelect } from '@/components/BuscaSelect'
+import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
+import { EditarLancamentoModal, type LancamentoEditavel } from './EditarLancamentoModal'
 
 export const TIPOS = [
   { value: 'bonus', labelKey: 'lancamento.tipos.bonus' },
@@ -39,6 +41,9 @@ export function ExtratoView({ clubeIdFixo }: { clubeIdFixo?: string }) {
   const [dataFim, setDataFim] = useState('')
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([])
   const [loading, setLoading] = useState(false)
+  const [editando, setEditando] = useState<LancamentoEditavel | null>(null)
+  const [excluindo, setExcluindo] = useState<Lancamento | null>(null)
+  const [deletando, setDeletando] = useState(false)
 
   useEffect(() => {
     if (clubeIdFixo) return
@@ -67,6 +72,18 @@ export function ExtratoView({ clubeIdFixo }: { clubeIdFixo?: string }) {
   }, [clubeId, tipoFiltro, dataInicio, dataFim])
 
   useEffect(() => { load() }, [load])
+
+  async function handleExcluir() {
+    if (!excluindo) return
+    setDeletando(true)
+    try {
+      await supabase.from('lancamentos').delete().eq('id', excluindo.id)
+      setExcluindo(null)
+      await load()
+    } finally {
+      setDeletando(false)
+    }
+  }
 
   const linhas = useMemo(() => {
     let saldo = 0
@@ -181,6 +198,7 @@ export function ExtratoView({ clubeIdFixo }: { clubeIdFixo?: string }) {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_descricao')}</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_valor')}</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_saldo')}</th>
+                  {!clubeIdFixo && <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('common.acoes')}</th>}
                 </tr>
               </thead>
               <tbody>
@@ -193,6 +211,16 @@ export function ExtratoView({ clubeIdFixo }: { clubeIdFixo?: string }) {
                       {l.natureza === 'credito' ? '+' : '−'}{formatMoeda(l.valor)}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-300">{formatMoeda(l.saldo)}</td>
+                    {/* Extrato próprio do clube (clubeIdFixo, app/extrato) não pode editar/apagar
+                        os próprios lançamentos — só a tela interna do Suporte, sem esse prop. */}
+                    {!clubeIdFixo && (
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-2">
+                          <button onClick={() => setEditando(l)} title={t('common.editar')} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><Pencil size={14} /></button>
+                          <button onClick={() => setExcluindo(l)} title={t('common.deletar')} className="p-1.5 rounded-lg text-gray-400 hover:text-alert hover:bg-alert/10 transition-colors"><Trash2 size={14} /></button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -200,6 +228,22 @@ export function ExtratoView({ clubeIdFixo }: { clubeIdFixo?: string }) {
           </div>
         )}
       </div>
+
+      <EditarLancamentoModal
+        open={!!editando}
+        lancamento={editando}
+        onClose={() => setEditando(null)}
+        onSaved={() => { setEditando(null); load() }}
+      />
+      <ConfirmDelete
+        open={!!excluindo}
+        name={excluindo ? `${t(TIPOS.find((tp) => tp.value === excluindo.tipo)?.labelKey ?? excluindo.tipo)} · ${formatMoeda(excluindo.valor)}` : ''}
+        onConfirm={handleExcluir}
+        onCancel={() => setExcluindo(null)}
+        saving={deletando}
+        title={t('lancamento.excluir_titulo')}
+        description={t('lancamento.excluir_desc')}
+      />
     </div>
   )
 }
