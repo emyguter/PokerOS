@@ -13,6 +13,7 @@ export interface ClubSettings {
   crypto_rebate_pct: number;
   rakeback_pct: number;
   spinup_pct: number;
+  wtr4_semanas_manual: number | null;
 }
 
 export interface ImportRow {
@@ -317,7 +318,7 @@ export async function processarAcertos(importId: string): Promise<{
 
     const { data: clubs, error: clubsError } = await supabase
       .from("clubs")
-      .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct");
+      .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual");
 
     if (clubsError) throw new Error(clubsError.message);
 
@@ -393,7 +394,7 @@ export async function processarAcertos(importId: string): Promise<{
                   fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: null, spinup_pct: null,
                   caucao_atual: null, stoploss_inicial: null,
                 })
-                .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct")
+                .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual")
                 .single()
             ).data
           : null;
@@ -420,7 +421,17 @@ export async function processarAcertos(importId: string): Promise<{
         clubByExtId.set(String(club.external_id), club);
         clubByName.set(club.name.toLowerCase().trim(), club);
       }
-      const wtr4Semanas = calcularWtr4Semanas(row as ImportRow, historicoWtrPorClube.get(row.club_external_id) ?? []);
+      // O WtR 4 Semanas manual (cadastro > Regras) só é usado como tapa-buraco
+      // enquanto o clube não tem 4 semanas seguidas de histórico no banco
+      // (linha atual + 3 acertos anteriores). Assim que o histórico for
+      // suficiente — ex: Cássio subindo os imports que faltam — o sistema
+      // volta sozinho a usar o cálculo automático, sem precisar apagar o
+      // valor manual na mão.
+      const historicoWtr = historicoWtrPorClube.get(row.club_external_id) ?? [];
+      const wtr4Semanas =
+        historicoWtr.length < 3 && club.wtr4_semanas_manual != null
+          ? club.wtr4_semanas_manual
+          : calcularWtr4Semanas(row as ImportRow, historicoWtr);
       acertos.push(calcularAcerto(row as ImportRow, club, condicoesPorClube.get(club.id) ?? CONDICOES_VAZIAS, wtr4Semanas));
     }
 
