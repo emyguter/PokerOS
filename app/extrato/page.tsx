@@ -22,7 +22,7 @@ export default function Page() {
         <h1 className="text-2xl font-semibold text-white">Extrato</h1>
         <p className="text-sm text-gray-400 mt-1">Lançamentos do seu clube</p>
       </div>
-      <ExtratoView clubeIdFixo={profile.clube_id} />
+      <ExtratoView clubeIdFixo={profile.clube_id} origens={['suporte', 'seguranca']} />
     </div>
   )
 }

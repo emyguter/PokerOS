@@ -128,6 +128,19 @@ por rake; "Lançamentos" mostra o líquido (créditos − débitos) do período;
 número final — já é a soma dos dois. Sem período no import, os lançamentos ficam de fora (não tem
 como filtrar por data).
 
+**Tela de Segurança (`/seguranca`, permissão `seguranca`):** pedido do Cássio — registra Bloqueio
+(débito, clube fez algo ilegal) ou Reembolso (crédito, clube sofreu um golpe), com a categoria do
+incidente (Bot, Collusion, Chip Dumping, Multi-Accounting, Prohibited Jurisdiction, VPN, Other —
+lista fixa em `CATEGORIAS_SEGURANCA`, ampliável) só como referência interna. Grava em `lancamentos`
+com `origem = 'seguranca'` e `tipo` = `seguranca_bloqueio`/`seguranca_reembolso`, então entra no
+Acerto do clube normalmente (mesma regra de qualquer lançamento que não seja Caução) e aparece no
+extrato do clube (`/extrato`) como "Bloqueio da Segurança"/"Reembolso da Segurança" — sem a
+categoria específica, que fica só nas telas internas (Segurança, Relatório de Lançamentos). Suporte,
+Financeiro e Segurança podem editar/apagar um lançamento já feito (`EditarLancamentoModal`,
+reaproveitado nas três telas — pra Segurança ele troca o Tipo/Natureza genéricos pelos mesmos
+campos Ação + Categoria da tela de Segurança, mantendo Bloqueio/Reembolso sempre coerente com
+débito/crédito).
+
 **Bug: `acertos.club_id` sempre nulo:** `calcularAcerto` gravava `club_id` a partir de
 `import_rows.club_id` — campo que a `harmonizar-import` nunca preenche (só grava
 `club_name`/`club_external_id` ali). O cálculo em si sempre usou o clube certo (casado por

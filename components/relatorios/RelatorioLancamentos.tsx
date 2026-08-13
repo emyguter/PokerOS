@@ -16,7 +16,7 @@ interface Lancamento {
   valor: number
   descricao: string | null
   data_lancamento: string
-  origem: 'suporte' | 'genia'
+  origem: 'suporte' | 'genia' | 'seguranca'
   status: string | null
   clubs: { name: string } | null
 }
@@ -35,7 +35,7 @@ function trintaDiasAtras() {
   return d.toISOString().slice(0, 10)
 }
 
-const LABEL_ORIGEM: Record<string, string> = { suporte: 'Suporte', genia: 'Financeiro' }
+const LABEL_ORIGEM: Record<string, string> = { suporte: 'Suporte', genia: 'Financeiro', seguranca: 'Segurança' }
 const LABEL_STATUS: Record<string, string> = { em_validacao: 'Em validação', pago: 'Pago' }
 
 export function RelatorioLancamentos() {
@@ -110,6 +110,7 @@ export function RelatorioLancamentos() {
             <option value="">{t('extrato.todos')}</option>
             <option value="suporte">Suporte</option>
             <option value="genia">Financeiro</option>
+            <option value="seguranca">Segurança</option>
           </select>
         </div>
         <div>

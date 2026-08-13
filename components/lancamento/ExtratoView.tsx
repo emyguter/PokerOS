@@ -14,6 +14,22 @@ export const TIPOS = [
   { value: 'pagamento', labelKey: 'lancamento.tipos.pagamento' },
   { value: 'antecipacao', labelKey: 'lancamento.tipos.antecipacao' },
   { value: 'outro', labelKey: 'lancamento.tipos.outro' },
+  { value: 'seguranca_bloqueio', labelKey: 'lancamento.tipos.seguranca_bloqueio' },
+  { value: 'seguranca_reembolso', labelKey: 'lancamento.tipos.seguranca_reembolso' },
+] as const
+
+// Categoria específica do incidente de segurança (Bot, Collusion...) — só
+// referência interna, não aparece no extrato do clube (que só vê o tipo:
+// "Bloqueio da Segurança"/"Reembolso da Segurança"). Lista fixa por agora;
+// o Cássio pode mandar mais categorias depois.
+export const CATEGORIAS_SEGURANCA = [
+  { value: 'bot', labelKey: 'seguranca.categorias.bot' },
+  { value: 'collusion', labelKey: 'seguranca.categorias.collusion' },
+  { value: 'chip_dumping', labelKey: 'seguranca.categorias.chip_dumping' },
+  { value: 'multi_accounting', labelKey: 'seguranca.categorias.multi_accounting' },
+  { value: 'prohibited_jurisdiction', labelKey: 'seguranca.categorias.prohibited_jurisdiction' },
+  { value: 'vpn', labelKey: 'seguranca.categorias.vpn' },
+  { value: 'outro', labelKey: 'seguranca.categorias.outro' },
 ] as const
 
 interface Lancamento {
@@ -24,6 +40,7 @@ interface Lancamento {
   descricao: string | null
   data_lancamento: string
   created_at: string
+  categoria_seguranca: string | null
 }
 
 interface ClubeOpcao { id: string; name: string }
@@ -32,7 +49,23 @@ function formatMoeda(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-export function ExtratoView({ clubeIdFixo }: { clubeIdFixo?: string }) {
+interface Props {
+  clubeIdFixo?: string
+  // Quais origens de lançamento entram no extrato — cada tela interna vê só
+  // a própria (Suporte: 'suporte', Segurança: 'seguranca'); o extrato do
+  // clube (app/extrato) é o único que consolida mais de uma, porque as duas
+  // afetam o saldo dele de verdade. Financeiro ('genia') nunca entra aqui —
+  // é o espelho interno de conferência (Conciliação), não uma transação nova.
+  origens?: ('suporte' | 'seguranca')[]
+  mostrarCategoriaSeguranca?: boolean
+  // Editar/apagar só faz sentido nas telas internas — nunca no extrato que
+  // o próprio clube vê (clubeIdFixo). EditarLancamentoModal já sabe alternar
+  // entre os campos gerais e os de Segurança (Ação + Categoria) conforme o
+  // tipo do lançamento sendo editado.
+  permitirEdicao?: boolean
+}
+
+export function ExtratoView({ clubeIdFixo, origens = ['suporte'], mostrarCategoriaSeguranca = false, permitirEdicao = !clubeIdFixo }: Props) {
   const { t } = useI18n()
   const [clubes, setClubes] = useState<ClubeOpcao[]>([])
   const [clubeId, setClubeId] = useState(clubeIdFixo ?? '')
@@ -55,12 +88,9 @@ export function ExtratoView({ clubeIdFixo }: { clubeIdFixo?: string }) {
     setLoading(true)
     let query = supabase
       .from('lancamentos')
-      .select('id, tipo, natureza, valor, descricao, data_lancamento, created_at')
+      .select('id, tipo, natureza, valor, descricao, data_lancamento, created_at, categoria_seguranca')
       .eq('clube_id', clubeId)
-      // Só o que o Suporte registrou conta pro saldo do clube — o que a
-      // Genia lança é o espelho interno de conferência (Conciliação), não
-      // uma transação nova. Contar os dois duplicaria o valor no extrato.
-      .eq('origem', 'suporte')
+      .in('origem', origens)
       .order('data_lancamento', { ascending: true })
       .order('created_at', { ascending: true })
     if (tipoFiltro) query = query.eq('tipo', tipoFiltro)
@@ -69,7 +99,7 @@ export function ExtratoView({ clubeIdFixo }: { clubeIdFixo?: string }) {
     const { data } = await query
     setLancamentos(data ?? [])
     setLoading(false)
-  }, [clubeId, tipoFiltro, dataInicio, dataFim])
+  }, [clubeId, origens, tipoFiltro, dataInicio, dataFim])
 
   useEffect(() => { load() }, [load])
 
@@ -177,7 +207,9 @@ export function ExtratoView({ clubeIdFixo }: { clubeIdFixo?: string }) {
               </div>
             </div>
           </div>
-          <p className="text-xs text-gray-500">{t('extrato.saldo_nota')}</p>
+          {origens.includes('suporte') && (
+            <p className="text-xs text-gray-500">{t(origens.includes('seguranca') ? 'extrato.saldo_nota_com_seguranca' : 'extrato.saldo_nota')}</p>
+          )}
         </>
       )}
 
@@ -195,10 +227,11 @@ export function ExtratoView({ clubeIdFixo }: { clubeIdFixo?: string }) {
                 <tr className="border-b border-white/10 bg-surface2">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_data')}</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_tipo')}</th>
+                  {mostrarCategoriaSeguranca && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('seguranca.col_categoria')}</th>}
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_descricao')}</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_valor')}</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_saldo')}</th>
-                  {!clubeIdFixo && <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('common.acoes')}</th>}
+                  {permitirEdicao && <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('common.acoes')}</th>}
                 </tr>
               </thead>
               <tbody>
@@ -206,14 +239,15 @@ export function ExtratoView({ clubeIdFixo }: { clubeIdFixo?: string }) {
                   <tr key={l.id} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
                     <td className="px-4 py-3 text-gray-400">{new Date(l.data_lancamento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
                     <td className="px-4 py-3 text-gray-300">{t(TIPOS.find((tp) => tp.value === l.tipo)?.labelKey ?? l.tipo)}</td>
+                    {mostrarCategoriaSeguranca && (
+                      <td className="px-4 py-3 text-gray-400">{l.categoria_seguranca ? t(CATEGORIAS_SEGURANCA.find((c) => c.value === l.categoria_seguranca)?.labelKey ?? l.categoria_seguranca) : '—'}</td>
+                    )}
                     <td className="px-4 py-3 text-gray-400">{l.descricao || '—'}</td>
                     <td className={`px-4 py-3 text-right font-medium ${l.natureza === 'credito' ? 'text-success' : 'text-alert'}`}>
                       {l.natureza === 'credito' ? '+' : '−'}{formatMoeda(l.valor)}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-300">{formatMoeda(l.saldo)}</td>
-                    {/* Extrato próprio do clube (clubeIdFixo, app/extrato) não pode editar/apagar
-                        os próprios lançamentos — só a tela interna do Suporte, sem esse prop. */}
-                    {!clubeIdFixo && (
+                    {permitirEdicao && (
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
                           <button onClick={() => setEditando(l)} title={t('common.editar')} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><Pencil size={14} /></button>
