@@ -128,6 +128,12 @@ por rake; "Lançamentos" mostra o líquido (créditos − débitos) do período;
 número final — já é a soma dos dois. Sem período no import, os lançamentos ficam de fora (não tem
 como filtrar por data).
 
+**Bug: "Lançamentos" dobrado na tabela de Acertos:** a consulta de lançamentos do Acertos
+(`AcertosView`/`ClubAcertoCard`) não filtrava por `origem` — somava tanto o que o Suporte lançou
+quanto o espelho de conferência que o Financeiro (`genia`) lança pra mesma transação depois de
+confirmada (ver Conciliação), dobrando o valor. Corrigido com `.in('origem', ['suporte',
+'seguranca'])`, igual à regra que o `ExtratoView` já seguia.
+
 **Tela de Segurança (`/seguranca`, permissão `seguranca`):** pedido do Cássio — registra Bloqueio
 (débito, clube fez algo ilegal) ou Reembolso (crédito, clube sofreu um golpe), com a categoria do
 incidente (Bot, Collusion, Chip Dumping, Multi-Accounting, Prohibited Jurisdiction, VPN, Other —

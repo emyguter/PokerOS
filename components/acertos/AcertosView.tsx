@@ -120,13 +120,17 @@ export default function AcertosView() {
   // pediu que esses valores entrem no Valor do Acerto final, não só como
   // registro solto em outra tela. Caução fica de fora de propósito: ela vive
   // só no extrato dela mesma (e alimenta o Stoploss) — misturar com o Acerto
-  // semanal de rake bagunça as duas contas.
+  // semanal de rake bagunça as duas contas. Financeiro (origem "genia")
+  // também fica de fora — é só a conferência interna do que o Suporte já
+  // lançou (ver Conciliação); contar os dois dobra o valor (mesma regra do
+  // ExtratoView).
   const loadLancamentos = useCallback(async (clubIds: string[], periodStart: string, periodEnd: string) => {
     if (clubIds.length === 0 || !periodStart) { setLancamentos([]); return; }
     const { data } = await supabase
       .from("lancamentos")
       .select("clube_id, tipo, natureza, valor, descricao")
       .in("clube_id", clubIds)
+      .in("origem", ["suporte", "seguranca"])
       .neq("tipo", "caucao")
       .gte("data_lancamento", periodStart)
       .lte("data_lancamento", periodEnd || periodStart);
