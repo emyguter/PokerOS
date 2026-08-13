@@ -104,6 +104,9 @@ export const en: typeof pt = {
     caucao_duplicata_titulo: 'A deposit entry with this amount and date already exists',
     caucao_duplicata_desc: 'Confirm this is not a duplicate before adding it again?',
     confirmar_mesmo_assim: 'Confirm anyway',
+    editar_titulo: 'Edit entry',
+    excluir_titulo: 'Delete entry',
+    excluir_desc: "Are you sure you want to delete this entry? This can't be undone — if it was already confirmed (e.g. Deposit), the club's balance is not adjusted automatically.",
     genia: {
       titulo: 'Finance',
       subtitulo: "Enter what was actually paid or received, and check it off once settled — Reconciliation matches it with what Support logged.",
