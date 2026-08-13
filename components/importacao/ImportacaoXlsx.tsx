@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
+import { MapeamentoColunasModal } from "./MapeamentoColunasModal";
 
 // Mesmo rótulo em todo lugar que mostra harmonization_status — card ao vivo e
 // tabela de histórico usavam palavras diferentes pro mesmo estado, dando a
@@ -16,7 +17,25 @@ function harmonizationLabel(status: string): string {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Plataforma = { id: string; nome: string; moeda: string };
+// Mapeamento salvo por plataforma (`plataformas.mapeamento_colunas`) — qual
+// coluna da planilha corresponde a cada campo que o motor de acertos
+// precisa. Configurado uma vez via popup, reaproveitado em toda importação
+// futura dessa plataforma, sem precisar de parser novo no código.
+export interface MapeamentoColunas {
+  sheet: string;
+  headerRow: number; // 1-based
+  campos: {
+    club_name: string;
+    club_external_id: string;
+    player_result: string;
+    rake_mtt: string;
+    rake_cash: string;
+    rake_total: string;
+    rake_spinup: string;
+  };
+}
+
+type Plataforma = { id: string; nome: string; moeda: string; mapeamento_colunas: MapeamentoColunas | null };
 
 interface ImportRow {
   club_name: string;
@@ -49,7 +68,7 @@ interface JogadorRow {
 }
 
 interface ParsedFile {
-  plataforma: "PPPoker" | "GGPoker" | "unknown";
+  plataforma: string; // "PPPoker" | "GGPoker" | "unknown" | nome de uma plataforma com mapeamento genérico
   liga_nome?: string;
   liga_id_ext?: string;
   period_start: string;
@@ -82,7 +101,7 @@ interface ImportError {
   acao?: string;
 }
 
-type UploadStep = "idle" | "parsing" | "parsed" | "confirm_platform" | "saving" | "sent" | "done" | "error";
+type UploadStep = "idle" | "parsing" | "parsed" | "confirm_platform" | "map_columns" | "saving" | "sent" | "done" | "error";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -411,6 +430,84 @@ function parseXlsx(file: File): Promise<ParsedFile> {
   });
 }
 
+// Reabre o mesmo arquivo já escolhido pelo usuário — usado depois que a
+// plataforma é resolvida (pra aplicar um mapeamento salvo) ou quando o
+// popup de mapeamento precisa ler as abas/colunas de verdade.
+function readWorkbook(file: File): Promise<XLSX.WorkBook> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target!.result as ArrayBuffer);
+        resolve(XLSX.read(data, { type: "array" }));
+      } catch (err) { reject(err); }
+    };
+    reader.onerror = () => reject({ titulo: "Falha na leitura", detalhe: "Não foi possível ler o arquivo.", acao: "Tente novamente." });
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// Aplica um mapeamento de colunas (configurado uma vez via popup, guardado
+// em `plataformas.mapeamento_colunas`) num arquivo — sem precisar de parser
+// escrito no código pra cada plataforma nova.
+function parseGenerico(
+  wb: XLSX.WorkBook,
+  mapeamento: MapeamentoColunas,
+  fileName: string
+): { rows: ImportRow[]; period_start: string; period_end: string; warnings: string[] } {
+  const warnings: string[] = [];
+  const ws = wb.Sheets[mapeamento.sheet];
+  if (!ws) throw { titulo: "Aba não encontrada", detalhe: `A aba "${mapeamento.sheet}" não existe nesse arquivo.`, acao: "Confirme se é o mesmo tipo de relatório de antes, ou reconfigure o mapeamento dessa plataforma." };
+
+  const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  const headerIdx = mapeamento.headerRow - 1;
+  const headers = ((raw[headerIdx] as unknown[]) ?? []).map(h => String(h ?? "").trim());
+  const colIndex = (nome: string) => (nome ? headers.indexOf(nome) : -1);
+
+  const idxNome = colIndex(mapeamento.campos.club_name);
+  const idxExtId = colIndex(mapeamento.campos.club_external_id);
+  const idxGanhos = colIndex(mapeamento.campos.player_result);
+  const idxMtt = colIndex(mapeamento.campos.rake_mtt);
+  const idxCash = colIndex(mapeamento.campos.rake_cash);
+  const idxTotalCol = colIndex(mapeamento.campos.rake_total);
+  const idxSpinup = colIndex(mapeamento.campos.rake_spinup);
+
+  const rows: ImportRow[] = [];
+  for (let i = headerIdx + 1; i < raw.length; i++) {
+    const row = raw[i] as unknown[];
+    const clubName = safeStr(idxNome >= 0 ? row[idxNome] : "");
+    if (!clubName || clubName.toLowerCase() === "total") continue;
+
+    const rakeMtt = idxMtt >= 0 ? safeNum(row[idxMtt]) : 0;
+    const rakeCash = idxCash >= 0 ? safeNum(row[idxCash]) : 0;
+    const rakeTotal = idxTotalCol >= 0 ? safeNum(row[idxTotalCol]) : rakeMtt + rakeCash;
+    const rakeSpinup = idxSpinup >= 0 ? safeNum(row[idxSpinup]) : 0;
+
+    const rawEntry: Record<string, unknown> = {};
+    headers.forEach((h, idx) => { if (h) rawEntry[h] = row[idx]; });
+
+    rows.push({
+      club_name: clubName,
+      club_external_id: safeStr(idxExtId >= 0 ? row[idxExtId] : ""),
+      player_result: idxGanhos >= 0 ? safeNum(row[idxGanhos]) : 0,
+      rake_total: rakeTotal,
+      rake_mtt: rakeMtt,
+      rake_cash: rakeCash,
+      rake_spinup: rakeSpinup,
+      fee_total: 0,
+      agente_nome: "", agente_id_ext: "", superagente_nome: "", superagente_id_ext: "",
+      raw_data: rawEntry,
+    });
+  }
+
+  if (rows.length === 0) warnings.push("Nenhuma linha válida encontrada com esse mapeamento — confira se a aba e a linha de cabeçalho ainda batem com o arquivo.");
+
+  const period = parsePeriodFromFileName(fileName);
+  if (!period.start) warnings.push("Período não encontrado no nome do arquivo. Esperado: AAAAMMDD-AAAAMMDD.");
+
+  return { rows, period_start: period.start, period_end: period.end, warnings };
+}
+
 function formatError(err: unknown): ImportError {
   if (err && typeof err === "object" && "titulo" in err) return err as ImportError;
   const msg = err instanceof Error ? err.message : String(err);
@@ -440,6 +537,7 @@ export default function ImportacaoXlsx() {
   const [newPlatformName, setNewPlatformName] = useState("");
   const [selectedExistingPlatform, setSelectedExistingPlatform] = useState("");
   const [resolvedPlatformId, setResolvedPlatformId] = useState<string | null>(null);
+  const [resolvedPlatformNome, setResolvedPlatformNome] = useState<string>("");
   const [importingId, setImportingId] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -485,8 +583,8 @@ export default function ImportacaoXlsx() {
   }, [importingId]);
 
   async function loadPlataformas() {
-    const { data } = await supabase.from("plataformas").select("id, nome, moeda").order("nome");
-    if (data) setPlataformas(data);
+    const { data } = await supabase.from("plataformas").select("id, nome, moeda, mapeamento_colunas").order("nome");
+    if (data) setPlataformas(data as Plataforma[]);
   }
 
   async function loadHistory() {
@@ -514,16 +612,58 @@ export default function ImportacaoXlsx() {
   }, [plataformas]);
 
   async function handleResolvePlatform() {
+    let plataformaId: string;
+    let nome: string;
+    let mapeamento: MapeamentoColunas | null = null;
+
     if (platformAction === "new") {
       if (!newPlatformName.trim()) return;
       const { data, error } = await supabase.from("plataformas").insert({ nome: newPlatformName.trim(), moeda: "USD" }).select().single();
       if (error) { setImportError({ titulo: "Erro ao criar plataforma", detalhe: error.message, acao: "Verifique se o nome já está cadastrado." }); setStep("error"); return; }
-      setResolvedPlatformId(data.id); await loadPlataformas();
+      plataformaId = data.id; nome = data.nome; mapeamento = (data as Plataforma).mapeamento_colunas ?? null;
+      await loadPlataformas();
     } else {
       if (!selectedExistingPlatform) return;
-      setResolvedPlatformId(selectedExistingPlatform);
+      const existente = plataformas.find(p => p.id === selectedExistingPlatform);
+      plataformaId = selectedExistingPlatform; nome = existente?.nome ?? "Plataforma"; mapeamento = existente?.mapeamento_colunas ?? null;
     }
-    setStep("parsed");
+
+    setResolvedPlatformId(plataformaId);
+    setResolvedPlatformNome(nome);
+
+    // Plataforma com parser fixo (PPPoker/GGPoker): os dados já foram
+    // extraídos antes, só faltava cadastrar a plataforma mesmo.
+    if (parsed && parsed.plataforma !== "unknown") { setStep("parsed"); return; }
+
+    // Plataforma sem parser fixo: se já tem mapeamento salvo de uma
+    // importação anterior, aplica sozinho; senão abre o popup pra configurar
+    // uma vez (fica salvo pra toda importação futura dessa plataforma).
+    if (mapeamento) { await aplicarMapeamento(mapeamento, nome); return; }
+    setStep("map_columns");
+  }
+
+  // Lê o arquivo de novo (o parse inicial não guardou linha nenhuma pra
+  // plataforma sem parser fixo) e aplica o mapeamento — configurado agora ou
+  // reaproveitado de uma importação anterior dessa mesma plataforma.
+  async function aplicarMapeamento(mapeamento: MapeamentoColunas, nome: string) {
+    if (!file) return;
+    setStep("parsing");
+    try {
+      const wb = await readWorkbook(file);
+      const resultado = parseGenerico(wb, mapeamento, file.name);
+      setParsed({ plataforma: nome, jogadores: [], ...resultado });
+      setStep("parsed");
+    } catch (err) {
+      setImportError(formatError(err)); setStep("error");
+    }
+  }
+
+  async function handleMapeamentoSalvo(mapeamento: MapeamentoColunas) {
+    if (!resolvedPlatformId) return;
+    const { error } = await supabase.from("plataformas").update({ mapeamento_colunas: mapeamento }).eq("id", resolvedPlatformId);
+    if (error) { setImportError({ titulo: "Erro ao salvar mapeamento", detalhe: error.message }); setStep("error"); return; }
+    await loadPlataformas();
+    await aplicarMapeamento(mapeamento, resolvedPlatformNome);
   }
 
   async function handleConfirmImport() {
@@ -803,6 +943,14 @@ export default function ImportacaoXlsx() {
           )}
         </div>
       </div>
+
+      <MapeamentoColunasModal
+        open={step === "map_columns"}
+        file={file}
+        plataformaNome={resolvedPlatformNome}
+        onCancel={reset}
+        onSave={handleMapeamentoSalvo}
+      />
     </div>
   );
 }
