@@ -59,8 +59,8 @@ Um **Agente** vira **Super Agente** automaticamente quando outro agente aponta p
 
 | Tipo de taxa (`settlement_type`) | Como calcula |
 |---|---|
-| `taxa_dinamica` (fixa) | Fee MTT fixo sobre rake MTT + `fee_cash_pct` fixo sobre rake cash + Taxa Operacional sobre rake cash + SpinUp |
-| `taxa_dinamica` (variável) | Fee MTT fixo + a faixa SE/ENTÃO que bater (`regra_condicoes`, ex: "Ganhos+Rake") aplicada sobre o rake total + Taxa Operacional sobre rake cash |
+| `taxa_dinamica` (fixa) | Fee MTT fixo sobre rake MTT + `fee_cash_pct` fixo sobre rake cash + Taxa Operacional sobre rake **total** + SpinUp |
+| `taxa_dinamica` (variável) | Fee MTT fixo + a faixa SE/ENTÃO que bater (`regra_condicoes`, ex: "Rake+Ganhos", indicador WtR) aplicada sobre o rake **cash** + Taxa Operacional sobre rake **total** — base de cada taxa confirmada célula a célula contra a planilha manual "LPLPG_ACERTOS" do Cássio (fixa e variável usam a mesma base) |
 | `taxa_fixa_variavel` | % fixo sobre rake total |
 | `rakeback` | % de rakeback sobre rake total (rebate, não fee) |
 | `weekly_usd` | Fee MTT fixo − (rebate + crypto rebate) |
@@ -93,6 +93,17 @@ Taxa** — confirmado com a fórmula real da planilha manual do Cássio (`=ARRED
 lisa de todas as linhas do card de Acerto Geral). Bug corrigido em duas partes: primeiro o Valor do
 Acerto repetia exatamente a Taxa (ignorando os Ganhos), depois — mesmo já somando os Ganhos —
 ainda faltava o Rake Total na conta.
+
+**Bug: base errada de Fee Cash/Taxa Operacional:** o motor multiplicava Fee Cash variável sobre o
+Rake Total e Taxa Operacional sobre o Rake Cash — o oposto do que a planilha manual do Cássio
+mostra célula a célula (Fee Cash, fixo ou variável, sempre sobre o Rake Cash; Taxa Operacional
+sempre sobre o Rake Total). Corrigido; acertos calculados antes disso com Fee Cash variável e/ou
+Taxa Operacional variável precisam de "Recalcular".
+
+**Lançamentos na tela de Acertos não somam Caução:** `bônus`/`promoção`/`pagamento` do período
+entram no Valor do Acerto (pedido do Cássio, ver abaixo), mas `caução` fica de fora de propósito —
+ela vive no extrato dela mesma e alimenta o Stoploss; somar no Acerto semanal de rake misturaria as
+duas contas.
 
 **Acerto Geral por clube (`components/acertos/ClubAcertoCard.tsx`):** clicando no nome do clube na
 tabela de Acertos abre o card no formato tradicional que a liga já usa (linha a linha: Ganhos, Rake
@@ -267,8 +278,8 @@ Supabase de verdade:
 
 - `lib/__tests__/acertos-engine.test.ts` — motor de cálculo de Acertos (`valorIndicador`,
   `avaliarCondicoes`, `calcularAcerto`) pros 4 tipos de cobrança (`taxa_dinamica` fixa e variável,
-  `taxa_fixa_variavel`, `rakeback`, `weekly_usd`), incluindo a regra de que Fee Cash variável
-  multiplica sobre o Rake Total e não sobre o Rake Cash.
+  `taxa_fixa_variavel`, `rakeback`, `weekly_usd`), incluindo a base de cada taxa (Fee Cash sobre
+  Rake Cash, Taxa Operacional sobre Rake Total).
 - `lib/__tests__/stoploss.test.ts` — virada de semana (`inicioSemanaAtual`, a lógica de fuso BRL
   fixo UTC-3 mais delicada do sistema), fórmula do Stoploss Atual e o corte de ajuste
   Permanente/Só-essa-semana (`somarHistorico`), incluindo reconstrução "como estava numa data

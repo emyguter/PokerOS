@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { getClubs, createClub, updateClub, deleteClub, getLeagues, getPlataformas, initStoplossAtual } from '@/lib/cadastro-api'
+import { getClubs, createClub, updateClub, desativarClub, reativarClub, getLeagues, getPlataformas, initStoplossAtual } from '@/lib/cadastro-api'
 import type { Club, ClubForm, League, Plataforma } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
@@ -25,6 +25,7 @@ export default function ClubesPage() {
   const [leagues, setLeagues] = useState<League[]>([])
   const [plataformas, setPlataformas] = useState<Plataforma[]>([])
   const [filter, setFilter] = useState('')
+  const [mostrarInativos, setMostrarInativos] = useState(false)
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Club | null>(null)
@@ -35,11 +36,11 @@ export default function ClubesPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [c, l, p] = await Promise.all([getClubs(filter || undefined), getLeagues(), getPlataformas()])
+      const [c, l, p] = await Promise.all([getClubs(filter || undefined, mostrarInativos), getLeagues(), getPlataformas()])
       setItems(c); setLeagues(l); setPlataformas(p)
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
-  }, [filter])
+  }, [filter, mostrarInativos])
 
   useEffect(() => { load() }, [load])
 
@@ -58,9 +59,19 @@ export default function ClubesPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     setSaving(true)
-    try { await deleteClub(deleteTarget.id); await load(); setDeleteTarget(null) }
+    try { await desativarClub(deleteTarget.id); await load(); setDeleteTarget(null) }
     catch (e: any) { setError(e.message) }
     finally { setSaving(false) }
+  }
+
+  // Clube ativo: abre confirmação antes de inativar. Clube já inativo: o
+  // mesmo botão (agora com ícone de reativar) age direto, sem confirmar —
+  // reverter é uma ação de baixo risco, não precisa do mesmo cuidado.
+  const handleDeleteClick = async (item: Club) => {
+    if (item.ativo) { setDeleteTarget(item); return }
+    setError(null)
+    try { await reativarClub(item.id); await load() }
+    catch (e: any) { setError(e.message) }
   }
 
   return (
@@ -87,13 +98,22 @@ export default function ClubesPage() {
           />
         </div>
         <span className="text-sm text-gray-500">{items.length} clube{items.length !== 1 ? 's' : ''}</span>
+        <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer ml-auto">
+          <input type="checkbox" checked={mostrarInativos} onChange={e => setMostrarInativos(e.target.checked)} className="accent-gold" />
+          Mostrar inativos
+        </label>
       </div>
 
       {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
 
       <CadastroTable
         columns={[
-          { key: 'name', label: 'Nome' },
+          { key: 'name', label: 'Nome', render: (v: string, row: Club) => (
+            <span className="flex items-center gap-2">
+              {v}
+              {!row.ativo && <span className="px-1.5 py-0.5 rounded-full border border-white/10 text-gray-500 text-[10px] uppercase tracking-wider">Inativo</span>}
+            </span>
+          ) },
           { key: 'external_id', label: 'ID App', render: (v: string) => v ?? '—' },
           { key: 'leagues', label: 'Liga', render: (_: any, row: Club) => row.leagues?.name ?? '—' },
           { key: 'moeda', label: 'Moeda' },
@@ -102,7 +122,8 @@ export default function ClubesPage() {
         data={items}
         loading={loading}
         onEdit={item => { setEditing(item); setModalOpen(true) }}
-        onDelete={item => setDeleteTarget(item)}
+        onDelete={handleDeleteClick}
+        isInactive={(item: Club) => !item.ativo}
       />
 
       <ClubModal
@@ -115,7 +136,16 @@ export default function ClubesPage() {
         saving={saving}
         error={error}
       />
-      <ConfirmDelete open={!!deleteTarget} name={deleteTarget?.name ?? ''} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} saving={saving} />
+      <ConfirmDelete
+        open={!!deleteTarget}
+        name={deleteTarget?.name ?? ''}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+        saving={saving}
+        title="Inativar clube"
+        confirmLabel="Inativar"
+        description={<>Tem certeza que deseja inativar <span className="text-white font-medium">“{deleteTarget?.name}”</span>? Ele some da lista, mas o cadastro e o histórico (acertos, stoploss, lançamentos) continuam intactos — dá pra reativar depois.</>}
+      />
     </div>
   )
 }

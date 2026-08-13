@@ -151,13 +151,16 @@ export function calcularAcerto(
 
   switch (club.settlement_type) {
     case "taxa_dinamica": {
-      // Cash é a única das 4 que, quando variável, multiplica sobre o Rake
-      // Total (comportamento já validado com a planilha do Cássio); as
-      // outras 3, variável ou fixa, sempre usam a própria base de rake.
+      // Base de cada taxa confirmada célula a célula contra a planilha manual
+      // "LPLPG_ACERTOS" do Cássio (abas por clube, ex: Agreste_Poker,
+      // Authentic Gold, @fsapoker, Kings Online BR): Fee Cash (fixo ou
+      // variável, "Taxa Dinâmica - Cash%") multiplica sobre o próprio Rake
+      // Cash; Taxa Operacional multiplica sobre o Rake TOTAL, não sobre o
+      // Rake Cash. Fee MTT e SpinUp sempre usam a própria base.
       if (condicoesPorCampo.fee_cash.length > 0) {
         const pct = avaliarCondicoes(condicoesPorCampo.fee_cash, row, wtr4Semanas);
         taxa_cash_pct_aplicada = pct ?? 0;
-        fee_cash_valor = rake_total * ((pct ?? 0) / 100);
+        fee_cash_valor = rake_cash * ((pct ?? 0) / 100);
       } else {
         taxa_cash_pct_aplicada = club.fee_cash_pct ?? 0;
         fee_cash_valor = rake_cash * ((club.fee_cash_pct ?? 0) / 100);
@@ -172,9 +175,9 @@ export function calcularAcerto(
 
       if (condicoesPorCampo.taxa_op.length > 0) {
         const pct = avaliarCondicoes(condicoesPorCampo.taxa_op, row, wtr4Semanas);
-        fee_operacional_valor = rake_cash * ((pct ?? 0) / 100);
+        fee_operacional_valor = rake_total * ((pct ?? 0) / 100);
       } else {
-        fee_operacional_valor = rake_cash * (club.taxa_op_pct / 100);
+        fee_operacional_valor = rake_total * (club.taxa_op_pct / 100);
       }
 
       if (condicoesPorCampo.spinup.length > 0) {
@@ -370,18 +373,30 @@ export async function processarAcertos(importId: string): Promise<{
         // liga/plataforma do import). Taxas, regras, caução e stoploss
         // ficam em branco de propósito, pra alguém completar depois (a
         // etapa Regras do Cadastro avisa quando falta configurar).
-        const { data: novoClube } = await supabase
-          .from("clubs")
-          .insert({
-            name: row.club_name,
-            external_id: row.club_external_id,
-            league_id: importInfo?.league_id ?? null,
-            plataforma_id: importInfo?.plataforma_id ?? null,
-            fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: null, spinup_pct: null,
-            caucao_atual: null, stoploss_inicial: null,
-          })
-          .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct")
-          .single();
+        //
+        // Só cria quando a linha tem ID externo — sem isso não dá pra saber
+        // se é um clube novo de verdade ou uma linha malformada da planilha
+        // (célula em branco, linha de rodapé/resumo etc). Já criou clube
+        // fantasma de verdade uma vez (linha sem ID e com nome estranho tipo
+        // "SUL HG - LP 20260713-20260719", duplicando um clube que já
+        // existia) — melhor cair pra "sem_regra" e alguém revisar na mão do
+        // que gerar cadastro errado sozinho.
+        const novoClube = row.club_external_id
+          ? (
+              await supabase
+                .from("clubs")
+                .insert({
+                  name: row.club_name,
+                  external_id: row.club_external_id,
+                  league_id: importInfo?.league_id ?? null,
+                  plataforma_id: importInfo?.plataforma_id ?? null,
+                  fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: null, spinup_pct: null,
+                  caucao_atual: null, stoploss_inicial: null,
+                })
+                .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct")
+                .single()
+            ).data
+          : null;
 
         if (!novoClube) {
           acertos.push({

@@ -131,6 +131,7 @@ export type Club = {
   operador_ext_id: string | null
   operador_nickname: string | null
   rebate_ativo: boolean
+  ativo: boolean
   created_at: string
   leagues?: League
 }

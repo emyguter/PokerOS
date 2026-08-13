@@ -148,22 +148,22 @@ describe('calcularAcerto — taxa_dinamica (todas as taxas fixas)', () => {
     expect(resultado.taxa_cash_pct_aplicada).toBe(5)
   })
 
-  it('Fee MTT, Taxa Operacional e SpinUp usam a própria base de rake', () => {
-    const r = row({ rake_mtt: 400, rake_cash: 500, rake_spinup: 100 })
+  it('Fee MTT e SpinUp usam a própria base de rake; Taxa Operacional usa o Rake Total', () => {
+    const r = row({ rake_total: 1000, rake_mtt: 400, rake_cash: 500, rake_spinup: 100 })
     const c = club({ fee_mtt_pct: 10, taxa_op_pct: 2, spinup_pct: 3 })
     const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
     expect(resultado.fee_mtt_valor).toBe(40) // 400 * 10%
-    expect(resultado.fee_operacional_valor).toBe(10) // 500 * 2%
+    expect(resultado.fee_operacional_valor).toBe(20) // 1000 (rake total) * 2%
     expect(resultado.fee_spinup_valor).toBe(3) // 100 * 3%
   })
 
   it('Valor do Acerto = Rake Total + Ganhos do jogador − Taxa cobrada', () => {
-    const r = row({ rake_total: 1000, player_result: -200 })
+    const r = row({ rake_total: 1000, rake_mtt: 400, rake_cash: 500, rake_spinup: 100, player_result: -200 })
     const c = club({ fee_mtt_pct: 10, fee_cash_pct: 5, taxa_op_pct: 2, spinup_pct: 3 })
     const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
-    // fee = 400*10% + 500*5% + 500*2% + 100*3% = 40 + 25 + 10 + 3 = 78
-    expect(resultado.fee_calculado).toBe(78)
-    expect(resultado.valor_acerto).toBe(1000 + -200 - 78) // 722
+    // fee = 400*10% (mtt) + 500*5% (cash) + 1000*2% (operacional, base = rake total) + 100*3% (spinup) = 40 + 25 + 20 + 3 = 88
+    expect(resultado.fee_calculado).toBe(88)
+    expect(resultado.valor_acerto).toBe(1000 + -200 - 88) // 712
   })
 
   it('arredonda os valores pra 2 casas decimais', () => {
@@ -175,13 +175,14 @@ describe('calcularAcerto — taxa_dinamica (todas as taxas fixas)', () => {
 })
 
 describe('calcularAcerto — taxa_dinamica (regra SE/ENTÃO variável)', () => {
-  it('Fee Cash variável multiplica sobre o RAKE TOTAL, não sobre o Rake Cash', () => {
+  it('Fee Cash variável multiplica sobre o RAKE CASH, não sobre o Rake Total', () => {
     const r = row({ rake_total: 1000, rake_cash: 500 })
     const c = club()
     const condicoesPorCampo = { ...CONDICOES_VAZIAS, fee_cash: [condicao({ operador: '>', valor: 0, resultado_pct: 20 })] }
     const resultado = calcularAcerto(r, c, condicoesPorCampo, null)
-    // é a regra de negócio confirmada com o Cássio: 1000 * 20% = 200, NÃO 500 * 20% = 100
-    expect(resultado.fee_cash_valor).toBe(200)
+    // confirmado célula a célula contra a planilha manual do Cássio
+    // (Agreste_Poker, Authentic Gold): 500 * 20% = 100, NÃO 1000 * 20% = 200
+    expect(resultado.fee_cash_valor).toBe(100)
     expect(resultado.taxa_cash_pct_aplicada).toBe(20)
   })
 
@@ -191,6 +192,16 @@ describe('calcularAcerto — taxa_dinamica (regra SE/ENTÃO variável)', () => {
     const condicoesPorCampo = { ...CONDICOES_VAZIAS, fee_mtt: [condicao({ operador: '>', valor: 0, resultado_pct: 25 })] }
     const resultado = calcularAcerto(r, c, condicoesPorCampo, null)
     expect(resultado.fee_mtt_valor).toBe(100) // 400 * 25%, não 1000 * 25%
+  })
+
+  it('Taxa Operacional variável multiplica sobre o RAKE TOTAL, não sobre o Rake Cash', () => {
+    const r = row({ rake_total: 1000, rake_cash: 500 })
+    const c = club()
+    const condicoesPorCampo = { ...CONDICOES_VAZIAS, taxa_op: [condicao({ operador: '>', valor: 0, resultado_pct: 9 })] }
+    const resultado = calcularAcerto(r, c, condicoesPorCampo, null)
+    // confirmado célula a célula contra a planilha manual do Cássio
+    // (@fsapoker, Kings Online BR): 1000 * 9% = 90, NÃO 500 * 9% = 45
+    expect(resultado.fee_operacional_valor).toBe(90)
   })
 
   it('quando a condição não bate e não há SENÃO, o percentual aplicado é 0', () => {
