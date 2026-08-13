@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
+import { errMsgExclusaoLancamento } from '@/lib/errors'
 import { EditarLancamentoModal, type LancamentoEditavel } from './EditarLancamentoModal'
 
 export const TIPOS = [
@@ -77,6 +78,7 @@ export function ExtratoView({ clubeIdFixo, origens = ['suporte'], mostrarCategor
   const [editando, setEditando] = useState<LancamentoEditavel | null>(null)
   const [excluindo, setExcluindo] = useState<Lancamento | null>(null)
   const [deletando, setDeletando] = useState(false)
+  const [erroExclusao, setErroExclusao] = useState<string | null>(null)
 
   useEffect(() => {
     if (clubeIdFixo) return
@@ -105,11 +107,14 @@ export function ExtratoView({ clubeIdFixo, origens = ['suporte'], mostrarCategor
 
   async function handleExcluir() {
     if (!excluindo) return
-    setDeletando(true)
+    setDeletando(true); setErroExclusao(null)
     try {
-      await supabase.from('lancamentos').delete().eq('id', excluindo.id)
+      const { error: delErr } = await supabase.from('lancamentos').delete().eq('id', excluindo.id)
+      if (delErr) throw delErr
       setExcluindo(null)
       await load()
+    } catch (err) {
+      setErroExclusao(errMsgExclusaoLancamento(err))
     } finally {
       setDeletando(false)
     }
@@ -251,7 +256,7 @@ export function ExtratoView({ clubeIdFixo, origens = ['suporte'], mostrarCategor
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
                           <button onClick={() => setEditando(l)} title={t('common.editar')} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><Pencil size={14} /></button>
-                          <button onClick={() => setExcluindo(l)} title={t('common.deletar')} className="p-1.5 rounded-lg text-gray-400 hover:text-alert hover:bg-alert/10 transition-colors"><Trash2 size={14} /></button>
+                          <button onClick={() => { setExcluindo(l); setErroExclusao(null) }} title={t('common.deletar')} className="p-1.5 rounded-lg text-gray-400 hover:text-alert hover:bg-alert/10 transition-colors"><Trash2 size={14} /></button>
                         </div>
                       </td>
                     )}
@@ -273,8 +278,9 @@ export function ExtratoView({ clubeIdFixo, origens = ['suporte'], mostrarCategor
         open={!!excluindo}
         name={excluindo ? `${t(TIPOS.find((tp) => tp.value === excluindo.tipo)?.labelKey ?? excluindo.tipo)} · ${formatMoeda(excluindo.valor)}` : ''}
         onConfirm={handleExcluir}
-        onCancel={() => setExcluindo(null)}
+        onCancel={() => { setExcluindo(null); setErroExclusao(null) }}
         saving={deletando}
+        error={erroExclusao}
         title={t('lancamento.excluir_titulo')}
         description={t('lancamento.excluir_desc')}
       />
