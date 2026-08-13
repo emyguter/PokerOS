@@ -115,16 +115,19 @@ export default function AcertosView() {
     setLoading(false);
   }, []);
 
-  // Lançamentos (bônus/promoção/caução/pagamento) do próprio clube, lançados
-  // na tela de Lançamento — pra tabela de Acertos ficar completa, o Cássio
+  // Lançamentos (bônus/promoção/pagamento) do próprio clube, lançados na
+  // tela de Lançamento — pra tabela de Acertos ficar completa, o Cássio
   // pediu que esses valores entrem no Valor do Acerto final, não só como
-  // registro solto em outra tela.
+  // registro solto em outra tela. Caução fica de fora de propósito: ela vive
+  // só no extrato dela mesma (e alimenta o Stoploss) — misturar com o Acerto
+  // semanal de rake bagunça as duas contas.
   const loadLancamentos = useCallback(async (clubIds: string[], periodStart: string, periodEnd: string) => {
     if (clubIds.length === 0 || !periodStart) { setLancamentos([]); return; }
     const { data } = await supabase
       .from("lancamentos")
       .select("clube_id, tipo, natureza, valor, descricao")
       .in("clube_id", clubIds)
+      .neq("tipo", "caucao")
       .gte("data_lancamento", periodStart)
       .lte("data_lancamento", periodEnd || periodStart);
     setLancamentos((data as Lancamento[]) ?? []);

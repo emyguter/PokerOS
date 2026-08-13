@@ -123,14 +123,17 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   }, [acerto.club_external_id])
 
   useEffect(() => {
-    // Bônus/promoção/caução/pagamento lançados na tela de Lançamento, no
-    // mesmo período desse acerto — pra fechar o card "completo" que o
-    // Cássio pediu, não só o cálculo automático de rake.
+    // Bônus/promoção/pagamento lançados na tela de Lançamento, no mesmo
+    // período desse acerto — pra fechar o card "completo" que o Cássio
+    // pediu, não só o cálculo automático de rake. Caução fica de fora de
+    // propósito: vive só no extrato dela mesma (e alimenta o Stoploss) —
+    // misturar com o Acerto semanal de rake bagunça as duas contas.
     if (!acerto.club_id || !periodStart) { setLancamentos([]); return }
     supabase
       .from('lancamentos')
       .select('id, tipo, natureza, valor, descricao')
       .eq('clube_id', acerto.club_id)
+      .neq('tipo', 'caucao')
       .gte('data_lancamento', periodStart)
       .lte('data_lancamento', periodEnd || periodStart)
       .then(({ data }) => setLancamentos(data ?? []))
