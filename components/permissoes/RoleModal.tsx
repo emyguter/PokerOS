@@ -84,7 +84,7 @@ export function RoleModal({ open, editing, permissoes, onClose, onSaved }: Props
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
           <h2 className="text-lg font-semibold text-white">{editing ? t('role_modal.editar_titulo') : t('role_modal.novo_titulo')}</h2>

@@ -165,7 +165,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div className="relative bg-surface border border-gold/30 rounded-2xl w-full max-w-md mx-4 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
           <div className="text-center flex-1">

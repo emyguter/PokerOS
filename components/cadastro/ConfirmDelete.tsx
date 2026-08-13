@@ -15,7 +15,7 @@ export function ConfirmDelete({ open, name, onConfirm, onCancel, saving, title, 
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-sm mx-4 shadow-2xl p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 rounded-lg bg-alert/10 text-alert"><Trash2 size={18} /></div>
