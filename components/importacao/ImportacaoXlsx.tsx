@@ -381,9 +381,29 @@ function parseXlsx(file: File): Promise<ParsedFile> {
           return;
         }
         const plataforma = detectPlataforma(wb);
-        if (plataforma === "PPPoker") resolve({ plataforma, ...parsePPPoker(wb, file.name) });
-        else if (plataforma === "GGPoker") resolve({ plataforma, ...parseGGPoker(wb) });
-        else resolve({ plataforma: "unknown", period_start: "", period_end: "", rows: [], jogadores: [], warnings: [`Abas encontradas: ${wb.SheetNames.join(", ")}.`] });
+        if (plataforma === "PPPoker" || plataforma === "GGPoker") {
+          try {
+            resolve(plataforma === "PPPoker" ? { plataforma, ...parsePPPoker(wb, file.name) } : { plataforma, ...parseGGPoker(wb) });
+            return;
+          } catch (parseErr) {
+            // A aba bateu com um formato conhecido (ex: outra plataforma que
+            // também usa "Union Overview"), mas o conteúdo não é o esperado
+            // (coluna faltando, cabeçalho diferente etc). Em vez de travar o
+            // upload e perder o arquivo, cai pro mesmo fluxo de plataforma
+            // não reconhecida — o arquivo original ainda sobe pro Storage e
+            // pra bronze_rows (sem extração automática de linha), pra
+            // alguém revisar o formato sem precisar pedir reenvio.
+            const detalhe = parseErr && typeof parseErr === "object" && "detalhe" in parseErr
+              ? String((parseErr as { detalhe: unknown }).detalhe)
+              : String(parseErr);
+            resolve({
+              plataforma: "unknown", period_start: "", period_end: "", rows: [], jogadores: [],
+              warnings: [`Não foi possível extrair os dados automaticamente (${detalhe}). O arquivo original vai ser guardado mesmo assim — peça pro time técnico revisar o formato.`],
+            });
+            return;
+          }
+        }
+        resolve({ plataforma: "unknown", period_start: "", period_end: "", rows: [], jogadores: [], warnings: [`Abas encontradas: ${wb.SheetNames.join(", ")}.`] });
       } catch (err) { reject(err); }
     };
     reader.onerror = () => reject({ titulo: "Falha na leitura", detalhe: "Não foi possível ler o arquivo.", acao: "Tente novamente." });
