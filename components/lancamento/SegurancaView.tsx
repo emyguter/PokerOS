@@ -36,7 +36,7 @@ export function SegurancaView() {
       </div>
 
       {tab === 'lancar' && <LancarSegurancaForm />}
-      {tab === 'extrato' && <ExtratoView origens={['seguranca']} mostrarCategoriaSeguranca permitirEdicao={false} />}
+      {tab === 'extrato' && <ExtratoView origens={['seguranca']} mostrarCategoriaSeguranca />}
     </div>
   )
 }

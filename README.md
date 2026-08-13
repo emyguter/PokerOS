@@ -135,9 +135,11 @@ lista fixa em `CATEGORIAS_SEGURANCA`, ampliável) só como referência interna. 
 com `origem = 'seguranca'` e `tipo` = `seguranca_bloqueio`/`seguranca_reembolso`, então entra no
 Acerto do clube normalmente (mesma regra de qualquer lançamento que não seja Caução) e aparece no
 extrato do clube (`/extrato`) como "Bloqueio da Segurança"/"Reembolso da Segurança" — sem a
-categoria específica, que fica só nas telas internas (Segurança, Relatório de Lançamentos). Suporte
-e Financeiro podem editar/apagar um lançamento já feito (`EditarLancamentoModal`, reaproveitado nas
-duas telas) — Segurança não ganhou esse botão ainda, a pedido do Cássio ("só isso por agora").
+categoria específica, que fica só nas telas internas (Segurança, Relatório de Lançamentos). Suporte,
+Financeiro e Segurança podem editar/apagar um lançamento já feito (`EditarLancamentoModal`,
+reaproveitado nas três telas — pra Segurança ele troca o Tipo/Natureza genéricos pelos mesmos
+campos Ação + Categoria da tela de Segurança, mantendo Bloqueio/Reembolso sempre coerente com
+débito/crédito).
 
 **Bug: `acertos.club_id` sempre nulo:** `calcularAcerto` gravava `club_id` a partir de
 `import_rows.club_id` — campo que a `harmonizar-import` nunca preenche (só grava

@@ -4,7 +4,7 @@ import { Loader2, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
-import { TIPOS } from './ExtratoView'
+import { TIPOS, CATEGORIAS_SEGURANCA } from './ExtratoView'
 
 export interface LancamentoEditavel {
   id: string
@@ -13,6 +13,7 @@ export interface LancamentoEditavel {
   valor: number
   descricao: string | null
   data_lancamento: string
+  categoria_seguranca?: string | null
 }
 
 interface Props {
@@ -22,10 +23,15 @@ interface Props {
   onSaved: () => void
 }
 
+function ehSeguranca(tipo: string) {
+  return tipo === 'seguranca_bloqueio' || tipo === 'seguranca_reembolso'
+}
+
 export function EditarLancamentoModal({ open, lancamento, onClose, onSaved }: Props) {
   const { t } = useI18n()
   const [tipo, setTipo] = useState('')
   const [natureza, setNatureza] = useState<'credito' | 'debito'>('credito')
+  const [categoria, setCategoria] = useState<string>(CATEGORIAS_SEGURANCA[0].value)
   const [valor, setValor] = useState('')
   const [descricao, setDescricao] = useState('')
   const [data, setData] = useState('')
@@ -36,6 +42,7 @@ export function EditarLancamentoModal({ open, lancamento, onClose, onSaved }: Pr
     if (!lancamento) return
     setTipo(lancamento.tipo)
     setNatureza(lancamento.natureza)
+    setCategoria(lancamento.categoria_seguranca ?? CATEGORIAS_SEGURANCA[0].value)
     setValor(String(lancamento.valor).replace('.', ','))
     setDescricao(lancamento.descricao ?? '')
     setData(lancamento.data_lancamento)
@@ -44,16 +51,22 @@ export function EditarLancamentoModal({ open, lancamento, onClose, onSaved }: Pr
 
   if (!open || !lancamento) return null
 
+  // Um lançamento de Segurança sempre nasceu como Bloqueio ou Reembolso — a
+  // edição mantém essa natureza fixa (não vira um Bônus, por exemplo) e
+  // troca o Tipo/Natureza genéricos pela mesma Ação + Categoria da tela de
+  // Segurança, pra não deixar salvar uma combinação incoerente.
+  const seguranca = ehSeguranca(lancamento.tipo)
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const valorNum = Number(valor.replace(',', '.'))
     if (!valorNum || valorNum <= 0) { setError('Informe um valor válido.'); return }
     setSaving(true); setError(null)
     try {
-      const { error: updErr } = await supabase
-        .from('lancamentos')
-        .update({ tipo, natureza, valor: valorNum, descricao: descricao || null, data_lancamento: data })
-        .eq('id', lancamento!.id)
+      const payload = seguranca
+        ? { tipo, natureza, categoria_seguranca: categoria, valor: valorNum, descricao: descricao || null, data_lancamento: data }
+        : { tipo, natureza, valor: valorNum, descricao: descricao || null, data_lancamento: data }
+      const { error: updErr } = await supabase.from('lancamentos').update(payload).eq('id', lancamento!.id)
       if (updErr) throw updErr
       onSaved()
     } catch (err) {
@@ -73,44 +86,86 @@ export function EditarLancamentoModal({ open, lancamento, onClose, onSaved }: Pr
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.tipo')}</label>
-              <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
-                {TIPOS.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.data')}</label>
-              <input type="date" value={data} onChange={(e) => setData(e.target.value)} className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.natureza')}</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setNatureza('credito')}
-                  className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${natureza === 'credito' ? 'border-success/50 bg-success/10 text-success' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
-                >
-                  {t('lancamento.credito')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setNatureza('debito')}
-                  className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${natureza === 'debito' ? 'border-alert/50 bg-alert/10 text-alert' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
-                >
-                  {t('lancamento.debito')}
-                </button>
+          {seguranca ? (
+            <>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">{t('seguranca.acao')}</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setTipo('seguranca_bloqueio'); setNatureza('debito') }}
+                    className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${tipo === 'seguranca_bloqueio' ? 'border-alert/50 bg-alert/10 text-alert' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+                  >
+                    {t('seguranca.bloqueio')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setTipo('seguranca_reembolso'); setNatureza('credito') }}
+                    className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${tipo === 'seguranca_reembolso' ? 'border-success/50 bg-success/10 text-success' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+                  >
+                    {t('seguranca.reembolso')}
+                  </button>
+                </div>
               </div>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.valor')}</label>
-              <input type="text" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
-            </div>
-          </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1.5">{t('seguranca.categoria')}</label>
+                  <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
+                    {CATEGORIAS_SEGURANCA.map((c) => <option key={c.value} value={c.value}>{t(c.labelKey)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.data')}</label>
+                  <input type="date" value={data} onChange={(e) => setData(e.target.value)} className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.valor')}</label>
+                <input type="text" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.tipo')}</label>
+                  <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
+                    {TIPOS.filter((tp) => !ehSeguranca(tp.value)).map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.data')}</label>
+                  <input type="date" value={data} onChange={(e) => setData(e.target.value)} className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.natureza')}</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setNatureza('credito')}
+                      className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${natureza === 'credito' ? 'border-success/50 bg-success/10 text-success' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+                    >
+                      {t('lancamento.credito')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNatureza('debito')}
+                      className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${natureza === 'debito' ? 'border-alert/50 bg-alert/10 text-alert' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+                    >
+                      {t('lancamento.debito')}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.valor')}</label>
+                  <input type="text" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
+                </div>
+              </div>
+            </>
+          )}
 
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.descricao')}</label>

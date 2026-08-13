@@ -1,16 +1,19 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, Plus } from 'lucide-react'
+import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
 import { BuscaSelect } from '@/components/BuscaSelect'
+import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { CATEGORIAS_SEGURANCA } from './ExtratoView'
+import { EditarLancamentoModal } from './EditarLancamentoModal'
 
 interface ClubeOpcao { id: string; name: string }
 
 interface LancamentoRecente {
   id: string
+  tipo: string
   natureza: 'credito' | 'debito'
   valor: number
   descricao: string | null
@@ -48,6 +51,9 @@ export function LancarSegurancaForm() {
 
   const [recentes, setRecentes] = useState<LancamentoRecente[]>([])
   const [loadingRecentes, setLoadingRecentes] = useState(true)
+  const [editando, setEditando] = useState<LancamentoRecente | null>(null)
+  const [excluindo, setExcluindo] = useState<LancamentoRecente | null>(null)
+  const [deletando, setDeletando] = useState(false)
 
   useEffect(() => {
     supabase.from('clubs').select('id, name').order('name').then(({ data }) => setClubes(data ?? []))
@@ -57,7 +63,7 @@ export function LancarSegurancaForm() {
     setLoadingRecentes(true)
     const { data } = await supabase
       .from('lancamentos')
-      .select('id, natureza, valor, descricao, data_lancamento, categoria_seguranca, clubs(name)')
+      .select('id, tipo, natureza, valor, descricao, data_lancamento, categoria_seguranca, clubs(name)')
       .eq('origem', 'seguranca')
       .order('created_at', { ascending: false })
       .limit(10)
@@ -66,6 +72,18 @@ export function LancarSegurancaForm() {
   }, [])
 
   useEffect(() => { loadRecentes() }, [loadRecentes])
+
+  async function handleExcluir() {
+    if (!excluindo) return
+    setDeletando(true)
+    try {
+      await supabase.from('lancamentos').delete().eq('id', excluindo.id)
+      setExcluindo(null)
+      await loadRecentes()
+    } finally {
+      setDeletando(false)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -187,15 +205,35 @@ export function LancarSegurancaForm() {
                     </p>
                     <p className="text-xs text-gray-500">{new Date(l.data_lancamento + 'T00:00:00').toLocaleDateString('pt-BR')}{l.descricao ? ` · ${l.descricao}` : ''}</p>
                   </div>
-                  <span className={`text-sm font-medium ${l.natureza === 'credito' ? 'text-success' : 'text-alert'}`}>
-                    {l.natureza === 'credito' ? '+' : '−'}{formatMoeda(l.valor)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-medium ${l.natureza === 'credito' ? 'text-success' : 'text-alert'}`}>
+                      {l.natureza === 'credito' ? '+' : '−'}{formatMoeda(l.valor)}
+                    </span>
+                    <button onClick={() => setEditando(l)} title={t('common.editar')} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><Pencil size={14} /></button>
+                    <button onClick={() => setExcluindo(l)} title={t('common.deletar')} className="p-1.5 rounded-lg text-gray-400 hover:text-alert hover:bg-alert/10 transition-colors"><Trash2 size={14} /></button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
       </div>
+
+      <EditarLancamentoModal
+        open={!!editando}
+        lancamento={editando}
+        onClose={() => setEditando(null)}
+        onSaved={() => { setEditando(null); loadRecentes() }}
+      />
+      <ConfirmDelete
+        open={!!excluindo}
+        name={excluindo ? `${excluindo.natureza === 'debito' ? t('seguranca.bloqueio') : t('seguranca.reembolso')} · ${formatMoeda(excluindo.valor)}` : ''}
+        onConfirm={handleExcluir}
+        onCancel={() => setExcluindo(null)}
+        saving={deletando}
+        title={t('lancamento.excluir_titulo')}
+        description={t('lancamento.excluir_desc')}
+      />
     </div>
   )
 }

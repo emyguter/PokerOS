@@ -59,9 +59,9 @@ interface Props {
   origens?: ('suporte' | 'seguranca')[]
   mostrarCategoriaSeguranca?: boolean
   // Editar/apagar só faz sentido nas telas internas — nunca no extrato que
-  // o próprio clube vê. Segue !clubeIdFixo por padrão pros dois usos que já
-  // existiam; Segurança desliga isso explicitamente (ver EditarLancamentoModal,
-  // que só conhece os tipos gerais, não os de Segurança).
+  // o próprio clube vê (clubeIdFixo). EditarLancamentoModal já sabe alternar
+  // entre os campos gerais e os de Segurança (Ação + Categoria) conforme o
+  // tipo do lançamento sendo editado.
   permitirEdicao?: boolean
 }
 
