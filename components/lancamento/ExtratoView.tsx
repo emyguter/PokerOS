@@ -51,6 +51,13 @@ function formatMoeda(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+// Referência estável pro parâmetro padrão de `origens` — um array literal
+// direto no default do parâmetro seria recriado a cada render, mudando de
+// identidade e fazendo `load` (que depende de `origens`) ser recriado toda
+// hora, disparando o useEffect(load) em loop infinito (tela "Carregando"
+// piscando sem parar).
+const ORIGENS_PADRAO: ('suporte' | 'seguranca')[] = ['suporte']
+
 interface Props {
   clubeIdFixo?: string
   // Quais origens de lançamento entram no extrato — cada tela interna vê só
@@ -67,7 +74,7 @@ interface Props {
   permitirEdicao?: boolean
 }
 
-export function ExtratoView({ clubeIdFixo, origens = ['suporte'], mostrarCategoriaSeguranca = false, permitirEdicao = !clubeIdFixo }: Props) {
+export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCategoriaSeguranca = false, permitirEdicao = !clubeIdFixo }: Props) {
   const { t } = useI18n()
   const [clubes, setClubes] = useState<ClubeOpcao[]>([])
   const [clubeId, setClubeId] = useState(clubeIdFixo ?? '')
