@@ -151,13 +151,16 @@ export function calcularAcerto(
 
   switch (club.settlement_type) {
     case "taxa_dinamica": {
-      // Cash é a única das 4 que, quando variável, multiplica sobre o Rake
-      // Total (comportamento já validado com a planilha do Cássio); as
-      // outras 3, variável ou fixa, sempre usam a própria base de rake.
+      // Base de cada taxa confirmada célula a célula contra a planilha manual
+      // "LPLPG_ACERTOS" do Cássio (abas por clube, ex: Agreste_Poker,
+      // Authentic Gold, @fsapoker, Kings Online BR): Fee Cash (fixo ou
+      // variável, "Taxa Dinâmica - Cash%") multiplica sobre o próprio Rake
+      // Cash; Taxa Operacional multiplica sobre o Rake TOTAL, não sobre o
+      // Rake Cash. Fee MTT e SpinUp sempre usam a própria base.
       if (condicoesPorCampo.fee_cash.length > 0) {
         const pct = avaliarCondicoes(condicoesPorCampo.fee_cash, row, wtr4Semanas);
         taxa_cash_pct_aplicada = pct ?? 0;
-        fee_cash_valor = rake_total * ((pct ?? 0) / 100);
+        fee_cash_valor = rake_cash * ((pct ?? 0) / 100);
       } else {
         taxa_cash_pct_aplicada = club.fee_cash_pct ?? 0;
         fee_cash_valor = rake_cash * ((club.fee_cash_pct ?? 0) / 100);
@@ -172,9 +175,9 @@ export function calcularAcerto(
 
       if (condicoesPorCampo.taxa_op.length > 0) {
         const pct = avaliarCondicoes(condicoesPorCampo.taxa_op, row, wtr4Semanas);
-        fee_operacional_valor = rake_cash * ((pct ?? 0) / 100);
+        fee_operacional_valor = rake_total * ((pct ?? 0) / 100);
       } else {
-        fee_operacional_valor = rake_cash * (club.taxa_op_pct / 100);
+        fee_operacional_valor = rake_total * (club.taxa_op_pct / 100);
       }
 
       if (condicoesPorCampo.spinup.length > 0) {
