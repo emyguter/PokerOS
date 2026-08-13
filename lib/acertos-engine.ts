@@ -370,18 +370,30 @@ export async function processarAcertos(importId: string): Promise<{
         // liga/plataforma do import). Taxas, regras, caução e stoploss
         // ficam em branco de propósito, pra alguém completar depois (a
         // etapa Regras do Cadastro avisa quando falta configurar).
-        const { data: novoClube } = await supabase
-          .from("clubs")
-          .insert({
-            name: row.club_name,
-            external_id: row.club_external_id,
-            league_id: importInfo?.league_id ?? null,
-            plataforma_id: importInfo?.plataforma_id ?? null,
-            fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: null, spinup_pct: null,
-            caucao_atual: null, stoploss_inicial: null,
-          })
-          .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct")
-          .single();
+        //
+        // Só cria quando a linha tem ID externo — sem isso não dá pra saber
+        // se é um clube novo de verdade ou uma linha malformada da planilha
+        // (célula em branco, linha de rodapé/resumo etc). Já criou clube
+        // fantasma de verdade uma vez (linha sem ID e com nome estranho tipo
+        // "SUL HG - LP 20260713-20260719", duplicando um clube que já
+        // existia) — melhor cair pra "sem_regra" e alguém revisar na mão do
+        // que gerar cadastro errado sozinho.
+        const novoClube = row.club_external_id
+          ? (
+              await supabase
+                .from("clubs")
+                .insert({
+                  name: row.club_name,
+                  external_id: row.club_external_id,
+                  league_id: importInfo?.league_id ?? null,
+                  plataforma_id: importInfo?.plataforma_id ?? null,
+                  fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: null, spinup_pct: null,
+                  caucao_atual: null, stoploss_inicial: null,
+                })
+                .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct")
+                .single()
+            ).data
+          : null;
 
         if (!novoClube) {
           acertos.push({
