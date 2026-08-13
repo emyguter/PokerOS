@@ -159,8 +159,8 @@ export const pt = {
     fila_vazia: 'Nada aguardando aprovação.',
     aprovar: 'Aprovar', rejeitar: 'Rejeitar',
     status: { pendente: 'Pendente', aprovado: 'Aprovado', rejeitado: 'Rejeitado' },
-    escopo_permanente: 'Vira Stoploss Inicial', escopo_semanal: 'Só essa semana',
-    escopo_obrigatorio: 'Escolhe se o ajuste vira Stoploss Inicial ou vale só essa semana antes de aprovar.',
+    escopo_permanente: 'Somar Stoploss Inicial', escopo_semanal: 'Só essa semana',
+    escopo_obrigatorio: 'Escolhe se o ajuste soma no Stoploss Inicial ou vale só essa semana antes de aprovar.',
     escopo_col: 'Escopo',
   },
   relatorios: {

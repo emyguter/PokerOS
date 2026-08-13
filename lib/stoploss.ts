@@ -222,7 +222,7 @@ export async function retirarMargemMonitoria(clubeId: string): Promise<void> {
 }
 
 // Aprovação de ajuste de gerência/comitê (fila normal) — quem aprova
-// escolhe se o valor vira Stoploss Inicial (permanente) ou vale só até a
+// escolhe se o valor soma no Stoploss Inicial (permanente) ou vale só até a
 // virada da semana desse clube (escopo 'semanal').
 export async function aprovarAjusteSuporte(ajuste: StoplossAjuste, escopo: StoplossEscopo): Promise<void> {
   const stoplossAtual = await getStoplossAtual(ajuste.clube_id)
