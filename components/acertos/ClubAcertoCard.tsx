@@ -39,6 +39,7 @@ interface ClubSettings {
   taxa_op_pct: number | null
   spinup_pct: number | null
   security: number | null
+  wtr4_semanas_manual: number | null
 }
 
 interface LancamentoCard {
@@ -99,14 +100,19 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
 
   useEffect(() => {
     if (acerto.club_id) {
-      supabase.from('clubs').select('fee_mtt_pct, taxa_op_pct, spinup_pct, security').eq('id', acerto.club_id).maybeSingle()
+      supabase.from('clubs').select('fee_mtt_pct, taxa_op_pct, spinup_pct, security, wtr4_semanas_manual').eq('id', acerto.club_id).maybeSingle()
         .then(({ data }) => setClub(data))
     }
   }, [acerto.club_id])
 
   useEffect(() => {
-    // Win to Rake das últimas 4 semanas: média de (Ganhos / Rake Total) dos
-    // últimos 4 acertos desse clube, incluindo o período atual.
+    // Se o clube tem WtR 4 Semanas manual cadastrado, é ele que manda no
+    // cálculo do acerto (lib/acertos-engine.ts) — mostra o mesmo valor aqui
+    // pra não exibir um número diferente do que decidiu a faixa de taxa.
+    if (club?.wtr4_semanas_manual != null) { setWtr(club.wtr4_semanas_manual * 100); return }
+    // Sem valor manual: Win to Rake das últimas 4 semanas, média de
+    // (Ganhos / Rake Total) dos últimos 4 acertos desse clube, incluindo o
+    // período atual.
     supabase
       .from('acertos')
       .select('player_result, rake_total, imports(period_start)')
@@ -120,7 +126,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         const media = validos.reduce((s, r) => s + r.player_result / r.rake_total, 0) / validos.length
         setWtr(media * 100)
       })
-  }, [acerto.club_external_id])
+  }, [acerto.club_external_id, club])
 
   useEffect(() => {
     // Bônus/promoção/pagamento lançados na tela de Lançamento, no mesmo

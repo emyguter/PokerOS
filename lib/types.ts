@@ -132,6 +132,7 @@ export type Club = {
   operador_nickname: string | null
   rebate_ativo: boolean
   ativo: boolean
+  wtr4_semanas_manual: number | null
   created_at: string
   leagues?: League
 }
@@ -164,6 +165,7 @@ export type ClubForm = {
   operador_ext_id: string | null
   operador_nickname: string | null
   rebate_ativo: boolean
+  wtr4_semanas_manual: number | null
 }
 
 // ─── AGENTES ─────────────────────────────────────────────────

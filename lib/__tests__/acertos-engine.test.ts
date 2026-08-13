@@ -23,6 +23,7 @@ function club(overrides: Partial<ClubSettings> = {}): ClubSettings {
     crypto_rebate_pct: 0,
     rakeback_pct: 0,
     spinup_pct: 3,
+    wtr4_semanas_manual: null,
     ...overrides,
   }
 }

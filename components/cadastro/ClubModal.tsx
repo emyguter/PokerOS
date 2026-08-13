@@ -29,6 +29,7 @@ const EMPTY: ClubForm = {
   caucao_atual: null, stoploss_inicial: null, ratio_caucao_stoploss: null, projeto: null,
   hora_virada_semana: 2,
   plataforma_id: null, operador_ext_id: null, operador_nickname: null, rebate_ativo: false,
+  wtr4_semanas_manual: null,
 }
 
 const STEPS: ModalStep[] = [
@@ -56,6 +57,7 @@ function toForm(c: Club): ClubForm {
     operador_ext_id: c.operador_ext_id ?? null,
     operador_nickname: c.operador_nickname ?? null,
     rebate_ativo: c.rebate_ativo ?? false,
+    wtr4_semanas_manual: c.wtr4_semanas_manual ?? null,
   }
 }
 
@@ -294,13 +296,21 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       )}
 
       {step === 'regras' && (
-        <RegrasAplicadas
-          entidadeTipo="clube"
-          entidadeId={editing?.id ?? null}
-          settlementType={form.settlement_type}
-          feeCashPct={form.fee_cash_pct}
-          feeMttPct={form.fee_mtt_pct}
-        />
+        <>
+          <Fld label="WtR 4 Semanas (manual)">
+            <NumInput value={form.wtr4_semanas_manual} onChange={v => set('wtr4_semanas_manual', v)} placeholder="Ex: -1.93" />
+            <p className="text-xs text-gray-500 mt-1.5">
+              Sobrescreve o WtR 4 Semanas calculado automaticamente pro clube — usado pelas regras variáveis (ex: Taxa Dinâmica) até o sistema acumular histórico suficiente de semanas. Vazio = volta a usar o cálculo automático.
+            </p>
+          </Fld>
+          <RegrasAplicadas
+            entidadeTipo="clube"
+            entidadeId={editing?.id ?? null}
+            settlementType={form.settlement_type}
+            feeCashPct={form.fee_cash_pct}
+            feeMttPct={form.fee_mtt_pct}
+          />
+        </>
       )}
 
       {step === 'garantias' && (

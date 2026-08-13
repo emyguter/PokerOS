@@ -13,6 +13,7 @@ export interface ClubSettings {
   crypto_rebate_pct: number;
   rakeback_pct: number;
   spinup_pct: number;
+  wtr4_semanas_manual: number | null;
 }
 
 export interface ImportRow {
@@ -317,7 +318,7 @@ export async function processarAcertos(importId: string): Promise<{
 
     const { data: clubs, error: clubsError } = await supabase
       .from("clubs")
-      .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct");
+      .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual");
 
     if (clubsError) throw new Error(clubsError.message);
 
@@ -393,7 +394,7 @@ export async function processarAcertos(importId: string): Promise<{
                   fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: null, spinup_pct: null,
                   caucao_atual: null, stoploss_inicial: null,
                 })
-                .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct")
+                .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual")
                 .single()
             ).data
           : null;
@@ -420,7 +421,11 @@ export async function processarAcertos(importId: string): Promise<{
         clubByExtId.set(String(club.external_id), club);
         clubByName.set(club.name.toLowerCase().trim(), club);
       }
-      const wtr4Semanas = calcularWtr4Semanas(row as ImportRow, historicoWtrPorClube.get(row.club_external_id) ?? []);
+      // Se o clube tem um WtR 4 Semanas manual (cadastro > Regras), ele manda —
+      // o histórico de acertos no banco ainda não cobre 4 semanas seguidas pra
+      // todo clube, então por ora o valor calculado pelo Cássio na planilha dele
+      // é a fonte de verdade. Sem valor manual, cai pro cálculo automático.
+      const wtr4Semanas = club.wtr4_semanas_manual ?? calcularWtr4Semanas(row as ImportRow, historicoWtrPorClube.get(row.club_external_id) ?? []);
       acertos.push(calcularAcerto(row as ImportRow, club, condicoesPorClube.get(club.id) ?? CONDICOES_VAZIAS, wtr4Semanas));
     }
 

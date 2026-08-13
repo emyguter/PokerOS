@@ -113,7 +113,11 @@ foi quebrado em 4 componentes (`fee_mtt_valor`, `fee_cash_valor`, `fee_operacion
 `fee_spinup_valor`) pra dar pra mostrar cada linha separada. Bilhetes/Pendências de
 Antecipação/Taxa AA Home Game são campos editáveis por clube/semana (gravados direto em `acertos`,
 preservados entre recálculos); WtR 4 Semanas é a média móvel automática das últimas 4 importações
-do mesmo clube.
+do mesmo clube — a menos que o clube tenha um `wtr4_semanas_manual` cadastrado (Cadastro > Clube >
+etapa Regras), que sobrescreve o cálculo automático. Esse campo existe porque o histórico de
+importações no banco ainda não cobre 4 semanas seguidas pra todo clube; até lá, o valor calculado
+pelo Cássio na planilha dele é a fonte de verdade (seed inicial: migration
+`20260813030100_seed_wtr4_semanas_manual.sql`, 39 clubes). Fica null pra usar o cálculo automático.
 
 **Lançamentos na tabela de Acertos:** a pedido do Cássio ("essa tabelona, só que completa"), a
 tabela de Acertos e o card tradicional agora somam os lançamentos (bônus/promoção/caução/pagamento,
