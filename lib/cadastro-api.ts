@@ -155,12 +155,13 @@ export async function deleteLeague(id: string): Promise<void> {
 
 // ─── CLUBS ───────────────────────────────────────────────────
 
-export async function getClubs(leagueId?: string): Promise<Club[]> {
+export async function getClubs(leagueId?: string, incluirInativos = false): Promise<Club[]> {
   let query = supabase
     .from('clubs')
     .select('*, leagues(id, name, moeda, super_leagues(id, name, plataformas(id, nome)))')
     .order('name')
   if (leagueId) query = query.eq('league_id', leagueId)
+  if (!incluirInativos) query = query.eq('ativo', true)
   const { data, error } = await query
   if (error) throw error
   return data
@@ -179,8 +180,16 @@ export async function updateClub(id: string, form: ClubForm): Promise<Club> {
   if (error) throw error
   return data
 }
-export async function deleteClub(id: string): Promise<void> {
-  const { error } = await supabase.from('clubs').delete().eq('id', id)
+// Excluir de verdade quebra assim que o clube já tem acerto calculado (FK
+// sem cascade, de propósito). "Excluir" um clube na tela na real só marca
+// ativo = false — some da lista, mas cadastro e histórico continuam
+// intactos e reversível (reativarClub).
+export async function desativarClub(id: string): Promise<void> {
+  const { error } = await supabase.from('clubs').update({ ativo: false }).eq('id', id)
+  if (error) throw error
+}
+export async function reativarClub(id: string): Promise<void> {
+  const { error } = await supabase.from('clubs').update({ ativo: true }).eq('id', id)
   if (error) throw error
 }
 
