@@ -421,11 +421,17 @@ export async function processarAcertos(importId: string): Promise<{
         clubByExtId.set(String(club.external_id), club);
         clubByName.set(club.name.toLowerCase().trim(), club);
       }
-      // Se o clube tem um WtR 4 Semanas manual (cadastro > Regras), ele manda —
-      // o histórico de acertos no banco ainda não cobre 4 semanas seguidas pra
-      // todo clube, então por ora o valor calculado pelo Cássio na planilha dele
-      // é a fonte de verdade. Sem valor manual, cai pro cálculo automático.
-      const wtr4Semanas = club.wtr4_semanas_manual ?? calcularWtr4Semanas(row as ImportRow, historicoWtrPorClube.get(row.club_external_id) ?? []);
+      // O WtR 4 Semanas manual (cadastro > Regras) só é usado como tapa-buraco
+      // enquanto o clube não tem 4 semanas seguidas de histórico no banco
+      // (linha atual + 3 acertos anteriores). Assim que o histórico for
+      // suficiente — ex: Cássio subindo os imports que faltam — o sistema
+      // volta sozinho a usar o cálculo automático, sem precisar apagar o
+      // valor manual na mão.
+      const historicoWtr = historicoWtrPorClube.get(row.club_external_id) ?? [];
+      const wtr4Semanas =
+        historicoWtr.length < 3 && club.wtr4_semanas_manual != null
+          ? club.wtr4_semanas_manual
+          : calcularWtr4Semanas(row as ImportRow, historicoWtr);
       acertos.push(calcularAcerto(row as ImportRow, club, condicoesPorClube.get(club.id) ?? CONDICOES_VAZIAS, wtr4Semanas));
     }
 

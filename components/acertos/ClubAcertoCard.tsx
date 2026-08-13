@@ -106,13 +106,11 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   }, [acerto.club_id])
 
   useEffect(() => {
-    // Se o clube tem WtR 4 Semanas manual cadastrado, é ele que manda no
-    // cálculo do acerto (lib/acertos-engine.ts) — mostra o mesmo valor aqui
-    // pra não exibir um número diferente do que decidiu a faixa de taxa.
-    if (club?.wtr4_semanas_manual != null) { setWtr(club.wtr4_semanas_manual * 100); return }
-    // Sem valor manual: Win to Rake das últimas 4 semanas, média de
-    // (Ganhos / Rake Total) dos últimos 4 acertos desse clube, incluindo o
-    // período atual.
+    // Win to Rake das últimas 4 semanas: média de (Ganhos / Rake Total) dos
+    // últimos 4 acertos desse clube, incluindo o período atual. Mesma regra
+    // de prioridade do motor (lib/acertos-engine.ts): o WtR 4 Semanas manual
+    // só entra como tapa-buraco enquanto não tem 4 acertos reais — assim o
+    // card nunca mostra um número diferente do que decidiu a faixa de taxa.
     supabase
       .from('acertos')
       .select('player_result, rake_total, imports(period_start)')
@@ -122,6 +120,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       .then(({ data }) => {
         const rows = (data ?? []) as unknown as { player_result: number; rake_total: number }[]
         const validos = rows.filter((r) => r.rake_total)
+        if (validos.length < 4 && club?.wtr4_semanas_manual != null) { setWtr(club.wtr4_semanas_manual * 100); return }
         if (validos.length === 0) { setWtr(null); return }
         const media = validos.reduce((s, r) => s + r.player_result / r.rake_total, 0) / validos.length
         setWtr(media * 100)
