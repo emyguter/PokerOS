@@ -96,9 +96,16 @@ export function usePermissionsProvider(): PermissionsContextValue {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => { setUser(data.user); load(data.user) })
+    // O Supabase reemite onAuthStateChange (ex: TOKEN_REFRESHED) sempre que a
+    // aba volta a ficar em foco (Alt+Tab, trocar de janela) — não só em
+    // login/logout de verdade. Setar `loading=true` aqui fazia o
+    // PermissionGuard desmontar a tela inteira nesse momento (`if (loading)
+    // return null`), e ao remontar tudo perdia o estado local — inclusive
+    // popups abertos, que fechavam sozinhos sem o usuário ter feito nada.
+    // Atualiza os dados em segundo plano sem re-acionar o loading depois da
+    // primeira carga.
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      setLoading(true)
       load(session?.user ?? null)
     })
     return () => sub.subscription.unsubscribe()

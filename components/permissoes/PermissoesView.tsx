@@ -206,7 +206,7 @@ export function PermissoesView() {
 
       {deleteRoleTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDeleteRoleTarget(null)} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-sm mx-4 p-6 shadow-2xl">
             <p className="text-white font-medium mb-1">{t('permissoes.apagar_papel_confirm', { nome: deleteRoleTarget.nome })}</p>
             <p className="text-sm text-gray-500 mb-5">{t('permissoes.apagar_papel_desc')}</p>

@@ -4,6 +4,7 @@ import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
+import { desvincularConciliacao } from '@/lib/lancamentos'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { CATEGORIAS_SEGURANCA } from './ExtratoView'
@@ -54,6 +55,8 @@ export function LancarSegurancaForm() {
   const [editando, setEditando] = useState<LancamentoRecente | null>(null)
   const [excluindo, setExcluindo] = useState<LancamentoRecente | null>(null)
   const [deletando, setDeletando] = useState(false)
+  const [erroExclusao, setErroExclusao] = useState<string | null>(null)
+  const [precisaForcar, setPrecisaForcar] = useState(false)
 
   useEffect(() => {
     supabase.from('clubs').select('id, name').order('name').then(({ data }) => setClubes(data ?? []))
@@ -75,11 +78,22 @@ export function LancarSegurancaForm() {
 
   async function handleExcluir() {
     if (!excluindo) return
-    setDeletando(true)
+    setDeletando(true); setErroExclusao(null)
     try {
-      await supabase.from('lancamentos').delete().eq('id', excluindo.id)
-      setExcluindo(null)
+      if (precisaForcar) await desvincularConciliacao(excluindo.id)
+      const { error: delErr } = await supabase.from('lancamentos').delete().eq('id', excluindo.id)
+      if (delErr) {
+        if ((delErr as { code?: string }).code === '23503' && !precisaForcar) {
+          setErroExclusao(t('lancamento.excluir_bloqueado_conciliacao', { botao: t('lancamento.excluir_forcar') }))
+          setPrecisaForcar(true)
+          return
+        }
+        throw delErr
+      }
+      setExcluindo(null); setPrecisaForcar(false)
       await loadRecentes()
+    } catch (err) {
+      setErroExclusao(errMsg(err))
     } finally {
       setDeletando(false)
     }
@@ -210,7 +224,7 @@ export function LancarSegurancaForm() {
                       {l.natureza === 'credito' ? '+' : '−'}{formatMoeda(l.valor)}
                     </span>
                     <button onClick={() => setEditando(l)} title={t('common.editar')} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><Pencil size={14} /></button>
-                    <button onClick={() => setExcluindo(l)} title={t('common.deletar')} className="p-1.5 rounded-lg text-gray-400 hover:text-alert hover:bg-alert/10 transition-colors"><Trash2 size={14} /></button>
+                    <button onClick={() => { setExcluindo(l); setErroExclusao(null); setPrecisaForcar(false) }} title={t('common.deletar')} className="p-1.5 rounded-lg text-gray-400 hover:text-alert hover:bg-alert/10 transition-colors"><Trash2 size={14} /></button>
                   </div>
                 </div>
               ))}
@@ -229,10 +243,12 @@ export function LancarSegurancaForm() {
         open={!!excluindo}
         name={excluindo ? `${excluindo.natureza === 'debito' ? t('seguranca.bloqueio') : t('seguranca.reembolso')} · ${formatMoeda(excluindo.valor)}` : ''}
         onConfirm={handleExcluir}
-        onCancel={() => setExcluindo(null)}
+        onCancel={() => { setExcluindo(null); setErroExclusao(null); setPrecisaForcar(false) }}
         saving={deletando}
+        error={erroExclusao}
         title={t('lancamento.excluir_titulo')}
         description={t('lancamento.excluir_desc')}
+        confirmLabel={precisaForcar ? t('lancamento.excluir_forcar') : undefined}
       />
     </div>
   )

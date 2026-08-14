@@ -108,6 +108,8 @@ export const en: typeof pt = {
     editar_titulo: 'Edit entry',
     excluir_titulo: 'Delete entry',
     excluir_desc: "Are you sure you want to delete this entry? This can't be undone — if it was already confirmed (e.g. Deposit), the club's balance is not adjusted automatically.",
+    excluir_bloqueado_conciliacao: 'This entry is linked to a Reconciliation (matched with another entry). Click "{botao}" to unlink and delete it anyway.',
+    excluir_forcar: 'Understood, delete anyway',
     genia: {
       titulo: 'Finance',
       subtitulo: "Enter what was actually paid or received, and check it off once settled — Reconciliation matches it with what Support logged.",

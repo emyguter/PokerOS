@@ -106,6 +106,8 @@ export const pt = {
     editar_titulo: 'Editar lançamento',
     excluir_titulo: 'Excluir lançamento',
     excluir_desc: 'Tem certeza que deseja excluir esse lançamento? Essa ação não pode ser desfeita — se já tiver sido confirmado (ex: Caução), o saldo do clube não é ajustado automaticamente.',
+    excluir_bloqueado_conciliacao: 'Esse lançamento está vinculado a uma Conciliação (casado com outro lançamento). Clique em "{botao}" pra desvincular e excluir mesmo assim.',
+    excluir_forcar: 'Ciente, excluir mesmo assim',
     genia: {
       titulo: 'Financeiro',
       subtitulo: 'Lance o que de fato foi pago ou recebido, e dê o check quando acertar — a Conciliação casa com o que o Suporte registrou.',

@@ -2,6 +2,11 @@
 import { usePermissions } from '@/lib/permissions'
 import { ExtratoView } from '@/components/lancamento/ExtratoView'
 
+// Referência estável — um array literal direto na prop seria recriado a
+// cada render, mudando de identidade e disparando um loop de recarregamento
+// dentro do ExtratoView (useEffect que depende de `origens`).
+const ORIGENS_EXTRATO_CLUBE: ('suporte' | 'seguranca')[] = ['suporte', 'seguranca']
+
 export default function Page() {
   const { loading, profile } = usePermissions()
 
@@ -22,7 +27,7 @@ export default function Page() {
         <h1 className="text-2xl font-semibold text-white">Extrato</h1>
         <p className="text-sm text-gray-400 mt-1">Lançamentos do seu clube</p>
       </div>
-      <ExtratoView clubeIdFixo={profile.clube_id} origens={['suporte', 'seguranca']} />
+      <ExtratoView clubeIdFixo={profile.clube_id} origens={ORIGENS_EXTRATO_CLUBE} />
     </div>
   )
 }

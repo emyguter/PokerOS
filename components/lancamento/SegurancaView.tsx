@@ -12,6 +12,9 @@ const ABAS: { key: Tab; labelKey: string; icon: typeof PlusCircle }[] = [
   { key: 'extrato', labelKey: 'lancamento.aba_extrato', icon: Receipt },
 ]
 
+// Referência estável — ver mesmo comentário em app/extrato/page.tsx.
+const ORIGENS_SEGURANCA: ('suporte' | 'seguranca')[] = ['seguranca']
+
 export function SegurancaView() {
   const { t } = useI18n()
   const [tab, setTab] = useState<Tab>('lancar')
@@ -36,7 +39,7 @@ export function SegurancaView() {
       </div>
 
       {tab === 'lancar' && <LancarSegurancaForm />}
-      {tab === 'extrato' && <ExtratoView origens={['seguranca']} mostrarCategoriaSeguranca />}
+      {tab === 'extrato' && <ExtratoView origens={ORIGENS_SEGURANCA} mostrarCategoriaSeguranca />}
     </div>
   )
 }

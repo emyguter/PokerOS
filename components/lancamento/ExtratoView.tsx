@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
+import { errMsg } from '@/lib/errors'
+import { desvincularConciliacao } from '@/lib/lancamentos'
 import { EditarLancamentoModal, type LancamentoEditavel } from './EditarLancamentoModal'
 
 export const TIPOS = [
@@ -49,6 +51,13 @@ function formatMoeda(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+// Referência estável pro parâmetro padrão de `origens` — um array literal
+// direto no default do parâmetro seria recriado a cada render, mudando de
+// identidade e fazendo `load` (que depende de `origens`) ser recriado toda
+// hora, disparando o useEffect(load) em loop infinito (tela "Carregando"
+// piscando sem parar).
+const ORIGENS_PADRAO: ('suporte' | 'seguranca')[] = ['suporte']
+
 interface Props {
   clubeIdFixo?: string
   // Quais origens de lançamento entram no extrato — cada tela interna vê só
@@ -65,7 +74,7 @@ interface Props {
   permitirEdicao?: boolean
 }
 
-export function ExtratoView({ clubeIdFixo, origens = ['suporte'], mostrarCategoriaSeguranca = false, permitirEdicao = !clubeIdFixo }: Props) {
+export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCategoriaSeguranca = false, permitirEdicao = !clubeIdFixo }: Props) {
   const { t } = useI18n()
   const [clubes, setClubes] = useState<ClubeOpcao[]>([])
   const [clubeId, setClubeId] = useState(clubeIdFixo ?? '')
@@ -77,6 +86,8 @@ export function ExtratoView({ clubeIdFixo, origens = ['suporte'], mostrarCategor
   const [editando, setEditando] = useState<LancamentoEditavel | null>(null)
   const [excluindo, setExcluindo] = useState<Lancamento | null>(null)
   const [deletando, setDeletando] = useState(false)
+  const [erroExclusao, setErroExclusao] = useState<string | null>(null)
+  const [precisaForcar, setPrecisaForcar] = useState(false)
 
   useEffect(() => {
     if (clubeIdFixo) return
@@ -105,11 +116,22 @@ export function ExtratoView({ clubeIdFixo, origens = ['suporte'], mostrarCategor
 
   async function handleExcluir() {
     if (!excluindo) return
-    setDeletando(true)
+    setDeletando(true); setErroExclusao(null)
     try {
-      await supabase.from('lancamentos').delete().eq('id', excluindo.id)
-      setExcluindo(null)
+      if (precisaForcar) await desvincularConciliacao(excluindo.id)
+      const { error: delErr } = await supabase.from('lancamentos').delete().eq('id', excluindo.id)
+      if (delErr) {
+        if ((delErr as { code?: string }).code === '23503' && !precisaForcar) {
+          setErroExclusao(t('lancamento.excluir_bloqueado_conciliacao', { botao: t('lancamento.excluir_forcar') }))
+          setPrecisaForcar(true)
+          return
+        }
+        throw delErr
+      }
+      setExcluindo(null); setPrecisaForcar(false)
       await load()
+    } catch (err) {
+      setErroExclusao(errMsg(err))
     } finally {
       setDeletando(false)
     }
@@ -251,7 +273,7 @@ export function ExtratoView({ clubeIdFixo, origens = ['suporte'], mostrarCategor
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
                           <button onClick={() => setEditando(l)} title={t('common.editar')} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><Pencil size={14} /></button>
-                          <button onClick={() => setExcluindo(l)} title={t('common.deletar')} className="p-1.5 rounded-lg text-gray-400 hover:text-alert hover:bg-alert/10 transition-colors"><Trash2 size={14} /></button>
+                          <button onClick={() => { setExcluindo(l); setErroExclusao(null); setPrecisaForcar(false) }} title={t('common.deletar')} className="p-1.5 rounded-lg text-gray-400 hover:text-alert hover:bg-alert/10 transition-colors"><Trash2 size={14} /></button>
                         </div>
                       </td>
                     )}
@@ -273,10 +295,12 @@ export function ExtratoView({ clubeIdFixo, origens = ['suporte'], mostrarCategor
         open={!!excluindo}
         name={excluindo ? `${t(TIPOS.find((tp) => tp.value === excluindo.tipo)?.labelKey ?? excluindo.tipo)} · ${formatMoeda(excluindo.valor)}` : ''}
         onConfirm={handleExcluir}
-        onCancel={() => setExcluindo(null)}
+        onCancel={() => { setExcluindo(null); setErroExclusao(null); setPrecisaForcar(false) }}
         saving={deletando}
+        error={erroExclusao}
         title={t('lancamento.excluir_titulo')}
         description={t('lancamento.excluir_desc')}
+        confirmLabel={precisaForcar ? t('lancamento.excluir_forcar') : undefined}
       />
     </div>
   )
