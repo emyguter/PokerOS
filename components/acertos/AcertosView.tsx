@@ -90,6 +90,7 @@ export default function AcertosView() {
   const [cotacaoPendente, setCotacaoPendente] = useState<{ importId: string; moeda: string; valorAtual: number | null } | null>(null);
   const [filterType, setFilterType] = useState("todos");
   const [search, setSearch] = useState("");
+  const [ordenacaoImports, setOrdenacaoImports] = useState<"importacao" | "periodo" | "nome">("importacao");
   const [cardAberto, setCardAberto] = useState<Acerto | null>(null);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
 
@@ -103,6 +104,13 @@ export default function AcertosView() {
       .limit(30);
     if (data) setImports(data as Import[]);
   }
+
+  const importsOrdenados = useMemo(() => {
+    const lista = [...imports];
+    if (ordenacaoImports === "nome") return lista.sort((a, b) => a.file_name.localeCompare(b.file_name));
+    if (ordenacaoImports === "periodo") return lista.sort((a, b) => (b.period_start ?? "").localeCompare(a.period_start ?? ""));
+    return lista.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }, [imports, ordenacaoImports]);
 
   const loadAcertos = useCallback(async (importId: string) => {
     setLoading(true);
@@ -320,10 +328,19 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
 
         {/* Lista imports */}
         <div className="card" style={{ overflow: "hidden", alignSelf: "start" }}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid #1e2018" }}>
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid #1e2018", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <p style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "#5a5a52", margin: 0 }}>Imports</p>
+            <select
+              value={ordenacaoImports}
+              onChange={(e) => setOrdenacaoImports(e.target.value as "importacao" | "periodo" | "nome")}
+              style={{ background: "#111410", color: "#8a8a80", border: "1px solid #2a2c20", borderRadius: 6, padding: "3px 6px", fontFamily: "'DM Sans',sans-serif", fontSize: 11, outline: "none", cursor: "pointer" }}
+            >
+              <option value="importacao">Data de importação</option>
+              <option value="periodo">Período do arquivo</option>
+              <option value="nome">Nome</option>
+            </select>
           </div>
-          {imports.map((imp) => (
+          {importsOrdenados.map((imp) => (
             <div key={imp.id} className={`imp${selected?.id === imp.id ? " sel" : ""}`} onClick={() => handleSelect(imp)}>
               <p style={{ color: "#C9A84C", fontSize: 13, margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{imp.file_name}</p>
               <p style={{ color: "#5a5a52", fontSize: 11, margin: "0 0 4px" }}>{imp.leagues?.name ?? "—"} · {imp.period_start ?? "s/período"}</p>
