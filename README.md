@@ -86,6 +86,15 @@ reimportadas: `bronze_rows`/`import_rows.raw_data` já guarda os valores origina
 coluna, então um `UPDATE` retroativo em `import_rows` + clicar "Recalcular" no import (na tela de
 Relatórios) já refaz as contas certas em cima do que já foi importado.
 
+**Bilhetes e Pendências/Antecipação no card do Acerto (`ClubAcertoCard.tsx`):** os dois eram campos
+manuais, digitados à mão toda semana. Confirmado com o Cássio: **Bilhetes** = Valor do ticket ganho
+(coluna S, índice 18) − Buy-in de ticket (coluna T, índice 19) da aba "Geral da liga" do PPPoker —
+vem calculado do próprio arquivo (`import_rows.bilhetes`), sem edição manual. **Pendências /
+Antecipação** = soma dos lançamentos tipo Antecipação do Suporte já conciliados (`conciliado_com`
+preenchido) dentro do período do acerto — por isso Antecipação saiu da lista "Lançamentos do
+período" do card (contar nos dois lugares dobrava o valor). Os dois são recalculados do zero a cada
+"Recalcular"; só a Taxa AA Home Game continua manual e preservada.
+
 **Sinal na tela de Acertos (`components/acertos/AcertosView.tsx`):** "Taxa" (fee cobrado do clube
 pelo serviço de liga) sempre aparece negativo. O antigo "Result. Jogador" virou **"Ganhos"**. Pro
 tipo de cobrança "taxa" (dinâmica ou fixa/variável), o **Valor do Acerto = Rake Total + Ganhos −

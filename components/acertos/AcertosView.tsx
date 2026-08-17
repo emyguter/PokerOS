@@ -214,7 +214,7 @@ export default function AcertosView() {
 
   async function handleCalcular() {
     if (!selected) return;
-    if (acertos.length > 0 && !window.confirm("Recalcular sobrescreve os acertos desse import — Bilhetes, Pendências de Antecipação e Taxa AA Home Game editados manualmente por clube são preservados, o resto é recalculado do zero. Continuar?")) {
+    if (acertos.length > 0 && !window.confirm("Recalcular sobrescreve os acertos desse import — Bilhetes (do arquivo) e Pendências de Antecipação (dos lançamentos conciliados) são recalculados do zero junto; só a Taxa AA Home Game editada manualmente por clube é preservada. Continuar?")) {
       return;
     }
     const pendente = await verificarCotacaoDoDia(selected);

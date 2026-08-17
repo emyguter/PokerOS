@@ -39,6 +39,7 @@ function row(overrides: Partial<ImportRow> = {}): ImportRow {
     rake_cash: 500,
     rake_spinup: 100,
     player_result: -200,
+    bilhetes: 0,
     ...overrides,
   }
 }

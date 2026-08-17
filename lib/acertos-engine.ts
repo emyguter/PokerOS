@@ -26,6 +26,7 @@ export interface ImportRow {
   rake_cash: number;
   rake_spinup: number;
   player_result: number;
+  bilhetes: number;
 }
 
 export interface AcertoCalculado {
@@ -301,6 +302,32 @@ function calcularWtr4Semanas(row: ImportRow, historico: { player_result: number;
   return candidatos.reduce((s, r) => s + r.player_result / r.rake_total, 0) / candidatos.length;
 }
 
+// Pendências/Antecipação = lançamentos de Antecipação do Suporte já
+// conciliados (conciliado_com preenchido = já casou com o par da Genia),
+// dentro do período do acerto — confirmado com o Cássio. Soma só o lado
+// Suporte (o real) e não o par da Genia, senão dobra o valor (mesma regra de
+// origem já usada em Acertos/Extrato/ClubAcertoCard).
+async function buscarPendenciasAntecipacao(clubIds: string[], periodStart: string, periodEnd: string): Promise<Map<string, number>> {
+  const mapa = new Map<string, number>();
+  if (clubIds.length === 0 || !periodStart) return mapa;
+
+  const { data } = await supabase
+    .from("lancamentos")
+    .select("clube_id, natureza, valor")
+    .in("clube_id", clubIds)
+    .eq("tipo", "antecipacao")
+    .eq("origem", "suporte")
+    .not("conciliado_com", "is", null)
+    .gte("data_lancamento", periodStart)
+    .lte("data_lancamento", periodEnd || periodStart);
+
+  for (const row of (data ?? []) as { clube_id: string; natureza: "credito" | "debito"; valor: number }[]) {
+    const delta = row.natureza === "credito" ? row.valor : -row.valor;
+    mapa.set(row.clube_id, (mapa.get(row.clube_id) ?? 0) + delta);
+  }
+  return mapa;
+}
+
 export async function processarAcertos(importId: string): Promise<{
   success: boolean;
   count: number;
@@ -323,10 +350,12 @@ export async function processarAcertos(importId: string): Promise<{
     if (clubsError) throw new Error(clubsError.message);
 
     // Liga/plataforma do import, pra pré-cadastro automático herdar — o
-    // clube que aparece na planilha mas ainda não foi cadastrado.
+    // clube que aparece na planilha mas ainda não foi cadastrado. Período
+    // também sai daqui, pra achar as Antecipações conciliadas desse mesmo
+    // intervalo (ver buscarPendenciasAntecipacao).
     const { data: importInfo } = await supabase
       .from("imports")
-      .select("league_id, plataforma_id")
+      .select("league_id, plataforma_id, period_start, period_end")
       .eq("id", importId)
       .single();
 
@@ -343,20 +372,17 @@ export async function processarAcertos(importId: string): Promise<{
       importId
     );
 
-    // Os campos manuais do card (Bilhetes, Pendências/Antecipação, Taxa A-A
-    // Home Game) não vêm de cálculo nenhum — o usuário digita direto no card
-    // do clube. Preserva esses valores ao recalcular, senão "Recalcular"
-    // apagaria tudo que foi digitado à mão.
+    // Taxa A-A Home Game é o único extra do card que ainda é digitado à mão
+    // — preserva ao recalcular, senão "Recalcular" apagaria o que foi
+    // digitado. Bilhetes (vem do arquivo) e Pendências/Antecipação (vem dos
+    // lançamentos conciliados) são recalculados do zero toda vez, por
+    // definição — não fazem sentido "preservados".
     const { data: extrasExistentes } = await supabase
       .from("acertos")
-      .select("club_external_id, bilhetes, pendencias_antecipacao, taxa_aa_home_game")
+      .select("club_external_id, taxa_aa_home_game")
       .eq("import_id", importId);
-    const extrasPorClube = new Map<string, { bilhetes: number; pendencias_antecipacao: number; taxa_aa_home_game: number }>(
-      (extrasExistentes ?? []).map((e) => [e.club_external_id, {
-        bilhetes: e.bilhetes ?? 0,
-        pendencias_antecipacao: e.pendencias_antecipacao ?? 0,
-        taxa_aa_home_game: e.taxa_aa_home_game ?? 0,
-      }])
+    const extrasPorClube = new Map<string, { taxa_aa_home_game: number }>(
+      (extrasExistentes ?? []).map((e) => [e.club_external_id, { taxa_aa_home_game: e.taxa_aa_home_game ?? 0 }])
     );
 
     await supabase.from("acertos").delete().eq("import_id", importId);
@@ -435,9 +461,21 @@ export async function processarAcertos(importId: string): Promise<{
       acertos.push(calcularAcerto(row as ImportRow, club, condicoesPorClube.get(club.id) ?? CONDICOES_VAZIAS, wtr4Semanas));
     }
 
+    const bilhetesPorClube = new Map<string, number>(
+      (rows as ImportRow[]).map((r) => [r.club_external_id, r.bilhetes ?? 0])
+    );
+    const clubIdsResolvidos = [...new Set(acertos.map((a) => a.club_id).filter((id): id is string => !!id))];
+    const pendenciasPorClube = await buscarPendenciasAntecipacao(
+      clubIdsResolvidos,
+      importInfo?.period_start ?? "",
+      importInfo?.period_end ?? ""
+    );
+
     const acertosComExtras = acertos.map((a) => ({
       ...a,
-      ...(extrasPorClube.get(a.club_external_id) ?? { bilhetes: 0, pendencias_antecipacao: 0, taxa_aa_home_game: 0 }),
+      bilhetes: bilhetesPorClube.get(a.club_external_id) ?? 0,
+      pendencias_antecipacao: a.club_id ? pendenciasPorClube.get(a.club_id) ?? 0 : 0,
+      taxa_aa_home_game: extrasPorClube.get(a.club_external_id)?.taxa_aa_home_game ?? 0,
     }));
 
     const { error: insertError } = await supabase.from("acertos").insert(acertosComExtras);
