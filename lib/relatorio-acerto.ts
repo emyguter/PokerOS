@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { getDividasAcertoDoClube } from './dividas'
 
 // Campos que SEMPRE aparecem no card de Acerto, em qualquer clube — não dá
 // pra esconder pela Regra de Layout, só reordenar (confirmado pelo Cássio).
@@ -90,4 +91,57 @@ export async function getLayoutDoClube(clubeId: string): Promise<CampoResolvido[
   const linhas = (data ?? []) as unknown as { regras: { tipo: string; regra_layout_campos: CampoLayoutConfig[] } | null }[]
   const config = linhas.find((l) => l.regras?.tipo === 'layout_acerto')?.regras?.regra_layout_campos ?? null
   return resolverLayout(config)
+}
+
+export interface ExtrasAcerto {
+  bilhetes: number
+  pendenciasAntecipacao: number
+  security: number
+  taxaAaHomeGame: number
+  indicacaoValor: number
+  lancamentosLiquido: number
+  dividasTotal: number
+}
+
+// Total COMPLETO do Acerto — em cima do valor já calculado pelo motor
+// (`acertos.valor_acerto`, que já é correto pra cada settlement_type:
+// taxa_dinamica, rakeback, weekly_usd etc, incluindo o rebate quando é o
+// caso) soma tudo o mais que compõe o que o clube efetivamente recebe/deve:
+// Bilhetes, Pendências/Antecipação, Segurança, Taxa A-A Home Game,
+// Indicação, Lançamentos do período (Bônus/Promoção/Outro) e Dívidas/Acordos
+// (já com a multa por atraso, se for o caso). Confirmado pelo Cássio: nada
+// pode ficar de fora — essa é a ÚNICA fonte de verdade do Valor do Acerto,
+// usada no card "Common Settlement", na lista/export de Acertos e no
+// Controle de Pagamentos/Cobrança — os três sempre têm que bater.
+export function calcularTotalAcerto(valorAcertoBase: number, extras: ExtrasAcerto): number {
+  return (
+    valorAcertoBase +
+    extras.bilhetes +
+    extras.pendenciasAntecipacao +
+    extras.security +
+    extras.taxaAaHomeGame +
+    extras.indicacaoValor +
+    extras.lancamentosLiquido -
+    extras.dividasTotal
+  )
+}
+
+// Segurança (cadastro do clube) + total de Dívidas/Acordos em aberto (já com
+// multa se atrasada) de um lote de clubes — as duas peças que faltam pra
+// completar calcularTotalAcerto e que cada tela buscava (ou não buscava)
+// separado. Lançamentos do período fica de fora de propósito: cada tela já
+// busca isso do jeito que precisa (algumas mostram item a item).
+export async function buscarSecurityEDividasPorClube(clubIds: string[], periodoFim: string): Promise<Map<string, { security: number; dividasTotal: number }>> {
+  const mapa = new Map<string, { security: number; dividasTotal: number }>()
+  if (clubIds.length === 0) return mapa
+  const [{ data: clubes }, dividasPorClube] = await Promise.all([
+    supabase.from('clubs').select('id, security').in('id', clubIds),
+    Promise.all(clubIds.map(async (id) => [id, await getDividasAcertoDoClube(id, periodoFim)] as const)),
+  ])
+  const securityPorId = new Map((clubes ?? []).map((c) => [c.id as string, (c.security as number | null) ?? 0]))
+  const dividasTotalPorId = new Map(dividasPorClube.map(([id, itens]) => [id, itens.reduce((s, d) => s + d.valor, 0)]))
+  for (const id of clubIds) {
+    mapa.set(id, { security: securityPorId.get(id) ?? 0, dividasTotal: dividasTotalPorId.get(id) ?? 0 })
+  }
+  return mapa
 }

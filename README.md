@@ -469,6 +469,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   tudo por trás, visível ou não (mesma regra do Liberar para Acerto): o layout só decide o que
   aparece, nunca quanto o clube recebe. Parcela de Acordo em aberto (ou dívida Simples ativa) agora
   entra automaticamente no Acerto, com a multa por atraso já aplicada
+- [x] "Valor Acerto" unificado em TUDO que soma dinheiro do clube (`lib/relatorio-acerto.ts`,
+  `calcularTotalAcerto`) — antes só o card completo somava Bilhetes/Pendências/Segurança/Taxa A-A Home
+  Game/Indicação/Dívidas; a lista de Acertos e o Controle de Pagamentos/Cobrança só somavam Rake e
+  Lançamentos, deixando o resto de fora. Agora os três (`ClubAcertoCard`, `AcertosView`,
+  `lib/pagamentos.ts`) usam a mesma fórmula, em cima do valor já correto do motor
+  (`acertos.valor_acerto`, que respeita cada settlement_type) — nada fica de fora e nunca mais dá
+  número diferente em tela diferente
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

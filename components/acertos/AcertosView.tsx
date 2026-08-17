@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Inbox } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { processarAcertos, processarAcertosAgentes } from "@/lib/acertos-engine";
+import { calcularTotalAcerto, buscarSecurityEDividasPorClube } from "@/lib/relatorio-acerto";
 import * as XLSX from "xlsx";
 import { ClubAcertoCard } from "./ClubAcertoCard";
 import { AgentesAcertosView } from "./AgentesAcertosView";
@@ -159,9 +160,22 @@ export default function AcertosView() {
       .in("clube_id", clubIds)
       .in("origem", ["suporte", "seguranca"])
       .neq("tipo", "caucao")
+      // Antecipação já entra separado, via "Pendências / Antecipação"
+      // (a.pendencias_antecipacao) — contar aqui também dobraria o valor
+      // agora que o Valor Acerto soma os dois (mesma regra do ClubAcertoCard).
+      .neq("tipo", "antecipacao")
       .gte("data_lancamento", periodStart)
       .lte("data_lancamento", periodEnd || periodStart);
     setLancamentos((data as Lancamento[]) ?? []);
+  }, []);
+
+  // Segurança (cadastro do clube) + Dívidas/Acordos em aberto (com multa se
+  // atrasada) — as duas peças que faltavam pra completar o Valor Acerto
+  // além de Bilhetes/Pendências/Indicação/Taxa AA (que já vêm direto na
+  // linha de `acertos`) e Lançamentos (acima).
+  const [extrasPorClube, setExtrasPorClube] = useState<Map<string, { security: number; dividasTotal: number }>>(new Map());
+  const loadExtras = useCallback(async (clubIds: string[], periodEnd: string) => {
+    setExtrasPorClube(await buscarSecurityEDividasPorClube(clubIds, periodEnd));
   }, []);
 
   async function handleSelect(imp: Import) {
@@ -172,10 +186,11 @@ export default function AcertosView() {
   }
 
   useEffect(() => {
-    if (!selected || acertos.length === 0) { setLancamentos([]); return; }
+    if (!selected || acertos.length === 0) { setLancamentos([]); setExtrasPorClube(new Map()); return; }
     const clubIds = [...new Set(acertos.map((a) => a.club_id).filter((id): id is string => !!id))];
     loadLancamentos(clubIds, selected.period_start, selected.period_end);
-  }, [acertos, selected, loadLancamentos]);
+    loadExtras(clubIds, selected.period_end || selected.period_start);
+  }, [acertos, selected, loadLancamentos, loadExtras]);
 
   // Líquido de lançamentos (créditos − débitos) por clube, no período do import selecionado.
   const lancamentosPorClube = useMemo(() => {
@@ -194,7 +209,27 @@ export default function AcertosView() {
     [lancamentosPorClube]
   );
 
-  const totalFinal = useCallback((a: Acerto) => valorDisplay(a) + lancamentosDoClube(a.club_id), [lancamentosDoClube]);
+  // Valor Acerto final = base do motor (já correta pro settlement_type) +
+  // TUDO o mais: Bilhetes, Pendências/Antecipação, Segurança, Taxa A-A Home
+  // Game, Indicação, Lançamentos do período e Dívidas/Acordos — nada fica de
+  // fora (confirmado pelo Cássio). Mesma fórmula do ClubAcertoCard e do
+  // Controle de Pagamentos (lib/relatorio-acerto.ts), pra nunca dar número
+  // diferente em tela diferente.
+  const totalFinal = useCallback(
+    (a: Acerto) => {
+      const extras = a.club_id ? extrasPorClube.get(a.club_id) : undefined;
+      return calcularTotalAcerto(a.valor_acerto, {
+        bilhetes: a.bilhetes,
+        pendenciasAntecipacao: a.pendencias_antecipacao,
+        security: extras?.security ?? 0,
+        taxaAaHomeGame: a.taxa_aa_home_game,
+        indicacaoValor: a.indicacao_valor,
+        lancamentosLiquido: lancamentosDoClube(a.club_id),
+        dividasTotal: extras?.dividasTotal ?? 0,
+      });
+    },
+    [lancamentosDoClube, extrasPorClube]
+  );
 
   async function executarCalculo(importId: string) {
     setCalculating(true);
@@ -271,7 +306,13 @@ export default function AcertosView() {
       "Fee Calculado": feeDisplay(a),
       Rebate: a.rebate_calculado,
       "Acerto (Rake)": valorDisplay(a),
+      Bilhetes: a.bilhetes,
+      "Pendências/Antecipação": a.pendencias_antecipacao,
+      Segurança: a.club_id ? extrasPorClube.get(a.club_id)?.security ?? 0 : 0,
+      "Taxa A-A Home Game": a.taxa_aa_home_game,
+      Indicação: a.indicacao_valor,
       Lançamentos: lancamentosDoClube(a.club_id),
+      "Dívidas/Acordos": a.club_id ? -(extrasPorClube.get(a.club_id)?.dividasTotal ?? 0) : 0,
       "Valor Acerto": totalFinal(a),
       Status: a.status,
     }));
@@ -476,7 +517,7 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                           <th style={{ textAlign: "right" }}>Rebate</th>
                           <th style={{ textAlign: "right" }} title="Só o cálculo automático em cima do rake importado — não inclui bônus, caução, pagamentos etc. lançados à parte.">Acerto (Rake)</th>
                           <th style={{ textAlign: "right" }}>Lançamentos</th>
-                          <th style={{ textAlign: "right" }} title="Acerto (Rake) + Lançamentos do período — esse é o número final a cobrar/pagar do clube.">Valor Acerto</th>
+                          <th style={{ textAlign: "right" }} title="Acerto (Rake) + Bilhetes + Pendências/Antecipação + Segurança + Taxa A-A Home Game + Indicação + Lançamentos do período − Dívidas/Acordos. Nada fica de fora — esse é o número final a cobrar/pagar do clube.">Valor Acerto</th>
                           <th>Status</th>
                         </tr>
                       </thead>

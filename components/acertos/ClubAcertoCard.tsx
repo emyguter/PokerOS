@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { getLayoutDoClube, resolverLayout, type CampoAcerto, type CampoResolvido } from '@/lib/relatorio-acerto'
+import { getLayoutDoClube, resolverLayout, calcularTotalAcerto, type CampoAcerto, type CampoResolvido } from '@/lib/relatorio-acerto'
 import { getDividasAcertoDoClube, type ItemDividaAcerto } from '@/lib/dividas'
 
 export interface AcertoCard {
@@ -12,6 +12,7 @@ export interface AcertoCard {
   club_external_id: string
   settlement_type: string
   taxa_tipo?: string
+  valor_acerto: number
   rake_mtt: number
   rake_cash: number
   rake_total: number
@@ -183,11 +184,20 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const rebateDisplay = -acerto.rebate_calculado
   const lancamentosLiquido = lancamentos.reduce((s, l) => s + (l.natureza === 'credito' ? l.valor : -l.valor), 0)
   const dividasTotal = dividasItens.reduce((s, d) => s + d.valor, 0)
-  const total =
-    acerto.rake_total + acerto.player_result -
-    acerto.fee_mtt_valor - acerto.fee_cash_valor - acerto.fee_spinup_valor - acerto.fee_operacional_valor +
-    acerto.bilhetes + acerto.pendencias_antecipacao + security + rebateDisplay + taxaAaHomeGame + acerto.indicacao_valor +
-    lancamentosLiquido - dividasTotal
+  // Base já vem do motor (acerto.valor_acerto — certo pra cada
+  // settlement_type, rebate já embutido quando é o caso) + tudo o mais que
+  // compõe o Acerto de verdade. Nada pode ficar de fora (confirmado pelo
+  // Cássio) — mesma fórmula usada na lista de Acertos e no Controle de
+  // Pagamentos, pra nunca dar número diferente em lugares diferentes.
+  const total = calcularTotalAcerto(acerto.valor_acerto, {
+    bilhetes: acerto.bilhetes,
+    pendenciasAntecipacao: acerto.pendencias_antecipacao,
+    security,
+    taxaAaHomeGame,
+    indicacaoValor: acerto.indicacao_valor,
+    lancamentosLiquido,
+    dividasTotal,
+  })
 
   // O layout (Regra vinculada ao clube) só decide QUAIS linhas aparecem e em
   // que ordem — o Total sempre soma tudo, igual já funciona no Liberar para

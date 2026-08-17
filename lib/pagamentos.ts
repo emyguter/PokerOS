@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { calcularTotalAcerto, buscarSecurityEDividasPorClube } from './relatorio-acerto'
 
 export interface EnvioPagamento {
   id: string
@@ -21,6 +22,14 @@ interface AcertoRow {
   club_external_id: string
   club_name: string
   valor_acerto: number
+}
+
+interface AcertoCompletoRow extends AcertoRow {
+  club_id: string | null
+  bilhetes: number
+  pendencias_antecipacao: number
+  taxa_aa_home_game: number
+  indicacao_valor: number
 }
 
 interface PagamentoRow {
@@ -63,24 +72,76 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
   })
 }
 
+// Valor do Acerto usado aqui pra calcular a Diferença é o COMPLETO — igual
+// ao card "Common Settlement" e a lista de Acertos (lib/relatorio-acerto.ts,
+// calcularTotalAcerto): Bilhetes, Pendências/Antecipação, Segurança, Taxa
+// A-A Home Game, Indicação, Lançamentos do período (Bônus/Promoção/Outro) e
+// Dívidas/Acordos entram todos — confirmado pelo Cássio, nada pode ficar de
+// fora, senão a Diferença de Cobrança/Controle de Pagamentos fica errada.
+async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart: string, periodEnd: string): Promise<Map<string, number>> {
+  const clubIds = [...new Set(lista.map((a) => a.club_id).filter((id): id is string => !!id))]
+
+  const [{ data: lancamentosData }, extrasPorClube] = await Promise.all([
+    clubIds.length > 0 && periodStart
+      ? supabase
+          .from('lancamentos')
+          .select('clube_id, natureza, valor')
+          .in('clube_id', clubIds)
+          .in('origem', ['suporte', 'seguranca'])
+          .neq('tipo', 'caucao')
+          .neq('tipo', 'antecipacao')
+          .gte('data_lancamento', periodStart)
+          .lte('data_lancamento', periodEnd || periodStart)
+      : Promise.resolve({ data: [] as { clube_id: string; natureza: 'credito' | 'debito'; valor: number }[] }),
+    buscarSecurityEDividasPorClube(clubIds, periodEnd || periodStart),
+  ])
+
+  const lancamentosPorClube = new Map<string, number>()
+  for (const l of (lancamentosData ?? []) as { clube_id: string; natureza: 'credito' | 'debito'; valor: number }[]) {
+    lancamentosPorClube.set(l.clube_id, (lancamentosPorClube.get(l.clube_id) ?? 0) + (l.natureza === 'credito' ? l.valor : -l.valor))
+  }
+
+  const mapa = new Map<string, number>()
+  for (const a of lista) {
+    const extras = a.club_id ? extrasPorClube.get(a.club_id) : undefined
+    mapa.set(a.id, calcularTotalAcerto(a.valor_acerto, {
+      bilhetes: a.bilhetes,
+      pendenciasAntecipacao: a.pendencias_antecipacao,
+      security: extras?.security ?? 0,
+      taxaAaHomeGame: a.taxa_aa_home_game,
+      indicacaoValor: a.indicacao_valor,
+      lancamentosLiquido: a.club_id ? lancamentosPorClube.get(a.club_id) ?? 0 : 0,
+      dividasTotal: extras?.dividasTotal ?? 0,
+    }))
+  }
+  return mapa
+}
+
 export async function buscarPagamentosPorImport(importId: string): Promise<AcertoPagamento[]> {
   const { data: acertos } = await supabase
     .from('acertos')
-    .select('id, club_external_id, club_name, valor_acerto')
+    .select('id, club_id, club_external_id, club_name, valor_acerto, bilhetes, pendencias_antecipacao, taxa_aa_home_game, indicacao_valor')
     .eq('import_id', importId)
     .order('club_name')
 
-  const lista = (acertos ?? []) as AcertoRow[]
+  const lista = (acertos ?? []) as AcertoCompletoRow[]
   if (lista.length === 0) return []
 
-  const { data: pagamentos } = await supabase
-    .from('lancamentos')
-    .select('id, acerto_id, natureza, valor, data_lancamento')
-    .in('acerto_id', lista.map((a) => a.id))
-    .eq('tipo', 'pagamento')
-    .order('data_lancamento', { ascending: true })
+  const { data: importInfo } = await supabase.from('imports').select('period_start, period_end').eq('id', importId).single()
 
-  return agregarPagamentos(lista, (pagamentos ?? []) as PagamentoRow[])
+  const [{ data: pagamentos }, valorCompletoPorId] = await Promise.all([
+    supabase
+      .from('lancamentos')
+      .select('id, acerto_id, natureza, valor, data_lancamento')
+      .in('acerto_id', lista.map((a) => a.id))
+      .eq('tipo', 'pagamento')
+      .order('data_lancamento', { ascending: true }),
+    valorAcertoCompletoPorRow(lista, importInfo?.period_start ?? '', importInfo?.period_end ?? ''),
+  ])
+
+  const listaCompleta: AcertoRow[] = lista.map((a) => ({ ...a, valor_acerto: valorCompletoPorId.get(a.id) ?? a.valor_acerto }))
+
+  return agregarPagamentos(listaCompleta, (pagamentos ?? []) as PagamentoRow[])
 }
 
 // Cor da Diferença — confirmado com o Cássio: no Suporte, vermelho é o que o
