@@ -7,7 +7,7 @@ import { FilaValidacao } from './FilaValidacao'
 
 export function LancarFinanceiroTab() {
   const { t } = useI18n()
-  const [novoAberto, setNovoAberto] = useState(false)
+  const [novoAberto, setNovoAberto] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
 
   return (
