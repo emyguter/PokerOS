@@ -25,10 +25,10 @@ const CADASTRO_SUB: SubNavItem[] = [
 ]
 
 // Mesmas abas de dentro de Lançamento/Financeiro/Segurança (LancamentoView,
-// FinanceiroView, SegurancaView) — o `?tab=` é lido por cada view numa
-// leitura direta de window.location.search no mount (ver useEffect em cada
-// arquivo), sem usar useSearchParams pra não forçar a Sidebar (que renderiza
-// em toda página, via app/layout.tsx) pra fora da renderização estática.
+// FinanceiroView, SegurancaView) — o `?tab=` é lido por cada view via
+// useSearchParams (ver useEffect em cada arquivo), não aqui na Sidebar: ela
+// renderiza em toda página (via app/layout.tsx), então usar o hook aqui
+// forçaria TODA página do app pra fora da renderização estática.
 const LANCAMENTO_SUB: SubNavItem[] = [
   { key: 'lancar', labelKey: 'lancamento.aba_lancar', href: '/lancamento?tab=lancar' },
   { key: 'extrato', labelKey: 'lancamento.aba_extrato', href: '/lancamento?tab=extrato' },

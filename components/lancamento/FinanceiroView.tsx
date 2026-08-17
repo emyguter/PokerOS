@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { PlusCircle, AlertCircle, GitMerge, Receipt } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { usePermissions } from '@/lib/permissions'
@@ -10,23 +11,24 @@ import { CobrancaView } from './CobrancaView'
 
 type Tab = 'lancar' | 'pendencias' | 'conciliacao' | 'cobranca'
 
-function tabDaUrl(): Tab | null {
-  const t = new URLSearchParams(window.location.search).get('tab')
-  return t === 'lancar' || t === 'pendencias' || t === 'conciliacao' || t === 'cobranca' ? t : null
+function tabDaUrl(valor: string | null): Tab | null {
+  return valor === 'lancar' || valor === 'pendencias' || valor === 'conciliacao' || valor === 'cobranca' ? valor : null
 }
 
 export function FinanceiroView() {
   const { t } = useI18n()
   const { hasPermission } = usePermissions()
+  const searchParams = useSearchParams()
   const [tab, setTab] = useState<Tab>('lancar')
 
-  // Submenu da sidebar linka pra cá com ?tab=X — lido só no mount (não é
-  // preciso reagir a navegação subsequente, a página inteira remonta ao
-  // trocar de rota).
+  // Submenu da sidebar linka pra cá com ?tab=X. Precisa reagir a navegação
+  // subsequente: trocar de item do submenu não muda de rota (mesma
+  // /financeiro, só a query), então o componente não remonta —
+  // `useSearchParams` é o único jeito de pegar essa mudança.
   useEffect(() => {
-    const daUrl = tabDaUrl()
+    const daUrl = tabDaUrl(searchParams.get('tab'))
     if (daUrl) setTab(daUrl)
-  }, [])
+  }, [searchParams])
 
   const abas: { key: Tab; labelKey: string; icon: typeof PlusCircle }[] = [
     { key: 'lancar', labelKey: 'lancamento.aba_lancar', icon: PlusCircle },

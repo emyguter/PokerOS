@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { PlusCircle, Receipt } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { LancarSegurancaForm } from './LancarSegurancaForm'
@@ -15,20 +16,23 @@ const ABAS: { key: Tab; labelKey: string; icon: typeof PlusCircle }[] = [
 // Referência estável — ver mesmo comentário em app/extrato/page.tsx.
 const ORIGENS_SEGURANCA: ('suporte' | 'seguranca')[] = ['seguranca']
 
-function tabDaUrl(): Tab | null {
-  const t = new URLSearchParams(window.location.search).get('tab')
-  return t === 'lancar' || t === 'extrato' ? t : null
+function tabDaUrl(valor: string | null): Tab | null {
+  return valor === 'lancar' || valor === 'extrato' ? valor : null
 }
 
 export function SegurancaView() {
   const { t } = useI18n()
+  const searchParams = useSearchParams()
   const [tab, setTab] = useState<Tab>('lancar')
 
-  // Submenu da sidebar linka pra cá com ?tab=X — lido só no mount.
+  // Submenu da sidebar linka pra cá com ?tab=X. Precisa reagir a navegação
+  // subsequente: trocar de item do submenu não muda de rota (mesma
+  // /seguranca, só a query), então o componente não remonta —
+  // `useSearchParams` é o único jeito de pegar essa mudança.
   useEffect(() => {
-    const daUrl = tabDaUrl()
+    const daUrl = tabDaUrl(searchParams.get('tab'))
     if (daUrl) setTab(daUrl)
-  }, [])
+  }, [searchParams])
 
   return (
     <div className="space-y-6">

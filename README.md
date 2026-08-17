@@ -476,6 +476,12 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   `lib/pagamentos.ts`) usam a mesma fórmula, em cima do valor já correto do motor
   (`acertos.valor_acerto`, que respeita cada settlement_type) — nada fica de fora e nunca mais dá
   número diferente em tela diferente
+- [x] Fix: clicar num item do submenu (Lançamento/Financeiro/Segurança na Sidebar) não trocava de
+  aba quando já se estava na página — as 3 telas liam o `?tab=` só uma vez no carregamento
+  (`window.location.search` num efeito de mount), mas navegar de um item do submenu pro outro não
+  troca de rota (mesma página, só a query muda), então o efeito nunca rodava de novo. Trocado por
+  `useSearchParams` (que reage à mudança), com Suspense em volta nas 3 páginas — bug antigo, ficou
+  bem mais fácil de notar depois que Lançamento ganhou 2 abas novas (Extra/Conferência)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

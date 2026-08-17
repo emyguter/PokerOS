@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { PlusCircle, Receipt, AlertCircle, ClipboardList, Gift, ListChecks } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { LancarForm } from './LancarForm'
@@ -24,20 +25,24 @@ const ABAS: { key: Tab; labelKey: string; icon: typeof PlusCircle }[] = [
 // fixo, não um literal recriado a cada render.
 const TIPOS_EXTRA = ['bonus', 'promocao', 'outro']
 
-function tabDaUrl(): Tab | null {
-  const t = new URLSearchParams(window.location.search).get('tab')
-  return t === 'lancar' || t === 'extrato' || t === 'pendencias' || t === 'pagamentos' || t === 'extra' || t === 'conferencia' ? t : null
+function tabDaUrl(valor: string | null): Tab | null {
+  return valor === 'lancar' || valor === 'extrato' || valor === 'pendencias' || valor === 'pagamentos' || valor === 'extra' || valor === 'conferencia' ? valor : null
 }
 
 export function LancamentoView() {
   const { t } = useI18n()
+  const searchParams = useSearchParams()
   const [tab, setTab] = useState<Tab>('lancar')
 
-  // Submenu da sidebar linka pra cá com ?tab=X — lido só no mount.
+  // Submenu da sidebar linka pra cá com ?tab=X. Precisa reagir a navegação
+  // subsequente (não só no mount): clicar de um item do submenu pra outro
+  // não troca de rota (mesma /lancamento, só muda a query), então o
+  // componente não remonta — `useSearchParams` é o único jeito de pegar
+  // essa mudança (window.location.search direto só funcionaria no mount).
   useEffect(() => {
-    const daUrl = tabDaUrl()
+    const daUrl = tabDaUrl(searchParams.get('tab'))
     if (daUrl) setTab(daUrl)
-  }, [])
+  }, [searchParams])
 
   return (
     <div className="space-y-6">
