@@ -178,7 +178,7 @@ export const en: typeof pt = {
     projeto: 'Project', todos_projetos: 'All projects',
     periodo: 'Period', periodo_atual: 'Current', periodo_aviso: 'Showing how Stoploss stood on {periodo} — values reconstructed from history.',
     selecione_clube: 'Select a club.',
-    stoploss_inicial: 'Initial Stoploss', stoploss_atual: 'Current Stoploss', caucao_atual: 'Current Deposit',
+    stoploss_inicial: 'Initial Stoploss', stoploss_atual: 'Current Stoploss', caucao_atual: 'Current Deposit', pre_payment: 'Pre Payment',
     solicitar_ajuste: 'Request adjustment', natureza: 'Nature', valor: 'Amount', justificativa: 'Justification',
     justificativa_placeholder: 'E.g.: cleared by management, PPPoker bug...',
     enviar_solicitacao: 'Send for approval', solicitacao_enviada: 'Request sent, awaiting Admin approval.',

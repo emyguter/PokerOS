@@ -421,6 +421,9 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   (lançamentos tipo Pagamento) agora se vinculam a um Acerto (`lancamentos.acerto_id`), pra
   acompanhar Valor do Acerto / Valor Pago / Diferença por clube, semana a semana, igual a planilha
   manual do Cássio — ver seção "Decisões Técnicas" acima
+- [x] Coluna "Pre Payment" no Relatório de Stoploss (`lib/stoploss.ts`: `getAntecipacaoBatch`) — soma
+  de toda Antecipação já conciliada por clube, mesmo nome/conceito da planilha manual do Cássio;
+  respeita o filtro de Período igual às outras colunas (reconstrói como estava numa data passada)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

@@ -176,7 +176,7 @@ export const pt = {
     projeto: 'Projeto', todos_projetos: 'Todos os projetos',
     periodo: 'Período', periodo_atual: 'Atual', periodo_aviso: 'Mostrando como o Stoploss estava em {periodo} — valores reconstruídos pelo histórico.',
     selecione_clube: 'Selecione um clube.',
-    stoploss_inicial: 'Stoploss Inicial', stoploss_atual: 'Stoploss Atual', caucao_atual: 'Caução Atual',
+    stoploss_inicial: 'Stoploss Inicial', stoploss_atual: 'Stoploss Atual', caucao_atual: 'Caução Atual', pre_payment: 'Pre Payment',
     solicitar_ajuste: 'Solicitar ajuste', natureza: 'Natureza', valor: 'Valor', justificativa: 'Justificativa',
     justificativa_placeholder: 'Ex: liberado pela gerência, bug do PPPoker...',
     enviar_solicitacao: 'Enviar pra aprovação', solicitacao_enviada: 'Solicitação enviada, aguardando aprovação do Admin.',

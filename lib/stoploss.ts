@@ -135,6 +135,30 @@ export async function getStoplossAtualBatch(clubeIds: string[], asOf?: Date): Pr
   return mapa
 }
 
+// Só a fatia de Antecipação (tipo='antecipacao') do Stoploss Atual, por
+// clube — "Pre Payment" na planilha manual do Cássio. Mesma lógica de
+// asOf/soma que getStoplossAtualBatch, só filtrando um tipo em vez de todos
+// os TIPOS_QUE_SOMAM, pra dar pra mostrar essa fatia como coluna própria no
+// Relatório de Stoploss sem duplicar o total.
+export async function getAntecipacaoBatch(clubeIds: string[], asOf?: Date): Promise<Map<string, number>> {
+  const mapa = new Map<string, number>()
+  if (clubeIds.length === 0) return mapa
+  const [basesPorClube, { data: historico }] = await Promise.all([
+    asOf ? basesClubesAsOf(clubeIds, asOf) : supabase.from('clubs').select(SELECT_BASE).in('id', clubeIds).then(r => new Map(((r.data ?? []) as ClubeBaseStoploss[]).map(c => [c.id, c]))),
+    supabase.from('stoploss_historico').select('clube_id, valor_delta, escopo, criado_em').in('clube_id', clubeIds).eq('tipo', 'antecipacao'),
+  ])
+  const linhasPorClube = new Map<string, HistoricoRow[]>()
+  for (const h of (historico ?? []) as HistoricoRow[]) {
+    const lista = linhasPorClube.get(h.clube_id) ?? []
+    lista.push(h)
+    linhasPorClube.set(h.clube_id, lista)
+  }
+  for (const [id, c] of basesPorClube) {
+    mapa.set(id, somarHistorico(linhasPorClube.get(id) ?? [], c.hora_virada_semana ?? 2, asOf))
+  }
+  return mapa
+}
+
 // Snapshot de caução/ratio de cada clube numa data — usado pelo Relatório de
 // Stoploss pra mostrar essas colunas também "como estavam" quando o filtro
 // de Período não é o atual (evita misturar Stoploss histórico com Caução de
