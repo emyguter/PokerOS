@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useI18n } from '@/lib/i18n'
-import { buscarImportsComAcerto, buscarPagamentosPorImport, corDiferenca, type ImportResumo, type AcertoPagamento } from '@/lib/pagamentos'
+import { buscarImportsComAcerto, buscarPagamentosPorImport, corDiferenca, diferencaDaLiga, type ImportResumo, type AcertoPagamento } from '@/lib/pagamentos'
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -18,9 +18,9 @@ function formatImportLabel(i: ImportResumo) {
 }
 
 // Financeiro vê o total pago, não cada Envio individual — mesmos dados que
-// ControlePagamentosView (Suporte), só que somados. A cor da Diferença é
-// invertida em relação ao Suporte: aqui é do ponto de vista da liga (o que a
-// liga precisa pagar/receber), não do clube — ver corDiferenca em
+// ControlePagamentosView (Suporte), só que somados. Sinal E cor da Diferença
+// são invertidos em relação ao Suporte: aqui é do ponto de vista da liga (o
+// que a liga precisa pagar/receber), não do clube — ver diferencaDaLiga em
 // lib/pagamentos.ts.
 export function CobrancaView() {
   const { t } = useI18n()
@@ -73,7 +73,7 @@ export function CobrancaView() {
                 <th className="text-left px-3 py-2 whitespace-nowrap">{t('pagamentos.col_club_name')}</th>
                 <th className="text-right px-3 py-2 whitespace-nowrap">{t('pagamentos.col_valor_acerto')}</th>
                 <th className="text-right px-3 py-2 whitespace-nowrap">{t('pagamentos.col_valor_pago')}</th>
-                <th className="text-right px-3 py-2 whitespace-nowrap">{t('pagamentos.col_diferenca')}</th>
+                <th className="text-right px-3 py-2 whitespace-nowrap" title="Do ponto de vista da liga: positivo = a liga vai receber do clube; negativo = a liga precisa pagar ao clube.">{t('pagamentos.col_diferenca')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -83,7 +83,7 @@ export function CobrancaView() {
                   <td className="px-3 py-2 text-white whitespace-nowrap">{l.club_name}</td>
                   <td className="px-3 py-2 text-right text-gray-300 whitespace-nowrap">{fmt(l.valor_acerto)}</td>
                   <td className="px-3 py-2 text-right text-gray-300 whitespace-nowrap">{fmt(l.valor_pago)}</td>
-                  <td className={`px-3 py-2 text-right font-semibold whitespace-nowrap ${COR_CLASSE[corDiferenca(l.diferenca, 'financeiro')]}`}>{fmt(l.diferenca)}</td>
+                  <td className={`px-3 py-2 text-right font-semibold whitespace-nowrap ${COR_CLASSE[corDiferenca(diferencaDaLiga(l.diferenca))]}`}>{fmt(diferencaDaLiga(l.diferenca))}</td>
                 </tr>
               ))}
             </tbody>

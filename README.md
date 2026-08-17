@@ -487,6 +487,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   o rodapé/usuário-logout pra fora da tela). Área de conteúdo (`.main-content`) ganhou scroll
   horizontal — telas mais largas que a viewport (sem tabela já embrulhada em scroll próprio) agora
   rolam pro lado em vez de cortar o conteúdo
+- [x] Fix: cor da Diferença no Financeiro (Cobrança) não estava de fato invertida em relação ao
+  Suporte (Controle de Pagamentos) — o código de `corDiferenca` tinha os dois ramos (`suporte` e
+  `financeiro`) idênticos, apesar do comentário dizer que deveria inverter. Agora `lib/pagamentos.ts`
+  tem uma única `corDiferenca` (positivo = azul, negativo = vermelho) e uma nova `diferencaDaLiga`
+  que espelha o número: o Suporte mostra a Diferença como o clube vê (positivo = clube vai receber),
+  o Financeiro mostra o espelho — a visão da liga (positivo = liga vai receber do clube) — sinal E
+  cor diferentes nas duas telas pro mesmo Acerto, como deveria ser desde o início
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

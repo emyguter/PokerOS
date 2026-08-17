@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { agregarPagamentos, corDiferenca } from '../pagamentos'
+import { agregarPagamentos, corDiferenca, diferencaDaLiga } from '../pagamentos'
 
 function acerto(overrides: Partial<Parameters<typeof agregarPagamentos>[0][number]> = {}) {
   return { id: 'acerto-1', club_external_id: '123', club_name: 'Clube Teste', valor_acerto: 1000, ...overrides }
@@ -50,18 +50,26 @@ describe('agregarPagamentos', () => {
 })
 
 describe('corDiferenca', () => {
-  it('quitado (diferença ~0) independe da perspectiva', () => {
-    expect(corDiferenca(0, 'suporte')).toBe('quitado')
-    expect(corDiferenca(0.001, 'financeiro')).toBe('quitado')
+  it('diferença ~0 é quitado', () => {
+    expect(corDiferenca(0)).toBe('quitado')
+    expect(corDiferenca(0.001)).toBe('quitado')
   })
 
-  it('Suporte: diferença positiva (clube vai receber) é azul, negativa (clube precisa pagar) é vermelho', () => {
-    expect(corDiferenca(500, 'suporte')).toBe('azul')
-    expect(corDiferenca(-500, 'suporte')).toBe('vermelho')
+  it('positiva é azul (quem está olhando vai receber), negativa é vermelho (precisa pagar)', () => {
+    expect(corDiferenca(500)).toBe('azul')
+    expect(corDiferenca(-500)).toBe('vermelho')
+  })
+})
+
+describe('diferencaDaLiga', () => {
+  it('espelha a diferença do clube (Suporte) pra visão da liga (Financeiro)', () => {
+    expect(diferencaDaLiga(500)).toBe(-500)
+    expect(diferencaDaLiga(-500)).toBe(500)
   })
 
-  it('Financeiro: mesma diferença dá cor invertida (perspectiva da liga, não do clube)', () => {
-    expect(corDiferenca(500, 'financeiro')).toBe('azul')
-    expect(corDiferenca(-500, 'financeiro')).toBe('vermelho')
+  it('sinal e cor ficam diferentes entre as duas visões pro mesmo Acerto', () => {
+    const diferencaDoClube = 500 // clube vai receber
+    expect(corDiferenca(diferencaDoClube)).toBe('azul')
+    expect(corDiferenca(diferencaDaLiga(diferencaDoClube))).toBe('vermelho') // liga precisa pagar
   })
 })

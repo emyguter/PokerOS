@@ -76,7 +76,7 @@ export function ControlePagamentosView() {
                 {Array.from({ length: maxEnvios }).map((_, i) => (
                   <th key={i} className="text-right px-3 py-2 whitespace-nowrap">{t('pagamentos.col_envio', { n: String(i + 1) })}</th>
                 ))}
-                <th className="text-right px-3 py-2 whitespace-nowrap">{t('pagamentos.col_diferenca')}</th>
+                <th className="text-right px-3 py-2 whitespace-nowrap" title="Do ponto de vista do clube: positivo = o clube vai receber; negativo = o clube precisa pagar.">{t('pagamentos.col_diferenca')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -88,7 +88,7 @@ export function ControlePagamentosView() {
                   {Array.from({ length: maxEnvios }).map((_, i) => (
                     <td key={i} className="px-3 py-2 text-right text-gray-300 whitespace-nowrap">{l.envios[i] ? fmt(l.envios[i].valor_assinado) : '—'}</td>
                   ))}
-                  <td className={`px-3 py-2 text-right font-semibold whitespace-nowrap ${COR_CLASSE[corDiferenca(l.diferenca, 'suporte')]}`}>{fmt(l.diferenca)}</td>
+                  <td className={`px-3 py-2 text-right font-semibold whitespace-nowrap ${COR_CLASSE[corDiferenca(l.diferenca)]}`}>{fmt(l.diferenca)}</td>
                 </tr>
               ))}
             </tbody>

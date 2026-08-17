@@ -144,22 +144,28 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
   return agregarPagamentos(listaCompleta, (pagamentos ?? []) as PagamentoRow[])
 }
 
-// Cor da Diferença — confirmado com o Cássio: no Suporte, vermelho é o que o
-// clube precisa pagar (diferença negativa) e azul o que precisa receber
-// (diferença positiva); no Financeiro é o oposto, porque o Financeiro pensa
-// do ponto de vista da liga — vermelho é o que a liga precisa pagar pro
-// clube e azul é o que a liga vai receber. Mesmo número, framing invertido
-// por tela — mas o sinal de Diferença/Valor do Acerto usado aqui é negativo
-// quando a liga precisa pagar (mesma convenção do totais.valor_acerto em
-// AcertosView, onde negativo é sempre vermelho), então o "oposto" do
-// Suporte, com esse sinal, dá vermelho no negativo e azul no positivo.
+// `AcertoPagamento.diferenca` (valor_acerto − valor_pago) é sempre guardado
+// do ponto de vista do CLUBE — mesmo sinal usado em todo o resto do app
+// (totais.valor_acerto em AcertosView etc): positivo = o clube vai receber,
+// negativo = o clube precisa pagar. O Suporte usa esse número direto (é
+// literalmente a visão do clube). O Financeiro pensa do ponto de vista da
+// liga — o oposto: o que o clube recebe é o que a liga paga, e vice-versa —
+// então passa por `diferencaDaLiga` antes de exibir/colorir. Com isso,
+// `corDiferenca` fica uma função só, sem parâmetro de perspectiva: positivo
+// é sempre azul (o lado de quem está olhando vai receber), negativo é
+// sempre vermelho (precisa pagar) — quem muda é o número que cada tela passa.
 export type CorDiferenca = 'quitado' | 'azul' | 'vermelho'
 
-export function corDiferenca(diferenca: number, perspectiva: 'suporte' | 'financeiro'): CorDiferenca {
+export function corDiferenca(diferenca: number): CorDiferenca {
   if (Math.abs(diferenca) < 0.005) return 'quitado'
-  const positivo = diferenca > 0
-  if (perspectiva === 'suporte') return positivo ? 'azul' : 'vermelho'
-  return positivo ? 'azul' : 'vermelho'
+  return diferenca > 0 ? 'azul' : 'vermelho'
+}
+
+// Espelha a Diferença do clube (Suporte) pra visão da liga (Financeiro) —
+// confirmado pelo Cássio: sinal E cor precisam ser diferentes entre as duas
+// telas pro mesmo Acerto, porque representam lados opostos da mesma conta.
+export function diferencaDaLiga(diferencaDoClube: number): number {
+  return -diferencaDoClube
 }
 
 export interface ImportResumo {
