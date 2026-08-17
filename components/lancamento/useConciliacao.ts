@@ -54,6 +54,25 @@ function hojeMenos(dias: number) {
   return d.toISOString().slice(0, 10)
 }
 
+// Antecipação é a única que compõe o Stoploss do clube, e só quando concilia
+// (antes disso é só uma promessa, igual Caução até a Genia confirmar) — usado
+// tanto no auto-match quanto no vínculo manual, pra não deixar uma
+// Antecipação conciliada na mão sem entrar no Stoploss.
+async function registrarAntecipacaoNoStoploss(suporte: Entrada, criadoPor: string | null): Promise<void> {
+  if (suporte.tipo !== 'antecipacao') return
+  const atual = await getStoplossAtual(suporte.clube_id)
+  const delta = suporte.natureza === 'credito' ? suporte.valor : -suporte.valor
+  await supabase.from('stoploss_historico').insert({
+    clube_id: suporte.clube_id,
+    tipo: 'antecipacao',
+    valor_delta: delta,
+    valor_resultante: atual + delta,
+    motivo: 'Antecipação conciliada',
+    lancamento_id: suporte.id,
+    criado_por: criadoPor,
+  })
+}
+
 // Casa os lançamentos do Suporte com os da Genia por clube+tipo+natureza,
 // preferindo o candidato com valor mais próximo dentro de uma janela de
 // dias — usado tanto pelas telas de Pendências (uma lista por vez) quanto
@@ -157,22 +176,7 @@ export function useConciliacao() {
       const antecipacoes = conciliadosAgora.filter(({ suporte }) => suporte.tipo === 'antecipacao')
       if (antecipacoes.length > 0) {
         const { data: userData } = await supabase.auth.getUser()
-        for (const { suporte } of antecipacoes) {
-          // Stoploss Atual é recalculado ao vivo — só precisa registrar o
-          // delta no histórico, não somar num campo salvo.
-          const atual = await getStoplossAtual(suporte.clube_id)
-          const delta = suporte.natureza === 'credito' ? suporte.valor : -suporte.valor
-          const resultante = atual + delta
-          await supabase.from('stoploss_historico').insert({
-            clube_id: suporte.clube_id,
-            tipo: 'antecipacao',
-            valor_delta: delta,
-            valor_resultante: resultante,
-            motivo: 'Antecipação conciliada',
-            lancamento_id: suporte.id,
-            criado_por: userData.user?.id ?? null,
-          })
-        }
+        for (const { suporte } of antecipacoes) await registrarAntecipacaoNoStoploss(suporte, userData.user?.id ?? null)
       }
 
       setProcessando(false); load()
@@ -191,6 +195,13 @@ export function useConciliacao() {
       supabase.from('lancamentos').update({ conciliado_com: outroId, conciliado_em: agora }).eq('id', principalId),
       supabase.from('lancamentos').update({ conciliado_com: principalId, conciliado_em: agora }).eq('id', outroId),
     ])
+    const suporteAntecipacao = [principalId, outroId]
+      .map(id => entradas.find(e => e.id === id))
+      .find((e): e is Entrada => !!e && e.origem === 'suporte' && e.tipo === 'antecipacao')
+    if (suporteAntecipacao) {
+      const { data: userData } = await supabase.auth.getUser()
+      await registrarAntecipacaoNoStoploss(suporteAntecipacao, userData.user?.id ?? null)
+    }
     await load()
   }
 
