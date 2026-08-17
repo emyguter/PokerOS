@@ -124,7 +124,7 @@ export const en: typeof pt = {
   extrato: {
     titulo: 'Statement', subtitulo: "Your club's entries",
     creditos: 'Credits', debitos: 'Debits', saldo: 'Balance',
-    de: 'From', ate: 'To', todos: 'All',
+    de: 'From', ate: 'To', todos: 'All', todos_clubes: 'All clubs',
     selecione_clube: 'Select a club to view its statement.',
     nenhum_periodo: 'No entries in this period.',
     col_data: 'Date', col_tipo: 'Type', col_descricao: 'Description', col_valor: 'Amount', col_saldo: 'Balance',

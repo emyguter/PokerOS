@@ -122,7 +122,7 @@ export const pt = {
   extrato: {
     titulo: 'Extrato', subtitulo: 'Lançamentos do seu clube',
     creditos: 'Créditos', debitos: 'Débitos', saldo: 'Saldo',
-    de: 'De', ate: 'Até', todos: 'Todos',
+    de: 'De', ate: 'Até', todos: 'Todos', todos_clubes: 'Todos os clubes',
     selecione_clube: 'Selecione um clube pra ver o extrato.',
     nenhum_periodo: 'Nenhum lançamento nesse período.',
     col_data: 'Data', col_tipo: 'Tipo', col_descricao: 'Descrição', col_valor: 'Valor', col_saldo: 'Saldo',
