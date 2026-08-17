@@ -369,11 +369,6 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
             <div className="card" style={{ padding: "64px 32px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
               <Inbox size={32} color="#3a3a32" />
               <p style={{ color: "#8a8a80", fontSize: 15, fontWeight: 500, margin: 0 }}>Selecione um import ao lado</p>
-              <p style={{ color: "#5a5a52", fontSize: 13, margin: 0 }}>
-                {imports.filter((i) => i.status === "acertos_calculados").length} já calculado{imports.filter((i) => i.status === "acertos_calculados").length !== 1 ? "s" : ""}
-                {" · "}
-                {imports.filter((i) => i.status !== "acertos_calculados").length} aguardando cálculo
-              </p>
             </div>
           ) : (
             <>
