@@ -29,7 +29,7 @@ const EMPTY: ClubForm = {
   caucao_atual: null, stoploss_inicial: null, ratio_caucao_stoploss: null, projeto: null,
   hora_virada_semana: 2,
   plataforma_id: null, operador_ext_id: null, operador_nickname: null, rebate_ativo: false,
-  wtr4_semanas_manual: null,
+  wtr4_semanas_manual: null, elite: false,
 }
 
 const STEPS: ModalStep[] = [
@@ -58,6 +58,7 @@ function toForm(c: Club): ClubForm {
     operador_nickname: c.operador_nickname ?? null,
     rebate_ativo: c.rebate_ativo ?? false,
     wtr4_semanas_manual: c.wtr4_semanas_manual ?? null,
+    elite: c.elite ?? false,
   }
 }
 
@@ -75,7 +76,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   const [salvandoIndicacao, setSalvandoIndicacao] = useState(false)
   const [erroIndicacao, setErroIndicacao] = useState<string | null>(null)
   const [indClub, setIndClub] = useState<{ id: string; nome: string } | null>(null)
-  const [indTaxa, setIndTaxa] = useState('')
   const [buscaIndClub, setBuscaIndClub] = useState('')
   const [resultadosIndClub, setResultadosIndClub] = useState<{ id: string; name: string; external_id: string | null; plataformaNome: string | null }[]>([])
   const [buscandoIndClub, setBuscandoIndClub] = useState(false)
@@ -94,7 +94,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     setIndicacoes([])
     setErroIndicacao(null)
     setIndClub(null)
-    setIndTaxa('')
     setBuscaIndClub('')
     setResultadosIndClub([])
     setClubeLocked(!!editing?.name && !!editing?.external_id)
@@ -106,12 +105,12 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   }, [editing, open])
 
   async function adicionarIndicacao() {
-    if (!editing || !indClub || !indTaxa) return
+    if (!editing || !indClub) return
     setSalvandoIndicacao(true); setErroIndicacao(null)
     try {
-      await addIndicacao(editing.id, indClub.id, Number(indTaxa))
+      await addIndicacao(editing.id, indClub.id)
       setIndicacoes(await getIndicacoes(editing.id))
-      setIndClub(null); setIndTaxa(''); setBuscaIndClub('')
+      setIndClub(null); setBuscaIndClub('')
     } catch (e) {
       setErroIndicacao(e instanceof Error ? e.message : String(e))
     } finally {
@@ -218,6 +217,23 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
           <Fld label="Projeto (opcional)">
             <input type="text" value={form.projeto ?? ''} onChange={e => set('projeto', e.target.value || null)} placeholder="Ex: Sul HG — só se esse clube não herdar de nenhuma liga" className={inputCls} />
           </Fld>
+        </div>
+      )}
+
+      {step === 'identificacao' && (
+        <div className="mt-4">
+          <label className="flex items-center gap-3 cursor-pointer w-fit">
+            <div
+              onClick={() => set('elite', !form.elite)}
+              className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${form.elite ? 'bg-gold' : 'bg-white/10'}`}
+            >
+              <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${form.elite ? 'translate-x-5' : 'translate-x-1'}`} />
+            </div>
+            <span className="text-sm text-gray-300">Clube Elite</span>
+          </label>
+          <p className="text-xs text-gray-500 mt-1.5">
+            Define o bônus de Indicação desse clube quando ele indica outro (etapa Regras): Elite = 10% do próprio rake (até R$ 1.000); não-Elite = 5% (até R$ 300).
+          </p>
         </div>
       )}
 
@@ -359,6 +375,9 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
 
           <div className="space-y-3 mt-4">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">Indicações</h3>
+            <p className="text-xs text-gray-500">
+              Quem esse clube indicou — o bônus (10% Elite / 5% não-Elite do próprio rake, até R$ 1.000/R$ 300) sai sozinho no Acerto enquanto tiver pelo menos uma indicação aqui. Nada pra digitar, só o vínculo.
+            </p>
             {!editing ? (
               <p className="text-xs text-gray-500 italic">Salve o cadastro primeiro pra poder indicar outro clube.</p>
             ) : (
@@ -370,11 +389,10 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                       <span className="text-white">{indClub.nome}</span>
                       <button type="button" onClick={() => setIndClub(null)} className="text-gray-500 hover:text-alert"><Trash2 size={13} /></button>
                     </div>
-                    <input type="number" step="any" value={indTaxa} onChange={e => setIndTaxa(e.target.value)} placeholder="Taxa %" className="w-24 bg-surface border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50" />
                     <button
                       type="button"
                       onClick={adicionarIndicacao}
-                      disabled={!indTaxa || salvandoIndicacao}
+                      disabled={salvandoIndicacao}
                       className="px-3 py-2 bg-surface2 border border-white/10 rounded-lg text-gold hover:border-gold/50 disabled:opacity-40 transition-colors"
                     ><Plus size={16} /></button>
                   </div>
@@ -403,7 +421,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                 {indicacoes.map(ind => (
                   <div key={ind.id} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-white/10 text-sm">
                     <span className="text-gray-300">{ind.nome}</span>
-                    <span className="text-gold">{ind.taxa_indicacao_pct}%</span>
                     <button type="button" onClick={() => removerIndicacaoSalva(ind.id)} disabled={salvandoIndicacao} className="text-gray-500 hover:text-alert disabled:opacity-40"><Trash2 size={13} /></button>
                   </div>
                 ))}

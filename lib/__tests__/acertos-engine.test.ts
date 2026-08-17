@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   calcularAcerto,
+  calcularIndicacao,
   valorIndicador,
   avaliarCondicoes,
   CONDICOES_VAZIAS,
@@ -25,6 +26,7 @@ function club(overrides: Partial<ClubSettings> = {}): ClubSettings {
     rakeback_pct: 0,
     spinup_pct: 3,
     wtr4_semanas_manual: null,
+    elite: false,
     ...overrides,
   }
 }
@@ -139,6 +141,23 @@ describe('avaliarCondicoes', () => {
   it('ignora condição com valor null (nunca bate, não é fallback)', () => {
     const condicoes = [condicao({ valor: null, resultado_pct: 20 })]
     expect(avaliarCondicoes(condicoes, row(), null)).toBeNull()
+  })
+})
+
+describe('calcularIndicacao', () => {
+  it('não-Elite: 5% do próprio rake, sem estourar o teto de R$300', () => {
+    expect(calcularIndicacao(false, 1000)).toBe(50) // 5% de 1000 = 50
+    expect(calcularIndicacao(false, 10000)).toBe(300) // 5% de 10000 = 500, mas teto é 300
+  })
+
+  it('Elite: 10% do próprio rake, sem estourar o teto de R$1.000', () => {
+    expect(calcularIndicacao(true, 5000)).toBe(500) // 10% de 5000 = 500
+    expect(calcularIndicacao(true, 50000)).toBe(1000) // 10% de 50000 = 5000, mas teto é 1000
+  })
+
+  it('rake zero dá bônus zero', () => {
+    expect(calcularIndicacao(true, 0)).toBe(0)
+    expect(calcularIndicacao(false, 0)).toBe(0)
   })
 })
 

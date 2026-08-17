@@ -193,19 +193,22 @@ export async function reativarClub(id: string): Promise<void> {
   if (error) throw error
 }
 
-// ─── INDICAÇÕES (um clube indica outro, ganha % sobre o rake do indicado) ──
+// ─── INDICAÇÕES (um clube indica outro; o vínculo em si não tem taxa — quem
+// indicou ganha um bônus automático sobre o PRÓPRIO rake sempre que tiver ao
+// menos uma indicação: 10% (até R$1.000) se for Elite, senão 5% (até R$300)
+// — ver clubs.elite e o cálculo em lib/acertos-engine.ts. Confirmado com o
+// Cássio: nada aqui é editável, só o vínculo de quem indicou quem) ──
 
 export interface IndicacaoRow {
   id: string
   club_indicado_id: string
   nome: string
-  taxa_indicacao_pct: number
 }
 
 export async function getIndicacoes(clubeId: string): Promise<IndicacaoRow[]> {
   const { data, error } = await supabase
     .from('club_indicacoes')
-    .select('id, club_indicado_id, taxa_indicacao_pct')
+    .select('id, club_indicado_id')
     .eq('club_id', clubeId)
   if (error) throw error
   const linhas = data ?? []
@@ -218,13 +221,12 @@ export async function getIndicacoes(clubeId: string): Promise<IndicacaoRow[]> {
     id: l.id,
     club_indicado_id: l.club_indicado_id,
     nome: nomePorId.get(l.club_indicado_id) ?? '—',
-    taxa_indicacao_pct: l.taxa_indicacao_pct ?? 0,
   }))
 }
 
-export async function addIndicacao(clubeId: string, clubeIndicadoId: string, taxaPct: number): Promise<void> {
+export async function addIndicacao(clubeId: string, clubeIndicadoId: string): Promise<void> {
   const { error } = await supabase.from('club_indicacoes').insert({
-    club_id: clubeId, club_indicado_id: clubeIndicadoId, taxa_indicacao_pct: taxaPct,
+    club_id: clubeId, club_indicado_id: clubeIndicadoId,
   })
   if (error) throw error
 }

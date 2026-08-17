@@ -43,6 +43,7 @@ interface Acerto {
   bilhetes: number;
   pendencias_antecipacao: number;
   taxa_aa_home_game: number;
+  indicacao_valor: number;
 }
 
 const LABELS: Record<string, string> = {

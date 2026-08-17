@@ -117,6 +117,16 @@ pagar, azul = liga vai receber) — mesmo número, framing oposto, confirmado co
 de pagamento antigos (antes dessa migration) ficam com `acerto_id` nulo e não aparecem
 retroativamente nessas telas, só os lançados daqui pra frente.
 
+**Bônus de Indicação (`clubs.elite`, `acertos.indicacao_valor`):** confirmado com o Cássio —
+quando um clube indica outro (etapa Regras do Cadastro, "Indicações"), ele ganha um bônus
+automático sobre o **próprio** rake (não o do clube indicado): 10% até R$1.000 se for **Elite**,
+senão 5% até R$300. "Elite" é uma classificação do próprio clube (etapa Identificação do Cadastro),
+não da indicação. Nada é editável — `calcularIndicacao` (`lib/acertos-engine.ts`) recalcula sozinho
+toda vez que o Acerto roda, só pra clubes com pelo menos uma indicação registrada. Aparece como uma
+linha própria "Indicação" no card de Acerto, sem mexer na Taxa A-A Home Game (linha separada,
+continua manual). O campo `club_indicacoes.taxa_indicacao_pct` (digitado à mão) saiu de uso — a
+coluna continua existindo no banco, só não é mais lida nem exibida.
+
 **Sinal na tela de Acertos (`components/acertos/AcertosView.tsx`):** "Taxa" (fee cobrado do clube
 pelo serviço de liga) sempre aparece negativo. O antigo "Result. Jogador" virou **"Ganhos"**. Pro
 tipo de cobrança "taxa" (dinâmica ou fixa/variável), o **Valor do Acerto = Rake Total + Ganhos −

@@ -23,6 +23,7 @@ export interface AcertoCard {
   bilhetes: number
   pendencias_antecipacao: number
   taxa_aa_home_game: number
+  indicacao_valor: number
 }
 
 interface Props {
@@ -164,7 +165,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const total =
     acerto.rake_total + acerto.player_result -
     acerto.fee_mtt_valor - acerto.fee_cash_valor - acerto.fee_spinup_valor - acerto.fee_operacional_valor +
-    acerto.bilhetes + acerto.pendencias_antecipacao + security + rebateDisplay + taxaAaHomeGame + lancamentosLiquido
+    acerto.bilhetes + acerto.pendencias_antecipacao + security + rebateDisplay + taxaAaHomeGame + acerto.indicacao_valor + lancamentosLiquido
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -214,6 +215,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           <Linha label="Segurança" value={security} />
           <Linha label="Rebate" value={rebateDisplay} />
           <Linha label="Taxa A-A HOME GAME" value={taxaAaHomeGame} editable onCommit={(v) => { setTaxaAaHomeGame(v); salvarExtras('taxa_aa_home_game', v) }} />
+          {acerto.indicacao_valor !== 0 && <Linha label="Indicação" value={acerto.indicacao_valor} />}
 
           {lancamentos.length > 0 && (
             <div className="py-1">
