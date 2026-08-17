@@ -8,13 +8,15 @@ body { background-color: #0C0E0B; color: #F0EDE4; font-family: var(--font-sans),
 /* No celular sobra o botão hambúrguer fixo no canto — o padding-top extra
    evita que o começo da tela fique embaixo dele. Do md pra cima volta ao
    espaçamento normal (sidebar de mesa não usa esse botão). */
-.main-content { flex: 1; padding: 4.5rem 1rem 1.5rem; min-width: 0; overflow-y: auto; }
+.main-content { flex: 1; padding: 4.5rem 1rem 1.5rem; min-width: 0; overflow-y: auto; overflow-x: auto; }
 @media (min-width: 768px) {
   .main-content { padding: 2rem 2.5rem; }
 }
-::-webkit-scrollbar { width: 4px; }
+* { scrollbar-width: auto; scrollbar-color: rgba(201,168,76,0.35) #111510; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: #111510; }
-::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.2); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.35); border-radius: 5px; border: 2px solid #111510; }
+::-webkit-scrollbar-thumb:hover { background: rgba(201,168,76,0.55); }
 
 /* Ícone do calendário nativo (input type="date") assume fundo claro por
    padrão e desenha um ícone escuro — que some no fundo escuro do app.

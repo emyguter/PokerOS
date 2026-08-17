@@ -128,8 +128,10 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      {/* Nav — overflow-y-auto + min-h-0 pra rolar quando vários submenus
+          abertos ao mesmo tempo passam da altura disponível, sem empurrar
+          o rodapé (usuário/logout) pra fora da tela. */}
+      <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-1">
         {ehClube ? (
           <Link
             href="/extrato"

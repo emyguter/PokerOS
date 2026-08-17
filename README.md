@@ -482,6 +482,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   troca de rota (mesma página, só a query muda), então o efeito nunca rodava de novo. Trocado por
   `useSearchParams` (que reage à mudança), com Suspense em volta nas 3 páginas — bug antigo, ficou
   bem mais fácil de notar depois que Lançamento ganhou 2 abas novas (Extra/Conferência)
+- [x] Scrollbar mais grossa em todo o app (`app/globals.css`, 4px → 10px) + fallback pro Firefox.
+  Sidebar: abrir vários submenus ao mesmo tempo agora rola dentro do próprio menu (não empurra mais
+  o rodapé/usuário-logout pra fora da tela). Área de conteúdo (`.main-content`) ganhou scroll
+  horizontal — telas mais largas que a viewport (sem tabela já embrulhada em scroll próprio) agora
+  rolam pro lado em vez de cortar o conteúdo
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
