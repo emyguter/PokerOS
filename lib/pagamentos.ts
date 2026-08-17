@@ -15,6 +15,13 @@ export interface AcertoPagamento {
   envios: EnvioPagamento[]
   valor_pago: number
   diferenca: number
+  // Caução lançada no período — só referência (igual na planilha do
+  // Cássio), não entra na soma de Envios nem na Diferença: Caução vive na
+  // própria conta dela (alimenta o Stoploss), misturar bagunça as duas
+  // contas — mesma regra já usada em Acertos/ClubAcertoCard. Preenchido só
+  // por buscarPagamentosPorImport (agregarPagamentos não sabe de Caução,
+  // continua puro/testável do jeito que já era).
+  caucao: number
 }
 
 interface AcertoRow {
@@ -68,6 +75,7 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
       envios,
       valor_pago,
       diferenca: Math.round((a.valor_acerto - valor_pago) * 100) / 100,
+      caucao: 0,
     }
   })
 }
@@ -117,6 +125,25 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
   return mapa
 }
 
+// Caução lançada no clube dentro do período do Acerto — só pra referência
+// no Controle de Pagamentos (Suporte), igual na planilha do Cássio (coluna
+// "Caução" separada, entre Acerto e os Envios). Não entra em Diferença.
+async function caucaoPorClube(clubIds: string[], periodStart: string, periodEnd: string): Promise<Map<string, number>> {
+  const mapa = new Map<string, number>()
+  if (clubIds.length === 0 || !periodStart) return mapa
+  const { data } = await supabase
+    .from('lancamentos')
+    .select('clube_id, natureza, valor')
+    .in('clube_id', clubIds)
+    .eq('tipo', 'caucao')
+    .gte('data_lancamento', periodStart)
+    .lte('data_lancamento', periodEnd || periodStart)
+  for (const l of (data ?? []) as { clube_id: string; natureza: 'credito' | 'debito'; valor: number }[]) {
+    mapa.set(l.clube_id, (mapa.get(l.clube_id) ?? 0) + (l.natureza === 'credito' ? l.valor : -l.valor))
+  }
+  return mapa
+}
+
 export async function buscarPagamentosPorImport(importId: string): Promise<AcertoPagamento[]> {
   const { data: acertos } = await supabase
     .from('acertos')
@@ -128,8 +155,9 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
   if (lista.length === 0) return []
 
   const { data: importInfo } = await supabase.from('imports').select('period_start, period_end').eq('id', importId).single()
+  const clubIds = [...new Set(lista.map((a) => a.club_id).filter((id): id is string => !!id))]
 
-  const [{ data: pagamentos }, valorCompletoPorId] = await Promise.all([
+  const [{ data: pagamentos }, valorCompletoPorId, caucaoPorId] = await Promise.all([
     supabase
       .from('lancamentos')
       .select('id, acerto_id, natureza, valor, data_lancamento')
@@ -137,11 +165,17 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
       .eq('tipo', 'pagamento')
       .order('data_lancamento', { ascending: true }),
     valorAcertoCompletoPorRow(lista, importInfo?.period_start ?? '', importInfo?.period_end ?? ''),
+    caucaoPorClube(clubIds, importInfo?.period_start ?? '', importInfo?.period_end ?? ''),
   ])
 
   const listaCompleta: AcertoRow[] = lista.map((a) => ({ ...a, valor_acerto: valorCompletoPorId.get(a.id) ?? a.valor_acerto }))
+  const clubIdPorAcertoId = new Map(lista.map((a) => [a.id, a.club_id]))
 
-  return agregarPagamentos(listaCompleta, (pagamentos ?? []) as PagamentoRow[])
+  const resultado = agregarPagamentos(listaCompleta, (pagamentos ?? []) as PagamentoRow[])
+  return resultado.map((r) => {
+    const clubId = clubIdPorAcertoId.get(r.acerto_id)
+    return { ...r, caucao: clubId ? caucaoPorId.get(clubId) ?? 0 : 0 }
+  })
 }
 
 // `AcertoPagamento.diferenca` (valor_acerto − valor_pago) é sempre guardado

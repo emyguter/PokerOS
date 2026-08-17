@@ -496,6 +496,9 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   cor diferentes nas duas telas pro mesmo Acerto, como deveria ser desde o início
 - [x] Fix: Acertos abria sempre no aviso "Selecione um import ao lado" — agora seleciona sozinho o
   import mais recente ao carregar a tela, mesmo padrão que Cobrança e Controle de Pagamentos já usam
+- [x] Controle de Pagamentos (Suporte) ganhou 2 colunas pra bater com a planilha do Cássio: "Caução"
+  (lançada no período — só referência, não entra na Diferença) e "Total" (soma dos Envios). O
+  Financeiro (Cobrança) continua só com o total, sem itemizar — já era assim de propósito
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
