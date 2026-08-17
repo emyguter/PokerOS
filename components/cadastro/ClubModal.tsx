@@ -330,12 +330,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
 
       {step === 'regras' && (
         <>
-          <Fld label="WtR 4 Semanas (manual)">
-            <NumInput value={form.wtr4_semanas_manual} onChange={v => set('wtr4_semanas_manual', v)} placeholder="Ex: -1.93" />
-            <p className="text-xs text-gray-500 mt-1.5">
-              Tapa-buraco enquanto o clube não tem 4 semanas seguidas de histórico no sistema — usado pelas regras variáveis (ex: Taxa Dinâmica) só até lá. Assim que o histórico for suficiente, o cálculo automático volta a mandar sozinho, mesmo com esse campo preenchido. Vazio = sempre automático.
-            </p>
-          </Fld>
           <RegrasAplicadas
             entidadeTipo="clube"
             entidadeId={editing?.id ?? null}
