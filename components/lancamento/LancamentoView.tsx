@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PlusCircle, Receipt, AlertCircle } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { LancarForm } from './LancarForm'
@@ -14,9 +14,20 @@ const ABAS: { key: Tab; labelKey: string; icon: typeof PlusCircle }[] = [
   { key: 'pendencias', labelKey: 'lancamento.aba_pendencias', icon: AlertCircle },
 ]
 
+function tabDaUrl(): Tab | null {
+  const t = new URLSearchParams(window.location.search).get('tab')
+  return t === 'lancar' || t === 'extrato' || t === 'pendencias' ? t : null
+}
+
 export function LancamentoView() {
   const { t } = useI18n()
   const [tab, setTab] = useState<Tab>('lancar')
+
+  // Submenu da sidebar linka pra cá com ?tab=X — lido só no mount.
+  useEffect(() => {
+    const daUrl = tabDaUrl()
+    if (daUrl) setTab(daUrl)
+  }, [])
 
   return (
     <div className="space-y-6">

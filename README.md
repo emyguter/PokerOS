@@ -388,6 +388,12 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   filtra por essas colunas
 - [x] Testes automatizados (Vitest) do motor de cálculo de Acertos, Stoploss e do mapeamento
   indicador→campo — ver seção "Testes"
+- [x] Submenu na Sidebar (`components/Sidebar.tsx`): Cadastros, Lançamento, Financeiro e Segurança
+  ganharam um submenu expansível com atalho direto pras abas/páginas que já existiam dentro deles —
+  abre sozinho na seção ativa, senão fica na mão do usuário (seta). Pra Lançamento/Financeiro/
+  Segurança o link usa `?tab=X` e cada view lê isso do `window.location.search` no mount (não usa
+  `useSearchParams` de propósito — a Sidebar renderiza em toda página via `app/layout.tsx`, e esse
+  hook exigiria Suspense ali e tiraria o app inteiro da renderização estática)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

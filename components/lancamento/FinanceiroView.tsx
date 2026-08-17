@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PlusCircle, AlertCircle, GitMerge } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { usePermissions } from '@/lib/permissions'
@@ -9,10 +9,23 @@ import { ConciliacaoView } from './ConciliacaoView'
 
 type Tab = 'lancar' | 'pendencias' | 'conciliacao'
 
+function tabDaUrl(): Tab | null {
+  const t = new URLSearchParams(window.location.search).get('tab')
+  return t === 'lancar' || t === 'pendencias' || t === 'conciliacao' ? t : null
+}
+
 export function FinanceiroView() {
   const { t } = useI18n()
   const { hasPermission } = usePermissions()
   const [tab, setTab] = useState<Tab>('lancar')
+
+  // Submenu da sidebar linka pra cá com ?tab=X — lido só no mount (não é
+  // preciso reagir a navegação subsequente, a página inteira remonta ao
+  // trocar de rota).
+  useEffect(() => {
+    const daUrl = tabDaUrl()
+    if (daUrl) setTab(daUrl)
+  }, [])
 
   const abas: { key: Tab; labelKey: string; icon: typeof PlusCircle }[] = [
     { key: 'lancar', labelKey: 'lancamento.aba_lancar', icon: PlusCircle },

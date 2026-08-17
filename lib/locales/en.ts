@@ -27,6 +27,8 @@ export const en: typeof pt = {
     sair: 'Sign out',
     mostrar_menu: 'Show menu',
     esconder_menu: 'Hide menu',
+    mostrar_submenu: 'Show submenu',
+    esconder_submenu: 'Hide submenu',
   },
   login: {
     entrar: 'Sign in',

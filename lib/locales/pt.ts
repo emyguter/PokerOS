@@ -25,6 +25,8 @@ export const pt = {
     sair: 'Sair',
     mostrar_menu: 'Mostrar menu',
     esconder_menu: 'Esconder menu',
+    mostrar_submenu: 'Mostrar submenu',
+    esconder_submenu: 'Esconder submenu',
   },
   login: {
     entrar: 'Entrar',
