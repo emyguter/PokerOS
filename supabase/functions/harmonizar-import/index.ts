@@ -17,6 +17,7 @@ interface ImportRow {
   rake_spinup: number;
   fee_total: number;
   player_result: number;
+  bilhetes: number;
   agente_nome: string;
   agente_id_ext: string;
   superagente_nome: string;
@@ -200,6 +201,7 @@ Deno.serve(async (req) => {
         rake_spinup: row.rake_spinup,
         fee_total: row.fee_total,
         player_result: row.player_result,
+        bilhetes: row.bilhetes,
         agente_nome: row.agente_nome || null,
         agente_id_ext: row.agente_id_ext || null,
         superagente_nome: row.superagente_nome || null,

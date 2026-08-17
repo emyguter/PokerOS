@@ -23,6 +23,7 @@ export interface AcertoCard {
   bilhetes: number
   pendencias_antecipacao: number
   taxa_aa_home_game: number
+  indicacao_valor: number
 }
 
 interface Props {
@@ -37,6 +38,7 @@ interface Props {
 interface ClubSettings {
   fee_mtt_pct: number | null
   taxa_op_pct: number | null
+  taxa_op_ativo: boolean
   spinup_pct: number | null
   security: number | null
   wtr4_semanas_manual: number | null
@@ -92,15 +94,13 @@ function Linha({ label, value, editable, onCommit }: { label: string; value: num
 export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClose, onSaved }: Props) {
   const [club, setClub] = useState<ClubSettings | null>(null)
   const [wtr, setWtr] = useState<number | null>(null)
-  const [bilhetes, setBilhetes] = useState(acerto.bilhetes ?? 0)
-  const [pendencias, setPendencias] = useState(acerto.pendencias_antecipacao ?? 0)
   const [taxaAaHomeGame, setTaxaAaHomeGame] = useState(acerto.taxa_aa_home_game ?? 0)
   const [saving, setSaving] = useState(false)
   const [lancamentos, setLancamentos] = useState<LancamentoCard[]>([])
 
   useEffect(() => {
     if (acerto.club_id) {
-      supabase.from('clubs').select('fee_mtt_pct, taxa_op_pct, spinup_pct, security, wtr4_semanas_manual').eq('id', acerto.club_id).maybeSingle()
+      supabase.from('clubs').select('fee_mtt_pct, taxa_op_pct, taxa_op_ativo, spinup_pct, security, wtr4_semanas_manual').eq('id', acerto.club_id).maybeSingle()
         .then(({ data }) => setClub(data))
     }
   }, [acerto.club_id])
@@ -120,10 +120,10 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       .then(({ data }) => {
         const rows = (data ?? []) as unknown as { player_result: number; rake_total: number }[]
         const validos = rows.filter((r) => r.rake_total)
-        if (validos.length < 4 && club?.wtr4_semanas_manual != null) { setWtr(club.wtr4_semanas_manual * 100); return }
+        if (validos.length < 4 && club?.wtr4_semanas_manual != null) { setWtr(club.wtr4_semanas_manual); return }
         if (validos.length === 0) { setWtr(null); return }
         const media = validos.reduce((s, r) => s + r.player_result / r.rake_total, 0) / validos.length
-        setWtr(media * 100)
+        setWtr(media)
       })
   }, [acerto.club_external_id, club])
 
@@ -133,9 +133,12 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
     // pediu, não só o cálculo automático de rake. Caução fica de fora de
     // propósito: vive só no extrato dela mesma (e alimenta o Stoploss) —
     // misturar com o Acerto semanal de rake bagunça as duas contas.
-    // Financeiro (origem "genia") também fica de fora — é só a conferência
-    // interna do que o Suporte já lançou (ver Conciliação); contar os dois
-    // dobra o valor (mesma regra do ExtratoView e da AcertosView).
+    // Antecipação também fica de fora: já entra separado na linha
+    // "Pendências / Antecipação" (soma das Antecipações conciliadas) —
+    // contar aqui também dobraria o valor. Financeiro (origem "genia")
+    // também fica de fora — é só a conferência interna do que o Suporte já
+    // lançou (ver Conciliação); contar os dois dobra o valor (mesma regra do
+    // ExtratoView e da AcertosView).
     if (!acerto.club_id || !periodStart) { setLancamentos([]); return }
     supabase
       .from('lancamentos')
@@ -143,12 +146,13 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       .eq('clube_id', acerto.club_id)
       .in('origem', ['suporte', 'seguranca'])
       .neq('tipo', 'caucao')
+      .neq('tipo', 'antecipacao')
       .gte('data_lancamento', periodStart)
       .lte('data_lancamento', periodEnd || periodStart)
       .then(({ data }) => setLancamentos(data ?? []))
   }, [acerto.club_id, periodStart, periodEnd])
 
-  const salvarExtras = useCallback(async (campo: 'bilhetes' | 'pendencias_antecipacao' | 'taxa_aa_home_game', valor: number) => {
+  const salvarExtras = useCallback(async (campo: 'taxa_aa_home_game', valor: number) => {
     setSaving(true)
     await supabase.from('acertos').update({ [campo]: valor }).eq('id', acerto.id)
     setSaving(false)
@@ -161,7 +165,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const total =
     acerto.rake_total + acerto.player_result -
     acerto.fee_mtt_valor - acerto.fee_cash_valor - acerto.fee_spinup_valor - acerto.fee_operacional_valor +
-    bilhetes + pendencias + security + rebateDisplay + taxaAaHomeGame + lancamentosLiquido
+    acerto.bilhetes + acerto.pendencias_antecipacao + security + rebateDisplay + taxaAaHomeGame + acerto.indicacao_valor + lancamentosLiquido
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -190,7 +194,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           </div>
           <div className="flex items-center justify-between py-1.5 px-3 text-sm">
             <span className="text-gray-400">WtR 4 Semanas</span>
-            <span className="text-white font-medium">{wtr === null ? '—' : `${fmtPct(wtr)}%`}</span>
+            <span className="text-white font-medium">{wtr === null ? '—' : fmt(wtr)}</span>
           </div>
           <div className="flex items-center justify-between py-1.5 px-3 text-sm">
             <span className="text-gray-400">Taxa Dinâmica - Cash%</span>
@@ -205,12 +209,13 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           <Linha label={`Taxa Atual - MTT (${fmtPct(club?.fee_mtt_pct ?? null)}%)`} value={-acerto.fee_mtt_valor} />
           <Linha label={`Taxa Dinâmica - Cash (${fmtPct(acerto.taxa_cash_pct_aplicada)}%)`} value={-acerto.fee_cash_valor} />
           <Linha label={`SpinUp Lucro (${fmtPct(club?.spinup_pct ?? null)}%)`} value={-acerto.fee_spinup_valor} />
-          <Linha label={`Taxa Operacional (${fmtPct(club?.taxa_op_pct ?? null)}%)`} value={-acerto.fee_operacional_valor} />
-          <Linha label="Bilhetes" value={bilhetes} editable onCommit={(v) => { setBilhetes(v); salvarExtras('bilhetes', v) }} />
-          <Linha label="Pendências / Antecipação" value={pendencias} editable onCommit={(v) => { setPendencias(v); salvarExtras('pendencias_antecipacao', v) }} />
-          <Linha label="Security" value={security} />
+          <Linha label={club?.taxa_op_ativo === false ? 'Taxa Operacional (desativada)' : `Taxa Operacional (${fmtPct(club?.taxa_op_pct ?? null)}%)`} value={-acerto.fee_operacional_valor} />
+          <Linha label="Bilhetes" value={acerto.bilhetes} />
+          <Linha label="Pendências / Antecipação" value={acerto.pendencias_antecipacao} />
+          <Linha label="Segurança" value={security} />
           <Linha label="Rebate" value={rebateDisplay} />
           <Linha label="Taxa A-A HOME GAME" value={taxaAaHomeGame} editable onCommit={(v) => { setTaxaAaHomeGame(v); salvarExtras('taxa_aa_home_game', v) }} />
+          {acerto.indicacao_valor !== 0 && <Linha label="Indicação" value={acerto.indicacao_valor} />}
 
           {lancamentos.length > 0 && (
             <div className="py-1">

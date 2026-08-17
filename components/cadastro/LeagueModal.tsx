@@ -20,7 +20,7 @@ interface Props {
 const EMPTY: LeagueForm = {
   name: '', moeda: 'BRL', taxa_app_pct: null, ratio: null, super_league_id: null,
   plataforma_id: null, clube_ext_id: null, clube_nickname: null,
-  operador_ext_id: null, operador_nickname: null, moeda_acerto: 'BRL', conversao_dia: false,
+  operador_ext_id: null, operador_nickname: null,
   projeto: null,
 }
 
@@ -59,8 +59,6 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
         clube_nickname: editing.clube_nickname ?? null,
         operador_ext_id: editing.operador_ext_id ?? null,
         operador_nickname: editing.operador_nickname ?? null,
-        moeda_acerto: editing.moeda_acerto ?? 'BRL',
-        conversao_dia: editing.conversao_dia ?? false,
         projeto: editing.projeto ?? null,
       })
     } else {
@@ -105,14 +103,6 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
                   </select>
                 </Fld>
               </div>
-              <div className="grid grid-cols-2 gap-4 items-start">
-                <Fld label="Moeda do Acerto">
-                  <select value={form.moeda_acerto ?? 'BRL'} onChange={e => set('moeda_acerto', e.target.value)} className={inputCls}>
-                    {MOEDAS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                  </select>
-                </Fld>
-                <p className="text-xs text-gray-500 pt-7">Moeda é a que a liga reporta o rake. Moeda do Acerto é a que o acerto fecha — só difere quando precisa converter (ative “Conversão do Dia” abaixo).</p>
-              </div>
               <Fld label="Projeto (opcional)">
                 <input type="text" value={form.projeto ?? ''} onChange={e => set('projeto', e.target.value || null)} placeholder="Ex: Órion — deixe em branco se já herda da Superliga/Mega Liga" className={inputCls} />
               </Fld>
@@ -149,16 +139,6 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
             </Sec>
 
             <Sec title="Regras — Taxa do App">
-              <label className="flex items-center gap-3 cursor-pointer w-fit">
-                <div
-                  onClick={() => set('conversao_dia', !form.conversao_dia)}
-                  className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${form.conversao_dia ? 'bg-gold' : 'bg-white/10'}`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${form.conversao_dia ? 'translate-x-5' : 'translate-x-1'}`} />
-                </div>
-                <span className="text-sm text-gray-300">Conversão do dia</span>
-              </label>
-
               <RegrasAplicadas entidadeTipo="liga" entidadeId={editing?.id ?? null} />
             </Sec>
 

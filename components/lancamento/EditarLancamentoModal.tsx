@@ -4,7 +4,7 @@ import { Loader2, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
-import { TIPOS, CATEGORIAS_SEGURANCA } from './ExtratoView'
+import { TIPOS, CATEGORIAS_SEGURANCA, ehTipoSeguranca } from './ExtratoView'
 
 export interface LancamentoEditavel {
   id: string
@@ -21,10 +21,6 @@ interface Props {
   lancamento: LancamentoEditavel | null
   onClose: () => void
   onSaved: () => void
-}
-
-function ehSeguranca(tipo: string) {
-  return tipo === 'seguranca_bloqueio' || tipo === 'seguranca_reembolso'
 }
 
 export function EditarLancamentoModal({ open, lancamento, onClose, onSaved }: Props) {
@@ -55,7 +51,7 @@ export function EditarLancamentoModal({ open, lancamento, onClose, onSaved }: Pr
   // edição mantém essa natureza fixa (não vira um Bônus, por exemplo) e
   // troca o Tipo/Natureza genéricos pela mesma Ação + Categoria da tela de
   // Segurança, pra não deixar salvar uma combinação incoerente.
-  const seguranca = ehSeguranca(lancamento.tipo)
+  const seguranca = ehTipoSeguranca(lancamento.tipo)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -130,7 +126,7 @@ export function EditarLancamentoModal({ open, lancamento, onClose, onSaved }: Pr
                 <div>
                   <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.tipo')}</label>
                   <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
-                    {TIPOS.filter((tp) => !ehSeguranca(tp.value)).map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
+                    {TIPOS.filter((tp) => !ehTipoSeguranca(tp.value)).map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
                   </select>
                 </div>
                 <div>

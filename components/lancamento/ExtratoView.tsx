@@ -20,6 +20,15 @@ export const TIPOS = [
   { value: 'seguranca_reembolso', labelKey: 'lancamento.tipos.seguranca_reembolso' },
 ] as const
 
+// Bloqueio/Reembolso da Segurança só podem aparecer onde a origem 'seguranca'
+// de fato entra em jogo (a própria tela de Segurança e o extrato consolidado
+// do clube) — em qualquer lugar do Suporte/Financeiro isso é ruído (e no caso
+// do formulário de lançar, deixaria criar um lançamento incoerente com a
+// origem 'suporte'/'genia').
+export function ehTipoSeguranca(tipo: string) {
+  return tipo === 'seguranca_bloqueio' || tipo === 'seguranca_reembolso'
+}
+
 // Categoria específica do incidente de segurança (Bot, Collusion...) — só
 // referência interna, não aparece no extrato do clube (que só vê o tipo:
 // "Bloqueio da Segurança"/"Reembolso da Segurança"). Lista fixa por agora;
@@ -43,9 +52,14 @@ interface Lancamento {
   data_lancamento: string
   created_at: string
   categoria_seguranca: string | null
+  clubs: { name: string } | null
 }
 
 interface ClubeOpcao { id: string; name: string }
+
+// Sentinela pra "Todos os clubes" no seletor — não pode ser '' porque isso
+// já significa "nada selecionado ainda" (esconde a tabela toda).
+const TODOS_CLUBES = '__todos__'
 
 function formatMoeda(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -99,18 +113,18 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
     setLoading(true)
     let query = supabase
       .from('lancamentos')
-      .select('id, tipo, natureza, valor, descricao, data_lancamento, created_at, categoria_seguranca')
-      .eq('clube_id', clubeId)
+      .select('id, tipo, natureza, valor, descricao, data_lancamento, created_at, categoria_seguranca, clubs(name)')
       .in('origem', origens)
       .order('data_lancamento', { ascending: true })
       .order('created_at', { ascending: true })
-    if (tipoFiltro) query = query.eq('tipo', tipoFiltro)
+    if (clubeId !== TODOS_CLUBES) query = query.eq('clube_id', clubeId)
+    if (tipoFiltro) query = query.eq(mostrarCategoriaSeguranca ? 'categoria_seguranca' : 'tipo', tipoFiltro)
     if (dataInicio) query = query.gte('data_lancamento', dataInicio)
     if (dataFim) query = query.lte('data_lancamento', dataFim)
     const { data } = await query
-    setLancamentos(data ?? [])
+    setLancamentos((data ?? []) as unknown as Lancamento[])
     setLoading(false)
-  }, [clubeId, origens, tipoFiltro, dataInicio, dataFim])
+  }, [clubeId, origens, tipoFiltro, dataInicio, dataFim, mostrarCategoriaSeguranca])
 
   useEffect(() => { load() }, [load])
 
@@ -145,6 +159,12 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
     })
   }, [lancamentos])
 
+  // Segurança só entra na lista de Tipo quando essa origem de fato está
+  // sendo consultada aqui (extrato consolidado do clube) — no extrato do
+  // Suporte (só origem 'suporte') não faz sentido oferecer um filtro que
+  // nunca vai bater com nenhuma linha.
+  const tiposFiltro = origens.includes('seguranca') ? TIPOS : TIPOS.filter((tp) => !ehTipoSeguranca(tp.value))
+
   const totalCredito = lancamentos.filter((l) => l.natureza === 'credito').reduce((s, l) => s + l.valor, 0)
   const totalDebito = lancamentos.filter((l) => l.natureza === 'debito').reduce((s, l) => s + l.valor, 0)
   const saldoFinal = totalCredito - totalDebito
@@ -158,7 +178,7 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
             <BuscaSelect
               value={clubeId}
               onChange={setClubeId}
-              opcoes={clubes.map(c => ({ id: c.id, nome: c.name }))}
+              opcoes={[{ id: TODOS_CLUBES, nome: t('extrato.todos_clubes') }, ...clubes.map(c => ({ id: c.id, nome: c.name }))]}
               placeholder={t('common.selecione')}
             />
           </div>
@@ -166,7 +186,9 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
             <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.tipo')}</label>
             <select value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
               <option value="">{t('extrato.todos')}</option>
-              {TIPOS.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
+              {mostrarCategoriaSeguranca
+                ? CATEGORIAS_SEGURANCA.map((c) => <option key={c.value} value={c.value}>{t(c.labelKey)}</option>)
+                : tiposFiltro.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -188,7 +210,9 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
             <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.tipo')}</label>
             <select value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
               <option value="">{t('extrato.todos')}</option>
-              {TIPOS.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
+              {mostrarCategoriaSeguranca
+                ? CATEGORIAS_SEGURANCA.map((c) => <option key={c.value} value={c.value}>{t(c.labelKey)}</option>)
+                : tiposFiltro.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -248,6 +272,7 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
               <thead>
                 <tr className="border-b border-white/10 bg-surface2">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_data')}</th>
+                  {clubeId === TODOS_CLUBES && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('lancamento.clube')}</th>}
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_tipo')}</th>
                   {mostrarCategoriaSeguranca && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('seguranca.col_categoria')}</th>}
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_descricao')}</th>
@@ -260,6 +285,7 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
                 {linhas.map((l) => (
                   <tr key={l.id} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
                     <td className="px-4 py-3 text-gray-400">{new Date(l.data_lancamento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                    {clubeId === TODOS_CLUBES && <td className="px-4 py-3 text-gray-300">{l.clubs?.name ?? '—'}</td>}
                     <td className="px-4 py-3 text-gray-300">{t(TIPOS.find((tp) => tp.value === l.tipo)?.labelKey ?? l.tipo)}</td>
                     {mostrarCategoriaSeguranca && (
                       <td className="px-4 py-3 text-gray-400">{l.categoria_seguranca ? t(CATEGORIAS_SEGURANCA.find((c) => c.value === l.categoria_seguranca)?.labelKey ?? l.categoria_seguranca) : '—'}</td>

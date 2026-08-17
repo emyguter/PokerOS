@@ -4,11 +4,10 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Inbox } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { processarAcertos, processarAcertosAgentes } from "@/lib/acertos-engine";
-import { confirmarCotacaoDoDia } from "@/lib/cadastro-api";
 import * as XLSX from "xlsx";
 import { ClubAcertoCard } from "./ClubAcertoCard";
 import { AgentesAcertosView } from "./AgentesAcertosView";
-import { CotacaoDoDiaModal } from "./CotacaoDoDiaModal";
+import { ConfirmRecalcularModal } from "./ConfirmRecalcularModal";
 
 interface Import {
   id: string;
@@ -17,7 +16,7 @@ interface Import {
   period_end: string;
   status: string;
   created_at: string;
-  leagues: { name: string; moeda: string; moeda_acerto: string | null; conversao_dia: boolean } | null;
+  leagues: { name: string } | null;
 }
 
 interface Acerto {
@@ -43,6 +42,7 @@ interface Acerto {
   bilhetes: number;
   pendencias_antecipacao: number;
   taxa_aa_home_game: number;
+  indicacao_valor: number;
 }
 
 const LABELS: Record<string, string> = {
@@ -80,6 +80,16 @@ const fmt = (n: number) =>
 const feeDisplay = (a: Acerto) => -Math.abs(a.fee_calculado);
 const valorDisplay = (a: Acerto) => a.valor_acerto;
 
+// Mesma categorização usada no badge da lista de Imports — reaproveitada
+// pro filtro de status, pra não ter dois lugares decidindo o que cada
+// `status` bruto do banco significa.
+function categoriaStatus(status: string): "calculado" | "parcial" | "aguardando" | "erro" {
+  if (status === "acertos_calculados") return "calculado";
+  if (status === "parcial") return "parcial";
+  if (status === "done") return "aguardando";
+  return "erro";
+}
+
 export default function AcertosView() {
   const [aba, setAba] = useState<"clube" | "agente">("clube");
   const [imports, setImports] = useState<Import[]>([]);
@@ -87,10 +97,12 @@ export default function AcertosView() {
   const [acertos, setAcertos] = useState<Acerto[]>([]);
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
-  const [cotacaoPendente, setCotacaoPendente] = useState<{ importId: string; moeda: string; valorAtual: number | null } | null>(null);
+  const [confirmRecalcular, setConfirmRecalcular] = useState(false);
   const [filterType, setFilterType] = useState("todos");
   const [search, setSearch] = useState("");
   const [ordenacaoImports, setOrdenacaoImports] = useState<"importacao" | "periodo" | "nome">("importacao");
+  const [buscaImports, setBuscaImports] = useState("");
+  const [statusImports, setStatusImports] = useState<"todos" | "calculado" | "parcial" | "aguardando" | "erro">("todos");
   const [cardAberto, setCardAberto] = useState<Acerto | null>(null);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
 
@@ -99,18 +111,23 @@ export default function AcertosView() {
   async function loadImports() {
     const { data } = await supabase
       .from("imports")
-      .select("*, leagues(name, moeda, moeda_acerto, conversao_dia)")
+      .select("*, leagues(name)")
       .order("created_at", { ascending: false })
       .limit(30);
     if (data) setImports(data as Import[]);
   }
 
   const importsOrdenados = useMemo(() => {
-    const lista = [...imports];
+    const buscaLower = buscaImports.trim().toLowerCase();
+    const lista = imports.filter((imp) => {
+      const bateBusca = !buscaLower || imp.file_name.toLowerCase().includes(buscaLower) || (imp.leagues?.name ?? "").toLowerCase().includes(buscaLower);
+      const bateStatus = statusImports === "todos" || categoriaStatus(imp.status) === statusImports;
+      return bateBusca && bateStatus;
+    });
     if (ordenacaoImports === "nome") return lista.sort((a, b) => a.file_name.localeCompare(b.file_name));
     if (ordenacaoImports === "periodo") return lista.sort((a, b) => (b.period_start ?? "").localeCompare(a.period_start ?? ""));
     return lista.sort((a, b) => b.created_at.localeCompare(a.created_at));
-  }, [imports, ordenacaoImports]);
+  }, [imports, ordenacaoImports, buscaImports, statusImports]);
 
   const loadAcertos = useCallback(async (importId: string) => {
     setLoading(true);
@@ -177,27 +194,6 @@ export default function AcertosView() {
 
   const totalFinal = useCallback((a: Acerto) => valorDisplay(a) + lancamentosDoClube(a.club_id), [lancamentosDoClube]);
 
-  function dataLocalHoje() {
-    const hoje = new Date();
-    return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
-  }
-
-  // Liga com "Conversão do dia" ligada e moeda marcada como Cotação do Dia
-  // (Cadastro de Moedas) precisa da taxa de hoje confirmada antes de calcular
-  // — se já foi confirmada hoje, não pergunta de novo.
-  async function verificarCotacaoDoDia(imp: Import): Promise<{ moeda: string; valorAtual: number | null } | null> {
-    const liga = imp.leagues;
-    if (!liga?.conversao_dia || !liga.moeda || liga.moeda === liga.moeda_acerto) return null;
-    const { data } = await supabase
-      .from("moedas_cotacao")
-      .select("tipo, valor, atualizado_em")
-      .eq("moeda", liga.moeda)
-      .maybeSingle();
-    if (!data || data.tipo !== "cotacao_dia") return null;
-    if (data.atualizado_em === dataLocalHoje()) return null;
-    return { moeda: liga.moeda, valorAtual: data.valor };
-  }
-
   async function executarCalculo(importId: string) {
     setCalculating(true);
     const result = await processarAcertos(importId);
@@ -214,26 +210,17 @@ export default function AcertosView() {
 
   async function handleCalcular() {
     if (!selected) return;
-    if (acertos.length > 0 && !window.confirm("Recalcular sobrescreve os acertos desse import — Bilhetes, Pendências de Antecipação e Taxa AA Home Game editados manualmente por clube são preservados, o resto é recalculado do zero. Continuar?")) {
+    if (acertos.length > 0) {
+      setConfirmRecalcular(true);
       return;
     }
-    const pendente = await verificarCotacaoDoDia(selected);
-    if (pendente) { setCotacaoPendente({ importId: selected.id, ...pendente }); return; }
     await executarCalculo(selected.id);
   }
 
-  async function handleConfirmarCotacao(valor: number) {
-    if (!cotacaoPendente) return;
-    setCalculating(true);
-    try {
-      await confirmarCotacaoDoDia(cotacaoPendente.moeda, valor);
-      const importId = cotacaoPendente.importId;
-      setCotacaoPendente(null);
-      await executarCalculo(importId);
-    } catch (e) {
-      alert("Erro ao salvar cotação: " + (e instanceof Error ? e.message : String(e)));
-      setCalculating(false);
-    }
+  async function handleConfirmarRecalculo() {
+    setConfirmRecalcular(false);
+    if (!selected) return;
+    await executarCalculo(selected.id);
   }
 
   function handleExport() {
@@ -328,27 +315,52 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
 
         {/* Lista imports */}
         <div className="card" style={{ overflow: "hidden", alignSelf: "start" }}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid #1e2018", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <p style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "#5a5a52", margin: 0 }}>Imports</p>
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid #1e2018", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <p style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "#5a5a52", margin: 0 }}>Imports</p>
+              <select
+                value={ordenacaoImports}
+                onChange={(e) => setOrdenacaoImports(e.target.value as "importacao" | "periodo" | "nome")}
+                style={{ background: "#111410", color: "#8a8a80", border: "1px solid #2a2c20", borderRadius: 6, padding: "3px 6px", fontFamily: "'DM Sans',sans-serif", fontSize: 11, outline: "none", cursor: "pointer" }}
+              >
+                <option value="importacao">Data de importação</option>
+                <option value="periodo">Período do arquivo</option>
+                <option value="nome">Nome</option>
+              </select>
+            </div>
+            <input
+              type="text"
+              value={buscaImports}
+              onChange={(e) => setBuscaImports(e.target.value)}
+              placeholder="Buscar por arquivo ou liga..."
+              style={{ background: "#111410", color: "#F0EDE4", border: "1px solid #2a2c20", borderRadius: 6, padding: "5px 8px", fontFamily: "'DM Sans',sans-serif", fontSize: 12, outline: "none", width: "100%", boxSizing: "border-box" }}
+            />
             <select
-              value={ordenacaoImports}
-              onChange={(e) => setOrdenacaoImports(e.target.value as "importacao" | "periodo" | "nome")}
-              style={{ background: "#111410", color: "#8a8a80", border: "1px solid #2a2c20", borderRadius: 6, padding: "3px 6px", fontFamily: "'DM Sans',sans-serif", fontSize: 11, outline: "none", cursor: "pointer" }}
+              value={statusImports}
+              onChange={(e) => setStatusImports(e.target.value as "todos" | "calculado" | "parcial" | "aguardando" | "erro")}
+              style={{ background: "#111410", color: "#8a8a80", border: "1px solid #2a2c20", borderRadius: 6, padding: "3px 6px", fontFamily: "'DM Sans',sans-serif", fontSize: 11, outline: "none", cursor: "pointer", width: "100%" }}
             >
-              <option value="importacao">Data de importação</option>
-              <option value="periodo">Período do arquivo</option>
-              <option value="nome">Nome</option>
+              <option value="todos">Todos os status</option>
+              <option value="calculado">✓ Calculado</option>
+              <option value="parcial">⚠ Parcial</option>
+              <option value="aguardando">Aguardando</option>
+              <option value="erro">Erro</option>
             </select>
           </div>
-          {importsOrdenados.map((imp) => (
-            <div key={imp.id} className={`imp${selected?.id === imp.id ? " sel" : ""}`} onClick={() => handleSelect(imp)}>
-              <p style={{ color: "#C9A84C", fontSize: 13, margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{imp.file_name}</p>
-              <p style={{ color: "#5a5a52", fontSize: 11, margin: "0 0 4px" }}>{imp.leagues?.name ?? "—"} · {imp.period_start ?? "s/período"}</p>
-              <span className={`badge ${imp.status === "acertos_calculados" ? "bok" : imp.status === "parcial" ? "bwarn" : imp.status === "done" ? "bwarn" : "berr"}`}>
-                {imp.status === "acertos_calculados" ? "✓ Calculado" : imp.status === "parcial" ? "⚠ Parcial" : imp.status === "done" ? "Aguardando" : imp.status}
-              </span>
-            </div>
-          ))}
+          {importsOrdenados.length === 0 ? (
+            <p style={{ padding: "16px", fontSize: 12, color: "#5a5a52", fontStyle: "italic" }}>Nenhum import bate com os filtros.</p>
+          ) : importsOrdenados.map((imp) => {
+            const cat = categoriaStatus(imp.status);
+            return (
+              <div key={imp.id} className={`imp${selected?.id === imp.id ? " sel" : ""}`} onClick={() => handleSelect(imp)}>
+                <p style={{ color: "#C9A84C", fontSize: 13, margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{imp.file_name}</p>
+                <p style={{ color: "#5a5a52", fontSize: 11, margin: "0 0 4px" }}>{imp.leagues?.name ?? "—"} · {imp.period_start ?? "s/período"}</p>
+                <span className={`badge ${cat === "calculado" ? "bok" : cat === "erro" ? "berr" : "bwarn"}`}>
+                  {cat === "calculado" ? "✓ Calculado" : cat === "parcial" ? "⚠ Parcial" : cat === "aguardando" ? "Aguardando" : imp.status}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         {/* Painel acertos */}
@@ -502,13 +514,11 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
         />
       )}
 
-      {cotacaoPendente && (
-        <CotacaoDoDiaModal
-          moeda={cotacaoPendente.moeda}
-          valorAtual={cotacaoPendente.valorAtual}
+      {confirmRecalcular && (
+        <ConfirmRecalcularModal
           saving={calculating}
-          onConfirm={handleConfirmarCotacao}
-          onCancel={() => setCotacaoPendente(null)}
+          onConfirm={handleConfirmarRecalculo}
+          onCancel={() => setConfirmRecalcular(false)}
         />
       )}
     </div>

@@ -1,9 +1,9 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { getRegras, createRegra, updateRegra, deleteRegra } from '@/lib/cadastro-api'
 import { supabase } from '@/lib/supabase'
-import { formatIndicadorNome } from '@/lib/indicadores'
-import type { Regra, RegraForm } from '@/lib/types'
+import { formatIndicadorNome, campoFromCondicoes } from '@/lib/indicadores'
+import type { CampoClube, Regra, RegraForm } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { RegraModal } from '@/components/cadastro/RegraModal'
@@ -12,12 +12,16 @@ import { Plus, Link2 } from 'lucide-react'
 
 interface IndicadorInfo { nome: string; descricao: string | null }
 
+// Mesmo rótulo usado em VinculosPanel/RegrasAplicadas — sobre qual taxa do
+// clube (Fee MTT/Fee Cash/Taxa Operacional/SpinUp) o percentual da regra
+// incide, inferido do indicador usado na condição.
+const LABEL_CAMPO: Record<CampoClube, string> = {
+  fee_mtt: 'Fee MTT', fee_cash: 'Fee Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp',
+}
+
 // Frase em linguagem simples do que a regra faz — em vez de só "3 faixas",
 // pra quem não é técnico entender sem abrir o formulário.
 function resumoRegra(r: Regra, indicadores: Map<string, IndicadorInfo>): string {
-  if (r.tipo === 'cotacao') {
-    return `1 ${r.moeda_origem ?? '?'} = ${r.valor_cotacao ?? '?'} ${r.moeda_destino ?? '?'}`
-  }
   if (r.condicoes.length === 0) return 'Sem condições ainda'
   return r.condicoes.map(c => {
     if (c.is_fallback) return `SENÃO → ${c.resultado_pct ?? '?'}%`
@@ -58,6 +62,8 @@ export default function RegrasPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  const indicadorNomePorId = useMemo(() => new Map([...indicadores].map(([id, info]) => [id, info.nome])), [indicadores])
 
   async function handleSave(form: RegraForm) {
     setSaving(true); setError(null)
@@ -113,9 +119,19 @@ export default function RegrasPage() {
           {
             key: 'tipo',
             label: 'O que faz',
-            render: (_: string, row: Regra) => (
-              <span className="text-xs text-gray-300">{resumoRegra(row, indicadores)}</span>
-            ),
+            render: (_: string, row: Regra) => {
+              const campo = campoFromCondicoes(row.condicoes, indicadorNomePorId)
+              return (
+                <span className="text-xs text-gray-300">
+                  {resumoRegra(row, indicadores)}
+                  {campo && (
+                    <span className="ml-2 px-1.5 py-0.5 rounded-full bg-surface2 border border-white/10 text-gray-400 text-[10px] align-middle whitespace-nowrap">
+                      sobre {LABEL_CAMPO[campo]}
+                    </span>
+                  )}
+                </span>
+              )
+            },
           },
           {
             key: 'vinculoCount',
@@ -146,7 +162,7 @@ export default function RegrasPage() {
         open={!!vinculosRegra}
         regra={vinculosRegra}
         resumo={vinculosRegra ? resumoRegra(vinculosRegra, indicadores) : undefined}
-        indicadorNomePorId={new Map([...indicadores].map(([id, info]) => [id, info.nome]))}
+        indicadorNomePorId={indicadorNomePorId}
         onClose={() => { setVinculosRegra(null); load() }}
       />
 

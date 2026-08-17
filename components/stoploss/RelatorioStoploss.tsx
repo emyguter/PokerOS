@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
-import { getStoplossAtualBatch, getBasesClubesAsOf } from '@/lib/stoploss'
+import { getStoplossAtualBatch, getBasesClubesAsOf, getAntecipacaoBatch } from '@/lib/stoploss'
 
 interface ClubeLinha {
   id: string
@@ -50,6 +50,7 @@ export function RelatorioStoploss() {
   const { t } = useI18n()
   const [clubes, setClubes] = useState<ClubeLinha[]>([])
   const [stoplossAtualPorClube, setStoplossAtualPorClube] = useState<Map<string, number>>(new Map())
+  const [antecipacaoPorClube, setAntecipacaoPorClube] = useState<Map<string, number>>(new Map())
   const [basesAsOf, setBasesAsOf] = useState<Map<string, { caucao_atual: number | null; ratio_caucao_stoploss: number | null; stoploss_inicial: number | null }>>(new Map())
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState('')
@@ -92,9 +93,11 @@ export function RelatorioStoploss() {
     Promise.all([
       getStoplossAtualBatch(ids, asOf),
       asOf ? getBasesClubesAsOf(ids, asOf) : Promise.resolve(new Map()),
-    ]).then(([stoploss, bases]) => {
+      getAntecipacaoBatch(ids, asOf),
+    ]).then(([stoploss, bases, antecipacao]) => {
       setStoplossAtualPorClube(stoploss)
       setBasesAsOf(bases)
+      setAntecipacaoPorClube(antecipacao)
     })
   }, [clubes, periodoFiltro])
 
@@ -125,8 +128,9 @@ export function RelatorioStoploss() {
     return {
       stoploss: acc.stoploss + (stoplossAtualPorClube.get(c.id) ?? 0),
       caucao: acc.caucao + (caucao ?? 0),
+      antecipacao: acc.antecipacao + (antecipacaoPorClube.get(c.id) ?? 0),
     }
-  }, { stoploss: 0, caucao: 0 }), [filtrados, stoplossAtualPorClube, basesAsOf, periodoFiltro])
+  }, { stoploss: 0, caucao: 0, antecipacao: 0 }), [filtrados, stoplossAtualPorClube, basesAsOf, antecipacaoPorClube, periodoFiltro])
 
   return (
     <div className="space-y-3">
@@ -178,14 +182,15 @@ export function RelatorioStoploss() {
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.stoploss_inicial')}</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.stoploss_atual')}</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.caucao_atual')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.pre_payment')}</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.ratio')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500 text-sm">{t('common.carregando')}</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-500 text-sm">{t('common.carregando')}</td></tr>
               ) : filtrados.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500 text-sm">{t('common.nenhum_registro')}</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-500 text-sm">{t('common.nenhum_registro')}</td></tr>
               ) : (
                 filtrados.map(c => {
                   const base = baseDe(c)
@@ -197,6 +202,7 @@ export function RelatorioStoploss() {
                       <td className="px-4 py-3 text-right text-gray-300">{base.stoploss_inicial != null ? formatMoeda(base.stoploss_inicial) : '—'}</td>
                       <td className="px-4 py-3 text-right text-gold font-medium">{formatMoeda(stoplossAtualPorClube.get(c.id) ?? 0)}</td>
                       <td className="px-4 py-3 text-right text-gray-300">{base.caucao_atual != null ? formatMoeda(base.caucao_atual) : '—'}</td>
+                      <td className="px-4 py-3 text-right text-gray-300">{formatMoeda(antecipacaoPorClube.get(c.id) ?? 0)}</td>
                       <td className="px-4 py-3 text-right text-gray-500">{base.ratio_caucao_stoploss ?? 1}x</td>
                     </tr>
                   )
@@ -209,6 +215,7 @@ export function RelatorioStoploss() {
                   <td className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider" colSpan={4}>{t('stoploss.total')} ({filtrados.length})</td>
                   <td className="px-4 py-3 text-right text-gold font-semibold">{formatMoeda(totais.stoploss)}</td>
                   <td className="px-4 py-3 text-right text-gray-300 font-semibold">{formatMoeda(totais.caucao)}</td>
+                  <td className="px-4 py-3 text-right text-gray-300 font-semibold">{formatMoeda(totais.antecipacao)}</td>
                   <td></td>
                 </tr>
               </tfoot>

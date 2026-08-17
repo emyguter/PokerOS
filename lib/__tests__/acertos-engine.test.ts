@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   calcularAcerto,
+  calcularIndicacao,
   valorIndicador,
   avaliarCondicoes,
   CONDICOES_VAZIAS,
@@ -19,11 +20,13 @@ function club(overrides: Partial<ClubSettings> = {}): ClubSettings {
     fee_mtt_pct: 10,
     fee_cash_pct: 5,
     taxa_op_pct: 2,
+    taxa_op_ativo: true,
     rebate_pct: 0,
     crypto_rebate_pct: 0,
     rakeback_pct: 0,
     spinup_pct: 3,
     wtr4_semanas_manual: null,
+    elite: false,
     ...overrides,
   }
 }
@@ -39,6 +42,7 @@ function row(overrides: Partial<ImportRow> = {}): ImportRow {
     rake_cash: 500,
     rake_spinup: 100,
     player_result: -200,
+    bilhetes: 0,
     ...overrides,
   }
 }
@@ -140,6 +144,23 @@ describe('avaliarCondicoes', () => {
   })
 })
 
+describe('calcularIndicacao', () => {
+  it('não-Elite: 5% do próprio rake, sem estourar o teto de R$300', () => {
+    expect(calcularIndicacao(false, 1000)).toBe(50) // 5% de 1000 = 50
+    expect(calcularIndicacao(false, 10000)).toBe(300) // 5% de 10000 = 500, mas teto é 300
+  })
+
+  it('Elite: 10% do próprio rake, sem estourar o teto de R$1.000', () => {
+    expect(calcularIndicacao(true, 5000)).toBe(500) // 10% de 5000 = 500
+    expect(calcularIndicacao(true, 50000)).toBe(1000) // 10% de 50000 = 5000, mas teto é 1000
+  })
+
+  it('rake zero dá bônus zero', () => {
+    expect(calcularIndicacao(true, 0)).toBe(0)
+    expect(calcularIndicacao(false, 0)).toBe(0)
+  })
+})
+
 describe('calcularAcerto — taxa_dinamica (todas as taxas fixas)', () => {
   it('Fee Cash usa a base Rake Cash quando é fixo (não Rake Total)', () => {
     const r = row({ rake_cash: 500 })
@@ -156,6 +177,14 @@ describe('calcularAcerto — taxa_dinamica (todas as taxas fixas)', () => {
     expect(resultado.fee_mtt_valor).toBe(40) // 400 * 10%
     expect(resultado.fee_operacional_valor).toBe(20) // 1000 (rake total) * 2%
     expect(resultado.fee_spinup_valor).toBe(3) // 100 * 3%
+  })
+
+  it('Taxa Operacional desligada (taxa_op_ativo=false) não cobra nada, mesmo com % preenchido', () => {
+    const r = row({ rake_total: 1000, rake_mtt: 400, rake_cash: 500, rake_spinup: 100 })
+    const c = club({ fee_mtt_pct: 10, taxa_op_pct: 2, taxa_op_ativo: false, spinup_pct: 3 })
+    const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
+    expect(resultado.fee_operacional_valor).toBe(0)
+    expect(resultado.fee_mtt_valor).toBe(40) // outras taxas continuam normais
   })
 
   it('Valor do Acerto = Rake Total + Ganhos do jogador − Taxa cobrada', () => {

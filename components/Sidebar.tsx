@@ -2,21 +2,58 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { BookOpen, Upload, FileText, LogOut, ShieldCheck, ShieldAlert, Wallet, Receipt, PanelLeftClose, PanelLeftOpen, HandCoins, ListChecks, Landmark, Gauge, Menu, X } from 'lucide-react'
+import { BookOpen, Upload, FileText, LogOut, ShieldCheck, ShieldAlert, Wallet, Receipt, PanelLeftClose, PanelLeftOpen, HandCoins, ListChecks, Landmark, Gauge, Crown, Menu, X, ChevronDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { useI18n } from '@/lib/i18n'
 
-const CADASTRO_CHAVES = ['cadastro.mega_ligas', 'cadastro.superligas', 'cadastro.ligas', 'cadastro.clubes', 'cadastro.super_agentes', 'cadastro.agentes', 'cadastro.jogadores', 'cadastro.moedas']
+const CADASTRO_CHAVES = ['cadastro.mega_ligas', 'cadastro.superligas', 'cadastro.ligas', 'cadastro.clubes', 'cadastro.super_agentes', 'cadastro.agentes', 'cadastro.jogadores']
 const COLLAPSED_KEY = 'pokeros_sidebar_collapsed'
 
+interface SubNavItem { key: string; labelKey: string; href: string; chave?: string }
+
+// Mesmas 8 telas do menu interno de Cadastros (app/admin/cadastro/layout.tsx)
+// — aqui só pra dar atalho direto pela sidebar, o menu interno continua igual.
+const CADASTRO_SUB: SubNavItem[] = [
+  { key: 'mega_ligas', labelKey: 'cadastro_menu.mega_ligas', href: '/admin/cadastro/mega-ligas', chave: 'cadastro.mega_ligas' },
+  { key: 'superligas', labelKey: 'cadastro_menu.superligas', href: '/admin/cadastro/superligas', chave: 'cadastro.superligas' },
+  { key: 'ligas', labelKey: 'cadastro_menu.ligas', href: '/admin/cadastro/ligas', chave: 'cadastro.ligas' },
+  { key: 'clubes', labelKey: 'cadastro_menu.clubes', href: '/admin/cadastro/clubes', chave: 'cadastro.clubes' },
+  { key: 'super_agentes', labelKey: 'cadastro_menu.super_agentes', href: '/admin/cadastro/super-agentes', chave: 'cadastro.super_agentes' },
+  { key: 'agentes', labelKey: 'cadastro_menu.agentes', href: '/admin/cadastro/agentes', chave: 'cadastro.agentes' },
+  { key: 'jogadores', labelKey: 'cadastro_menu.jogadores', href: '/admin/cadastro/jogadores', chave: 'cadastro.jogadores' },
+]
+
+// Mesmas abas de dentro de Lançamento/Financeiro/Segurança (LancamentoView,
+// FinanceiroView, SegurancaView) — o `?tab=` é lido por cada view numa
+// leitura direta de window.location.search no mount (ver useEffect em cada
+// arquivo), sem usar useSearchParams pra não forçar a Sidebar (que renderiza
+// em toda página, via app/layout.tsx) pra fora da renderização estática.
+const LANCAMENTO_SUB: SubNavItem[] = [
+  { key: 'lancar', labelKey: 'lancamento.aba_lancar', href: '/lancamento?tab=lancar' },
+  { key: 'extrato', labelKey: 'lancamento.aba_extrato', href: '/lancamento?tab=extrato' },
+  { key: 'pendencias', labelKey: 'lancamento.aba_pendencias', href: '/lancamento?tab=pendencias' },
+  { key: 'pagamentos', labelKey: 'lancamento.aba_pagamentos', href: '/lancamento?tab=pagamentos' },
+]
+const FINANCEIRO_SUB: SubNavItem[] = [
+  { key: 'lancar', labelKey: 'lancamento.aba_lancar', href: '/financeiro?tab=lancar' },
+  { key: 'pendencias', labelKey: 'lancamento.aba_pendencias', href: '/financeiro?tab=pendencias' },
+  { key: 'conciliacao', labelKey: 'lancamento.aba_conciliacao', href: '/financeiro?tab=conciliacao', chave: 'conciliacao' },
+  { key: 'cobranca', labelKey: 'lancamento.aba_cobranca', href: '/financeiro?tab=cobranca' },
+]
+const SEGURANCA_SUB: SubNavItem[] = [
+  { key: 'lancar', labelKey: 'lancamento.aba_lancar', href: '/seguranca?tab=lancar' },
+  { key: 'extrato', labelKey: 'lancamento.aba_extrato', href: '/seguranca?tab=extrato' },
+]
+
 const NAV = [
-  { href: '/admin/cadastro/superligas', labelKey: 'nav.cadastros', icon: BookOpen, chaves: CADASTRO_CHAVES },
+  { href: '/admin/cadastro/superligas', labelKey: 'nav.cadastros', icon: BookOpen, chaves: CADASTRO_CHAVES, subItems: CADASTRO_SUB },
   { href: '/importacao', labelKey: 'nav.importacao', icon: Upload, chaves: ['importacao'] },
-  { href: '/lancamento', labelKey: 'nav.lancamento', icon: Wallet, chaves: ['lancamento'] },
-  { href: '/financeiro', labelKey: 'nav.financeiro', icon: Landmark, chaves: ['lancamento.genia'] },
-  { href: '/seguranca', labelKey: 'nav.seguranca', icon: ShieldAlert, chaves: ['seguranca'] },
+  { href: '/lancamento', labelKey: 'nav.lancamento', icon: Wallet, chaves: ['lancamento'], subItems: LANCAMENTO_SUB },
+  { href: '/financeiro', labelKey: 'nav.financeiro', icon: Landmark, chaves: ['lancamento.genia'], subItems: FINANCEIRO_SUB },
+  { href: '/seguranca', labelKey: 'nav.seguranca', icon: ShieldAlert, chaves: ['seguranca'], subItems: SEGURANCA_SUB },
   { href: '/stoploss', labelKey: 'nav.stoploss', icon: Gauge, chaves: ['stoploss'] },
+  { href: '/vip', labelKey: 'nav.vip', icon: Crown, chaves: ['vip'] },
   { href: '/relatorios', labelKey: 'nav.relatorios', icon: FileText, chaves: ['relatorios', 'relatorios.acertos', 'relatorios.lancamentos'] },
   { href: '/admin/regras', labelKey: 'nav.regras', icon: ListChecks, chaves: ['regras'] },
 ]
@@ -30,10 +67,28 @@ export default function Sidebar() {
   // Menu vira gaveta (drawer) sobreposta no celular — fechada por padrão,
   // e fecha sozinha assim que o usuário navega pra outra tela.
   const [mobileOpen, setMobileOpen] = useState(false)
+  // Submenu abre sozinho quando a seção correspondente está ativa; depois
+  // disso fica na mão do usuário (clicar na seta abre/fecha) — não fecha
+  // sozinho ao navegar pra outro item, só acumula o que já foi aberto.
+  const [expandedSubmenus, setExpandedSubmenus] = useState<Set<string>>(() => new Set(NAV.filter((i) => i.subItems && path.startsWith(i.href)).map((i) => i.href)))
 
   useEffect(() => {
     if (localStorage.getItem(COLLAPSED_KEY) === '1') setCollapsed(true)
   }, [])
+
+  useEffect(() => {
+    const ativo = NAV.find((i) => i.subItems && path.startsWith(i.href))
+    if (ativo) setExpandedSubmenus((prev) => (prev.has(ativo.href) ? prev : new Set(prev).add(ativo.href)))
+  }, [path])
+
+  function toggleSubmenu(href: string) {
+    setExpandedSubmenus((prev) => {
+      const next = new Set(prev)
+      if (next.has(href)) next.delete(href)
+      else next.add(href)
+      return next
+    })
+  }
 
   function toggleCollapsed() {
     setCollapsed((prev) => {
@@ -96,20 +151,47 @@ export default function Sidebar() {
           </Link>
         ) : (
           <>
-            {nav.map(({ href, labelKey, icon: Icon }) => {
+            {nav.map(({ href, labelKey, icon: Icon, subItems }) => {
               const active = path.startsWith(href)
+              const expanded = expandedSubmenus.has(href)
+              const subVisiveis = subItems?.filter((sub) => !sub.chave || loading || hasPermission(sub.chave)) ?? []
               return (
-                <Link
-                  key={href}
-                  href={href}
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                    active ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
-                  }`}
-                >
-                  <Icon size={16} />
-                  {t(labelKey)}
-                </Link>
+                <div key={href}>
+                  <div
+                    className={`flex items-center rounded-lg text-sm font-medium transition-all ${
+                      active ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                    }`}
+                  >
+                    <Link href={href} onClick={() => setMobileOpen(false)} className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0">
+                      <Icon size={16} className="shrink-0" />
+                      <span className="truncate">{t(labelKey)}</span>
+                    </Link>
+                    {subVisiveis.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => toggleSubmenu(href)}
+                        aria-label={expanded ? t('nav.esconder_submenu') : t('nav.mostrar_submenu')}
+                        className="pl-1 pr-3 py-2.5 shrink-0"
+                      >
+                        <ChevronDown size={14} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                      </button>
+                    )}
+                  </div>
+                  {subVisiveis.length > 0 && expanded && (
+                    <div className="ml-4 mt-0.5 mb-1 space-y-0.5 border-l border-white/10 pl-3">
+                      {subVisiveis.map((sub) => (
+                        <Link
+                          key={sub.key}
+                          href={sub.href}
+                          onClick={() => setMobileOpen(false)}
+                          className="block px-3 py-1.5 rounded-md text-xs font-medium text-gray-500 hover:text-white hover:bg-white/[0.06] transition-all"
+                        >
+                          {t(sub.labelKey)}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )
             })}
             {isSuperAdmin && (

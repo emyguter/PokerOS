@@ -86,6 +86,47 @@ reimportadas: `bronze_rows`/`import_rows.raw_data` já guarda os valores origina
 coluna, então um `UPDATE` retroativo em `import_rows` + clicar "Recalcular" no import (na tela de
 Relatórios) já refaz as contas certas em cima do que já foi importado.
 
+**Bilhetes e Pendências/Antecipação no card do Acerto (`ClubAcertoCard.tsx`):** os dois eram campos
+manuais, digitados à mão toda semana. Confirmado com o Cássio: **Bilhetes** = Valor do ticket ganho
+(coluna S, índice 18) − Buy-in de ticket (coluna T, índice 19) da aba "Geral da liga" do PPPoker —
+vem calculado do próprio arquivo (`import_rows.bilhetes`), sem edição manual. **Pendências /
+Antecipação** = soma dos lançamentos tipo Antecipação do Suporte já conciliados (`conciliado_com`
+preenchido) dentro do período do acerto — por isso Antecipação saiu da lista "Lançamentos do
+período" do card (contar nos dois lugares dobrava o valor). Os dois são recalculados do zero a cada
+"Recalcular"; só a Taxa AA Home Game continua manual e preservada.
+
+**Taxa Operacional vira on/off (`clubs.taxa_op_ativo`):** antes, sempre que `taxa_op_pct` tinha um
+valor o motor cobrava — não dava pra desligar sem apagar o número. Agora tem o mesmo toggle que o
+Rebate já tinha (`ClubModal.tsx`, etapa Taxas): desligado, o motor ignora o % (`fee_operacional_valor`
+fica 0) mesmo que o campo continue preenchido — religar depois não perde o número digitado. Clubes já
+cadastrados nascem com `taxa_op_ativo = true` (mantém o comportamento de sempre cobrar que já tinham);
+clube novo pré-cadastrado automático no import nasce com `false` (mesma regra das outras taxas em
+branco). O card de Acerto (`ClubAcertoCard.tsx`) mostra "Taxa Operacional (desativada)" quando
+estiver off, em vez do "(0%)" enganoso.
+
+**Controle de Pagamentos (Suporte) e Cobrança (Financeiro) — `lib/pagamentos.ts`:** espelha a
+planilha "Controle de Pagamentos" do Cássio. Lançamentos tipo `pagamento` do Suporte agora se
+vinculam a um Acerto (`lancamentos.acerto_id`) — escolhido num seletor novo que aparece em Lançar
+quando tipo=Pagamento — e cada um vira um "Envio". As duas telas usam os mesmos dados
+(`agregarPagamentos`: Valor do Acerto − soma assinada dos Envios do período = Diferença), só a
+apresentação muda: Suporte (`ControlePagamentosView.tsx`) mostra cada Envio numa coluna própria,
+Financeiro (`CobrancaView.tsx`, aba "Cobrança") só o total pago. A cor da Diferença é invertida
+entre as duas (`corDiferenca`): no Suporte é do ponto de vista do clube (vermelho = clube precisa
+pagar, azul = precisa receber); no Financeiro é do ponto de vista da liga (vermelho = liga precisa
+pagar, azul = liga vai receber) — mesmo número, framing oposto, confirmado com o Cássio. Lançamentos
+de pagamento antigos (antes dessa migration) ficam com `acerto_id` nulo e não aparecem
+retroativamente nessas telas, só os lançados daqui pra frente.
+
+**Bônus de Indicação (`clubs.elite`, `acertos.indicacao_valor`):** confirmado com o Cássio —
+quando um clube indica outro (etapa Regras do Cadastro, "Indicações"), ele ganha um bônus
+automático sobre o **próprio** rake (não o do clube indicado): 10% até R$1.000 se for **Elite**,
+senão 5% até R$300. "Elite" é uma classificação do próprio clube (etapa Identificação do Cadastro),
+não da indicação. Nada é editável — `calcularIndicacao` (`lib/acertos-engine.ts`) recalcula sozinho
+toda vez que o Acerto roda, só pra clubes com pelo menos uma indicação registrada. Aparece como uma
+linha própria "Indicação" no card de Acerto, sem mexer na Taxa A-A Home Game (linha separada,
+continua manual). O campo `club_indicacoes.taxa_indicacao_pct` (digitado à mão) saiu de uso — a
+coluna continua existindo no banco, só não é mais lida nem exibida.
+
 **Sinal na tela de Acertos (`components/acertos/AcertosView.tsx`):** "Taxa" (fee cobrado do clube
 pelo serviço de liga) sempre aparece negativo. O antigo "Result. Jogador" virou **"Ganhos"**. Pro
 tipo de cobrança "taxa" (dinâmica ou fixa/variável), o **Valor do Acerto = Rake Total + Ganhos −
@@ -370,6 +411,38 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   filtra por essas colunas
 - [x] Testes automatizados (Vitest) do motor de cálculo de Acertos, Stoploss e do mapeamento
   indicador→campo — ver seção "Testes"
+- [x] Submenu na Sidebar (`components/Sidebar.tsx`): Cadastros, Lançamento, Financeiro e Segurança
+  ganharam um submenu expansível com atalho direto pras abas/páginas que já existiam dentro deles —
+  abre sozinho na seção ativa, senão fica na mão do usuário (seta). Pra Lançamento/Financeiro/
+  Segurança o link usa `?tab=X` e cada view lê isso do `window.location.search` no mount (não usa
+  `useSearchParams` de propósito — a Sidebar renderiza em toda página via `app/layout.tsx`, e esse
+  hook exigiria Suspense ali e tiraria o app inteiro da renderização estática)
+- [x] Controle de Pagamentos (Suporte) e Cobrança (Financeiro) — `lib/pagamentos.ts`: Envios
+  (lançamentos tipo Pagamento) agora se vinculam a um Acerto (`lancamentos.acerto_id`), pra
+  acompanhar Valor do Acerto / Valor Pago / Diferença por clube, semana a semana, igual a planilha
+  manual do Cássio — ver seção "Decisões Técnicas" acima
+- [x] Coluna "Pre Payment" no Relatório de Stoploss (`lib/stoploss.ts`: `getAntecipacaoBatch`) — soma
+  de toda Antecipação já conciliada por clube, mesmo nome/conceito da planilha manual do Cássio;
+  respeita o filtro de Período igual às outras colunas (reconstrói como estava numa data passada)
+- [x] Popup de recalcular Acertos trocado de `window.confirm` nativo pra um modal no design system da
+  plataforma (`ConfirmRecalcularModal.tsx`), com texto curto: "Os itens recalculados serão
+  sobrescritos. Deseja recalcular do zero?"
+- [x] Bloqueio/Reembolso da Segurança (`ehTipoSeguranca()` em `ExtratoView.tsx`) só aparecem como
+  opção de Tipo onde a origem 'seguranca' de fato é usada — extrato consolidado do clube e a própria
+  tela de Segurança; removidos do formulário "Novo lançamento" do Suporte/Financeiro e do filtro do
+  extrato do Suporte, onde vazavam sem sentido (ou, no caso do formulário, permitiam criar um
+  lançamento de Segurança com origem errada)
+- [x] Tela de VIP (`/vip`, `components/vip/VipView.tsx`) — controle de convites VIP por clube: Silver
+  até 20/mês, Black até 10/mês, Platinum até 5/mês (`lib/vip.ts`, constantes fixas da liga). Lançamento
+  simples (Data, Clube, Tipo, Observação); se o clube já bateu o limite do mês naquele tipo, confirma
+  antes de deixar enviar mesmo assim. Extrato mensal com cada linha colorida conforme o total já
+  usado pelo clube naquele tipo/mês: vermelho (atingiu o limite), amarelo (80%+ do limite), branco
+  (tranquilo)
+- [x] Cotação (câmbio) consolidada num único lugar: `clubs.cotacao`, campo na Identificação do Clube.
+  Removidos os 3 mecanismos antigos que existiam espalhados e nunca chegavam a ser aplicados em
+  nenhum cálculo (`lib/acertos-engine.ts` nunca lia nenhum deles) — Regra tipo "Cotação do dia",
+  tela Cadastro de Moedas (`moedas_cotacao`) e o toggle "Conversão do Dia" da Liga com o popup de
+  confirmação diária no cálculo de Acertos. Regras agora só tem um tipo (Faixa SE/ENTÃO)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

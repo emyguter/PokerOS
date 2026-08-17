@@ -46,6 +46,7 @@ interface ImportRow {
   rake_spinup: number;
   fee_total: number;
   player_result: number;
+  bilhetes: number;
   agente_nome: string;
   agente_id_ext: string;
   superagente_nome: string;
@@ -231,6 +232,11 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "pl
       const rakeMtt = safeNum(row[23]) + safeNum(row[24]);
       const rakeCash = safeNum(row[25]) + safeNum(row[26]);
       const rakeSpinup = safeNum(row[27]) + safeNum(row[28]);
+      // Bilhetes = Valor do ticket ganho (coluna S, índice 18) − Buy-in de
+      // ticket (coluna T, índice 19) — confirmado com o Cássio. Essas duas
+      // colunas ficam no meio do bloco de Ganhos (9-17) e do bloco de Rake
+      // (23-28) sem nenhuma leitura hoje.
+      const bilhetes = safeNum(row[18]) - safeNum(row[19]);
 
       rows.push({
         club_name: clubName,
@@ -241,6 +247,7 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "pl
         rake_cash: rakeCash,
         rake_spinup: rakeSpinup,
         fee_total: 0,
+        bilhetes,
         agente_nome: "",
         agente_id_ext: "",
         superagente_nome: "",
@@ -289,6 +296,7 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "pl
         rake_cash: 0,
         rake_spinup: 0,
         fee_total: 0,
+        bilhetes: 0,
         agente_nome: "",
         agente_id_ext: "",
         superagente_nome: "",
@@ -371,6 +379,7 @@ function parseGGPoker(wb: XLSX.WorkBook): Omit<ParsedFile, "plataforma"> {
       rake_spinup: 0,
       fee_total: safeNum(row[idxFee]),
       player_result: safeNum(row[idxPL]),
+      bilhetes: 0,
       agente_nome: "",
       agente_id_ext: "",
       superagente_nome: "",
@@ -495,6 +504,7 @@ function parseGenerico(
       rake_cash: rakeCash,
       rake_spinup: rakeSpinup,
       fee_total: 0,
+      bilhetes: 0,
       agente_nome: "", agente_id_ext: "", superagente_nome: "", superagente_id_ext: "",
       raw_data: rawEntry,
     });
