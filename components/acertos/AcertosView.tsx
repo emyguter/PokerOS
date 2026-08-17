@@ -80,6 +80,16 @@ const fmt = (n: number) =>
 const feeDisplay = (a: Acerto) => -Math.abs(a.fee_calculado);
 const valorDisplay = (a: Acerto) => a.valor_acerto;
 
+// Mesma categorização usada no badge da lista de Imports — reaproveitada
+// pro filtro de status, pra não ter dois lugares decidindo o que cada
+// `status` bruto do banco significa.
+function categoriaStatus(status: string): "calculado" | "parcial" | "aguardando" | "erro" {
+  if (status === "acertos_calculados") return "calculado";
+  if (status === "parcial") return "parcial";
+  if (status === "done") return "aguardando";
+  return "erro";
+}
+
 export default function AcertosView() {
   const [aba, setAba] = useState<"clube" | "agente">("clube");
   const [imports, setImports] = useState<Import[]>([]);
@@ -91,6 +101,8 @@ export default function AcertosView() {
   const [filterType, setFilterType] = useState("todos");
   const [search, setSearch] = useState("");
   const [ordenacaoImports, setOrdenacaoImports] = useState<"importacao" | "periodo" | "nome">("importacao");
+  const [buscaImports, setBuscaImports] = useState("");
+  const [statusImports, setStatusImports] = useState<"todos" | "calculado" | "parcial" | "aguardando" | "erro">("todos");
   const [cardAberto, setCardAberto] = useState<Acerto | null>(null);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
 
@@ -106,11 +118,16 @@ export default function AcertosView() {
   }
 
   const importsOrdenados = useMemo(() => {
-    const lista = [...imports];
+    const buscaLower = buscaImports.trim().toLowerCase();
+    const lista = imports.filter((imp) => {
+      const bateBusca = !buscaLower || imp.file_name.toLowerCase().includes(buscaLower) || (imp.leagues?.name ?? "").toLowerCase().includes(buscaLower);
+      const bateStatus = statusImports === "todos" || categoriaStatus(imp.status) === statusImports;
+      return bateBusca && bateStatus;
+    });
     if (ordenacaoImports === "nome") return lista.sort((a, b) => a.file_name.localeCompare(b.file_name));
     if (ordenacaoImports === "periodo") return lista.sort((a, b) => (b.period_start ?? "").localeCompare(a.period_start ?? ""));
     return lista.sort((a, b) => b.created_at.localeCompare(a.created_at));
-  }, [imports, ordenacaoImports]);
+  }, [imports, ordenacaoImports, buscaImports, statusImports]);
 
   const loadAcertos = useCallback(async (importId: string) => {
     setLoading(true);
@@ -328,27 +345,52 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
 
         {/* Lista imports */}
         <div className="card" style={{ overflow: "hidden", alignSelf: "start" }}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid #1e2018", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <p style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "#5a5a52", margin: 0 }}>Imports</p>
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid #1e2018", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <p style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "#5a5a52", margin: 0 }}>Imports</p>
+              <select
+                value={ordenacaoImports}
+                onChange={(e) => setOrdenacaoImports(e.target.value as "importacao" | "periodo" | "nome")}
+                style={{ background: "#111410", color: "#8a8a80", border: "1px solid #2a2c20", borderRadius: 6, padding: "3px 6px", fontFamily: "'DM Sans',sans-serif", fontSize: 11, outline: "none", cursor: "pointer" }}
+              >
+                <option value="importacao">Data de importação</option>
+                <option value="periodo">Período do arquivo</option>
+                <option value="nome">Nome</option>
+              </select>
+            </div>
+            <input
+              type="text"
+              value={buscaImports}
+              onChange={(e) => setBuscaImports(e.target.value)}
+              placeholder="Buscar por arquivo ou liga..."
+              style={{ background: "#111410", color: "#F0EDE4", border: "1px solid #2a2c20", borderRadius: 6, padding: "5px 8px", fontFamily: "'DM Sans',sans-serif", fontSize: 12, outline: "none", width: "100%", boxSizing: "border-box" }}
+            />
             <select
-              value={ordenacaoImports}
-              onChange={(e) => setOrdenacaoImports(e.target.value as "importacao" | "periodo" | "nome")}
-              style={{ background: "#111410", color: "#8a8a80", border: "1px solid #2a2c20", borderRadius: 6, padding: "3px 6px", fontFamily: "'DM Sans',sans-serif", fontSize: 11, outline: "none", cursor: "pointer" }}
+              value={statusImports}
+              onChange={(e) => setStatusImports(e.target.value as "todos" | "calculado" | "parcial" | "aguardando" | "erro")}
+              style={{ background: "#111410", color: "#8a8a80", border: "1px solid #2a2c20", borderRadius: 6, padding: "3px 6px", fontFamily: "'DM Sans',sans-serif", fontSize: 11, outline: "none", cursor: "pointer", width: "100%" }}
             >
-              <option value="importacao">Data de importação</option>
-              <option value="periodo">Período do arquivo</option>
-              <option value="nome">Nome</option>
+              <option value="todos">Todos os status</option>
+              <option value="calculado">✓ Calculado</option>
+              <option value="parcial">⚠ Parcial</option>
+              <option value="aguardando">Aguardando</option>
+              <option value="erro">Erro</option>
             </select>
           </div>
-          {importsOrdenados.map((imp) => (
-            <div key={imp.id} className={`imp${selected?.id === imp.id ? " sel" : ""}`} onClick={() => handleSelect(imp)}>
-              <p style={{ color: "#C9A84C", fontSize: 13, margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{imp.file_name}</p>
-              <p style={{ color: "#5a5a52", fontSize: 11, margin: "0 0 4px" }}>{imp.leagues?.name ?? "—"} · {imp.period_start ?? "s/período"}</p>
-              <span className={`badge ${imp.status === "acertos_calculados" ? "bok" : imp.status === "parcial" ? "bwarn" : imp.status === "done" ? "bwarn" : "berr"}`}>
-                {imp.status === "acertos_calculados" ? "✓ Calculado" : imp.status === "parcial" ? "⚠ Parcial" : imp.status === "done" ? "Aguardando" : imp.status}
-              </span>
-            </div>
-          ))}
+          {importsOrdenados.length === 0 ? (
+            <p style={{ padding: "16px", fontSize: 12, color: "#5a5a52", fontStyle: "italic" }}>Nenhum import bate com os filtros.</p>
+          ) : importsOrdenados.map((imp) => {
+            const cat = categoriaStatus(imp.status);
+            return (
+              <div key={imp.id} className={`imp${selected?.id === imp.id ? " sel" : ""}`} onClick={() => handleSelect(imp)}>
+                <p style={{ color: "#C9A84C", fontSize: 13, margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{imp.file_name}</p>
+                <p style={{ color: "#5a5a52", fontSize: 11, margin: "0 0 4px" }}>{imp.leagues?.name ?? "—"} · {imp.period_start ?? "s/período"}</p>
+                <span className={`badge ${cat === "calculado" ? "bok" : cat === "erro" ? "berr" : "bwarn"}`}>
+                  {cat === "calculado" ? "✓ Calculado" : cat === "parcial" ? "⚠ Parcial" : cat === "aguardando" ? "Aguardando" : imp.status}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         {/* Painel acertos */}
