@@ -109,13 +109,13 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
       .order('data_lancamento', { ascending: true })
       .order('created_at', { ascending: true })
     if (clubeId !== TODOS_CLUBES) query = query.eq('clube_id', clubeId)
-    if (tipoFiltro) query = query.eq('tipo', tipoFiltro)
+    if (tipoFiltro) query = query.eq(mostrarCategoriaSeguranca ? 'categoria_seguranca' : 'tipo', tipoFiltro)
     if (dataInicio) query = query.gte('data_lancamento', dataInicio)
     if (dataFim) query = query.lte('data_lancamento', dataFim)
     const { data } = await query
     setLancamentos((data ?? []) as unknown as Lancamento[])
     setLoading(false)
-  }, [clubeId, origens, tipoFiltro, dataInicio, dataFim])
+  }, [clubeId, origens, tipoFiltro, dataInicio, dataFim, mostrarCategoriaSeguranca])
 
   useEffect(() => { load() }, [load])
 
@@ -171,7 +171,9 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
             <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.tipo')}</label>
             <select value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
               <option value="">{t('extrato.todos')}</option>
-              {TIPOS.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
+              {mostrarCategoriaSeguranca
+                ? CATEGORIAS_SEGURANCA.map((c) => <option key={c.value} value={c.value}>{t(c.labelKey)}</option>)
+                : TIPOS.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -193,7 +195,9 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
             <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.tipo')}</label>
             <select value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
               <option value="">{t('extrato.todos')}</option>
-              {TIPOS.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
+              {mostrarCategoriaSeguranca
+                ? CATEGORIAS_SEGURANCA.map((c) => <option key={c.value} value={c.value}>{t(c.labelKey)}</option>)
+                : TIPOS.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-2">
