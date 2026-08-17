@@ -499,6 +499,10 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
 - [x] Controle de Pagamentos (Suporte) ganhou 2 colunas pra bater com a planilha do Cássio: "Caução"
   (lançada no período — só referência, não entra na Diferença) e "Total" (soma dos Envios). O
   Financeiro (Cobrança) continua só com o total, sem itemizar — já era assim de propósito
+- [x] Fix: arrasta-e-solta do Layout do Acerto (Regras) tava movendo a linha errada depois do
+  primeiro reordenamento — rastreava o item arrastado pelo índice de onde começou o arrasto, que
+  fica velho assim que a lista já mexeu uma vez. Trocado pra rastrear pelo nome do campo. Também
+  ganhou setinhas ↑↓ ao lado do arrasto — o arrasto nativo do navegador não funciona em touch/celular
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

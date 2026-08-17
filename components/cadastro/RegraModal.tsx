@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { X, Loader2, Plus, Trash2, GripVertical } from 'lucide-react'
+import { X, Loader2, Plus, Trash2, GripVertical, ChevronUp, ChevronDown } from 'lucide-react'
 import type { Regra, RegraForm, RegraCondicaoForm, RegraTipo, FaixaMultaForm, LayoutCampoForm } from '@/lib/types'
 import { formatIndicadorNome } from '@/lib/indicadores'
 import { supabase } from '@/lib/supabase'
@@ -28,7 +28,7 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
   const [condicoes, setCondicoes] = useState<RegraCondicaoForm[]>([])
   const [faixasMulta, setFaixasMulta] = useState<FaixaMultaForm[]>([{ ...EMPTY_FAIXA }])
   const [layoutCampos, setLayoutCampos] = useState<LayoutCampoForm[]>(LAYOUT_INICIAL)
-  const [arrastando, setArrastando] = useState<number | null>(null)
+  const [arrastando, setArrastando] = useState<string | null>(null)
   const [indicadores, setIndicadores] = useState<Indicador[]>([])
 
   useEffect(() => {
@@ -58,12 +58,32 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
   const setFaixa = (i: number, k: keyof FaixaMultaForm, v: any) => setFaixasMulta(f => f.map((item, j) => j === i ? { ...item, [k]: v } : item))
 
   const toggleVisivel = (i: number) => setLayoutCampos(l => l.map((item, j) => j === i && !ehObrigatorio(item.campo) ? { ...item, visivel: !item.visivel } : item))
-  function moverCampo(de: number, para: number) {
-    if (de === para) return
+  // Move pelo nome do campo, não pelo índice onde o arrasto começou — o
+  // índice fica velho assim que a lista reordena uma vez no meio do
+  // arrasto, e ficava movendo a linha errada a cada novo dragover (lia como
+  // "não tá performando bem", mas o bug de verdade era esse, não velocidade).
+  // Sem mudança nenhuma na posição, devolve a mesma referência de array de
+  // propósito — React pula o re-render nos dragover repetidos parado em
+  // cima do mesmo lugar, em vez de recalcular a lista toda a cada pixel.
+  function moverCampo(campoArrastado: string, paraIndex: number) {
     setLayoutCampos(l => {
+      const deIndex = l.findIndex(c => c.campo === campoArrastado)
+      if (deIndex === -1 || deIndex === paraIndex) return l
       const next = [...l]
-      const [item] = next.splice(de, 1)
-      next.splice(para, 0, item)
+      const [item] = next.splice(deIndex, 1)
+      next.splice(paraIndex, 0, item)
+      return next.map((c, idx) => ({ ...c, ordem: idx }))
+    })
+  }
+
+  // Setinhas ao lado do arrasto — funcionam em qualquer dispositivo (o
+  // arrasto nativo do navegador não funciona em touch/celular).
+  function moverPorSeta(i: number, direcao: -1 | 1) {
+    setLayoutCampos(l => {
+      const alvo = i + direcao
+      if (alvo < 0 || alvo >= l.length) return l
+      const next = [...l]
+      ;[next[i], next[alvo]] = [next[alvo], next[i]]
       return next.map((c, idx) => ({ ...c, ordem: idx }))
     })
   }
@@ -109,7 +129,7 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
             {tipo === 'layout_acerto' ? (
               <div className="space-y-2">
                 <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Campos do card de Acerto</p>
-                <p className="text-xs text-gray-600">Arraste pra reordenar. Os marcados como obrigatório sempre aparecem — só dá pra ligar/desligar os outros.</p>
+                <p className="text-xs text-gray-600">Arraste pra reordenar (ou use as setinhas — funcionam melhor no celular). Os marcados como obrigatório sempre aparecem — só dá pra ligar/desligar os outros.</p>
                 <div className="space-y-1">
                   {layoutCampos.map((c, i) => {
                     const obrigatorio = ehObrigatorio(c.campo)
@@ -117,13 +137,17 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
                       <div
                         key={c.campo}
                         draggable
-                        onDragStart={() => setArrastando(i)}
-                        onDragOver={(e) => { e.preventDefault(); if (arrastando !== null && arrastando !== i) moverCampo(arrastando, i) }}
+                        onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.campo); setArrastando(c.campo) }}
+                        onDragOver={(e) => { e.preventDefault(); if (arrastando !== null && arrastando !== c.campo) moverCampo(arrastando, i) }}
                         onDrop={(e) => e.preventDefault()}
                         onDragEnd={() => setArrastando(null)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-grab active:cursor-grabbing transition-colors ${arrastando === i ? 'border-gold/50 bg-gold/10 opacity-60' : 'border-white/10 bg-surface2'}`}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-grab active:cursor-grabbing transition-colors ${arrastando === c.campo ? 'border-gold/50 bg-gold/10 opacity-60' : 'border-white/10 bg-surface2'}`}
                       >
                         <GripVertical size={14} className="text-gray-600 shrink-0" />
+                        <div className="flex flex-col shrink-0 -my-1">
+                          <button type="button" onClick={() => moverPorSeta(i, -1)} disabled={i === 0} className="text-gray-500 hover:text-white disabled:opacity-20 disabled:hover:text-gray-500 transition-colors"><ChevronUp size={13} /></button>
+                          <button type="button" onClick={() => moverPorSeta(i, 1)} disabled={i === layoutCampos.length - 1} className="text-gray-500 hover:text-white disabled:opacity-20 disabled:hover:text-gray-500 transition-colors"><ChevronDown size={13} /></button>
+                        </div>
                         <span className="text-sm text-white flex-1">{LABEL_CAMPO[c.campo as keyof typeof LABEL_CAMPO] ?? c.campo}</span>
                         {obrigatorio ? (
                           <span className="px-1.5 py-0.5 rounded-full bg-surface border border-white/10 text-gray-500 text-[10px] whitespace-nowrap">obrigatório</span>
