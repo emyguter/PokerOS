@@ -94,6 +94,17 @@ export default function RegrasPage() {
     finally { setSaving(false) }
   }
 
+  // Cria uma cópia solta, sem nenhum vínculo — a original (já vinculada a
+  // clube/liga) não deixa mais trocar de tipo, então duplicar é o jeito de
+  // "experimentar" outro tipo sem mexer no que já tá valendo pra ninguém.
+  async function handleDuplicate(regra: Regra) {
+    setError(null)
+    try {
+      await createRegra({ nome: `${regra.nome} (cópia)`, tipo: regra.tipo, condicoes: regra.condicoes, faixasMulta: regra.faixasMulta, layoutCampos: regra.layoutCampos })
+      await load()
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return
     setSaving(true)
@@ -166,6 +177,7 @@ export default function RegrasPage() {
         loading={loading}
         onEdit={item => { setEditing(item); setModalOpen(true) }}
         onDelete={item => setDeleteTarget(item)}
+        onDuplicate={handleDuplicate}
       />
 
       <RegraModal

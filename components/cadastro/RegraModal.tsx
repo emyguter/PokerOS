@@ -89,25 +89,18 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
     })
   }
 
+  // Trocar o tipo de uma regra já vinculada apaga a configuração do tipo
+  // antigo pra sempre (updateRegra deleta regra_condicoes/regra_multa_faixas/
+  // regra_layout_campos do tipo anterior) — os vínculos com clube/liga
+  // continuam, mas o SE/ENTÃO ou as faixas de multa somem sem aviso nenhum.
+  // Já aconteceu de verdade uma vez. Em vez de só confirmar (fácil de clicar
+  // sem ler), a partir de vinculada o tipo trava por completo — pra
+  // "experimentar" outro tipo, duplique a regra (a cópia nasce sem vínculo,
+  // aí sim pode trocar livre, é o primeiro ajuste dela).
+  const tipoTravado = !!editing && editing.vinculoCount > 0
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    // Trocar o tipo de uma regra que já existe apaga a configuração do tipo
-    // antigo pra sempre (updateRegra deleta regra_condicoes/regra_multa_faixas/
-    // regra_layout_campos do tipo anterior) — os vínculos continuam intactos,
-    // mas o "SE/ENTÃO" ou as faixas de multa somem. Precisa confirmar antes,
-    // principalmente porque regra com vínculo em uso é regra que tá valendo
-    // pra clube de verdade agora.
-    if (editing && tipo !== editing.tipo) {
-      const aviso = editing.vinculoCount > 0
-        ? `Essa regra tem ${editing.vinculoCount} vínculo(s) ativo(s) agora. `
-        : ''
-      const confirmado = window.confirm(
-        `${aviso}Você mudou o tipo de "${LABEL_TIPO[editing.tipo]}" pra "${LABEL_TIPO[tipo]}". ` +
-        `Isso vai apagar a configuração de "${LABEL_TIPO[editing.tipo]}" (as condições/faixas atuais) — não dá pra desfazer. ` +
-        `Os vínculos com clube/liga continuam, só a lógica muda. Quer continuar mesmo assim?`
-      )
-      if (!confirmado) return
-    }
     onSave({ nome, tipo, condicoes, faixasMulta, layoutCampos })
   }
 
@@ -124,19 +117,25 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
             <div className="space-y-2">
               <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Tipo de regra</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <button type="button" onClick={() => setTipo('faixa')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipo === 'faixa' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
+                <button type="button" disabled={tipoTravado} onClick={() => setTipo('faixa')} title={tipoTravado ? 'Regra já vinculada — duplique pra trocar o tipo' : undefined} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left disabled:cursor-not-allowed disabled:opacity-40 ${tipo === 'faixa' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
                   Cálculo de Acerto
                   <p className="text-xs font-normal text-gray-500 mt-0.5">Faixa SE/ENTÃO — % que varia por rake/ganhos</p>
                 </button>
-                <button type="button" onClick={() => setTipo('multa_atraso')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipo === 'multa_atraso' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
+                <button type="button" disabled={tipoTravado} onClick={() => setTipo('multa_atraso')} title={tipoTravado ? 'Regra já vinculada — duplique pra trocar o tipo' : undefined} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left disabled:cursor-not-allowed disabled:opacity-40 ${tipo === 'multa_atraso' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
                   Multa de Acerto
                   <p className="text-xs font-normal text-gray-500 mt-0.5">% de multa por atraso, pra Dívidas e Acordos</p>
                 </button>
-                <button type="button" onClick={() => setTipo('layout_acerto')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipo === 'layout_acerto' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
+                <button type="button" disabled={tipoTravado} onClick={() => setTipo('layout_acerto')} title={tipoTravado ? 'Regra já vinculada — duplique pra trocar o tipo' : undefined} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left disabled:cursor-not-allowed disabled:opacity-40 ${tipo === 'layout_acerto' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
                   Layout do Acerto
                   <p className="text-xs font-normal text-gray-500 mt-0.5">Quais campos aparecem e em que ordem, no card de Acerto</p>
                 </button>
               </div>
+              {tipoTravado && (
+                <p className="text-xs text-gray-500">
+                  Essa regra já tem {editing!.vinculoCount} vínculo(s) — o tipo ({LABEL_TIPO[editing!.tipo]}) não pode mais mudar.
+                  Pra experimentar outro tipo, feche aqui e use o botão de duplicar na lista — a cópia nasce sem vínculo e pode ter o tipo trocado livremente.
+                </p>
+              )}
             </div>
 
             <div>

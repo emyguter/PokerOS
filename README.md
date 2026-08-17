@@ -507,6 +507,10 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Acerto / Layout do Acerto) na hora de salvar apagava a configuração do tipo antigo sem avisar
   nada — perigoso pra regra já vinculada a clube de verdade. Agora pede confirmação explícita antes
   de salvar, avisando quantos vínculos tem e o que vai ser apagado
+- [x] Regras: tipo trava por completo assim que a regra tem 1+ vínculo — não dá mais nem pra tentar
+  trocar (substitui o aviso de confirmação anterior, que dava pra clicar sem ler). Pra experimentar
+  outro tipo, novo botão "Duplicar" na lista (`CadastroTable`, ícone ao lado de editar) cria uma cópia
+  sem vínculo nenhum — aí sim o tipo pode mudar livre, por ser o primeiro ajuste dela
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
