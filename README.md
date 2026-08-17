@@ -424,6 +424,20 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
 - [x] Coluna "Pre Payment" no Relatório de Stoploss (`lib/stoploss.ts`: `getAntecipacaoBatch`) — soma
   de toda Antecipação já conciliada por clube, mesmo nome/conceito da planilha manual do Cássio;
   respeita o filtro de Período igual às outras colunas (reconstrói como estava numa data passada)
+- [x] Popup de recalcular Acertos trocado de `window.confirm` nativo pra um modal no design system da
+  plataforma (`ConfirmRecalcularModal.tsx`), com texto curto: "Os itens recalculados serão
+  sobrescritos. Deseja recalcular do zero?"
+- [x] Bloqueio/Reembolso da Segurança (`ehTipoSeguranca()` em `ExtratoView.tsx`) só aparecem como
+  opção de Tipo onde a origem 'seguranca' de fato é usada — extrato consolidado do clube e a própria
+  tela de Segurança; removidos do formulário "Novo lançamento" do Suporte/Financeiro e do filtro do
+  extrato do Suporte, onde vazavam sem sentido (ou, no caso do formulário, permitiam criar um
+  lançamento de Segurança com origem errada)
+- [x] Tela de VIP (`/vip`, `components/vip/VipView.tsx`) — controle de convites VIP por clube: Silver
+  até 20/mês, Black até 10/mês, Platinum até 5/mês (`lib/vip.ts`, constantes fixas da liga). Lançamento
+  simples (Data, Clube, Tipo, Observação); se o clube já bateu o limite do mês naquele tipo, confirma
+  antes de deixar enviar mesmo assim. Extrato mensal com cada linha colorida conforme o total já
+  usado pelo clube naquele tipo/mês: vermelho (atingiu o limite), amarelo (80%+ do limite), branco
+  (tranquilo)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
