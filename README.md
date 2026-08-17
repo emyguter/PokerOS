@@ -511,6 +511,10 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   trocar (substitui o aviso de confirmação anterior, que dava pra clicar sem ler). Pra experimentar
   outro tipo, novo botão "Duplicar" na lista (`CadastroTable`, ícone ao lado de editar) cria uma cópia
   sem vínculo nenhum — aí sim o tipo pode mudar livre, por ser o primeiro ajuste dela
+- [x] Removido "Taxa A-A HOME GAME" do card de Acerto e de tudo que soma Valor do Acerto — era um
+  campo digitado à mão de antes da Indicação virar automática, e representava a mesma coisa
+  (confirmado pelo Cássio). A coluna no banco (`acertos.taxa_aa_home_game`) continua existindo com o
+  histórico antigo, só não é mais lida nem exibida em lugar nenhum
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

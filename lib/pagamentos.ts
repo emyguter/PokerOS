@@ -35,7 +35,6 @@ interface AcertoCompletoRow extends AcertoRow {
   club_id: string | null
   bilhetes: number
   pendencias_antecipacao: number
-  taxa_aa_home_game: number
   indicacao_valor: number
 }
 
@@ -116,7 +115,6 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
       bilhetes: a.bilhetes,
       pendenciasAntecipacao: a.pendencias_antecipacao,
       security: extras?.security ?? 0,
-      taxaAaHomeGame: a.taxa_aa_home_game,
       indicacaoValor: a.indicacao_valor,
       lancamentosLiquido: a.club_id ? lancamentosPorClube.get(a.club_id) ?? 0 : 0,
       dividasTotal: extras?.dividasTotal ?? 0,
@@ -147,7 +145,7 @@ async function caucaoPorClube(clubIds: string[], periodStart: string, periodEnd:
 export async function buscarPagamentosPorImport(importId: string): Promise<AcertoPagamento[]> {
   const { data: acertos } = await supabase
     .from('acertos')
-    .select('id, club_id, club_external_id, club_name, valor_acerto, bilhetes, pendencias_antecipacao, taxa_aa_home_game, indicacao_valor')
+    .select('id, club_id, club_external_id, club_name, valor_acerto, bilhetes, pendencias_antecipacao, indicacao_valor')
     .eq('import_id', importId)
     .order('club_name')
 

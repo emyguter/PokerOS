@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getLayoutDoClube, resolverLayout, calcularTotalAcerto, type CampoAcerto, type CampoResolvido } from '@/lib/relatorio-acerto'
@@ -25,7 +25,6 @@ export interface AcertoCard {
   rebate_calculado: number
   bilhetes: number
   pendencias_antecipacao: number
-  taxa_aa_home_game: number
   indicacao_valor: number
 }
 
@@ -35,7 +34,6 @@ interface Props {
   periodStart: string
   periodEnd: string
   onClose: () => void
-  onSaved: () => void
 }
 
 interface ClubSettings {
@@ -94,11 +92,9 @@ function Linha({ label, value, editable, onCommit }: { label: string; value: num
   )
 }
 
-export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClose, onSaved }: Props) {
+export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClose }: Props) {
   const [club, setClub] = useState<ClubSettings | null>(null)
   const [wtr, setWtr] = useState<number | null>(null)
-  const [taxaAaHomeGame, setTaxaAaHomeGame] = useState(acerto.taxa_aa_home_game ?? 0)
-  const [saving, setSaving] = useState(false)
   const [lancamentos, setLancamentos] = useState<LancamentoCard[]>([])
   const [dividasItens, setDividasItens] = useState<ItemDividaAcerto[]>([])
   const [layout, setLayout] = useState<CampoResolvido[]>(() => resolverLayout(null))
@@ -173,13 +169,6 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
     getLayoutDoClube(acerto.club_id).then(setLayout)
   }, [acerto.club_id])
 
-  const salvarExtras = useCallback(async (campo: 'taxa_aa_home_game', valor: number) => {
-    setSaving(true)
-    await supabase.from('acertos').update({ [campo]: valor }).eq('id', acerto.id)
-    setSaving(false)
-    onSaved()
-  }, [acerto.id, onSaved])
-
   const security = club?.security ?? 0
   const rebateDisplay = -acerto.rebate_calculado
   const lancamentosLiquido = lancamentos.reduce((s, l) => s + (l.natureza === 'credito' ? l.valor : -l.valor), 0)
@@ -193,7 +182,6 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
     bilhetes: acerto.bilhetes,
     pendenciasAntecipacao: acerto.pendencias_antecipacao,
     security,
-    taxaAaHomeGame,
     indicacaoValor: acerto.indicacao_valor,
     lancamentosLiquido,
     dividasTotal,
@@ -266,8 +254,6 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         return <Linha key={campo} label="Segurança" value={security} />
       case 'rebate':
         return <Linha key={campo} label="Rebate" value={rebateDisplay} />
-      case 'taxa_aa_home_game':
-        return <Linha key={campo} label="Taxa A-A HOME GAME" value={taxaAaHomeGame} editable onCommit={(v) => { setTaxaAaHomeGame(v); salvarExtras('taxa_aa_home_game', v) }} />
       case 'indicacao':
         return acerto.indicacao_valor !== 0 ? <Linha key={campo} label="Indicação" value={acerto.indicacao_valor} /> : null
       case 'lancamentos_periodo':
@@ -324,8 +310,6 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
             <span className={`font-bold text-base ${total >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(total)}</span>
           </div>
         </div>
-
-        {saving && <div className="px-5 py-2 text-xs text-gray-500 border-t border-white/10">Salvando...</div>}
       </div>
     </div>
   )

@@ -8,9 +8,12 @@ export const CAMPOS_OBRIGATORIOS = [
 ] as const
 
 // Pool de campos que a Regra de Layout pode ligar/desligar e reordenar.
+// "Taxa A-A Home Game" existiu como campo digitado à mão antes da Indicação
+// virar automática — confirmado pelo Cássio que era a mesma coisa, removido
+// de propósito pra não ter dois lugares representando o mesmo bônus.
 export const CAMPOS_OPCIONAIS = [
   'taxa_mtt', 'wtr4', 'taxa_cash', 'rake_mtt', 'rake_cash', 'taxa_operacional',
-  'rebate', 'taxa_aa_home_game', 'indicacao', 'lancamentos_periodo', 'dividas_acordos',
+  'rebate', 'indicacao', 'lancamentos_periodo', 'dividas_acordos',
 ] as const
 
 export type CampoAcerto = (typeof CAMPOS_OBRIGATORIOS)[number] | (typeof CAMPOS_OPCIONAIS)[number]
@@ -31,7 +34,6 @@ export const LABEL_CAMPO: Record<CampoAcerto, string> = {
   rake_cash: 'Rake Cash',
   taxa_operacional: 'Taxa Operacional',
   rebate: 'Rebate',
-  taxa_aa_home_game: 'Taxa A-A Home Game',
   indicacao: 'Indicação',
   lancamentos_periodo: 'Lançamentos do período',
   dividas_acordos: 'Dívidas / Acordos',
@@ -43,7 +45,7 @@ export const LAYOUT_PADRAO: CampoAcerto[] = [
   'semana', 'clube', 'taxa_mtt', 'wtr4', 'taxa_cash',
   'rake_total', 'rake_mtt', 'rake_cash', 'ganhos',
   'taxa_operacional', 'spinup', 'bilhetes', 'pendencias', 'seguranca',
-  'rebate', 'taxa_aa_home_game', 'indicacao', 'lancamentos_periodo', 'dividas_acordos',
+  'rebate', 'indicacao', 'lancamentos_periodo', 'dividas_acordos',
 ]
 
 export function ehObrigatorio(campo: string): boolean {
@@ -97,7 +99,6 @@ export interface ExtrasAcerto {
   bilhetes: number
   pendenciasAntecipacao: number
   security: number
-  taxaAaHomeGame: number
   indicacaoValor: number
   lancamentosLiquido: number
   dividasTotal: number
@@ -107,19 +108,18 @@ export interface ExtrasAcerto {
 // (`acertos.valor_acerto`, que já é correto pra cada settlement_type:
 // taxa_dinamica, rakeback, weekly_usd etc, incluindo o rebate quando é o
 // caso) soma tudo o mais que compõe o que o clube efetivamente recebe/deve:
-// Bilhetes, Pendências/Antecipação, Segurança, Taxa A-A Home Game,
-// Indicação, Lançamentos do período (Bônus/Promoção/Outro) e Dívidas/Acordos
-// (já com a multa por atraso, se for o caso). Confirmado pelo Cássio: nada
-// pode ficar de fora — essa é a ÚNICA fonte de verdade do Valor do Acerto,
-// usada no card "Common Settlement", na lista/export de Acertos e no
-// Controle de Pagamentos/Cobrança — os três sempre têm que bater.
+// Bilhetes, Pendências/Antecipação, Segurança, Indicação, Lançamentos do
+// período (Bônus/Promoção/Outro) e Dívidas/Acordos (já com a multa por
+// atraso, se for o caso). Confirmado pelo Cássio: nada pode ficar de fora —
+// essa é a ÚNICA fonte de verdade do Valor do Acerto, usada no card "Common
+// Settlement", na lista/export de Acertos e no Controle de
+// Pagamentos/Cobrança — os três sempre têm que bater.
 export function calcularTotalAcerto(valorAcertoBase: number, extras: ExtrasAcerto): number {
   return (
     valorAcertoBase +
     extras.bilhetes +
     extras.pendenciasAntecipacao +
     extras.security +
-    extras.taxaAaHomeGame +
     extras.indicacaoValor +
     extras.lancamentosLiquido -
     extras.dividasTotal

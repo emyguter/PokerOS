@@ -385,19 +385,6 @@ export async function processarAcertos(importId: string): Promise<{
       importId
     );
 
-    // Taxa A-A Home Game é o único extra do card que ainda é digitado à mão
-    // — preserva ao recalcular, senão "Recalcular" apagaria o que foi
-    // digitado. Bilhetes (vem do arquivo) e Pendências/Antecipação (vem dos
-    // lançamentos conciliados) são recalculados do zero toda vez, por
-    // definição — não fazem sentido "preservados".
-    const { data: extrasExistentes } = await supabase
-      .from("acertos")
-      .select("club_external_id, taxa_aa_home_game")
-      .eq("import_id", importId);
-    const extrasPorClube = new Map<string, { taxa_aa_home_game: number }>(
-      (extrasExistentes ?? []).map((e) => [e.club_external_id, { taxa_aa_home_game: e.taxa_aa_home_game ?? 0 }])
-    );
-
     await supabase.from("acertos").delete().eq("import_id", importId);
 
     const acertos: AcertoCalculado[] = [];
@@ -498,7 +485,6 @@ export async function processarAcertos(importId: string): Promise<{
       ...a,
       bilhetes: bilhetesPorClube.get(a.club_external_id) ?? 0,
       pendencias_antecipacao: a.club_id ? pendenciasPorClube.get(a.club_id) ?? 0 : 0,
-      taxa_aa_home_game: extrasPorClube.get(a.club_external_id)?.taxa_aa_home_game ?? 0,
       indicacao_valor:
         a.club_id && clubesIndicadores.has(a.club_id)
           ? calcularIndicacao(eliteByClubId.get(a.club_id) ?? false, a.rake_total)

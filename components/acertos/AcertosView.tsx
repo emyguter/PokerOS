@@ -43,7 +43,6 @@ interface Acerto {
   taxa_cash_pct_aplicada: number | null;
   bilhetes: number;
   pendencias_antecipacao: number;
-  taxa_aa_home_game: number;
   indicacao_valor: number;
 }
 
@@ -217,11 +216,11 @@ export default function AcertosView() {
   );
 
   // Valor Acerto final = base do motor (já correta pro settlement_type) +
-  // TUDO o mais: Bilhetes, Pendências/Antecipação, Segurança, Taxa A-A Home
-  // Game, Indicação, Lançamentos do período e Dívidas/Acordos — nada fica de
-  // fora (confirmado pelo Cássio). Mesma fórmula do ClubAcertoCard e do
-  // Controle de Pagamentos (lib/relatorio-acerto.ts), pra nunca dar número
-  // diferente em tela diferente.
+  // TUDO o mais: Bilhetes, Pendências/Antecipação, Segurança, Indicação,
+  // Lançamentos do período e Dívidas/Acordos — nada fica de fora
+  // (confirmado pelo Cássio). Mesma fórmula do ClubAcertoCard e do Controle
+  // de Pagamentos (lib/relatorio-acerto.ts), pra nunca dar número diferente
+  // em tela diferente.
   const totalFinal = useCallback(
     (a: Acerto) => {
       const extras = a.club_id ? extrasPorClube.get(a.club_id) : undefined;
@@ -229,7 +228,6 @@ export default function AcertosView() {
         bilhetes: a.bilhetes,
         pendenciasAntecipacao: a.pendencias_antecipacao,
         security: extras?.security ?? 0,
-        taxaAaHomeGame: a.taxa_aa_home_game,
         indicacaoValor: a.indicacao_valor,
         lancamentosLiquido: lancamentosDoClube(a.club_id),
         dividasTotal: extras?.dividasTotal ?? 0,
@@ -316,7 +314,6 @@ export default function AcertosView() {
       Bilhetes: a.bilhetes,
       "Pendências/Antecipação": a.pendencias_antecipacao,
       Segurança: a.club_id ? extrasPorClube.get(a.club_id)?.security ?? 0 : 0,
-      "Taxa A-A Home Game": a.taxa_aa_home_game,
       Indicação: a.indicacao_valor,
       Lançamentos: lancamentosDoClube(a.club_id),
       "Dívidas/Acordos": a.club_id ? -(extrasPorClube.get(a.club_id)?.dividasTotal ?? 0) : 0,
@@ -587,7 +584,6 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
           periodStart={selected.period_start}
           periodEnd={selected.period_end}
           onClose={() => setCardAberto(null)}
-          onSaved={() => loadAcertos(selected.id)}
         />
       )}
 
