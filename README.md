@@ -503,6 +503,10 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   primeiro reordenamento — rastreava o item arrastado pelo índice de onde começou o arrasto, que
   fica velho assim que a lista já mexeu uma vez. Trocado pra rastrear pelo nome do campo. Também
   ganhou setinhas ↑↓ ao lado do arrasto — o arrasto nativo do navegador não funciona em touch/celular
+- [x] Fix de segurança: editar uma Regra existente e trocar o tipo (Cálculo de Acerto / Multa de
+  Acerto / Layout do Acerto) na hora de salvar apagava a configuração do tipo antigo sem avisar
+  nada — perigoso pra regra já vinculada a clube de verdade. Agora pede confirmação explícita antes
+  de salvar, avisando quantos vínculos tem e o que vai ser apagado
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

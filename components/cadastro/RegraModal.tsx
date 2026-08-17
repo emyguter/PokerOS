@@ -20,6 +20,7 @@ interface Props {
 const EMPTY_COND: RegraCondicaoForm = { indicador_ids: [''], operador: '>', valor: null, resultado_pct: null, is_fallback: false }
 const EMPTY_FAIXA: FaixaMultaForm = { quantidade: null, unidade: 'semanas', percentual: null }
 const LAYOUT_INICIAL: LayoutCampoForm[] = LAYOUT_PADRAO.map((campo, ordem) => ({ campo, ordem, visivel: true }))
+const LABEL_TIPO: Record<RegraTipo, string> = { faixa: 'Cálculo de Acerto', multa_atraso: 'Multa de Acerto', layout_acerto: 'Layout do Acerto' }
 const inputCls = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20'
 
 export function RegraModal({ open, editing, onClose, onSave, saving, error }: Props) {
@@ -90,6 +91,23 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // Trocar o tipo de uma regra que já existe apaga a configuração do tipo
+    // antigo pra sempre (updateRegra deleta regra_condicoes/regra_multa_faixas/
+    // regra_layout_campos do tipo anterior) — os vínculos continuam intactos,
+    // mas o "SE/ENTÃO" ou as faixas de multa somem. Precisa confirmar antes,
+    // principalmente porque regra com vínculo em uso é regra que tá valendo
+    // pra clube de verdade agora.
+    if (editing && tipo !== editing.tipo) {
+      const aviso = editing.vinculoCount > 0
+        ? `Essa regra tem ${editing.vinculoCount} vínculo(s) ativo(s) agora. `
+        : ''
+      const confirmado = window.confirm(
+        `${aviso}Você mudou o tipo de "${LABEL_TIPO[editing.tipo]}" pra "${LABEL_TIPO[tipo]}". ` +
+        `Isso vai apagar a configuração de "${LABEL_TIPO[editing.tipo]}" (as condições/faixas atuais) — não dá pra desfazer. ` +
+        `Os vínculos com clube/liga continuam, só a lógica muda. Quer continuar mesmo assim?`
+      )
+      if (!confirmado) return
+    }
     onSave({ nome, tipo, condicoes, faixasMulta, layoutCampos })
   }
 
