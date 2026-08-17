@@ -109,17 +109,6 @@ export default function AcertosView() {
   const [cardAberto, setCardAberto] = useState<Acerto | null>(null);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
 
-  useEffect(() => { loadImports(); }, []);
-
-  async function loadImports() {
-    const { data } = await supabase
-      .from("imports")
-      .select("*, leagues(name)")
-      .order("created_at", { ascending: false })
-      .limit(30);
-    if (data) setImports(data as Import[]);
-  }
-
   const importsOrdenados = useMemo(() => {
     const buscaLower = buscaImports.trim().toLowerCase();
     const lista = imports.filter((imp) => {
@@ -184,6 +173,24 @@ export default function AcertosView() {
     setSearch("");
     await loadAcertos(imp.id);
   }
+
+  async function loadImports() {
+    const { data } = await supabase
+      .from("imports")
+      .select("*, leagues(name)")
+      .order("created_at", { ascending: false })
+      .limit(30);
+    if (data) {
+      setImports(data as Import[]);
+      // Sem isso, a tela sempre abria no aviso "Selecione um import ao
+      // lado" — o import mais recente já vem selecionado sozinho (mesmo
+      // padrão de CobrancaView/ControlePagamentosView).
+      if (data.length > 0) await handleSelect(data[0] as Import);
+    }
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadImports(); }, []);
 
   useEffect(() => {
     if (!selected || acertos.length === 0) { setLancamentos([]); setExtrasPorClube(new Map()); return; }

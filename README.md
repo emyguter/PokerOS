@@ -494,6 +494,8 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   que espelha o número: o Suporte mostra a Diferença como o clube vê (positivo = clube vai receber),
   o Financeiro mostra o espelho — a visão da liga (positivo = liga vai receber do clube) — sinal E
   cor diferentes nas duas telas pro mesmo Acerto, como deveria ser desde o início
+- [x] Fix: Acertos abria sempre no aviso "Selecione um import ao lado" — agora seleciona sozinho o
+  import mais recente ao carregar a tela, mesmo padrão que Cobrança e Controle de Pagamentos já usam
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
