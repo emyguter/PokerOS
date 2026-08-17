@@ -120,10 +120,10 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       .then(({ data }) => {
         const rows = (data ?? []) as unknown as { player_result: number; rake_total: number }[]
         const validos = rows.filter((r) => r.rake_total)
-        if (validos.length < 4 && club?.wtr4_semanas_manual != null) { setWtr(club.wtr4_semanas_manual * 100); return }
+        if (validos.length < 4 && club?.wtr4_semanas_manual != null) { setWtr(club.wtr4_semanas_manual); return }
         if (validos.length === 0) { setWtr(null); return }
         const media = validos.reduce((s, r) => s + r.player_result / r.rake_total, 0) / validos.length
-        setWtr(media * 100)
+        setWtr(media)
       })
   }, [acerto.club_external_id, club])
 
@@ -190,7 +190,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           </div>
           <div className="flex items-center justify-between py-1.5 px-3 text-sm">
             <span className="text-gray-400">WtR 4 Semanas</span>
-            <span className="text-white font-medium">{wtr === null ? '—' : `${fmtPct(wtr)}%`}</span>
+            <span className="text-white font-medium">{wtr === null ? '—' : fmt(wtr)}</span>
           </div>
           <div className="flex items-center justify-between py-1.5 px-3 text-sm">
             <span className="text-gray-400">Taxa Dinâmica - Cash%</span>
