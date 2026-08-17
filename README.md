@@ -453,6 +453,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
 - [x] Nova aba Conferência do App (Suporte): checklist manual de Rake/Ganhos/Bilhetes calculados vs. o
   que o Suporte vê direto no app da plataforma, pros 3 clubes de maior rake do import — sinaliza
   bateu/não bateu na hora, não grava nada
+- [x] Nova tela Dívidas e Acordos (`/dividas`, `components/dividas/DividasView.tsx`, `lib/dividas.ts`):
+  clube pode ter dívida simples (valor único) ou Acordo parcelado — juros simples aplicado uma vez
+  sobre o valor integral, Pagamento Mínimo funciona como piso da parcela (recalcula a quantidade de
+  parcelas se precisar), parcelas semanais a partir da Data da 1ª Parcela, última parcela absorve o
+  arredondamento. Regras ganhou um novo tipo "Multa de Acerto" (`regras.tipo`, faixas em
+  `regra_multa_faixas`: dias/semanas de atraso → percentual) — a faixa mais alta já atingida substitui
+  as demais (não acumula) e o percentual incide sobre a parcela atrasada, não o saldo total
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
