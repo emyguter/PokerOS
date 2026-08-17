@@ -9,6 +9,7 @@ import * as XLSX from "xlsx";
 import { ClubAcertoCard } from "./ClubAcertoCard";
 import { AgentesAcertosView } from "./AgentesAcertosView";
 import { CotacaoDoDiaModal } from "./CotacaoDoDiaModal";
+import { ConfirmRecalcularModal } from "./ConfirmRecalcularModal";
 
 interface Import {
   id: string;
@@ -99,6 +100,7 @@ export default function AcertosView() {
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [cotacaoPendente, setCotacaoPendente] = useState<{ importId: string; moeda: string; valorAtual: number | null } | null>(null);
+  const [confirmRecalcular, setConfirmRecalcular] = useState(false);
   const [filterType, setFilterType] = useState("todos");
   const [search, setSearch] = useState("");
   const [ordenacaoImports, setOrdenacaoImports] = useState<"importacao" | "periodo" | "nome">("importacao");
@@ -232,9 +234,18 @@ export default function AcertosView() {
 
   async function handleCalcular() {
     if (!selected) return;
-    if (acertos.length > 0 && !window.confirm("Recalcular sobrescreve os acertos desse import — Bilhetes (do arquivo) e Pendências de Antecipação (dos lançamentos conciliados) são recalculados do zero junto; só a Taxa AA Home Game editada manualmente por clube é preservada. Continuar?")) {
+    if (acertos.length > 0) {
+      setConfirmRecalcular(true);
       return;
     }
+    const pendente = await verificarCotacaoDoDia(selected);
+    if (pendente) { setCotacaoPendente({ importId: selected.id, ...pendente }); return; }
+    await executarCalculo(selected.id);
+  }
+
+  async function handleConfirmarRecalculo() {
+    setConfirmRecalcular(false);
+    if (!selected) return;
     const pendente = await verificarCotacaoDoDia(selected);
     if (pendente) { setCotacaoPendente({ importId: selected.id, ...pendente }); return; }
     await executarCalculo(selected.id);
@@ -542,6 +553,14 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
           periodEnd={selected.period_end}
           onClose={() => setCardAberto(null)}
           onSaved={() => loadAcertos(selected.id)}
+        />
+      )}
+
+      {confirmRecalcular && (
+        <ConfirmRecalcularModal
+          saving={calculating}
+          onConfirm={handleConfirmarRecalculo}
+          onCancel={() => setConfirmRecalcular(false)}
         />
       )}
 
