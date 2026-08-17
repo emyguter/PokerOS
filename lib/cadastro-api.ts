@@ -8,8 +8,9 @@ import type {
   Agente, AgenteForm, AgentePlataforma,
   Jogador, JogadorForm,
   AgenteJogador, ClubeAgente,
-  Regra, RegraForm, RegraCondicaoForm, RegraVinculo, EntidadeTipo, CampoClube, FaixaMultaForm,
+  Regra, RegraForm, RegraCondicaoForm, RegraVinculo, EntidadeTipo, CampoClube, FaixaMultaForm, LayoutCampoForm,
 } from './types'
+import { resolverLayout, LABEL_CAMPO as LABEL_CAMPO_ACERTO } from './relatorio-acerto'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -423,7 +424,7 @@ function mapCondicaoRow(c: CondicaoRow): RegraCondicaoForm {
 export async function getRegras(): Promise<Regra[]> {
   const { data, error } = await supabase
     .from('regras')
-    .select('id, nome, created_at, tipo, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id, ordem)), regra_multa_faixas(quantidade, unidade, percentual), regra_entidades(id)')
+    .select('id, nome, created_at, tipo, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id, ordem)), regra_multa_faixas(quantidade, unidade, percentual), regra_layout_campos(campo, ordem, visivel), regra_entidades(id)')
     .order('nome')
   if (error) throw error
   return (data ?? []).map((r: any) => ({
@@ -433,6 +434,7 @@ export async function getRegras(): Promise<Regra[]> {
     tipo: (r.tipo ?? 'faixa') as Regra['tipo'],
     condicoes: (r.regra_condicoes ?? []).map(mapCondicaoRow),
     faixasMulta: (r.regra_multa_faixas ?? []).map((f: any) => ({ quantidade: f.quantidade, unidade: f.unidade, percentual: f.percentual })),
+    layoutCampos: (r.regra_layout_campos ?? []).map((c: any) => ({ campo: c.campo, ordem: c.ordem, visivel: c.visivel })),
     vinculoCount: (r.regra_entidades ?? []).length,
   }))
 }
@@ -470,11 +472,20 @@ async function salvarFaixasMulta(regraId: string, faixas: FaixaMultaForm[]): Pro
   if (error) throw error
 }
 
+async function salvarLayoutCampos(regraId: string, campos: LayoutCampoForm[]): Promise<void> {
+  if (campos.length === 0) return
+  const { error } = await supabase.from('regra_layout_campos').insert(
+    campos.map((c) => ({ regra_id: regraId, campo: c.campo, ordem: c.ordem, visivel: c.visivel }))
+  )
+  if (error) throw error
+}
+
 export async function createRegra(form: RegraForm): Promise<string> {
   const { data: nova, error } = await supabase.from('regras').insert({ nome: form.nome, tipo: form.tipo }).select().single()
   if (error) throw error
   if (form.tipo === 'faixa') await salvarCondicoes(nova.id, form.condicoes)
-  else await salvarFaixasMulta(nova.id, form.faixasMulta)
+  else if (form.tipo === 'multa_atraso') await salvarFaixasMulta(nova.id, form.faixasMulta)
+  else await salvarLayoutCampos(nova.id, form.layoutCampos)
   return nova.id
 }
 
@@ -485,8 +496,11 @@ export async function updateRegra(id: string, form: RegraForm): Promise<void> {
   if (delErr) throw delErr
   const { error: delMultaErr } = await supabase.from('regra_multa_faixas').delete().eq('regra_id', id)
   if (delMultaErr) throw delMultaErr
+  const { error: delLayoutErr } = await supabase.from('regra_layout_campos').delete().eq('regra_id', id)
+  if (delLayoutErr) throw delLayoutErr
   if (form.tipo === 'faixa') await salvarCondicoes(id, form.condicoes)
-  else await salvarFaixasMulta(id, form.faixasMulta)
+  else if (form.tipo === 'multa_atraso') await salvarFaixasMulta(id, form.faixasMulta)
+  else await salvarLayoutCampos(id, form.layoutCampos)
 }
 
 export async function deleteRegra(id: string): Promise<void> {
@@ -616,7 +630,7 @@ export interface RegraAplicada {
 export async function getRegrasDaEntidade(tipo: EntidadeTipo, id: string): Promise<RegraAplicada[]> {
   const { data, error } = await supabase
     .from('regra_entidades')
-    .select('regra_id, de_tipo, de_id, campo, regras(id, nome, tipo, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicadores(nome, descricao))), regra_multa_faixas(quantidade, unidade, percentual))')
+    .select('regra_id, de_tipo, de_id, campo, regras(id, nome, tipo, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicadores(nome, descricao))), regra_multa_faixas(quantidade, unidade, percentual), regra_layout_campos(campo, ordem, visivel))')
     .eq('entidade_tipo', tipo)
     .eq('entidade_id', id)
   if (error) throw error
@@ -636,6 +650,8 @@ export async function getRegrasDaEntidade(tipo: EntidadeTipo, id: string): Promi
   return rows.map(r => {
     const linhas = r.regras?.tipo === 'multa_atraso'
       ? ((r.regras?.regra_multa_faixas ?? []) as any[]).map((f) => `${f.quantidade} ${f.unidade} → ${f.percentual}%`)
+      : r.regras?.tipo === 'layout_acerto'
+      ? resolverLayout(r.regras?.regra_layout_campos ?? null).map((c) => `${LABEL_CAMPO_ACERTO[c.campo]}${c.visivel ? '' : ' (oculto)'}`)
       : ((r.regras?.regra_condicoes ?? []) as any[]).map(c => {
           if (c.is_fallback) return `SENÃO → ${c.resultado_pct}%`
           const termos = (c.regra_condicao_termos ?? []).map((t: any) => t.indicadores?.descricao || t.indicadores?.nome || '?').join(' + ')

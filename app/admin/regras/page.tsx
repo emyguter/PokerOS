@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { getRegras, createRegra, updateRegra, deleteRegra } from '@/lib/cadastro-api'
 import { supabase } from '@/lib/supabase'
 import { formatIndicadorNome, campoFromCondicoes } from '@/lib/indicadores'
+import { resolverLayout, LABEL_CAMPO as LABEL_CAMPO_ACERTO } from '@/lib/relatorio-acerto'
 import type { CampoClube, Regra, RegraForm } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
@@ -25,6 +26,10 @@ function resumoRegra(r: Regra, indicadores: Map<string, IndicadorInfo>): string 
   if (r.tipo === 'multa_atraso') {
     if (r.faixasMulta.length === 0) return 'Sem faixas ainda'
     return r.faixasMulta.map(f => `${f.quantidade ?? '?'} ${f.unidade} → ${f.percentual ?? '?'}%`).join(', ')
+  }
+  if (r.tipo === 'layout_acerto') {
+    const visiveis = resolverLayout(r.layoutCampos).filter(c => c.visivel)
+    return visiveis.map(c => LABEL_CAMPO_ACERTO[c.campo]).join(' → ')
   }
   if (r.condicoes.length === 0) return 'Sem condições ainda'
   return r.condicoes.map(c => {
@@ -130,6 +135,11 @@ export default function RegrasPage() {
                   {row.tipo === 'multa_atraso' && (
                     <span className="mr-2 px-1.5 py-0.5 rounded-full bg-alert/10 border border-alert/30 text-alert text-[10px] align-middle whitespace-nowrap">
                       Multa
+                    </span>
+                  )}
+                  {row.tipo === 'layout_acerto' && (
+                    <span className="mr-2 px-1.5 py-0.5 rounded-full bg-blue-400/10 border border-blue-400/30 text-blue-400 text-[10px] align-middle whitespace-nowrap">
+                      Layout
                     </span>
                   )}
                   {resumoRegra(row, indicadores)}

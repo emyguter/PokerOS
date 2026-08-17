@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { getLayoutDoClube, resolverLayout, type CampoAcerto, type CampoResolvido } from '@/lib/relatorio-acerto'
+import { getDividasAcertoDoClube, type ItemDividaAcerto } from '@/lib/dividas'
 
 export interface AcertoCard {
   id: string
@@ -97,6 +99,8 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const [taxaAaHomeGame, setTaxaAaHomeGame] = useState(acerto.taxa_aa_home_game ?? 0)
   const [saving, setSaving] = useState(false)
   const [lancamentos, setLancamentos] = useState<LancamentoCard[]>([])
+  const [dividasItens, setDividasItens] = useState<ItemDividaAcerto[]>([])
+  const [layout, setLayout] = useState<CampoResolvido[]>(() => resolverLayout(null))
 
   useEffect(() => {
     if (acerto.club_id) {
@@ -152,6 +156,22 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       .then(({ data }) => setLancamentos(data ?? []))
   }, [acerto.club_id, periodStart, periodEnd])
 
+  useEffect(() => {
+    // Parcela de Acordo em aberto (ou dívida Simples ativa) desse clube
+    // também reduz o Acerto — continua entrando toda semana até o Suporte
+    // marcar como paga em Dívidas e Acordos.
+    if (!acerto.club_id || !periodStart) { setDividasItens([]); return }
+    getDividasAcertoDoClube(acerto.club_id, periodEnd || periodStart).then(setDividasItens)
+  }, [acerto.club_id, periodStart, periodEnd])
+
+  useEffect(() => {
+    // Regra de Layout do Acerto vinculada ao clube (se tiver) — decide só
+    // quais linhas aparecem e em que ordem. Sem regra vinculada, fica no
+    // padrão que o card sempre teve (já é o valor inicial do state).
+    if (!acerto.club_id) return
+    getLayoutDoClube(acerto.club_id).then(setLayout)
+  }, [acerto.club_id])
+
   const salvarExtras = useCallback(async (campo: 'taxa_aa_home_game', valor: number) => {
     setSaving(true)
     await supabase.from('acertos').update({ [campo]: valor }).eq('id', acerto.id)
@@ -162,10 +182,117 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const security = club?.security ?? 0
   const rebateDisplay = -acerto.rebate_calculado
   const lancamentosLiquido = lancamentos.reduce((s, l) => s + (l.natureza === 'credito' ? l.valor : -l.valor), 0)
+  const dividasTotal = dividasItens.reduce((s, d) => s + d.valor, 0)
   const total =
     acerto.rake_total + acerto.player_result -
     acerto.fee_mtt_valor - acerto.fee_cash_valor - acerto.fee_spinup_valor - acerto.fee_operacional_valor +
-    acerto.bilhetes + acerto.pendencias_antecipacao + security + rebateDisplay + taxaAaHomeGame + acerto.indicacao_valor + lancamentosLiquido
+    acerto.bilhetes + acerto.pendencias_antecipacao + security + rebateDisplay + taxaAaHomeGame + acerto.indicacao_valor +
+    lancamentosLiquido - dividasTotal
+
+  // O layout (Regra vinculada ao clube) só decide QUAIS linhas aparecem e em
+  // que ordem — o Total sempre soma tudo, igual já funciona no Liberar para
+  // Acerto: personalizar o card não pode acidentalmente mudar quanto o
+  // clube recebe.
+  function renderCampo(campo: CampoAcerto) {
+    switch (campo) {
+      case 'semana':
+        return (
+          <div key={campo} className="flex items-center justify-between py-1.5 px-3 text-sm">
+            <span className="text-gray-400">Semana</span>
+            <span className="text-white font-medium">{formatPeriodo(periodStart, periodEnd)}</span>
+          </div>
+        )
+      case 'clube':
+        return (
+          <div key={campo} className="flex items-center justify-between py-1.5 px-3 text-sm">
+            <span className="text-gray-400">Club</span>
+            <span className="text-gold font-medium">{acerto.club_name}</span>
+          </div>
+        )
+      case 'taxa_mtt':
+        return (
+          <div key={campo}>
+            <div className="flex items-center justify-between py-1.5 px-3 text-sm">
+              <span className="text-gray-400">Taxa Atual - MTT%</span>
+              <span className="text-white font-medium">{fmtPct(club?.fee_mtt_pct ?? null)}%</span>
+            </div>
+            <Linha label={`Taxa Atual - MTT (${fmtPct(club?.fee_mtt_pct ?? null)}%)`} value={-acerto.fee_mtt_valor} />
+          </div>
+        )
+      case 'wtr4':
+        return (
+          <div key={campo} className="flex items-center justify-between py-1.5 px-3 text-sm">
+            <span className="text-gray-400">WtR 4 Semanas</span>
+            <span className="text-white font-medium">{wtr === null ? '—' : fmt(wtr)}</span>
+          </div>
+        )
+      case 'taxa_cash':
+        return (
+          <div key={campo}>
+            <div className="flex items-center justify-between py-1.5 px-3 text-sm">
+              <span className="text-gray-400">Taxa Dinâmica - Cash%</span>
+              <span className="text-white font-medium">{fmtPct(acerto.taxa_cash_pct_aplicada)}%</span>
+            </div>
+            <Linha label={`Taxa Dinâmica - Cash (${fmtPct(acerto.taxa_cash_pct_aplicada)}%)`} value={-acerto.fee_cash_valor} />
+          </div>
+        )
+      case 'rake_total':
+        return <Linha key={campo} label="Rake Total" value={acerto.rake_total} />
+      case 'rake_mtt':
+        return <Linha key={campo} label="Rake MTT" value={acerto.rake_mtt} />
+      case 'rake_cash':
+        return <Linha key={campo} label="Rake Cash" value={acerto.rake_cash} />
+      case 'ganhos':
+        return <Linha key={campo} label="Ganhos/Perdas" value={acerto.player_result} />
+      case 'taxa_operacional':
+        return <Linha key={campo} label={club?.taxa_op_ativo === false ? 'Taxa Operacional (desativada)' : `Taxa Operacional (${fmtPct(club?.taxa_op_pct ?? null)}%)`} value={-acerto.fee_operacional_valor} />
+      case 'spinup':
+        return <Linha key={campo} label={`SpinUp Lucro (${fmtPct(club?.spinup_pct ?? null)}%)`} value={-acerto.fee_spinup_valor} />
+      case 'bilhetes':
+        return <Linha key={campo} label="Bilhetes" value={acerto.bilhetes} />
+      case 'pendencias':
+        return <Linha key={campo} label="Pendências / Antecipação" value={acerto.pendencias_antecipacao} />
+      case 'seguranca':
+        return <Linha key={campo} label="Segurança" value={security} />
+      case 'rebate':
+        return <Linha key={campo} label="Rebate" value={rebateDisplay} />
+      case 'taxa_aa_home_game':
+        return <Linha key={campo} label="Taxa A-A HOME GAME" value={taxaAaHomeGame} editable onCommit={(v) => { setTaxaAaHomeGame(v); salvarExtras('taxa_aa_home_game', v) }} />
+      case 'indicacao':
+        return acerto.indicacao_valor !== 0 ? <Linha key={campo} label="Indicação" value={acerto.indicacao_valor} /> : null
+      case 'lancamentos_periodo':
+        return lancamentos.length > 0 ? (
+          <div key={campo} className="py-1">
+            <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">Lançamentos do período</p>
+            {lancamentos.map((l) => (
+              <div key={l.id} className="flex items-center justify-between py-1 px-3 text-sm">
+                <span className="text-gray-400">
+                  {LABELS_LANCAMENTO[l.tipo] ?? l.tipo}
+                  {l.descricao && <span className="text-gray-600"> · {l.descricao}</span>}
+                </span>
+                <span className={l.natureza === 'credito' ? 'text-success font-medium' : 'text-alert font-medium'}>
+                  {l.natureza === 'credito' ? '+' : '−'}{fmt(l.valor)}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null
+      case 'dividas_acordos':
+        return dividasItens.length > 0 ? (
+          <div key={campo} className="py-1">
+            <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">Dívidas / Acordos</p>
+            {dividasItens.map((d, i) => (
+              <div key={i} className="flex items-center justify-between py-1 px-3 text-sm">
+                <span className="text-gray-400">{d.descricao}</span>
+                <span className="text-alert font-medium">−{fmt(d.valor)}</span>
+              </div>
+            ))}
+          </div>
+        ) : null
+      default:
+        return null
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -180,59 +307,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         </div>
 
         <div className="overflow-y-auto flex-1 divide-y divide-white/10">
-          <div className="flex items-center justify-between py-1.5 px-3 text-sm">
-            <span className="text-gray-400">Semana</span>
-            <span className="text-white font-medium">{formatPeriodo(periodStart, periodEnd)}</span>
-          </div>
-          <div className="flex items-center justify-between py-1.5 px-3 text-sm">
-            <span className="text-gray-400">Club</span>
-            <span className="text-gold font-medium">{acerto.club_name}</span>
-          </div>
-          <div className="flex items-center justify-between py-1.5 px-3 text-sm">
-            <span className="text-gray-400">Taxa Atual - MTT%</span>
-            <span className="text-white font-medium">{fmtPct(club?.fee_mtt_pct ?? null)}%</span>
-          </div>
-          <div className="flex items-center justify-between py-1.5 px-3 text-sm">
-            <span className="text-gray-400">WtR 4 Semanas</span>
-            <span className="text-white font-medium">{wtr === null ? '—' : fmt(wtr)}</span>
-          </div>
-          <div className="flex items-center justify-between py-1.5 px-3 text-sm">
-            <span className="text-gray-400">Taxa Dinâmica - Cash%</span>
-            <span className="text-white font-medium">{fmtPct(acerto.taxa_cash_pct_aplicada)}%</span>
-          </div>
-
-          <Linha label="Rake Total" value={acerto.rake_total} />
-          <Linha label="Rake MTT" value={acerto.rake_mtt} />
-          <Linha label="Rake Cash" value={acerto.rake_cash} />
-          <Linha label="Ganhos/Perdas" value={acerto.player_result} />
-
-          <Linha label={`Taxa Atual - MTT (${fmtPct(club?.fee_mtt_pct ?? null)}%)`} value={-acerto.fee_mtt_valor} />
-          <Linha label={`Taxa Dinâmica - Cash (${fmtPct(acerto.taxa_cash_pct_aplicada)}%)`} value={-acerto.fee_cash_valor} />
-          <Linha label={`SpinUp Lucro (${fmtPct(club?.spinup_pct ?? null)}%)`} value={-acerto.fee_spinup_valor} />
-          <Linha label={club?.taxa_op_ativo === false ? 'Taxa Operacional (desativada)' : `Taxa Operacional (${fmtPct(club?.taxa_op_pct ?? null)}%)`} value={-acerto.fee_operacional_valor} />
-          <Linha label="Bilhetes" value={acerto.bilhetes} />
-          <Linha label="Pendências / Antecipação" value={acerto.pendencias_antecipacao} />
-          <Linha label="Segurança" value={security} />
-          <Linha label="Rebate" value={rebateDisplay} />
-          <Linha label="Taxa A-A HOME GAME" value={taxaAaHomeGame} editable onCommit={(v) => { setTaxaAaHomeGame(v); salvarExtras('taxa_aa_home_game', v) }} />
-          {acerto.indicacao_valor !== 0 && <Linha label="Indicação" value={acerto.indicacao_valor} />}
-
-          {lancamentos.length > 0 && (
-            <div className="py-1">
-              <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">Lançamentos do período</p>
-              {lancamentos.map((l) => (
-                <div key={l.id} className="flex items-center justify-between py-1 px-3 text-sm">
-                  <span className="text-gray-400">
-                    {LABELS_LANCAMENTO[l.tipo] ?? l.tipo}
-                    {l.descricao && <span className="text-gray-600"> · {l.descricao}</span>}
-                  </span>
-                  <span className={l.natureza === 'credito' ? 'text-success font-medium' : 'text-alert font-medium'}>
-                    {l.natureza === 'credito' ? '+' : '−'}{fmt(l.valor)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          {layout.filter((c) => c.visivel).map((c) => renderCampo(c.campo))}
 
           <div className="flex items-center justify-between py-3 px-3 bg-surface2">
             <span className="text-white font-semibold text-sm">Total</span>

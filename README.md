@@ -460,6 +460,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   arredondamento. Regras ganhou um novo tipo "Multa de Acerto" (`regras.tipo`, faixas em
   `regra_multa_faixas`: dias/semanas de atraso → percentual) — a faixa mais alta já atingida substitui
   as demais (não acumula) e o percentual incide sobre a parcela atrasada, não o saldo total
+- [x] Card de Acerto (COMMON SETTLEMENT) virou personalizável por clube (`lib/relatorio-acerto.ts`,
+  `components/acertos/ClubAcertoCard.tsx`): Regras ganhou um 3º tipo "Layout do Acerto" — lista dos
+  campos do card arrastável (nativo, sem lib nova) pra reordenar, com liga/desliga nos opcionais
+  (Taxa MTT/Cash, WtR, Rake MTT/Cash, Taxa Operacional, Rebate, Taxa A-A Home Game, Indicação,
+  Lançamentos do período, Dívidas/Acordos). 8 campos sempre aparecem (Semana, Clube, Pendências, Rake
+  Total, Ganhos, Bilhetes, Segurança, SpinUp) — só a ordem deles muda. O Total do card sempre soma
+  tudo por trás, visível ou não (mesma regra do Liberar para Acerto): o layout só decide o que
+  aparece, nunca quanto o clube recebe. Parcela de Acordo em aberto (ou dívida Simples ativa) agora
+  entra automaticamente no Acerto, com a multa por atraso já aplicada
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

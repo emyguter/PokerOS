@@ -1,9 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { X, Loader2, Plus, Trash2 } from 'lucide-react'
-import type { Regra, RegraForm, RegraCondicaoForm, RegraTipo, FaixaMultaForm } from '@/lib/types'
+import { X, Loader2, Plus, Trash2, GripVertical } from 'lucide-react'
+import type { Regra, RegraForm, RegraCondicaoForm, RegraTipo, FaixaMultaForm, LayoutCampoForm } from '@/lib/types'
 import { formatIndicadorNome } from '@/lib/indicadores'
 import { supabase } from '@/lib/supabase'
+import { LAYOUT_PADRAO, LABEL_CAMPO, ehObrigatorio } from '@/lib/relatorio-acerto'
 
 interface Indicador { id: string; nome: string; descricao: string | null }
 
@@ -18,6 +19,7 @@ interface Props {
 
 const EMPTY_COND: RegraCondicaoForm = { indicador_ids: [''], operador: '>', valor: null, resultado_pct: null, is_fallback: false }
 const EMPTY_FAIXA: FaixaMultaForm = { quantidade: null, unidade: 'semanas', percentual: null }
+const LAYOUT_INICIAL: LayoutCampoForm[] = LAYOUT_PADRAO.map((campo, ordem) => ({ campo, ordem, visivel: true }))
 const inputCls = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20'
 
 export function RegraModal({ open, editing, onClose, onSave, saving, error }: Props) {
@@ -25,6 +27,8 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
   const [tipo, setTipo] = useState<RegraTipo>('faixa')
   const [condicoes, setCondicoes] = useState<RegraCondicaoForm[]>([])
   const [faixasMulta, setFaixasMulta] = useState<FaixaMultaForm[]>([{ ...EMPTY_FAIXA }])
+  const [layoutCampos, setLayoutCampos] = useState<LayoutCampoForm[]>(LAYOUT_INICIAL)
+  const [arrastando, setArrastando] = useState<number | null>(null)
   const [indicadores, setIndicadores] = useState<Indicador[]>([])
 
   useEffect(() => {
@@ -36,6 +40,7 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
     setTipo(editing?.tipo ?? 'faixa')
     setCondicoes(editing?.condicoes ?? [])
     setFaixasMulta(editing?.faixasMulta && editing.faixasMulta.length > 0 ? editing.faixasMulta : [{ ...EMPTY_FAIXA }])
+    setLayoutCampos(editing?.layoutCampos && editing.layoutCampos.length > 0 ? [...editing.layoutCampos].sort((a, b) => a.ordem - b.ordem) : LAYOUT_INICIAL)
   }, [editing, open])
 
   if (!open) return null
@@ -52,9 +57,20 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
   const removeFaixa = (i: number) => setFaixasMulta(f => f.filter((_, j) => j !== i))
   const setFaixa = (i: number, k: keyof FaixaMultaForm, v: any) => setFaixasMulta(f => f.map((item, j) => j === i ? { ...item, [k]: v } : item))
 
+  const toggleVisivel = (i: number) => setLayoutCampos(l => l.map((item, j) => j === i && !ehObrigatorio(item.campo) ? { ...item, visivel: !item.visivel } : item))
+  function moverCampo(de: number, para: number) {
+    if (de === para) return
+    setLayoutCampos(l => {
+      const next = [...l]
+      const [item] = next.splice(de, 1)
+      next.splice(para, 0, item)
+      return next.map((c, idx) => ({ ...c, ordem: idx }))
+    })
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    onSave({ nome, tipo, condicoes, faixasMulta })
+    onSave({ nome, tipo, condicoes, faixasMulta, layoutCampos })
   }
 
   return (
@@ -69,7 +85,7 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
           <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
             <div className="space-y-2">
               <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Tipo de regra</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button type="button" onClick={() => setTipo('faixa')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipo === 'faixa' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
                   Cálculo de Acerto
                   <p className="text-xs font-normal text-gray-500 mt-0.5">Faixa SE/ENTÃO — % que varia por rake/ganhos</p>
@@ -78,15 +94,51 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
                   Multa de Acerto
                   <p className="text-xs font-normal text-gray-500 mt-0.5">% de multa por atraso, pra Dívidas e Acordos</p>
                 </button>
+                <button type="button" onClick={() => setTipo('layout_acerto')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipo === 'layout_acerto' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
+                  Layout do Acerto
+                  <p className="text-xs font-normal text-gray-500 mt-0.5">Quais campos aparecem e em que ordem, no card de Acerto</p>
+                </button>
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1.5">Nome<span className="text-gray-500 ml-1">*</span></label>
-              <input type="text" value={nome} onChange={e => setNome(e.target.value)} required placeholder={tipo === 'multa_atraso' ? 'Ex: Multa padrão por atraso' : 'Ex: 5%-15%'} className={inputCls} />
+              <input type="text" value={nome} onChange={e => setNome(e.target.value)} required placeholder={tipo === 'multa_atraso' ? 'Ex: Multa padrão por atraso' : tipo === 'layout_acerto' ? 'Ex: Layout resumido' : 'Ex: 5%-15%'} className={inputCls} />
             </div>
 
-            {tipo === 'multa_atraso' ? (
+            {tipo === 'layout_acerto' ? (
+              <div className="space-y-2">
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Campos do card de Acerto</p>
+                <p className="text-xs text-gray-600">Arraste pra reordenar. Os marcados como obrigatório sempre aparecem — só dá pra ligar/desligar os outros.</p>
+                <div className="space-y-1">
+                  {layoutCampos.map((c, i) => {
+                    const obrigatorio = ehObrigatorio(c.campo)
+                    return (
+                      <div
+                        key={c.campo}
+                        draggable
+                        onDragStart={() => setArrastando(i)}
+                        onDragOver={(e) => { e.preventDefault(); if (arrastando !== null && arrastando !== i) moverCampo(arrastando, i) }}
+                        onDrop={(e) => e.preventDefault()}
+                        onDragEnd={() => setArrastando(null)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-grab active:cursor-grabbing transition-colors ${arrastando === i ? 'border-gold/50 bg-gold/10 opacity-60' : 'border-white/10 bg-surface2'}`}
+                      >
+                        <GripVertical size={14} className="text-gray-600 shrink-0" />
+                        <span className="text-sm text-white flex-1">{LABEL_CAMPO[c.campo as keyof typeof LABEL_CAMPO] ?? c.campo}</span>
+                        {obrigatorio ? (
+                          <span className="px-1.5 py-0.5 rounded-full bg-surface border border-white/10 text-gray-500 text-[10px] whitespace-nowrap">obrigatório</span>
+                        ) : (
+                          <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer select-none">
+                            <input type="checkbox" checked={c.visivel} onChange={() => toggleVisivel(i)} className="accent-gold" />
+                            visível
+                          </label>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : tipo === 'multa_atraso' ? (
               <div className="space-y-2">
                 <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Faixas de atraso</p>
                 <p className="text-xs text-gray-600">A maior faixa já atingida vale sozinha (não soma com as anteriores) — incide sobre o valor da parcela atrasada.</p>

@@ -275,14 +275,21 @@ export type RegraCondicaoForm = {
 
 // 'faixa' = Cálculo de Acerto (SE/ENTÃO, já existia). 'multa_atraso' = Multa
 // de Acerto — faixas de dias/semanas de atraso -> percentual de multa sobre
-// a parcela atrasada (Dívidas e Acordos), vinculada a um clube igual às
-// outras regras.
-export type RegraTipo = 'faixa' | 'multa_atraso'
+// a parcela atrasada (Dívidas e Acordos). 'layout_acerto' = quais campos
+// aparecem no card de Acerto e em que ordem (lib/relatorio-acerto.ts) —
+// todos vinculados a um clube igual às outras regras.
+export type RegraTipo = 'faixa' | 'multa_atraso' | 'layout_acerto'
 
 export type FaixaMultaForm = {
   quantidade: number | null
   unidade: 'dias' | 'semanas'
   percentual: number | null
+}
+
+export type LayoutCampoForm = {
+  campo: string
+  ordem: number
+  visivel: boolean
 }
 
 export type Regra = {
@@ -292,6 +299,7 @@ export type Regra = {
   tipo: RegraTipo
   condicoes: RegraCondicaoForm[]
   faixasMulta: FaixaMultaForm[]
+  layoutCampos: LayoutCampoForm[]
   vinculoCount: number
 }
 
@@ -300,6 +308,7 @@ export type RegraForm = {
   tipo: RegraTipo
   condicoes: RegraCondicaoForm[]
   faixasMulta: FaixaMultaForm[]
+  layoutCampos: LayoutCampoForm[]
 }
 
 export type EntidadeTipo = 'plataforma' | 'mega_liga' | 'superliga' | 'liga' | 'clube' | 'agente' | 'jogador'

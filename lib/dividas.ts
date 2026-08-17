@@ -213,3 +213,42 @@ export async function getFaixasMultaDoClube(clubeId: string): Promise<FaixaMulta
     .filter((l) => l.regras?.tipo === 'multa_atraso')
     .flatMap((l) => l.regras?.regra_multa_faixas ?? [])
 }
+
+export interface ItemDividaAcerto {
+  descricao: string
+  valor: number
+}
+
+// Dívida/Acordo desse clube que entra no card de Acerto — Simples ativa
+// (valor cheio, some assim que marcada quitada) + parcelas de Acordo ainda
+// não pagas com vencimento até o fim do período (inclui atrasadas de
+// períodos anteriores: continuam entrando toda semana até serem marcadas
+// como pagas). Atraso calculado em relação ao FIM DO PERÍODO, não "hoje" —
+// um Acerto já fechado não pode mudar de valor se reaberto numa data futura.
+export async function getDividasAcertoDoClube(clubeId: string, periodoFim: string): Promise<ItemDividaAcerto[]> {
+  const [{ data: dividas }, faixas] = await Promise.all([
+    supabase.from('dividas').select('id, tipo, valor_integral, descricao').eq('clube_id', clubeId).eq('status', 'ativo'),
+    getFaixasMultaDoClube(clubeId),
+  ])
+
+  const itens: ItemDividaAcerto[] = []
+  const hoje = new Date(periodoFim + 'T00:00:00')
+  for (const d of (dividas ?? []) as { id: string; tipo: TipoDivida; valor_integral: number; descricao: string | null }[]) {
+    if (d.tipo === 'simples') {
+      itens.push({ descricao: d.descricao || 'Dívida', valor: d.valor_integral })
+      continue
+    }
+    const { data: parcelas } = await supabase
+      .from('divida_parcelas')
+      .select('numero, valor, vencimento')
+      .eq('divida_id', d.id)
+      .eq('pago', false)
+      .lte('vencimento', periodoFim)
+    for (const p of (parcelas ?? []) as { numero: number; valor: number; vencimento: string }[]) {
+      const atraso = diasDeAtraso(p.vencimento, hoje)
+      const valor = atraso > 0 ? valorComMulta(p.valor, atraso, faixas) : p.valor
+      itens.push({ descricao: `${d.descricao || 'Acordo'} · parcela ${p.numero}`, valor })
+    }
+  }
+  return itens
+}
