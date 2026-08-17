@@ -8,7 +8,7 @@ import type {
   Agente, AgenteForm, AgentePlataforma,
   Jogador, JogadorForm,
   AgenteJogador, ClubeAgente,
-  Regra, RegraForm, RegraCondicaoForm, RegraVinculo, EntidadeTipo, CampoClube,
+  Regra, RegraForm, RegraCondicaoForm, RegraVinculo, EntidadeTipo, CampoClube, FaixaMultaForm,
 } from './types'
 
 const supabase = createClient(
@@ -423,14 +423,16 @@ function mapCondicaoRow(c: CondicaoRow): RegraCondicaoForm {
 export async function getRegras(): Promise<Regra[]> {
   const { data, error } = await supabase
     .from('regras')
-    .select('id, nome, created_at, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id, ordem)), regra_entidades(id)')
+    .select('id, nome, created_at, tipo, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id, ordem)), regra_multa_faixas(quantidade, unidade, percentual), regra_entidades(id)')
     .order('nome')
   if (error) throw error
   return (data ?? []).map((r: any) => ({
     id: r.id,
     nome: r.nome,
     created_at: r.created_at,
+    tipo: (r.tipo ?? 'faixa') as Regra['tipo'],
     condicoes: (r.regra_condicoes ?? []).map(mapCondicaoRow),
+    faixasMulta: (r.regra_multa_faixas ?? []).map((f: any) => ({ quantidade: f.quantidade, unidade: f.unidade, percentual: f.percentual })),
     vinculoCount: (r.regra_entidades ?? []).length,
   }))
 }
@@ -459,19 +461,32 @@ async function salvarCondicoes(regraId: string, condicoes: RegraCondicaoForm[]):
   }
 }
 
-export async function createRegra(form: RegraForm): Promise<string> {
-  const { data: nova, error } = await supabase.from('regras').insert({ nome: form.nome }).select().single()
+async function salvarFaixasMulta(regraId: string, faixas: FaixaMultaForm[]): Promise<void> {
+  const validas = faixas.filter((f) => f.quantidade != null && f.percentual != null)
+  if (validas.length === 0) return
+  const { error } = await supabase.from('regra_multa_faixas').insert(
+    validas.map((f) => ({ regra_id: regraId, quantidade: f.quantidade, unidade: f.unidade, percentual: f.percentual }))
+  )
   if (error) throw error
-  await salvarCondicoes(nova.id, form.condicoes)
+}
+
+export async function createRegra(form: RegraForm): Promise<string> {
+  const { data: nova, error } = await supabase.from('regras').insert({ nome: form.nome, tipo: form.tipo }).select().single()
+  if (error) throw error
+  if (form.tipo === 'faixa') await salvarCondicoes(nova.id, form.condicoes)
+  else await salvarFaixasMulta(nova.id, form.faixasMulta)
   return nova.id
 }
 
 export async function updateRegra(id: string, form: RegraForm): Promise<void> {
-  const { error } = await supabase.from('regras').update({ nome: form.nome }).eq('id', id)
+  const { error } = await supabase.from('regras').update({ nome: form.nome, tipo: form.tipo }).eq('id', id)
   if (error) throw error
   const { error: delErr } = await supabase.from('regra_condicoes').delete().eq('regra_id', id)
   if (delErr) throw delErr
-  await salvarCondicoes(id, form.condicoes)
+  const { error: delMultaErr } = await supabase.from('regra_multa_faixas').delete().eq('regra_id', id)
+  if (delMultaErr) throw delMultaErr
+  if (form.tipo === 'faixa') await salvarCondicoes(id, form.condicoes)
+  else await salvarFaixasMulta(id, form.faixasMulta)
 }
 
 export async function deleteRegra(id: string): Promise<void> {
@@ -601,7 +616,7 @@ export interface RegraAplicada {
 export async function getRegrasDaEntidade(tipo: EntidadeTipo, id: string): Promise<RegraAplicada[]> {
   const { data, error } = await supabase
     .from('regra_entidades')
-    .select('regra_id, de_tipo, de_id, campo, regras(id, nome, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicadores(nome, descricao))))')
+    .select('regra_id, de_tipo, de_id, campo, regras(id, nome, tipo, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicadores(nome, descricao))), regra_multa_faixas(quantidade, unidade, percentual))')
     .eq('entidade_tipo', tipo)
     .eq('entidade_id', id)
   if (error) throw error
@@ -619,11 +634,13 @@ export async function getRegrasDaEntidade(tipo: EntidadeTipo, id: string): Promi
   }
 
   return rows.map(r => {
-    const linhas = ((r.regras?.regra_condicoes ?? []) as any[]).map(c => {
-      if (c.is_fallback) return `SENÃO → ${c.resultado_pct}%`
-      const termos = (c.regra_condicao_termos ?? []).map((t: any) => t.indicadores?.descricao || t.indicadores?.nome || '?').join(' + ')
-      return `SE ${termos} ${c.operador} ${c.valor} → ${c.resultado_pct}%`
-    })
+    const linhas = r.regras?.tipo === 'multa_atraso'
+      ? ((r.regras?.regra_multa_faixas ?? []) as any[]).map((f) => `${f.quantidade} ${f.unidade} → ${f.percentual}%`)
+      : ((r.regras?.regra_condicoes ?? []) as any[]).map(c => {
+          if (c.is_fallback) return `SENÃO → ${c.resultado_pct}%`
+          const termos = (c.regra_condicao_termos ?? []).map((t: any) => t.indicadores?.descricao || t.indicadores?.nome || '?').join(' + ')
+          return `SE ${termos} ${c.operador} ${c.valor} → ${c.resultado_pct}%`
+        })
     return {
       regra_id: r.regra_id as string,
       regra_nome: (r.regras?.nome as string) ?? '—',

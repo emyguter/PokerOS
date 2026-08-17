@@ -273,17 +273,33 @@ export type RegraCondicaoForm = {
   is_fallback: boolean
 }
 
+// 'faixa' = Cálculo de Acerto (SE/ENTÃO, já existia). 'multa_atraso' = Multa
+// de Acerto — faixas de dias/semanas de atraso -> percentual de multa sobre
+// a parcela atrasada (Dívidas e Acordos), vinculada a um clube igual às
+// outras regras.
+export type RegraTipo = 'faixa' | 'multa_atraso'
+
+export type FaixaMultaForm = {
+  quantidade: number | null
+  unidade: 'dias' | 'semanas'
+  percentual: number | null
+}
+
 export type Regra = {
   id: string
   nome: string
   created_at: string
+  tipo: RegraTipo
   condicoes: RegraCondicaoForm[]
+  faixasMulta: FaixaMultaForm[]
   vinculoCount: number
 }
 
 export type RegraForm = {
   nome: string
+  tipo: RegraTipo
   condicoes: RegraCondicaoForm[]
+  faixasMulta: FaixaMultaForm[]
 }
 
 export type EntidadeTipo = 'plataforma' | 'mega_liga' | 'superliga' | 'liga' | 'clube' | 'agente' | 'jogador'

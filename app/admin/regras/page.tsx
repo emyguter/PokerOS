@@ -22,6 +22,10 @@ const LABEL_CAMPO: Record<CampoClube, string> = {
 // Frase em linguagem simples do que a regra faz — em vez de só "3 faixas",
 // pra quem não é técnico entender sem abrir o formulário.
 function resumoRegra(r: Regra, indicadores: Map<string, IndicadorInfo>): string {
+  if (r.tipo === 'multa_atraso') {
+    if (r.faixasMulta.length === 0) return 'Sem faixas ainda'
+    return r.faixasMulta.map(f => `${f.quantidade ?? '?'} ${f.unidade} → ${f.percentual ?? '?'}%`).join(', ')
+  }
   if (r.condicoes.length === 0) return 'Sem condições ainda'
   return r.condicoes.map(c => {
     if (c.is_fallback) return `SENÃO → ${c.resultado_pct ?? '?'}%`
@@ -120,9 +124,14 @@ export default function RegrasPage() {
             key: 'tipo',
             label: 'O que faz',
             render: (_: string, row: Regra) => {
-              const campo = campoFromCondicoes(row.condicoes, indicadorNomePorId)
+              const campo = row.tipo === 'faixa' ? campoFromCondicoes(row.condicoes, indicadorNomePorId) : null
               return (
                 <span className="text-xs text-gray-300">
+                  {row.tipo === 'multa_atraso' && (
+                    <span className="mr-2 px-1.5 py-0.5 rounded-full bg-alert/10 border border-alert/30 text-alert text-[10px] align-middle whitespace-nowrap">
+                      Multa
+                    </span>
+                  )}
                   {resumoRegra(row, indicadores)}
                   {campo && (
                     <span className="ml-2 px-1.5 py-0.5 rounded-full bg-surface2 border border-white/10 text-gray-400 text-[10px] align-middle whitespace-nowrap">
