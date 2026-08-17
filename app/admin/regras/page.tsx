@@ -100,7 +100,10 @@ export default function RegrasPage() {
   async function handleDuplicate(regra: Regra) {
     setError(null)
     try {
-      await createRegra({ nome: `${regra.nome} (cópia)`, tipo: regra.tipo, condicoes: regra.condicoes, faixasMulta: regra.faixasMulta, layoutCampos: regra.layoutCampos })
+      // Layout do Acerto não tem nome digitado — fica sempre com o mesmo
+      // nome fixo, a cópia também (ver RegraModal.tsx).
+      const nome = regra.tipo === 'layout_acerto' ? 'Layout do Acerto' : `${regra.nome} (cópia)`
+      await createRegra({ nome, tipo: regra.tipo, condicoes: regra.condicoes, faixasMulta: regra.faixasMulta, layoutCampos: regra.layoutCampos })
       await load()
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
   }

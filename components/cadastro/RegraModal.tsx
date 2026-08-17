@@ -101,7 +101,10 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    onSave({ nome, tipo, condicoes, faixasMulta, layoutCampos })
+    // Layout do Acerto não pede Nome — não faz muito sentido nomear "qual
+    // ordem os campos aparecem", então usa um nome fixo na lista de Regras.
+    const nomeFinal = tipo === 'layout_acerto' ? 'Layout do Acerto' : nome
+    onSave({ nome: nomeFinal, tipo, condicoes, faixasMulta, layoutCampos })
   }
 
   return (
@@ -138,10 +141,12 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
               )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Nome<span className="text-gray-500 ml-1">*</span></label>
-              <input type="text" value={nome} onChange={e => setNome(e.target.value)} required placeholder={tipo === 'multa_atraso' ? 'Ex: Multa padrão por atraso' : tipo === 'layout_acerto' ? 'Ex: Layout resumido' : 'Ex: 5%-15%'} className={inputCls} />
-            </div>
+            {tipo !== 'layout_acerto' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Nome<span className="text-gray-500 ml-1">*</span></label>
+                <input type="text" value={nome} onChange={e => setNome(e.target.value)} required placeholder={tipo === 'multa_atraso' ? 'Ex: Multa padrão por atraso' : 'Ex: 5%-15%'} className={inputCls} />
+              </div>
+            )}
 
             {tipo === 'layout_acerto' ? (
               <div className="space-y-2">

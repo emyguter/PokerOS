@@ -518,6 +518,9 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
 - [x] Fix: card de Acerto mostrava a % da Taxa MTT/Cash duas vezes — uma linha só com a %, e logo
   embaixo a linha com valor já repetindo a mesma % no rótulo. Removida a linha solta, ficou só a
   linha com valor (que já traz a % junto), igual o Cássio pediu
+- [x] Regra do tipo Layout do Acerto não pede mais Nome — não fazia sentido nomear "em que ordem os
+  campos aparecem". Aparece na lista de Regras sempre como "Layout do Acerto" (nome fixo, inclusive
+  ao duplicar). Cálculo de Acerto e Multa de Acerto continuam pedindo Nome normalmente
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
