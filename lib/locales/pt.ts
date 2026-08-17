@@ -13,7 +13,7 @@ export const pt = {
   nav: {
     cadastros: 'Cadastros',
     importacao: 'Importação',
-    lancamento: 'Lançamento',
+    lancamento: 'Suporte',
     financeiro: 'Financeiro',
     seguranca: 'Segurança',
     stoploss: 'Controle de Stoploss',

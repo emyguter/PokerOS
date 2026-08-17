@@ -15,7 +15,7 @@ export const en: typeof pt = {
   nav: {
     cadastros: 'Registrations',
     importacao: 'Import',
-    lancamento: 'Entries',
+    lancamento: 'Support',
     financeiro: 'Finance',
     seguranca: 'Security',
     stoploss: 'Stoploss Control',
