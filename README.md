@@ -443,6 +443,16 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   nenhum cálculo (`lib/acertos-engine.ts` nunca lia nenhum deles) — Regra tipo "Cotação do dia",
   tela Cadastro de Moedas (`moedas_cotacao`) e o toggle "Conversão do Dia" da Liga com o popup de
   confirmação diária no cálculo de Acertos. Regras agora só tem um tipo (Faixa SE/ENTÃO)
+- [x] Liberar para Acerto: Bloqueio/Reembolso da Segurança e Bônus/Promoção/Outro do Suporte sempre
+  entraram na soma do Valor do Acerto — agora só ficam visíveis pro clube (`app/extrato`) depois que o
+  Suporte libera explicitamente (tudo ou selecionado). `lancamentos.liberado` + `ExtratoView`'s novo
+  `mostrarLiberar`; nova aba Extra no Suporte junta Bônus/Promoção/Outro já conciliados com a Genia com
+  o mesmo botão
+- [x] Acertos: import com clube em USD (`clubs.moeda`) mostra a Cotação atual (Identificação do Clube)
+  e pergunta se segue com ela antes de calcular — se não, abre o campo pra digitar o valor novo
+- [x] Nova aba Conferência do App (Suporte): checklist manual de Rake/Ganhos/Bilhetes calculados vs. o
+  que o Suporte vê direto no app da plataforma, pros 3 clubes de maior rake do import — sinaliza
+  bateu/não bateu na hora, não grava nada
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
