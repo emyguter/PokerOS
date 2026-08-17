@@ -34,11 +34,13 @@ const LANCAMENTO_SUB: SubNavItem[] = [
   { key: 'lancar', labelKey: 'lancamento.aba_lancar', href: '/lancamento?tab=lancar' },
   { key: 'extrato', labelKey: 'lancamento.aba_extrato', href: '/lancamento?tab=extrato' },
   { key: 'pendencias', labelKey: 'lancamento.aba_pendencias', href: '/lancamento?tab=pendencias' },
+  { key: 'pagamentos', labelKey: 'lancamento.aba_pagamentos', href: '/lancamento?tab=pagamentos' },
 ]
 const FINANCEIRO_SUB: SubNavItem[] = [
   { key: 'lancar', labelKey: 'lancamento.aba_lancar', href: '/financeiro?tab=lancar' },
   { key: 'pendencias', labelKey: 'lancamento.aba_pendencias', href: '/financeiro?tab=pendencias' },
   { key: 'conciliacao', labelKey: 'lancamento.aba_conciliacao', href: '/financeiro?tab=conciliacao', chave: 'conciliacao' },
+  { key: 'cobranca', labelKey: 'lancamento.aba_cobranca', href: '/financeiro?tab=cobranca' },
 ]
 const SEGURANCA_SUB: SubNavItem[] = [
   { key: 'lancar', labelKey: 'lancamento.aba_lancar', href: '/seguranca?tab=lancar' },

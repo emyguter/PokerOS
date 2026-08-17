@@ -1,17 +1,18 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { PlusCircle, AlertCircle, GitMerge } from 'lucide-react'
+import { PlusCircle, AlertCircle, GitMerge, Receipt } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { usePermissions } from '@/lib/permissions'
 import { LancarFinanceiroTab } from './LancarFinanceiroTab'
 import { PendenciasFinanceiro } from './PendenciasFinanceiro'
 import { ConciliacaoView } from './ConciliacaoView'
+import { CobrancaView } from './CobrancaView'
 
-type Tab = 'lancar' | 'pendencias' | 'conciliacao'
+type Tab = 'lancar' | 'pendencias' | 'conciliacao' | 'cobranca'
 
 function tabDaUrl(): Tab | null {
   const t = new URLSearchParams(window.location.search).get('tab')
-  return t === 'lancar' || t === 'pendencias' || t === 'conciliacao' ? t : null
+  return t === 'lancar' || t === 'pendencias' || t === 'conciliacao' || t === 'cobranca' ? t : null
 }
 
 export function FinanceiroView() {
@@ -31,6 +32,7 @@ export function FinanceiroView() {
     { key: 'lancar', labelKey: 'lancamento.aba_lancar', icon: PlusCircle },
     { key: 'pendencias', labelKey: 'lancamento.aba_pendencias', icon: AlertCircle },
     ...(hasPermission('conciliacao') ? [{ key: 'conciliacao' as Tab, labelKey: 'lancamento.aba_conciliacao', icon: GitMerge }] : []),
+    { key: 'cobranca', labelKey: 'lancamento.aba_cobranca', icon: Receipt },
   ]
 
   return (
@@ -55,6 +57,7 @@ export function FinanceiroView() {
       {tab === 'lancar' && <LancarFinanceiroTab />}
       {tab === 'pendencias' && <PendenciasFinanceiro />}
       {tab === 'conciliacao' && hasPermission('conciliacao') && <ConciliacaoView />}
+      {tab === 'cobranca' && <CobrancaView />}
     </div>
   )
 }

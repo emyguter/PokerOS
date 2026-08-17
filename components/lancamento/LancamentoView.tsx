@@ -1,22 +1,24 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { PlusCircle, Receipt, AlertCircle } from 'lucide-react'
+import { PlusCircle, Receipt, AlertCircle, ClipboardList } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { LancarForm } from './LancarForm'
 import { ExtratoView } from './ExtratoView'
 import { PendenciasSuporte } from './PendenciasSuporte'
+import { ControlePagamentosView } from './ControlePagamentosView'
 
-type Tab = 'lancar' | 'extrato' | 'pendencias'
+type Tab = 'lancar' | 'extrato' | 'pendencias' | 'pagamentos'
 
 const ABAS: { key: Tab; labelKey: string; icon: typeof PlusCircle }[] = [
   { key: 'lancar', labelKey: 'lancamento.aba_lancar', icon: PlusCircle },
   { key: 'extrato', labelKey: 'lancamento.aba_extrato', icon: Receipt },
   { key: 'pendencias', labelKey: 'lancamento.aba_pendencias', icon: AlertCircle },
+  { key: 'pagamentos', labelKey: 'lancamento.aba_pagamentos', icon: ClipboardList },
 ]
 
 function tabDaUrl(): Tab | null {
   const t = new URLSearchParams(window.location.search).get('tab')
-  return t === 'lancar' || t === 'extrato' || t === 'pendencias' ? t : null
+  return t === 'lancar' || t === 'extrato' || t === 'pendencias' || t === 'pagamentos' ? t : null
 }
 
 export function LancamentoView() {
@@ -51,6 +53,7 @@ export function LancamentoView() {
       {tab === 'lancar' && <LancarForm origem="suporte" />}
       {tab === 'extrato' && <ExtratoView />}
       {tab === 'pendencias' && <PendenciasSuporte />}
+      {tab === 'pagamentos' && <ControlePagamentosView />}
     </div>
   )
 }

@@ -98,6 +98,7 @@ export const en: typeof pt = {
   lancamento: {
     titulo: 'Entries', subtitulo: 'Bonuses, promotions, deposits and payments per club',
     aba_lancar: 'New Entry', aba_extrato: 'Statement', aba_genia: 'Finance', aba_conciliacao: 'Reconciliation', aba_pendencias: 'Pending',
+    aba_pagamentos: 'Payment Control', aba_cobranca: 'Collections',
     clube: 'Club', tipo: 'Type', natureza: 'Nature', valor: 'Amount', data: 'Date',
     descricao: 'Description (optional)', descricao_placeholder: 'E.g.: welcome bonus',
     credito: 'Credit', debito: 'Debit', lancar: 'Add Entry',
@@ -153,6 +154,22 @@ export const en: typeof pt = {
     selecione_par: '— Select the matching entry —',
     janela_nota: 'Automatically reconciles entries up to 7 days apart (matches the weekly closing cycle). Outside that window, link them manually.',
     sem_par_motivo: 'No match within the 7-day closing window — link manually if this is the same entry:',
+  },
+  pagamentos: {
+    titulo: 'Payment Control',
+    subtitulo: "Each Payment (Envio) until the club's Settlement is fully paid off, week by week",
+    import: 'Week (import)', nenhum_import: 'No import with a calculated Settlement yet.',
+    nenhum_acerto: 'Select an import to see the payments.',
+    col_club_id: 'Club ID', col_club_name: 'Club', col_valor_acerto: 'Settlement Amount',
+    col_valor_pago: 'Amount Paid', col_diferenca: 'Difference', col_envio: 'Payment {n}',
+    qual_acerto: 'Which Settlement is this paying?',
+    qual_acerto_obrigatorio: 'Choose the Settlement being paid.',
+    selecione_acerto: '— Select the Settlement —',
+    nenhum_acerto_do_clube: "This club doesn't have a calculated Settlement yet.",
+  },
+  cobranca: {
+    titulo: 'Collections',
+    subtitulo: "What to collect from each club and what's already been paid, totaled per Settlement — same data as Support's Payment Control, without the individual Payment breakdown",
   },
   stoploss: {
     titulo: 'Stoploss Control', subtitulo: 'Loss limit per club — initial, current and Support adjustments',

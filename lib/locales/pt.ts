@@ -96,6 +96,7 @@ export const pt = {
   lancamento: {
     titulo: 'Lançamento', subtitulo: 'Bônus, promoções, caução e pagamentos por clube',
     aba_lancar: 'Lançar', aba_extrato: 'Extrato', aba_genia: 'Financeiro', aba_conciliacao: 'Conciliação', aba_pendencias: 'Pendências',
+    aba_pagamentos: 'Controle de Pagamentos', aba_cobranca: 'Cobrança',
     clube: 'Clube', tipo: 'Tipo', natureza: 'Natureza', valor: 'Valor', data: 'Data',
     descricao: 'Descrição (opcional)', descricao_placeholder: 'Ex: bônus de boas-vindas',
     credito: 'Crédito', debito: 'Débito', lancar: 'Lançar',
@@ -151,6 +152,22 @@ export const pt = {
     selecione_par: '— Selecione o lançamento correspondente —',
     janela_nota: 'Concilia automaticamente lançamentos de até 7 dias de diferença (acompanha o fechamento semanal). Fora dessa janela, precisa vincular manualmente.',
     sem_par_motivo: 'Sem par dentro dos 7 dias do fechamento — vincula manualmente se for o mesmo lançamento:',
+  },
+  pagamentos: {
+    titulo: 'Controle de Pagamentos',
+    subtitulo: 'Cada Envio (pagamento) até quitar o Acerto do clube, semana a semana',
+    import: 'Semana (import)', nenhum_import: 'Nenhum import com Acerto calculado ainda.',
+    nenhum_acerto: 'Selecione um import pra ver os pagamentos.',
+    col_club_id: 'Club ID', col_club_name: 'Clube', col_valor_acerto: 'Valor do Acerto',
+    col_valor_pago: 'Valor Pago', col_diferenca: 'Diferença', col_envio: 'Envio {n}',
+    qual_acerto: 'Qual Acerto está sendo pago?',
+    qual_acerto_obrigatorio: 'Escolha o Acerto que está sendo pago.',
+    selecione_acerto: '— Selecione o Acerto —',
+    nenhum_acerto_do_clube: 'Esse clube ainda não tem Acerto calculado.',
+  },
+  cobranca: {
+    titulo: 'Cobrança',
+    subtitulo: 'O que cobrar de cada clube e o que já foi pago, total por Acerto — mesmos dados do Controle de Pagamentos do Suporte, sem o detalhe de cada Envio',
   },
   stoploss: {
     titulo: 'Controle de Stoploss', subtitulo: 'Limite de perda por clube — inicial, atual e ajustes do Suporte',

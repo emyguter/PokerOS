@@ -104,6 +104,19 @@ clube novo pré-cadastrado automático no import nasce com `false` (mesma regra 
 branco). O card de Acerto (`ClubAcertoCard.tsx`) mostra "Taxa Operacional (desativada)" quando
 estiver off, em vez do "(0%)" enganoso.
 
+**Controle de Pagamentos (Suporte) e Cobrança (Financeiro) — `lib/pagamentos.ts`:** espelha a
+planilha "Controle de Pagamentos" do Cássio. Lançamentos tipo `pagamento` do Suporte agora se
+vinculam a um Acerto (`lancamentos.acerto_id`) — escolhido num seletor novo que aparece em Lançar
+quando tipo=Pagamento — e cada um vira um "Envio". As duas telas usam os mesmos dados
+(`agregarPagamentos`: Valor do Acerto − soma assinada dos Envios do período = Diferença), só a
+apresentação muda: Suporte (`ControlePagamentosView.tsx`) mostra cada Envio numa coluna própria,
+Financeiro (`CobrancaView.tsx`, aba "Cobrança") só o total pago. A cor da Diferença é invertida
+entre as duas (`corDiferenca`): no Suporte é do ponto de vista do clube (vermelho = clube precisa
+pagar, azul = precisa receber); no Financeiro é do ponto de vista da liga (vermelho = liga precisa
+pagar, azul = liga vai receber) — mesmo número, framing oposto, confirmado com o Cássio. Lançamentos
+de pagamento antigos (antes dessa migration) ficam com `acerto_id` nulo e não aparecem
+retroativamente nessas telas, só os lançados daqui pra frente.
+
 **Sinal na tela de Acertos (`components/acertos/AcertosView.tsx`):** "Taxa" (fee cobrado do clube
 pelo serviço de liga) sempre aparece negativo. O antigo "Result. Jogador" virou **"Ganhos"**. Pro
 tipo de cobrança "taxa" (dinâmica ou fixa/variável), o **Valor do Acerto = Rake Total + Ganhos −
@@ -394,6 +407,10 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Segurança o link usa `?tab=X` e cada view lê isso do `window.location.search` no mount (não usa
   `useSearchParams` de propósito — a Sidebar renderiza em toda página via `app/layout.tsx`, e esse
   hook exigiria Suspense ali e tiraria o app inteiro da renderização estática)
+- [x] Controle de Pagamentos (Suporte) e Cobrança (Financeiro) — `lib/pagamentos.ts`: Envios
+  (lançamentos tipo Pagamento) agora se vinculam a um Acerto (`lancamentos.acerto_id`), pra
+  acompanhar Valor do Acerto / Valor Pago / Diferença por clube, semana a semana, igual a planilha
+  manual do Cássio — ver seção "Decisões Técnicas" acima
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
