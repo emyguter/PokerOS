@@ -35,6 +35,7 @@ const LANCAMENTO_SUB: SubNavItem[] = [
   { key: 'pendencias', labelKey: 'lancamento.aba_pendencias', href: '/lancamento?tab=pendencias' },
   { key: 'pagamentos', labelKey: 'lancamento.aba_pagamentos', href: '/lancamento?tab=pagamentos' },
   { key: 'extra', labelKey: 'lancamento.aba_extra', href: '/lancamento?tab=extra' },
+  { key: 'conferencia', labelKey: 'lancamento.aba_conferencia', href: '/lancamento?tab=conferencia' },
 ]
 const FINANCEIRO_SUB: SubNavItem[] = [
   { key: 'lancar', labelKey: 'lancamento.aba_lancar', href: '/financeiro?tab=lancar' },

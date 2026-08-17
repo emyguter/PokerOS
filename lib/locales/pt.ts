@@ -98,7 +98,7 @@ export const pt = {
   lancamento: {
     titulo: 'Lançamento', subtitulo: 'Bônus, promoções, caução e pagamentos por clube',
     aba_lancar: 'Lançar', aba_extrato: 'Extrato', aba_genia: 'Financeiro', aba_conciliacao: 'Conciliação', aba_pendencias: 'Pendências',
-    aba_pagamentos: 'Controle de Pagamentos', aba_cobranca: 'Cobrança', aba_extra: 'Extra',
+    aba_pagamentos: 'Controle de Pagamentos', aba_cobranca: 'Cobrança', aba_extra: 'Extra', aba_conferencia: 'Conferência do App',
     clube: 'Clube', tipo: 'Tipo', natureza: 'Natureza', valor: 'Valor', data: 'Data',
     descricao: 'Descrição (opcional)', descricao_placeholder: 'Ex: bônus de boas-vindas',
     credito: 'Crédito', debito: 'Débito', lancar: 'Lançar',
@@ -174,6 +174,12 @@ export const pt = {
   cobranca: {
     titulo: 'Cobrança',
     subtitulo: 'O que cobrar de cada clube e o que já foi pago, total por Acerto — mesmos dados do Controle de Pagamentos do Suporte, sem o detalhe de cada Envio',
+  },
+  conferencia: {
+    titulo: 'Conferência do App',
+    subtitulo: 'Confira Rake, Ganhos e Bilhetes direto no app da plataforma pros clubes de maior rake desse import — só um checklist visual, não altera nada.',
+    nenhum_clube: 'Nenhum clube calculado nesse import ainda.',
+    rake: 'Rake', ganhos: 'Ganhos', bilhetes: 'Bilhetes',
   },
   stoploss: {
     titulo: 'Controle de Stoploss', subtitulo: 'Limite de perda por clube — inicial, atual e ajustes do Suporte',

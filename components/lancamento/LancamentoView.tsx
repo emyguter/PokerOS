@@ -1,13 +1,14 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { PlusCircle, Receipt, AlertCircle, ClipboardList, Gift } from 'lucide-react'
+import { PlusCircle, Receipt, AlertCircle, ClipboardList, Gift, ListChecks } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { LancarForm } from './LancarForm'
 import { ExtratoView } from './ExtratoView'
 import { PendenciasSuporte } from './PendenciasSuporte'
 import { ControlePagamentosView } from './ControlePagamentosView'
+import { ConferenciaAppView } from './ConferenciaAppView'
 
-type Tab = 'lancar' | 'extrato' | 'pendencias' | 'pagamentos' | 'extra'
+type Tab = 'lancar' | 'extrato' | 'pendencias' | 'pagamentos' | 'extra' | 'conferencia'
 
 const ABAS: { key: Tab; labelKey: string; icon: typeof PlusCircle }[] = [
   { key: 'lancar', labelKey: 'lancamento.aba_lancar', icon: PlusCircle },
@@ -15,6 +16,7 @@ const ABAS: { key: Tab; labelKey: string; icon: typeof PlusCircle }[] = [
   { key: 'pendencias', labelKey: 'lancamento.aba_pendencias', icon: AlertCircle },
   { key: 'pagamentos', labelKey: 'lancamento.aba_pagamentos', icon: ClipboardList },
   { key: 'extra', labelKey: 'lancamento.aba_extra', icon: Gift },
+  { key: 'conferencia', labelKey: 'lancamento.aba_conferencia', icon: ListChecks },
 ]
 
 // Referência estável — ver mesmo comentário em app/extrato/page.tsx sobre
@@ -24,7 +26,7 @@ const TIPOS_EXTRA = ['bonus', 'promocao', 'outro']
 
 function tabDaUrl(): Tab | null {
   const t = new URLSearchParams(window.location.search).get('tab')
-  return t === 'lancar' || t === 'extrato' || t === 'pendencias' || t === 'pagamentos' || t === 'extra' ? t : null
+  return t === 'lancar' || t === 'extrato' || t === 'pendencias' || t === 'pagamentos' || t === 'extra' || t === 'conferencia' ? t : null
 }
 
 export function LancamentoView() {
@@ -61,6 +63,7 @@ export function LancamentoView() {
       {tab === 'pendencias' && <PendenciasSuporte />}
       {tab === 'pagamentos' && <ControlePagamentosView />}
       {tab === 'extra' && <ExtratoView apenasTipos={TIPOS_EXTRA} apenasConciliados mostrarLiberar />}
+      {tab === 'conferencia' && <ConferenciaAppView />}
     </div>
   )
 }

@@ -100,7 +100,7 @@ export const en: typeof pt = {
   lancamento: {
     titulo: 'Entries', subtitulo: 'Bonuses, promotions, deposits and payments per club',
     aba_lancar: 'New Entry', aba_extrato: 'Statement', aba_genia: 'Finance', aba_conciliacao: 'Reconciliation', aba_pendencias: 'Pending',
-    aba_pagamentos: 'Payment Control', aba_cobranca: 'Collections', aba_extra: 'Extra',
+    aba_pagamentos: 'Payment Control', aba_cobranca: 'Collections', aba_extra: 'Extra', aba_conferencia: 'App Verification',
     clube: 'Club', tipo: 'Type', natureza: 'Nature', valor: 'Amount', data: 'Date',
     descricao: 'Description (optional)', descricao_placeholder: 'E.g.: welcome bonus',
     credito: 'Credit', debito: 'Debit', lancar: 'Add Entry',
@@ -176,6 +176,12 @@ export const en: typeof pt = {
   cobranca: {
     titulo: 'Collections',
     subtitulo: "What to collect from each club and what's already been paid, totaled per Settlement — same data as Support's Payment Control, without the individual Payment breakdown",
+  },
+  conferencia: {
+    titulo: 'App Verification',
+    subtitulo: "Check Rake, Winnings and Tickets directly in the platform app for the highest-rake clubs in this import — just a visual checklist, doesn't change anything.",
+    nenhum_clube: 'No club calculated in this import yet.',
+    rake: 'Rake', ganhos: 'Winnings', bilhetes: 'Tickets',
   },
   stoploss: {
     titulo: 'Stoploss Control', subtitulo: 'Loss limit per club — initial, current and Support adjustments',
