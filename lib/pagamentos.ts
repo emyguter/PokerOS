@@ -87,15 +87,18 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
 // clube precisa pagar (diferença negativa) e azul o que precisa receber
 // (diferença positiva); no Financeiro é o oposto, porque o Financeiro pensa
 // do ponto de vista da liga — vermelho é o que a liga precisa pagar pro
-// clube (diferença positiva) e azul é o que a liga vai receber (diferença
-// negativa). Mesmo número, framing invertido por tela.
+// clube e azul é o que a liga vai receber. Mesmo número, framing invertido
+// por tela — mas o sinal de Diferença/Valor do Acerto usado aqui é negativo
+// quando a liga precisa pagar (mesma convenção do totais.valor_acerto em
+// AcertosView, onde negativo é sempre vermelho), então o "oposto" do
+// Suporte, com esse sinal, dá vermelho no negativo e azul no positivo.
 export type CorDiferenca = 'quitado' | 'azul' | 'vermelho'
 
 export function corDiferenca(diferenca: number, perspectiva: 'suporte' | 'financeiro'): CorDiferenca {
   if (Math.abs(diferenca) < 0.005) return 'quitado'
   const positivo = diferenca > 0
   if (perspectiva === 'suporte') return positivo ? 'azul' : 'vermelho'
-  return positivo ? 'vermelho' : 'azul'
+  return positivo ? 'azul' : 'vermelho'
 }
 
 export interface ImportResumo {

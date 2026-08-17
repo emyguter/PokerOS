@@ -239,9 +239,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
             </div>
             <span className="text-sm text-gray-300">Clube Elite</span>
           </label>
-          <p className="text-xs text-gray-500 mt-1.5">
-            Define o bônus de Indicação desse clube quando ele indica outro (etapa Regras): Elite = 10% do próprio rake (até R$ 1.000); não-Elite = 5% (até R$ 300).
-          </p>
         </div>
       )}
 

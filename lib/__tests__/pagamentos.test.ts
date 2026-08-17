@@ -61,7 +61,7 @@ describe('corDiferenca', () => {
   })
 
   it('Financeiro: mesma diferença dá cor invertida (perspectiva da liga, não do clube)', () => {
-    expect(corDiferenca(500, 'financeiro')).toBe('vermelho')
-    expect(corDiferenca(-500, 'financeiro')).toBe('azul')
+    expect(corDiferenca(500, 'financeiro')).toBe('azul')
+    expect(corDiferenca(-500, 'financeiro')).toBe('vermelho')
   })
 })
