@@ -8,6 +8,7 @@ import * as XLSX from "xlsx";
 import { ClubAcertoCard } from "./ClubAcertoCard";
 import { AgentesAcertosView } from "./AgentesAcertosView";
 import { ConfirmRecalcularModal } from "./ConfirmRecalcularModal";
+import { ConfirmCotacaoModal } from "./ConfirmCotacaoModal";
 
 interface Import {
   id: string;
@@ -98,6 +99,7 @@ export default function AcertosView() {
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [confirmRecalcular, setConfirmRecalcular] = useState(false);
+  const [filaCotacao, setFilaCotacao] = useState<{ id: string; name: string; cotacao: number | null }[]>([]);
   const [filterType, setFilterType] = useState("todos");
   const [search, setSearch] = useState("");
   const [ordenacaoImports, setOrdenacaoImports] = useState<"importacao" | "periodo" | "nome">("importacao");
@@ -208,19 +210,51 @@ export default function AcertosView() {
     setCalculating(false);
   }
 
+  // Clubes em dólar que entram nesse import — pergunta a Cotação (valor
+  // considerado na Identificação do Clube) antes de calcular, um por vez.
+  async function buscarClubesUsdDoImport(importId: string) {
+    const { data: rows } = await supabase.from("import_rows").select("club_external_id").eq("import_id", importId);
+    const extIds = [...new Set((rows ?? []).map((r) => r.club_external_id as string))];
+    if (extIds.length === 0) return [];
+    const { data: clubes } = await supabase.from("clubs").select("id, name, cotacao").in("external_id", extIds).eq("moeda", "USD");
+    return (clubes ?? []) as { id: string; name: string; cotacao: number | null }[];
+  }
+
   async function handleCalcular() {
     if (!selected) return;
     if (acertos.length > 0) {
       setConfirmRecalcular(true);
       return;
     }
+    const fila = await buscarClubesUsdDoImport(selected.id);
+    if (fila.length > 0) { setFilaCotacao(fila); return; }
     await executarCalculo(selected.id);
   }
 
   async function handleConfirmarRecalculo() {
     setConfirmRecalcular(false);
     if (!selected) return;
+    const fila = await buscarClubesUsdDoImport(selected.id);
+    if (fila.length > 0) { setFilaCotacao(fila); return; }
     await executarCalculo(selected.id);
+  }
+
+  async function avancarFilaCotacao() {
+    const resto = filaCotacao.slice(1);
+    setFilaCotacao(resto);
+    if (resto.length === 0 && selected) await executarCalculo(selected.id);
+  }
+
+  async function handleSalvarCotacao(valor: number) {
+    const atual = filaCotacao[0];
+    if (!atual) return;
+    setCalculating(true);
+    try {
+      await supabase.from("clubs").update({ cotacao: valor }).eq("id", atual.id);
+    } finally {
+      setCalculating(false);
+    }
+    await avancarFilaCotacao();
   }
 
   function handleExport() {
@@ -514,6 +548,15 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
           saving={calculating}
           onConfirm={handleConfirmarRecalculo}
           onCancel={() => setConfirmRecalcular(false)}
+        />
+      )}
+
+      {filaCotacao.length > 0 && (
+        <ConfirmCotacaoModal
+          clube={filaCotacao[0]}
+          saving={calculating}
+          onConfirmar={avancarFilaCotacao}
+          onSalvar={handleSalvarCotacao}
         />
       )}
     </div>
