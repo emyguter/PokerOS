@@ -1,12 +1,12 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { ArrowDownCircle, ArrowUpCircle, Wallet, Pencil, Trash2 } from 'lucide-react'
+import { ArrowDownCircle, ArrowUpCircle, Wallet, Pencil, Trash2, CheckCircle2, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { errMsg } from '@/lib/errors'
-import { desvincularConciliacao } from '@/lib/lancamentos'
+import { desvincularConciliacao, liberarLancamentos, TIPOS_LIBERAVEIS } from '@/lib/lancamentos'
 import { EditarLancamentoModal, type LancamentoEditavel } from './EditarLancamentoModal'
 
 export const TIPOS = [
@@ -52,6 +52,7 @@ interface Lancamento {
   data_lancamento: string
   created_at: string
   categoria_seguranca: string | null
+  liberado: boolean
   clubs: { name: string } | null
 }
 
@@ -86,12 +87,24 @@ interface Props {
   // entre os campos gerais e os de Segurança (Ação + Categoria) conforme o
   // tipo do lançamento sendo editado.
   permitirEdicao?: boolean
+  // Restringe o filtro/consulta de Tipo a um subconjunto fixo — usado pela
+  // aba Extra do Suporte (só Bônus/Promoção/Outro), que não deve nem mostrar
+  // Caução/Pagamento/Antecipação como opção.
+  apenasTipos?: string[]
+  // Só lançamentos já conciliados com a Genia — a aba Extra só libera pro
+  // Acerto o que já bateu com o Financeiro.
+  apenasConciliados?: boolean
+  // Liga o fluxo de "Liberar para Acerto": coluna de status, checkbox por
+  // linha e os botões de liberar tudo/selecionados — usado na Segurança e na
+  // aba Extra do Suporte. O motor de cálculo já soma esses lançamentos de
+  // qualquer forma; liberado só controla se o clube já pode ver.
+  mostrarLiberar?: boolean
 }
 
-export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCategoriaSeguranca = false, permitirEdicao = !clubeIdFixo }: Props) {
+export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCategoriaSeguranca = false, permitirEdicao = !clubeIdFixo, apenasTipos, apenasConciliados = false, mostrarLiberar = false }: Props) {
   const { t } = useI18n()
   const [clubes, setClubes] = useState<ClubeOpcao[]>([])
-  const [clubeId, setClubeId] = useState(clubeIdFixo ?? '')
+  const [clubeId, setClubeId] = useState(clubeIdFixo ?? (mostrarLiberar ? TODOS_CLUBES : ''))
   const [tipoFiltro, setTipoFiltro] = useState('')
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
@@ -102,6 +115,9 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
   const [deletando, setDeletando] = useState(false)
   const [erroExclusao, setErroExclusao] = useState<string | null>(null)
   const [precisaForcar, setPrecisaForcar] = useState(false)
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
+  const [liberando, setLiberando] = useState(false)
+  const [erroLiberar, setErroLiberar] = useState<string | null>(null)
 
   useEffect(() => {
     if (clubeIdFixo) return
@@ -113,20 +129,46 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
     setLoading(true)
     let query = supabase
       .from('lancamentos')
-      .select('id, tipo, natureza, valor, descricao, data_lancamento, created_at, categoria_seguranca, clubs(name)')
+      .select('id, tipo, natureza, valor, descricao, data_lancamento, created_at, categoria_seguranca, liberado, clubs(name)')
       .in('origem', origens)
       .order('data_lancamento', { ascending: true })
       .order('created_at', { ascending: true })
     if (clubeId !== TODOS_CLUBES) query = query.eq('clube_id', clubeId)
+    if (apenasTipos) query = query.in('tipo', apenasTipos)
+    if (apenasConciliados) query = query.not('conciliado_com', 'is', null)
     if (tipoFiltro) query = query.eq(mostrarCategoriaSeguranca ? 'categoria_seguranca' : 'tipo', tipoFiltro)
     if (dataInicio) query = query.gte('data_lancamento', dataInicio)
     if (dataFim) query = query.lte('data_lancamento', dataFim)
     const { data } = await query
     setLancamentos((data ?? []) as unknown as Lancamento[])
+    setSelecionados(new Set())
     setLoading(false)
-  }, [clubeId, origens, tipoFiltro, dataInicio, dataFim, mostrarCategoriaSeguranca])
+  }, [clubeId, origens, tipoFiltro, dataInicio, dataFim, mostrarCategoriaSeguranca, apenasTipos, apenasConciliados])
 
   useEffect(() => { load() }, [load])
+
+  async function handleLiberar(ids: string[]) {
+    if (ids.length === 0) return
+    setLiberando(true); setErroLiberar(null)
+    try {
+      await liberarLancamentos(ids)
+      setSelecionados(new Set())
+      await load()
+    } catch (err) {
+      setErroLiberar(errMsg(err))
+    } finally {
+      setLiberando(false)
+    }
+  }
+
+  function toggleSelecionado(id: string) {
+    setSelecionados((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   async function handleExcluir() {
     if (!excluindo) return
@@ -152,21 +194,34 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
   }
 
   const linhas = useMemo(() => {
+    // No extrato que o próprio clube vê (clubeIdFixo), o que ainda não foi
+    // liberado (Bloqueio/Reembolso da Segurança, Bônus/Promoção/Outro) fica
+    // de fora — nem aparece na lista nem entra no saldo mostrado aqui. O
+    // motor de cálculo já soma tudo independente disso; é só a visão do
+    // clube que espera a liberação.
+    const visiveis = clubeIdFixo
+      ? lancamentos.filter((l) => !TIPOS_LIBERAVEIS.includes(l.tipo as (typeof TIPOS_LIBERAVEIS)[number]) || l.liberado)
+      : lancamentos
     let saldo = 0
-    return lancamentos.map((l) => {
+    return visiveis.map((l) => {
       saldo += l.natureza === 'credito' ? l.valor : -l.valor
       return { ...l, saldo }
     })
-  }, [lancamentos])
+  }, [lancamentos, clubeIdFixo])
 
   // Segurança só entra na lista de Tipo quando essa origem de fato está
   // sendo consultada aqui (extrato consolidado do clube) — no extrato do
   // Suporte (só origem 'suporte') não faz sentido oferecer um filtro que
   // nunca vai bater com nenhuma linha.
-  const tiposFiltro = origens.includes('seguranca') ? TIPOS : TIPOS.filter((tp) => !ehTipoSeguranca(tp.value))
+  const tiposFiltro = apenasTipos
+    ? TIPOS.filter((tp) => apenasTipos.includes(tp.value))
+    : origens.includes('seguranca') ? TIPOS : TIPOS.filter((tp) => !ehTipoSeguranca(tp.value))
 
-  const totalCredito = lancamentos.filter((l) => l.natureza === 'credito').reduce((s, l) => s + l.valor, 0)
-  const totalDebito = lancamentos.filter((l) => l.natureza === 'debito').reduce((s, l) => s + l.valor, 0)
+  const pendentes = mostrarLiberar ? linhas.filter((l) => !l.liberado) : []
+  const selecionadosPendentes = [...selecionados].filter((id) => pendentes.some((l) => l.id === id))
+
+  const totalCredito = linhas.filter((l) => l.natureza === 'credito').reduce((s, l) => s + l.valor, 0)
+  const totalDebito = linhas.filter((l) => l.natureza === 'debito').reduce((s, l) => s + l.valor, 0)
   const saldoFinal = totalCredito - totalDebito
 
   return (
@@ -259,6 +314,29 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
         </>
       )}
 
+      {mostrarLiberar && clubeId && pendentes.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold/30 bg-gold/5 px-4 py-3">
+          <p className="text-sm text-gray-300">{t('extrato.liberar_pendentes', { n: pendentes.length })}</p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleLiberar(selecionadosPendentes)}
+              disabled={liberando || selecionadosPendentes.length === 0}
+              className="flex items-center gap-2 px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-300 hover:text-white hover:border-white/20 disabled:opacity-40 transition-colors"
+            >
+              {t('extrato.liberar_selecionados', { n: selecionadosPendentes.length })}
+            </button>
+            <button
+              onClick={() => handleLiberar(pendentes.map((l) => l.id))}
+              disabled={liberando}
+              className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors"
+            >
+              {liberando && <Loader2 size={14} className="animate-spin" />}{t('extrato.liberar_todos')}
+            </button>
+          </div>
+        </div>
+      )}
+      {erroLiberar && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroLiberar}</div>}
+
       <div className="rounded-xl border border-white/10 overflow-hidden">
         {!clubeId ? (
           <div className="p-8 text-center text-gray-500 text-sm">{t('extrato.selecione_clube')}</div>
@@ -271,6 +349,7 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/10 bg-surface2">
+                  {mostrarLiberar && <th className="px-4 py-3 w-8"></th>}
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_data')}</th>
                   {clubeId === TODOS_CLUBES && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('lancamento.clube')}</th>}
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_tipo')}</th>
@@ -278,12 +357,20 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_descricao')}</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_valor')}</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_saldo')}</th>
+                  {mostrarLiberar && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_liberado')}</th>}
                   {permitirEdicao && <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('common.acoes')}</th>}
                 </tr>
               </thead>
               <tbody>
                 {linhas.map((l) => (
                   <tr key={l.id} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
+                    {mostrarLiberar && (
+                      <td className="px-4 py-3">
+                        {!l.liberado && (
+                          <input type="checkbox" checked={selecionados.has(l.id)} onChange={() => toggleSelecionado(l.id)} className="accent-gold" />
+                        )}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-gray-400">{new Date(l.data_lancamento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
                     {clubeId === TODOS_CLUBES && <td className="px-4 py-3 text-gray-300">{l.clubs?.name ?? '—'}</td>}
                     <td className="px-4 py-3 text-gray-300">{t(TIPOS.find((tp) => tp.value === l.tipo)?.labelKey ?? l.tipo)}</td>
@@ -295,6 +382,15 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
                       {l.natureza === 'credito' ? '+' : '−'}{formatMoeda(l.valor)}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-300">{formatMoeda(l.saldo)}</td>
+                    {mostrarLiberar && (
+                      <td className="px-4 py-3">
+                        {l.liberado ? (
+                          <span className="flex items-center gap-1.5 text-xs text-success"><CheckCircle2 size={13} />{t('extrato.liberado')}</span>
+                        ) : (
+                          <span className="text-xs text-gray-500">{t('extrato.pendente')}</span>
+                        )}
+                      </td>
+                    )}
                     {permitirEdicao && (
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">

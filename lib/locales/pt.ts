@@ -98,7 +98,7 @@ export const pt = {
   lancamento: {
     titulo: 'Lançamento', subtitulo: 'Bônus, promoções, caução e pagamentos por clube',
     aba_lancar: 'Lançar', aba_extrato: 'Extrato', aba_genia: 'Financeiro', aba_conciliacao: 'Conciliação', aba_pendencias: 'Pendências',
-    aba_pagamentos: 'Controle de Pagamentos', aba_cobranca: 'Cobrança',
+    aba_pagamentos: 'Controle de Pagamentos', aba_cobranca: 'Cobrança', aba_extra: 'Extra',
     clube: 'Clube', tipo: 'Tipo', natureza: 'Natureza', valor: 'Valor', data: 'Data',
     descricao: 'Descrição (opcional)', descricao_placeholder: 'Ex: bônus de boas-vindas',
     credito: 'Crédito', debito: 'Débito', lancar: 'Lançar',
@@ -132,6 +132,10 @@ export const pt = {
     sem_clube_desc: 'Peça pra um administrador configurar o acesso em Permissões.',
     saldo_nota: 'O saldo aqui conta só o que o Suporte lançou — o que o Financeiro registra é conferência interna (ver Conciliação), não soma de novo pra não duplicar.',
     saldo_nota_com_seguranca: 'O saldo aqui conta o que o Suporte lançou e os lançamentos de Segurança (Bloqueio/Reembolso) — o que o Financeiro registra é conferência interna (ver Conciliação), não soma de novo pra não duplicar.',
+    col_liberado: 'Liberado', liberado: 'Liberado', pendente: 'Pendente',
+    liberar_pendentes: '{n} pendente(s) de liberação pro clube ver no Acerto.',
+    liberar_selecionados: 'Liberar selecionados ({n})',
+    liberar_todos: 'Liberar todos',
   },
   seguranca: {
     titulo: 'Segurança', subtitulo: 'Bloqueios e reembolsos por incidente de segurança — entram no Acerto do clube',

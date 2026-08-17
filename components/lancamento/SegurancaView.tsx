@@ -50,7 +50,7 @@ export function SegurancaView() {
       </div>
 
       {tab === 'lancar' && <LancarSegurancaForm />}
-      {tab === 'extrato' && <ExtratoView origens={ORIGENS_SEGURANCA} mostrarCategoriaSeguranca />}
+      {tab === 'extrato' && <ExtratoView origens={ORIGENS_SEGURANCA} mostrarCategoriaSeguranca mostrarLiberar />}
     </div>
   )
 }

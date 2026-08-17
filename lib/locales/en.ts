@@ -100,7 +100,7 @@ export const en: typeof pt = {
   lancamento: {
     titulo: 'Entries', subtitulo: 'Bonuses, promotions, deposits and payments per club',
     aba_lancar: 'New Entry', aba_extrato: 'Statement', aba_genia: 'Finance', aba_conciliacao: 'Reconciliation', aba_pendencias: 'Pending',
-    aba_pagamentos: 'Payment Control', aba_cobranca: 'Collections',
+    aba_pagamentos: 'Payment Control', aba_cobranca: 'Collections', aba_extra: 'Extra',
     clube: 'Club', tipo: 'Type', natureza: 'Nature', valor: 'Amount', data: 'Date',
     descricao: 'Description (optional)', descricao_placeholder: 'E.g.: welcome bonus',
     credito: 'Credit', debito: 'Debit', lancar: 'Add Entry',
@@ -134,6 +134,10 @@ export const en: typeof pt = {
     sem_clube_desc: 'Ask an administrator to configure access in Permissions.',
     saldo_nota: "This balance only counts what Support logged — what Finance records is internal double-checking (see Reconciliation), not counted again to avoid duplicating it.",
     saldo_nota_com_seguranca: "This balance counts what Support logged and Security entries (Block/Refund) — what Finance records is internal double-checking (see Reconciliation), not counted again to avoid duplicating it.",
+    col_liberado: 'Released', liberado: 'Released', pendente: 'Pending',
+    liberar_pendentes: '{n} pending release for the club to see in the Settlement.',
+    liberar_selecionados: 'Release selected ({n})',
+    liberar_todos: 'Release all',
   },
   seguranca: {
     titulo: 'Security', subtitulo: "Blocks and refunds for security incidents — these count towards the club's Settlement",
