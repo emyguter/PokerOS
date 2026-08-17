@@ -22,6 +22,7 @@ export const en: typeof pt = {
     seguranca: 'Security',
     stoploss: 'Stoploss Control',
     vip: 'VIP',
+    dividas: 'Debts and Agreements',
     relatorios: 'Reports',
     permissoes: 'Permissions',
     regras: 'Rules',

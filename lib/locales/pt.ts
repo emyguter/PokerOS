@@ -20,6 +20,7 @@ export const pt = {
     seguranca: 'Segurança',
     stoploss: 'Controle de Stoploss',
     vip: 'VIP',
+    dividas: 'Dívidas e Acordos',
     relatorios: 'Relatórios',
     permissoes: 'Permissões',
     regras: 'Regras',
