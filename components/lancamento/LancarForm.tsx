@@ -7,7 +7,12 @@ import { errMsg } from '@/lib/errors'
 import { desvincularConciliacao } from '@/lib/lancamentos'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
-import { TIPOS } from './ExtratoView'
+import { TIPOS, ehTipoSeguranca } from './ExtratoView'
+
+// Esse form só cria lançamento com origem 'suporte'/'genia' — Bloqueio/
+// Reembolso da Segurança (origem 'seguranca') não podem aparecer aqui, senão
+// dá pra criar um lançamento com tipo de Segurança na origem errada.
+const TIPOS_FORM = TIPOS.filter((tp) => !ehTipoSeguranca(tp.value))
 import { EditarLancamentoModal } from './EditarLancamentoModal'
 
 interface ClubeOpcao { id: string; name: string }
@@ -49,7 +54,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
   const { t } = useI18n()
   const [clubes, setClubes] = useState<ClubeOpcao[]>([])
   const [clubeId, setClubeId] = useState('')
-  const [tipo, setTipo] = useState<string>(TIPOS[0].value)
+  const [tipo, setTipo] = useState<string>(TIPOS_FORM[0].value)
   const [natureza, setNatureza] = useState<'credito' | 'debito'>('credito')
   const [valor, setValor] = useState('')
   const [descricao, setDescricao] = useState('')
@@ -210,7 +215,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.tipo')}</label>
             <select value={tipo} onChange={(e) => { setTipo(e.target.value); setConfirmandoDuplicata(false) }} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
-              {TIPOS.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
+              {TIPOS_FORM.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
             </select>
           </div>
         </div>

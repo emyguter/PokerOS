@@ -20,6 +20,15 @@ export const TIPOS = [
   { value: 'seguranca_reembolso', labelKey: 'lancamento.tipos.seguranca_reembolso' },
 ] as const
 
+// Bloqueio/Reembolso da Segurança só podem aparecer onde a origem 'seguranca'
+// de fato entra em jogo (a própria tela de Segurança e o extrato consolidado
+// do clube) — em qualquer lugar do Suporte/Financeiro isso é ruído (e no caso
+// do formulário de lançar, deixaria criar um lançamento incoerente com a
+// origem 'suporte'/'genia').
+export function ehTipoSeguranca(tipo: string) {
+  return tipo === 'seguranca_bloqueio' || tipo === 'seguranca_reembolso'
+}
+
 // Categoria específica do incidente de segurança (Bot, Collusion...) — só
 // referência interna, não aparece no extrato do clube (que só vê o tipo:
 // "Bloqueio da Segurança"/"Reembolso da Segurança"). Lista fixa por agora;
@@ -150,6 +159,12 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
     })
   }, [lancamentos])
 
+  // Segurança só entra na lista de Tipo quando essa origem de fato está
+  // sendo consultada aqui (extrato consolidado do clube) — no extrato do
+  // Suporte (só origem 'suporte') não faz sentido oferecer um filtro que
+  // nunca vai bater com nenhuma linha.
+  const tiposFiltro = origens.includes('seguranca') ? TIPOS : TIPOS.filter((tp) => !ehTipoSeguranca(tp.value))
+
   const totalCredito = lancamentos.filter((l) => l.natureza === 'credito').reduce((s, l) => s + l.valor, 0)
   const totalDebito = lancamentos.filter((l) => l.natureza === 'debito').reduce((s, l) => s + l.valor, 0)
   const saldoFinal = totalCredito - totalDebito
@@ -173,7 +188,7 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
               <option value="">{t('extrato.todos')}</option>
               {mostrarCategoriaSeguranca
                 ? CATEGORIAS_SEGURANCA.map((c) => <option key={c.value} value={c.value}>{t(c.labelKey)}</option>)
-                : TIPOS.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
+                : tiposFiltro.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -197,7 +212,7 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
               <option value="">{t('extrato.todos')}</option>
               {mostrarCategoriaSeguranca
                 ? CATEGORIAS_SEGURANCA.map((c) => <option key={c.value} value={c.value}>{t(c.labelKey)}</option>)
-                : TIPOS.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
+                : tiposFiltro.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-2">
