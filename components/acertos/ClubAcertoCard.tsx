@@ -210,7 +210,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           <Linha label={`Taxa Operacional (${fmtPct(club?.taxa_op_pct ?? null)}%)`} value={-acerto.fee_operacional_valor} />
           <Linha label="Bilhetes" value={acerto.bilhetes} />
           <Linha label="Pendências / Antecipação" value={acerto.pendencias_antecipacao} />
-          <Linha label="Security" value={security} />
+          <Linha label="Segurança" value={security} />
           <Linha label="Rebate" value={rebateDisplay} />
           <Linha label="Taxa A-A HOME GAME" value={taxaAaHomeGame} editable onCommit={(v) => { setTaxaAaHomeGame(v); salvarExtras('taxa_aa_home_game', v) }} />
 
