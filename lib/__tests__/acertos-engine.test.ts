@@ -19,6 +19,7 @@ function club(overrides: Partial<ClubSettings> = {}): ClubSettings {
     fee_mtt_pct: 10,
     fee_cash_pct: 5,
     taxa_op_pct: 2,
+    taxa_op_ativo: true,
     rebate_pct: 0,
     crypto_rebate_pct: 0,
     rakeback_pct: 0,
@@ -157,6 +158,14 @@ describe('calcularAcerto — taxa_dinamica (todas as taxas fixas)', () => {
     expect(resultado.fee_mtt_valor).toBe(40) // 400 * 10%
     expect(resultado.fee_operacional_valor).toBe(20) // 1000 (rake total) * 2%
     expect(resultado.fee_spinup_valor).toBe(3) // 100 * 3%
+  })
+
+  it('Taxa Operacional desligada (taxa_op_ativo=false) não cobra nada, mesmo com % preenchido', () => {
+    const r = row({ rake_total: 1000, rake_mtt: 400, rake_cash: 500, rake_spinup: 100 })
+    const c = club({ fee_mtt_pct: 10, taxa_op_pct: 2, taxa_op_ativo: false, spinup_pct: 3 })
+    const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
+    expect(resultado.fee_operacional_valor).toBe(0)
+    expect(resultado.fee_mtt_valor).toBe(40) // outras taxas continuam normais
   })
 
   it('Valor do Acerto = Rake Total + Ganhos do jogador − Taxa cobrada', () => {

@@ -109,6 +109,7 @@ export type Club = {
   fee_mtt_pct: number | null
   fee_cash_pct: number | null
   taxa_op_pct: number | null
+  taxa_op_ativo: boolean
   spinup_pct: number | null
   rebate_pct: number | null
   crypto_rebate_pct: number | null
@@ -145,6 +146,7 @@ export type ClubForm = {
   fee_mtt_pct: number | null
   fee_cash_pct: number | null
   taxa_op_pct: number | null
+  taxa_op_ativo: boolean
   spinup_pct: number | null
   rebate_pct: number | null
   crypto_rebate_pct: number | null

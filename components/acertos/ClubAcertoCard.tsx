@@ -37,6 +37,7 @@ interface Props {
 interface ClubSettings {
   fee_mtt_pct: number | null
   taxa_op_pct: number | null
+  taxa_op_ativo: boolean
   spinup_pct: number | null
   security: number | null
   wtr4_semanas_manual: number | null
@@ -98,7 +99,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
 
   useEffect(() => {
     if (acerto.club_id) {
-      supabase.from('clubs').select('fee_mtt_pct, taxa_op_pct, spinup_pct, security, wtr4_semanas_manual').eq('id', acerto.club_id).maybeSingle()
+      supabase.from('clubs').select('fee_mtt_pct, taxa_op_pct, taxa_op_ativo, spinup_pct, security, wtr4_semanas_manual').eq('id', acerto.club_id).maybeSingle()
         .then(({ data }) => setClub(data))
     }
   }, [acerto.club_id])
@@ -207,7 +208,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           <Linha label={`Taxa Atual - MTT (${fmtPct(club?.fee_mtt_pct ?? null)}%)`} value={-acerto.fee_mtt_valor} />
           <Linha label={`Taxa Dinâmica - Cash (${fmtPct(acerto.taxa_cash_pct_aplicada)}%)`} value={-acerto.fee_cash_valor} />
           <Linha label={`SpinUp Lucro (${fmtPct(club?.spinup_pct ?? null)}%)`} value={-acerto.fee_spinup_valor} />
-          <Linha label={`Taxa Operacional (${fmtPct(club?.taxa_op_pct ?? null)}%)`} value={-acerto.fee_operacional_valor} />
+          <Linha label={club?.taxa_op_ativo === false ? 'Taxa Operacional (desativada)' : `Taxa Operacional (${fmtPct(club?.taxa_op_pct ?? null)}%)`} value={-acerto.fee_operacional_valor} />
           <Linha label="Bilhetes" value={acerto.bilhetes} />
           <Linha label="Pendências / Antecipação" value={acerto.pendencias_antecipacao} />
           <Linha label="Segurança" value={security} />

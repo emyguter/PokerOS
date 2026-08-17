@@ -95,6 +95,15 @@ preenchido) dentro do período do acerto — por isso Antecipação saiu da list
 período" do card (contar nos dois lugares dobrava o valor). Os dois são recalculados do zero a cada
 "Recalcular"; só a Taxa AA Home Game continua manual e preservada.
 
+**Taxa Operacional vira on/off (`clubs.taxa_op_ativo`):** antes, sempre que `taxa_op_pct` tinha um
+valor o motor cobrava — não dava pra desligar sem apagar o número. Agora tem o mesmo toggle que o
+Rebate já tinha (`ClubModal.tsx`, etapa Taxas): desligado, o motor ignora o % (`fee_operacional_valor`
+fica 0) mesmo que o campo continue preenchido — religar depois não perde o número digitado. Clubes já
+cadastrados nascem com `taxa_op_ativo = true` (mantém o comportamento de sempre cobrar que já tinham);
+clube novo pré-cadastrado automático no import nasce com `false` (mesma regra das outras taxas em
+branco). O card de Acerto (`ClubAcertoCard.tsx`) mostra "Taxa Operacional (desativada)" quando
+estiver off, em vez do "(0%)" enganoso.
+
 **Sinal na tela de Acertos (`components/acertos/AcertosView.tsx`):** "Taxa" (fee cobrado do clube
 pelo serviço de liga) sempre aparece negativo. O antigo "Result. Jogador" virou **"Ganhos"**. Pro
 tipo de cobrança "taxa" (dinâmica ou fixa/variável), o **Valor do Acerto = Rake Total + Ganhos −

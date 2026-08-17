@@ -9,6 +9,7 @@ export interface ClubSettings {
   fee_mtt_pct: number;
   fee_cash_pct: number | null;
   taxa_op_pct: number;
+  taxa_op_ativo: boolean;
   rebate_pct: number;
   crypto_rebate_pct: number;
   rakeback_pct: number;
@@ -178,7 +179,7 @@ export function calcularAcerto(
       if (condicoesPorCampo.taxa_op.length > 0) {
         const pct = avaliarCondicoes(condicoesPorCampo.taxa_op, row, wtr4Semanas);
         fee_operacional_valor = rake_total * ((pct ?? 0) / 100);
-      } else {
+      } else if (club.taxa_op_ativo) {
         fee_operacional_valor = rake_total * (club.taxa_op_pct / 100);
       }
 
@@ -345,7 +346,7 @@ export async function processarAcertos(importId: string): Promise<{
 
     const { data: clubs, error: clubsError } = await supabase
       .from("clubs")
-      .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual");
+      .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual");
 
     if (clubsError) throw new Error(clubsError.message);
 
@@ -417,10 +418,10 @@ export async function processarAcertos(importId: string): Promise<{
                   external_id: row.club_external_id,
                   league_id: importInfo?.league_id ?? null,
                   plataforma_id: importInfo?.plataforma_id ?? null,
-                  fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: null, spinup_pct: null,
+                  fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: null, taxa_op_ativo: false, spinup_pct: null,
                   caucao_atual: null, stoploss_inicial: null,
                 })
-                .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual")
+                .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual")
                 .single()
             ).data
           : null;

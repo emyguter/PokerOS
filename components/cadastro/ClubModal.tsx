@@ -23,7 +23,7 @@ interface Props {
 
 const EMPTY: ClubForm = {
   league_id: null, name: '', external_id: null, settlement_type: 'taxa_dinamica', moeda: 'BRL',
-  taxa_tipo: 'fixa', fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: 9, taxa_op_tipo: 'fixa',
+  taxa_tipo: 'fixa', fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: 9, taxa_op_ativo: true, taxa_op_tipo: 'fixa',
   spinup_pct: null, rebate_pct: null, crypto_rebate_pct: null, rakeback_pct: null, security: null,
   taxa_variavel_nome: null, taxa_variavel_indicador: null, taxa_variavel_regra: null,
   caucao_atual: null, stoploss_inicial: null, ratio_caucao_stoploss: null, projeto: null,
@@ -47,7 +47,7 @@ function toForm(c: Club): ClubForm {
   return {
     league_id: c.league_id, name: c.name, external_id: c.external_id, settlement_type: c.settlement_type,
     moeda: c.moeda, taxa_tipo: c.taxa_tipo, fee_mtt_pct: c.fee_mtt_pct, fee_cash_pct: c.fee_cash_pct,
-    taxa_op_pct: c.taxa_op_pct, taxa_op_tipo: c.taxa_op_tipo, spinup_pct: c.spinup_pct, rebate_pct: c.rebate_pct,
+    taxa_op_pct: c.taxa_op_pct, taxa_op_ativo: c.taxa_op_ativo ?? true, taxa_op_tipo: c.taxa_op_tipo, spinup_pct: c.spinup_pct, rebate_pct: c.rebate_pct,
     crypto_rebate_pct: c.crypto_rebate_pct, rakeback_pct: c.rakeback_pct, security: c.security,
     taxa_variavel_nome: c.taxa_variavel_nome, taxa_variavel_indicador: c.taxa_variavel_indicador,
     taxa_variavel_regra: c.taxa_variavel_regra, caucao_atual: c.caucao_atual, stoploss_inicial: c.stoploss_inicial,
@@ -265,12 +265,29 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
           {isRkb && <Fld label="Rakeback (%)"><NumInput value={form.rakeback_pct} onChange={v => set('rakeback_pct', v)} placeholder="Ex: 72" /></Fld>}
 
           <div className="grid grid-cols-2 gap-4">
-            <Fld label="Taxa Operacional"><NumInput value={form.taxa_op_pct} onChange={v => set('taxa_op_pct', v)} placeholder="Ex: 9" /></Fld>
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 cursor-pointer w-fit">
+                <div
+                  onClick={() => set('taxa_op_ativo', !form.taxa_op_ativo)}
+                  className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${form.taxa_op_ativo ? 'bg-gold' : 'bg-white/10'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${form.taxa_op_ativo ? 'translate-x-5' : 'translate-x-1'}`} />
+                </div>
+                <span className="text-sm text-gray-300">Taxa Operacional</span>
+              </label>
+              {/* Ao contrário do toggle de Rebate, desligar aqui não apaga o %
+                  guardado — com taxa_op_ativo=false o motor já ignora esse
+                  valor (fee_operacional_valor fica 0), então religar depois
+                  volta com o mesmo número, sem precisar digitar de novo. */}
+              {form.taxa_op_ativo && (
+                <NumInput value={form.taxa_op_pct} onChange={v => set('taxa_op_pct', v)} placeholder="Ex: 9" />
+              )}
+            </div>
             {isDin && <Fld label="SpinUp (%)"><NumInput value={form.spinup_pct} onChange={v => set('spinup_pct', v)} placeholder="Ex: 3" /></Fld>}
           </div>
           {!isRkb && isDin && (
             <p className="text-xs text-gray-500">
-              Fee MTT, Fee Cash, Taxa Operacional e SpinUp acima só valem pro campo que <strong>não</strong> tiver regra variável vinculada — se tiver, a faixa SE/ENTÃO da regra manda pra aquele campo específico. Confira na etapa "Regras".
+              Fee MTT, Fee Cash, Taxa Operacional (quando ligada) e SpinUp acima só valem pro campo que <strong>não</strong> tiver regra variável vinculada — se tiver, a faixa SE/ENTÃO da regra manda pra aquele campo específico. Confira na etapa "Regras".
             </p>
           )}
 
