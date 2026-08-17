@@ -515,6 +515,9 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   campo digitado à mão de antes da Indicação virar automática, e representava a mesma coisa
   (confirmado pelo Cássio). A coluna no banco (`acertos.taxa_aa_home_game`) continua existindo com o
   histórico antigo, só não é mais lida nem exibida em lugar nenhum
+- [x] Fix: card de Acerto mostrava a % da Taxa MTT/Cash duas vezes — uma linha só com a %, e logo
+  embaixo a linha com valor já repetindo a mesma % no rótulo. Removida a linha solta, ficou só a
+  linha com valor (que já traz a % junto), igual o Cássio pediu
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

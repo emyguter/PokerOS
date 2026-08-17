@@ -208,15 +208,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           </div>
         )
       case 'taxa_mtt':
-        return (
-          <div key={campo}>
-            <div className="flex items-center justify-between py-1.5 px-3 text-sm">
-              <span className="text-gray-400">Taxa Atual - MTT%</span>
-              <span className="text-white font-medium">{fmtPct(club?.fee_mtt_pct ?? null)}%</span>
-            </div>
-            <Linha label={`Taxa Atual - MTT (${fmtPct(club?.fee_mtt_pct ?? null)}%)`} value={-acerto.fee_mtt_valor} />
-          </div>
-        )
+        return <Linha key={campo} label={`Taxa Atual - MTT (${fmtPct(club?.fee_mtt_pct ?? null)}%)`} value={-acerto.fee_mtt_valor} />
       case 'wtr4':
         return (
           <div key={campo} className="flex items-center justify-between py-1.5 px-3 text-sm">
@@ -225,15 +217,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           </div>
         )
       case 'taxa_cash':
-        return (
-          <div key={campo}>
-            <div className="flex items-center justify-between py-1.5 px-3 text-sm">
-              <span className="text-gray-400">Taxa Dinâmica - Cash%</span>
-              <span className="text-white font-medium">{fmtPct(acerto.taxa_cash_pct_aplicada)}%</span>
-            </div>
-            <Linha label={`Taxa Dinâmica - Cash (${fmtPct(acerto.taxa_cash_pct_aplicada)}%)`} value={-acerto.fee_cash_valor} />
-          </div>
-        )
+        return <Linha key={campo} label={`Taxa Dinâmica - Cash (${fmtPct(acerto.taxa_cash_pct_aplicada)}%)`} value={-acerto.fee_cash_valor} />
       case 'rake_total':
         return <Linha key={campo} label="Rake Total" value={acerto.rake_total} />
       case 'rake_mtt':
