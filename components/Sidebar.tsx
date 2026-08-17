@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { useI18n } from '@/lib/i18n'
 
-const CADASTRO_CHAVES = ['cadastro.mega_ligas', 'cadastro.superligas', 'cadastro.ligas', 'cadastro.clubes', 'cadastro.super_agentes', 'cadastro.agentes', 'cadastro.jogadores', 'cadastro.moedas']
+const CADASTRO_CHAVES = ['cadastro.mega_ligas', 'cadastro.superligas', 'cadastro.ligas', 'cadastro.clubes', 'cadastro.super_agentes', 'cadastro.agentes', 'cadastro.jogadores']
 const COLLAPSED_KEY = 'pokeros_sidebar_collapsed'
 
 interface SubNavItem { key: string; labelKey: string; href: string; chave?: string }
@@ -22,7 +22,6 @@ const CADASTRO_SUB: SubNavItem[] = [
   { key: 'super_agentes', labelKey: 'cadastro_menu.super_agentes', href: '/admin/cadastro/super-agentes', chave: 'cadastro.super_agentes' },
   { key: 'agentes', labelKey: 'cadastro_menu.agentes', href: '/admin/cadastro/agentes', chave: 'cadastro.agentes' },
   { key: 'jogadores', labelKey: 'cadastro_menu.jogadores', href: '/admin/cadastro/jogadores', chave: 'cadastro.jogadores' },
-  { key: 'moedas', labelKey: 'cadastro_menu.moedas', href: '/admin/cadastro/moedas', chave: 'cadastro.moedas' },
 ]
 
 // Mesmas abas de dentro de Lançamento/Financeiro/Segurança (LancamentoView,

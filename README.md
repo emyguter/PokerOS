@@ -438,6 +438,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   antes de deixar enviar mesmo assim. Extrato mensal com cada linha colorida conforme o total já
   usado pelo clube naquele tipo/mês: vermelho (atingiu o limite), amarelo (80%+ do limite), branco
   (tranquilo)
+- [x] Cotação (câmbio) consolidada num único lugar: `clubs.cotacao`, campo na Identificação do Clube.
+  Removidos os 3 mecanismos antigos que existiam espalhados e nunca chegavam a ser aplicados em
+  nenhum cálculo (`lib/acertos-engine.ts` nunca lia nenhum deles) — Regra tipo "Cotação do dia",
+  tela Cadastro de Moedas (`moedas_cotacao`) e o toggle "Conversão do Dia" da Liga com o popup de
+  confirmação diária no cálculo de Acertos. Regras agora só tem um tipo (Faixa SE/ENTÃO)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

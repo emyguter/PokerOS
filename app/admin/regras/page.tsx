@@ -22,9 +22,6 @@ const LABEL_CAMPO: Record<CampoClube, string> = {
 // Frase em linguagem simples do que a regra faz — em vez de só "3 faixas",
 // pra quem não é técnico entender sem abrir o formulário.
 function resumoRegra(r: Regra, indicadores: Map<string, IndicadorInfo>): string {
-  if (r.tipo === 'cotacao') {
-    return `1 ${r.moeda_origem ?? '?'} = ${r.valor_cotacao ?? '?'} ${r.moeda_destino ?? '?'}`
-  }
   if (r.condicoes.length === 0) return 'Sem condições ainda'
   return r.condicoes.map(c => {
     if (c.is_fallback) return `SENÃO → ${c.resultado_pct ?? '?'}%`
@@ -123,7 +120,7 @@ export default function RegrasPage() {
             key: 'tipo',
             label: 'O que faz',
             render: (_: string, row: Regra) => {
-              const campo = row.tipo === 'faixa' ? campoFromCondicoes(row.condicoes, indicadorNomePorId) : null
+              const campo = campoFromCondicoes(row.condicoes, indicadorNomePorId)
               return (
                 <span className="text-xs text-gray-300">
                   {resumoRegra(row, indicadores)}

@@ -56,8 +56,6 @@ export type League = {
   clube_nickname: string | null
   operador_ext_id: string | null
   operador_nickname: string | null
-  moeda_acerto: string | null
-  conversao_dia: boolean
   projeto: string | null
   created_at: string
   super_leagues?: SuperLeague & { plataformas?: Plataforma }
@@ -74,30 +72,7 @@ export type LeagueForm = {
   clube_nickname: string | null
   operador_ext_id: string | null
   operador_nickname: string | null
-  moeda_acerto: string | null
-  conversao_dia: boolean
   projeto: string | null
-}
-
-// ─── CADASTRO DE MOEDAS ──────────────────────────────────────
-// Taxa de câmbio por moeda estrangeira. 'padrao' fica valendo até trocar
-// manualmente; 'cotacao_dia' precisa ser confirmada/preenchida toda vez que
-// for calcular Acertos naquele dia (ver `atualizado_em`).
-export type MoedaCotacaoTipo = 'padrao' | 'cotacao_dia'
-
-export type MoedaCotacao = {
-  id: string
-  moeda: string
-  tipo: MoedaCotacaoTipo
-  valor: number | null
-  atualizado_em: string | null
-  created_at: string
-}
-
-export type MoedaCotacaoForm = {
-  moeda: string
-  tipo: MoedaCotacaoTipo
-  valor: number | null
 }
 
 export type Club = {
@@ -116,6 +91,7 @@ export type Club = {
   rakeback_pct: number | null
   security: number | null
   moeda: string
+  cotacao: number | null
   taxa_tipo: string
   taxa_variavel_nome: string | null
   taxa_variavel_indicador: string | null
@@ -154,6 +130,7 @@ export type ClubForm = {
   rakeback_pct: number | null
   security: number | null
   moeda: string
+  cotacao: number | null
   taxa_tipo: string
   taxa_variavel_nome: string | null
   taxa_variavel_indicador: string | null
@@ -296,27 +273,17 @@ export type RegraCondicaoForm = {
   is_fallback: boolean
 }
 
-export type RegraTipo = 'faixa' | 'cotacao'
-
 export type Regra = {
   id: string
   nome: string
   created_at: string
-  tipo: RegraTipo
   condicoes: RegraCondicaoForm[]
-  moeda_origem: string | null
-  moeda_destino: string | null
-  valor_cotacao: number | null
   vinculoCount: number
 }
 
 export type RegraForm = {
   nome: string
-  tipo: RegraTipo
   condicoes: RegraCondicaoForm[]
-  moeda_origem: string | null
-  moeda_destino: string | null
-  valor_cotacao: number | null
 }
 
 export type EntidadeTipo = 'plataforma' | 'mega_liga' | 'superliga' | 'liga' | 'clube' | 'agente' | 'jogador'

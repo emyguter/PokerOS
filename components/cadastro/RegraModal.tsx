@@ -1,9 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { X, Loader2, Plus, Trash2 } from 'lucide-react'
-import type { Regra, RegraForm, RegraCondicaoForm, RegraTipo } from '@/lib/types'
+import type { Regra, RegraForm, RegraCondicaoForm } from '@/lib/types'
 import { formatIndicadorNome } from '@/lib/indicadores'
-import { MOEDAS } from '@/lib/moedas'
 import { supabase } from '@/lib/supabase'
 
 interface Indicador { id: string; nome: string; descricao: string | null }
@@ -22,12 +21,8 @@ const inputCls = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.
 
 export function RegraModal({ open, editing, onClose, onSave, saving, error }: Props) {
   const [nome, setNome] = useState('')
-  const [tipo, setTipo] = useState<RegraTipo>('faixa')
   const [condicoes, setCondicoes] = useState<RegraCondicaoForm[]>([])
   const [indicadores, setIndicadores] = useState<Indicador[]>([])
-  const [moedaOrigem, setMoedaOrigem] = useState('USD')
-  const [moedaDestino, setMoedaDestino] = useState('BRL')
-  const [valorCotacao, setValorCotacao] = useState<number | null>(null)
 
   useEffect(() => {
     if (open) supabase.from('indicadores').select('*').order('nome').then(({ data }) => { if (data) setIndicadores(data) })
@@ -35,11 +30,7 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
 
   useEffect(() => {
     setNome(editing?.nome ?? '')
-    setTipo(editing?.tipo ?? 'faixa')
     setCondicoes(editing?.condicoes ?? [])
-    setMoedaOrigem(editing?.moeda_origem ?? 'USD')
-    setMoedaDestino(editing?.moeda_destino ?? 'BRL')
-    setValorCotacao(editing?.valor_cotacao ?? null)
   }, [editing, open])
 
   if (!open) return null
@@ -54,7 +45,7 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    onSave({ nome, tipo, condicoes, moeda_origem: moedaOrigem, moeda_destino: moedaDestino, valor_cotacao: valorCotacao })
+    onSave({ nome, condicoes })
   }
 
   return (
@@ -67,97 +58,58 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
-            <div className="space-y-2">
-              <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Tipo de regra</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => setTipo('faixa')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipo === 'faixa' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
-                  Faixa SE/ENTÃO
-                  <p className="text-xs font-normal text-gray-500 mt-0.5">% que varia por rake/ganhos</p>
-                </button>
-                <button type="button" onClick={() => setTipo('cotacao')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipo === 'cotacao' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
-                  Cotação do dia
-                  <p className="text-xs font-normal text-gray-500 mt-0.5">Câmbio entre duas moedas</p>
-                </button>
-              </div>
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1.5">Nome<span className="text-gray-500 ml-1">*</span></label>
-              <input type="text" value={nome} onChange={e => setNome(e.target.value)} required placeholder={tipo === 'cotacao' ? 'Ex: USD → BRL' : 'Ex: 5%-15%'} className={inputCls} />
+              <input type="text" value={nome} onChange={e => setNome(e.target.value)} required placeholder="Ex: 5%-15%" className={inputCls} />
             </div>
 
-            {tipo === 'cotacao' ? (
-              <div className="space-y-3 p-4 bg-surface2 rounded-lg border border-white/10">
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Câmbio</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1.5">De</label>
-                    <select value={moedaOrigem} onChange={e => setMoedaOrigem(e.target.value)} className={inputCls}>
-                      {MOEDAS.map(m => <option key={m.value} value={m.value}>{m.value}</option>)}
-                    </select>
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Condições SE / ENTÃO</p>
+              {condicoes.map((c, i) => (
+                <div key={i} className={`p-3 rounded-lg border space-y-2 ${c.is_fallback ? 'border-gold/30 bg-gold/5' : 'border-white/10 bg-surface2'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-400">{c.is_fallback ? 'SENÃO' : `SE ${i + 1}`}</span>
+                    <button type="button" onClick={() => removeCondicao(i)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={13} /></button>
                   </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1.5">Para</label>
-                    <select value={moedaDestino} onChange={e => setMoedaDestino(e.target.value)} className={inputCls}>
-                      {MOEDAS.map(m => <option key={m.value} value={m.value}>{m.value}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">1 {moedaOrigem} =</label>
-                  <input type="number" step="any" value={valorCotacao ?? ''} onChange={e => setValorCotacao(e.target.value === '' ? null : Number(e.target.value))} placeholder={`Ex: 5.20 (${moedaDestino})`} className={inputCls} />
-                </div>
-                <p className="text-xs text-gray-600">Valor de hoje — atualize aqui sempre que a cotação mudar.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Condições SE / ENTÃO</p>
-                {condicoes.map((c, i) => (
-                  <div key={i} className={`p-3 rounded-lg border space-y-2 ${c.is_fallback ? 'border-gold/30 bg-gold/5' : 'border-white/10 bg-surface2'}`}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-gray-400">{c.is_fallback ? 'SENÃO' : `SE ${i + 1}`}</span>
-                      <button type="button" onClick={() => removeCondicao(i)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={13} /></button>
-                    </div>
-                    {!c.is_fallback && (
-                      <>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {c.indicador_ids.map((id, ti) => (
-                            <div key={ti} className="flex items-center gap-1">
-                              {ti > 0 && <span className="text-gray-500 text-xs">+</span>}
-                              <select value={id} onChange={e => setTermo(i, ti, e.target.value)} className={`${inputCls} w-auto`}>
-                                <option value="">Indicador</option>
-                                {indicadores.map(ind => <option key={ind.id} value={ind.id}>{formatIndicadorNome(ind.nome, ind.descricao)}</option>)}
-                              </select>
-                              {c.indicador_ids.length > 1 && (
-                                <button type="button" onClick={() => removeTermo(i, ti)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={12} /></button>
-                              )}
-                            </div>
-                          ))}
-                          <button type="button" onClick={() => addTermo(i)} className="text-gold text-xs hover:underline">+ variável</button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <select value={c.operador} onChange={e => setCondicao(i, 'operador', e.target.value)} className={inputCls}>
-                            {['>', '>=', '<', '<='].map(op => <option key={op} value={op}>{op}</option>)}
-                          </select>
-                          <input type="number" step="any" value={c.valor ?? ''} onChange={e => setCondicao(i, 'valor', e.target.value === '' ? null : Number(e.target.value))} placeholder="Valor" className={inputCls} />
-                        </div>
-                      </>
-                    )}
-                    <input type="number" step="any" value={c.resultado_pct ?? ''} onChange={e => setCondicao(i, 'resultado_pct', e.target.value === '' ? null : Number(e.target.value))} placeholder="Resultado (%)" className={inputCls} />
-                  </div>
-                ))}
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={addCondicao} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
-                    <Plus size={12} />SE condição
-                  </button>
-                  {!condicoes.some(c => c.is_fallback) && (
-                    <button type="button" onClick={addFallback} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
-                      <Plus size={12} />SENÃO (regra padrão)
-                    </button>
+                  {!c.is_fallback && (
+                    <>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {c.indicador_ids.map((id, ti) => (
+                          <div key={ti} className="flex items-center gap-1">
+                            {ti > 0 && <span className="text-gray-500 text-xs">+</span>}
+                            <select value={id} onChange={e => setTermo(i, ti, e.target.value)} className={`${inputCls} w-auto`}>
+                              <option value="">Indicador</option>
+                              {indicadores.map(ind => <option key={ind.id} value={ind.id}>{formatIndicadorNome(ind.nome, ind.descricao)}</option>)}
+                            </select>
+                            {c.indicador_ids.length > 1 && (
+                              <button type="button" onClick={() => removeTermo(i, ti)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={12} /></button>
+                            )}
+                          </div>
+                        ))}
+                        <button type="button" onClick={() => addTermo(i)} className="text-gold text-xs hover:underline">+ variável</button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select value={c.operador} onChange={e => setCondicao(i, 'operador', e.target.value)} className={inputCls}>
+                          {['>', '>=', '<', '<='].map(op => <option key={op} value={op}>{op}</option>)}
+                        </select>
+                        <input type="number" step="any" value={c.valor ?? ''} onChange={e => setCondicao(i, 'valor', e.target.value === '' ? null : Number(e.target.value))} placeholder="Valor" className={inputCls} />
+                      </div>
+                    </>
                   )}
+                  <input type="number" step="any" value={c.resultado_pct ?? ''} onChange={e => setCondicao(i, 'resultado_pct', e.target.value === '' ? null : Number(e.target.value))} placeholder="Resultado (%)" className={inputCls} />
                 </div>
+              ))}
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={addCondicao} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
+                  <Plus size={12} />SE condição
+                </button>
+                {!condicoes.some(c => c.is_fallback) && (
+                  <button type="button" onClick={addFallback} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
+                    <Plus size={12} />SENÃO (regra padrão)
+                  </button>
+                )}
               </div>
-            )}
+            </div>
 
             {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
           </div>

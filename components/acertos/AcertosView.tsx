@@ -4,11 +4,9 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Inbox } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { processarAcertos, processarAcertosAgentes } from "@/lib/acertos-engine";
-import { confirmarCotacaoDoDia } from "@/lib/cadastro-api";
 import * as XLSX from "xlsx";
 import { ClubAcertoCard } from "./ClubAcertoCard";
 import { AgentesAcertosView } from "./AgentesAcertosView";
-import { CotacaoDoDiaModal } from "./CotacaoDoDiaModal";
 import { ConfirmRecalcularModal } from "./ConfirmRecalcularModal";
 
 interface Import {
@@ -18,7 +16,7 @@ interface Import {
   period_end: string;
   status: string;
   created_at: string;
-  leagues: { name: string; moeda: string; moeda_acerto: string | null; conversao_dia: boolean } | null;
+  leagues: { name: string } | null;
 }
 
 interface Acerto {
@@ -99,7 +97,6 @@ export default function AcertosView() {
   const [acertos, setAcertos] = useState<Acerto[]>([]);
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
-  const [cotacaoPendente, setCotacaoPendente] = useState<{ importId: string; moeda: string; valorAtual: number | null } | null>(null);
   const [confirmRecalcular, setConfirmRecalcular] = useState(false);
   const [filterType, setFilterType] = useState("todos");
   const [search, setSearch] = useState("");
@@ -114,7 +111,7 @@ export default function AcertosView() {
   async function loadImports() {
     const { data } = await supabase
       .from("imports")
-      .select("*, leagues(name, moeda, moeda_acerto, conversao_dia)")
+      .select("*, leagues(name)")
       .order("created_at", { ascending: false })
       .limit(30);
     if (data) setImports(data as Import[]);
@@ -197,27 +194,6 @@ export default function AcertosView() {
 
   const totalFinal = useCallback((a: Acerto) => valorDisplay(a) + lancamentosDoClube(a.club_id), [lancamentosDoClube]);
 
-  function dataLocalHoje() {
-    const hoje = new Date();
-    return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
-  }
-
-  // Liga com "Conversão do dia" ligada e moeda marcada como Cotação do Dia
-  // (Cadastro de Moedas) precisa da taxa de hoje confirmada antes de calcular
-  // — se já foi confirmada hoje, não pergunta de novo.
-  async function verificarCotacaoDoDia(imp: Import): Promise<{ moeda: string; valorAtual: number | null } | null> {
-    const liga = imp.leagues;
-    if (!liga?.conversao_dia || !liga.moeda || liga.moeda === liga.moeda_acerto) return null;
-    const { data } = await supabase
-      .from("moedas_cotacao")
-      .select("tipo, valor, atualizado_em")
-      .eq("moeda", liga.moeda)
-      .maybeSingle();
-    if (!data || data.tipo !== "cotacao_dia") return null;
-    if (data.atualizado_em === dataLocalHoje()) return null;
-    return { moeda: liga.moeda, valorAtual: data.valor };
-  }
-
   async function executarCalculo(importId: string) {
     setCalculating(true);
     const result = await processarAcertos(importId);
@@ -238,31 +214,13 @@ export default function AcertosView() {
       setConfirmRecalcular(true);
       return;
     }
-    const pendente = await verificarCotacaoDoDia(selected);
-    if (pendente) { setCotacaoPendente({ importId: selected.id, ...pendente }); return; }
     await executarCalculo(selected.id);
   }
 
   async function handleConfirmarRecalculo() {
     setConfirmRecalcular(false);
     if (!selected) return;
-    const pendente = await verificarCotacaoDoDia(selected);
-    if (pendente) { setCotacaoPendente({ importId: selected.id, ...pendente }); return; }
     await executarCalculo(selected.id);
-  }
-
-  async function handleConfirmarCotacao(valor: number) {
-    if (!cotacaoPendente) return;
-    setCalculating(true);
-    try {
-      await confirmarCotacaoDoDia(cotacaoPendente.moeda, valor);
-      const importId = cotacaoPendente.importId;
-      setCotacaoPendente(null);
-      await executarCalculo(importId);
-    } catch (e) {
-      alert("Erro ao salvar cotação: " + (e instanceof Error ? e.message : String(e)));
-      setCalculating(false);
-    }
   }
 
   function handleExport() {
@@ -561,16 +519,6 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
           saving={calculating}
           onConfirm={handleConfirmarRecalculo}
           onCancel={() => setConfirmRecalcular(false)}
-        />
-      )}
-
-      {cotacaoPendente && (
-        <CotacaoDoDiaModal
-          moeda={cotacaoPendente.moeda}
-          valorAtual={cotacaoPendente.valorAtual}
-          saving={calculating}
-          onConfirm={handleConfirmarCotacao}
-          onCancel={() => setCotacaoPendente(null)}
         />
       )}
     </div>
