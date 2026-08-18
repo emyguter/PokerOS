@@ -227,8 +227,9 @@ export const pt = {
     limite_desc: 'Este clube já atingiu o máximo de VIPs para o mês. Enviar assim mesmo?',
   },
   relatorios: {
-    aba_acertos: 'Acertos', aba_lancamentos: 'Lançamentos',
+    aba_acertos: 'Acertos', aba_lancamentos: 'Lançamentos', aba_taxas: 'Resumo de Taxas',
     titulo_lancamentos: 'Relatório de Lançamentos', subtitulo_lancamentos: 'Consulta lançamentos de todos os clubes, sem precisar escolher um por vez',
+    titulo_taxas: 'Resumo de Taxas', subtitulo_taxas: 'Visão executiva das taxas cadastradas em todos os clubes ativos',
     todos_clubes: 'Todos os clubes', natureza: 'Natureza', origem: 'Origem', status: 'Status',
     limite_500: 'Mostrando os 500 mais recentes — estreite o filtro pra ver tudo.',
   },

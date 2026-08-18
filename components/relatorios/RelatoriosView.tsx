@@ -1,12 +1,13 @@
 'use client'
 import { useState, useMemo } from 'react'
-import { BarChart3, Receipt } from 'lucide-react'
+import { BarChart3, Receipt, Percent } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { usePermissions } from '@/lib/permissions'
 import AcertosView from '@/components/acertos/AcertosView'
 import { RelatorioLancamentos } from './RelatorioLancamentos'
+import { RelatorioTaxas } from './RelatorioTaxas'
 
-type Tab = 'acertos' | 'lancamentos'
+type Tab = 'acertos' | 'lancamentos' | 'taxas'
 
 export function RelatoriosView() {
   const { t } = useI18n()
@@ -18,11 +19,16 @@ export function RelatoriosView() {
   // de verdade nem o relatório de Acertos.
   const podeAcertos = hasPermission('relatorios') || hasPermission('relatorios.acertos')
   const podeLancamentos = hasPermission('relatorios') || hasPermission('relatorios.lancamentos')
+  // Resumo de Taxas NÃO herda de "relatorios" genérico de propósito — é
+  // visão executiva cross-clube de dado sensível, só abre pra quem for
+  // liberado explicitamente na chave própria (tela de Permissões).
+  const podeTaxas = hasPermission('relatorios.taxas')
 
   const abas = useMemo(() => [
     ...(podeAcertos ? [{ key: 'acertos' as Tab, labelKey: 'relatorios.aba_acertos', icon: BarChart3 }] : []),
     ...(podeLancamentos ? [{ key: 'lancamentos' as Tab, labelKey: 'relatorios.aba_lancamentos', icon: Receipt }] : []),
-  ], [podeAcertos, podeLancamentos])
+    ...(podeTaxas ? [{ key: 'taxas' as Tab, labelKey: 'relatorios.aba_taxas', icon: Percent }] : []),
+  ], [podeAcertos, podeLancamentos, podeTaxas])
 
   const [tab, setTab] = useState<Tab | null>(null)
   const abaAtiva = tab && abas.some(a => a.key === tab) ? tab : (abas[0]?.key ?? null)
@@ -53,6 +59,15 @@ export function RelatoriosView() {
             <p className="text-sm text-gray-400 mt-1">{t('relatorios.subtitulo_lancamentos')}</p>
           </div>
           <RelatorioLancamentos />
+        </div>
+      )}
+      {abaAtiva === 'taxas' && (
+        <div style={{ background: '#0C0E0B', minHeight: '100vh' }} className="space-y-6 p-4 md:p-10">
+          <div>
+            <h1 className="text-2xl font-semibold text-white">{t('relatorios.titulo_taxas')}</h1>
+            <p className="text-sm text-gray-400 mt-1">{t('relatorios.subtitulo_taxas')}</p>
+          </div>
+          <RelatorioTaxas />
         </div>
       )}
     </div>

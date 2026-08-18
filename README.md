@@ -544,6 +544,14 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   dessa mudança) ganham um selo "sem efeito" na lista. `lib/types.ts` ganhou `CAMPOS_POR_SETTLEMENT`
   como fonte única dessa compatibilidade — precisa ficar em sync manual com o switch de
   `lib/acertos-engine.ts`
+- [x] Novo relatório "Resumo de Taxas" (aba em Relatórios) — visão executiva cross-clube de todas as
+  taxas cadastradas (Fee MTT/Cash, Taxa Operacional, SpinUp, Rake Total, Rebate, Crypto Rebate,
+  Rakeback), mostrando fixo do cadastro ou faixa min–max quando tem Regra vinculada. Cada coluna só
+  aparece pro tipo de cobrança que realmente a usa (mesma fonte `CAMPOS_POR_SETTLEMENT`). Ganhou
+  permissão própria (`relatorios.taxas`, não herda da "relatorios" genérica de propósito — é dado
+  sensível, só deve ser liberado explicitamente na tela de Permissões pra quem for executivo).
+  Clube também ganhou um marcador manual "Termos especiais" (checkbox na etapa Taxas do cadastro,
+  não afeta cálculo nenhum) que aparece como selo nesse relatório
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

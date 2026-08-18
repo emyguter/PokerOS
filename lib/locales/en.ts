@@ -229,8 +229,9 @@ export const en: typeof pt = {
     limite_desc: 'This club has already reached the maximum VIPs for the month. Send anyway?',
   },
   relatorios: {
-    aba_acertos: 'Settlements', aba_lancamentos: 'Entries',
+    aba_acertos: 'Settlements', aba_lancamentos: 'Entries', aba_taxas: 'Fee Summary',
     titulo_lancamentos: 'Entries Report', subtitulo_lancamentos: 'Query entries across every club, without picking one at a time',
+    titulo_taxas: 'Fee Summary', subtitulo_taxas: 'Executive view of the fees registered across every active club',
     todos_clubes: 'All clubs', natureza: 'Nature', origem: 'Origin', status: 'Status',
     limite_500: 'Showing the 500 most recent — narrow the filter to see everything.',
   },
