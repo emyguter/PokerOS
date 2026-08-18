@@ -302,6 +302,31 @@ export type EntidadeTipo = 'plataforma' | 'mega_liga' | 'superliga' | 'liga' | '
 // Operacional, que só existe em clubes taxa_dinamica.
 export type CampoClube = 'fee_mtt' | 'fee_cash' | 'taxa_op' | 'spinup' | 'rake_total'
 
+// Quais campos o motor de cálculo (lib/acertos-engine.ts, switch por
+// club.settlement_type) realmente lê pra cada tipo de cobrança — precisa
+// ficar em sync manual com aquele switch. Um vínculo de Regra num campo fora
+// dessa lista pro settlement_type do clube fica salvo, mas sem efeito nenhum
+// no cálculo (usado pra avisar isso na tela de Vínculos).
+export const CAMPOS_POR_SETTLEMENT: Record<string, CampoClube[]> = {
+  taxa_dinamica: ['fee_mtt', 'fee_cash', 'taxa_op', 'spinup'],
+  taxa_fixa_variavel: ['rake_total'],
+  weekly_usd: ['rake_total'],
+  rakeback: [],
+}
+
+export const LABEL_SETTLEMENT: Record<string, string> = {
+  taxa_dinamica: 'Taxa Dinâmica',
+  taxa_fixa_variavel: 'Taxa Fixa/Variável',
+  weekly_usd: 'Weekly USD',
+  rakeback: 'Rakeback',
+}
+
+// Tipos de cobrança que têm efeito de verdade pra um dado campo — pro aviso
+// "isso só funciona em clubes assim" na hora de vincular.
+export function settlementsQueAceitam(campo: CampoClube): string[] {
+  return Object.entries(CAMPOS_POR_SETTLEMENT).filter(([, campos]) => campos.includes(campo)).map(([tipo]) => tipo)
+}
+
 export type Regra = {
   id: string
   nome: string

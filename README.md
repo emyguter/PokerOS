@@ -536,6 +536,14 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   como usar Regra de Faixa nenhuma: a % vinha sempre fixa do cadastro, sem opção de SE/ENTÃO.
   `lib/acertos-engine.ts` agora lê a Regra vinculada no campo Rake Total nesses dois tipos de
   cobrança, caindo pro % fixo do cadastro quando não tem vínculo
+- [x] Tela de Vínculos agora avisa quando o campo escolhido não tem efeito no tipo de cobrança do
+  clube (ex: vincular Rake Total num clube `taxa_dinamica`, ou Fee Cash/MTT num clube
+  `taxa_fixa_variavel`/`weekly_usd`/`rakeback`) — mostra quais clubes selecionados seriam afetados,
+  explica em quais tipos de cobrança aquele campo funciona de verdade, e só deixa salvar depois de
+  marcar "entendi, vincular mesmo assim". Vínculos já existentes nessa situação (inclusive de antes
+  dessa mudança) ganham um selo "sem efeito" na lista. `lib/types.ts` ganhou `CAMPOS_POR_SETTLEMENT`
+  como fonte única dessa compatibilidade — precisa ficar em sync manual com o switch de
+  `lib/acertos-engine.ts`
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

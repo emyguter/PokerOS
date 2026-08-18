@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { X, Trash2, ArrowRight, Pencil } from 'lucide-react'
+import { X, Trash2, ArrowRight, Pencil, AlertTriangle } from 'lucide-react'
 import type { Regra, RegraVinculo, EntidadeTipo, CampoClube } from '@/lib/types'
-import { getVinculos, addVinculo, updateVinculo, removeVinculo, buscarEntidades } from '@/lib/cadastro-api'
+import { CAMPOS_POR_SETTLEMENT, LABEL_SETTLEMENT, settlementsQueAceitam } from '@/lib/types'
+import { getVinculos, addVinculo, updateVinculo, removeVinculo, buscarEntidades, buscarSettlementTypesClubes } from '@/lib/cadastro-api'
 
 interface Props {
   open: boolean
@@ -157,6 +158,16 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
   const [ladoPara, setLadoPara] = useState<Lado>(LADO_INICIAL('clube'))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // settlement_type de cada clube envolvido (selecionado agora ou já
+  // vinculado) — usado só pra avisar quando o campo escolhido não tem efeito
+  // nenhum nesse tipo de cobrança (ver lib/types.ts CAMPOS_POR_SETTLEMENT).
+  const [settlementPorClube, setSettlementPorClube] = useState<Map<string, string>>(new Map())
+  const [cienteIncompatibilidade, setCienteIncompatibilidade] = useState(false)
+
+  function setLadoParaEZerarAviso(l: Lado) {
+    setLadoPara(l)
+    setCienteIncompatibilidade(false)
+  }
 
   const load = useCallback(async () => {
     if (!regra) return
@@ -170,6 +181,7 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
     setEditando(null)
     setLadoDe(LADO_INICIAL('liga'))
     setLadoPara(LADO_INICIAL('clube'))
+    setCienteIncompatibilidade(false)
   }
 
   useEffect(() => {
@@ -180,7 +192,31 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, load])
 
+  // Busca o settlement_type dos clubes envolvidos (selecionados agora ou já
+  // vinculados) — só o suficiente pra saber se o campo da Regra tem efeito.
+  useEffect(() => {
+    const ids = new Set<string>()
+    for (const v of vinculos) if (v.para_tipo === 'clube') ids.add(v.para_id)
+    if (ladoPara.tipo === 'clube') for (const s of ladoPara.selecionados) ids.add(s.id)
+    const faltando = [...ids].filter(id => !settlementPorClube.has(id))
+    if (faltando.length === 0) return
+    buscarSettlementTypesClubes(faltando).then(mapa => {
+      setSettlementPorClube(prev => new Map([...prev, ...mapa]))
+    })
+  }, [vinculos, ladoPara.tipo, ladoPara.selecionados, settlementPorClube])
+
   if (!open || !regra) return null
+
+  function campoTemEfeito(clubeId: string, campo: CampoClube): boolean | null {
+    const settlementType = settlementPorClube.get(clubeId)
+    if (settlementType === undefined) return null // ainda carregando — não afirma nada
+    return (CAMPOS_POR_SETTLEMENT[settlementType] ?? []).includes(campo)
+  }
+
+  const incompativeisNovo = ladoPara.tipo === 'clube' && regra.campo
+    ? ladoPara.selecionados.filter(s => campoTemEfeito(s.id, regra.campo!) === false)
+    : []
+  const precisaConfirmar = incompativeisNovo.length > 0 && !cienteIncompatibilidade
 
   function editar(v: RegraVinculo) {
     setEditando(v)
@@ -189,7 +225,7 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
   }
 
   async function handleSalvar() {
-    if (!regra || ladoPara.selecionados.length === 0) return
+    if (!regra || ladoPara.selecionados.length === 0 || precisaConfirmar) return
     setSaving(true); setError(null)
     try {
       // Multi-seleção vale nos dois lados: o resultado é o produto cartesiano
@@ -250,7 +286,7 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
             <div className="flex items-start gap-3">
               <SeletorEntidade titulo="De (quem define/cobra)" opcional multi lado={ladoDe} onChange={setLadoDe} />
               <ArrowRight size={16} className="text-gray-600 shrink-0 mt-6" />
-              <SeletorEntidade titulo="Para (quem recebe a regra)" multi lado={ladoPara} onChange={setLadoPara} />
+              <SeletorEntidade titulo="Para (quem recebe a regra)" multi lado={ladoPara} onChange={setLadoParaEZerarAviso} />
             </div>
             {ladoPara.tipo === 'clube' && (
               regra.campo ? (
@@ -259,13 +295,29 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
                 <p className="text-xs text-alert">Essa regra não tem &quot;Aplica em&quot; definido (só vale pra tipo Cálculo de Acerto) — o vínculo não vai afetar nenhum cálculo até isso ser configurado na Regra.</p>
               )
             )}
+            {incompativeisNovo.length > 0 && regra.campo && (
+              <div className="flex items-start gap-2 p-3 rounded-lg border border-alert/30 bg-alert/10 text-alert text-xs">
+                <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                <div className="space-y-2">
+                  <p>
+                    {incompativeisNovo.map(c => c.nome).join(', ')}: o tipo de cobrança desse clube não usa{' '}
+                    <span className="font-medium">{LABEL_CAMPO[regra.campo]}</span> no cálculo — o vínculo seria salvo, mas sem
+                    nenhum efeito. Só clubes {settlementsQueAceitam(regra.campo).map(s => LABEL_SETTLEMENT[s] ?? s).join(' ou ')} usam esse campo.
+                  </p>
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-gray-300">
+                    <input type="checkbox" checked={cienteIncompatibilidade} onChange={e => setCienteIncompatibilidade(e.target.checked)} className="accent-alert" />
+                    Entendi, vincular mesmo assim (sem efeito nesse clube)
+                  </label>
+                </div>
+              </div>
+            )}
             {(() => {
               const totalCombos = Math.max(ladoDe.selecionados.length, 1) * ladoPara.selecionados.length
               return (
                 <button
                   type="button"
                   onClick={handleSalvar}
-                  disabled={ladoPara.selecionados.length === 0 || saving}
+                  disabled={ladoPara.selecionados.length === 0 || saving || precisaConfirmar}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   {editando
@@ -300,6 +352,14 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
                       <span className="text-gray-200">{v.para_nome}</span>
                       {v.campo && (
                         <span className="px-2 py-0.5 rounded-full bg-surface border border-white/10 text-gray-400 text-xs">{LABEL_CAMPO[v.campo]}</span>
+                      )}
+                      {v.campo && v.para_tipo === 'clube' && campoTemEfeito(v.para_id, v.campo) === false && (
+                        <span
+                          title={`O tipo de cobrança desse clube não usa "${LABEL_CAMPO[v.campo]}" no cálculo — vínculo salvo, mas sem efeito`}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-alert/10 border border-alert/30 text-alert text-xs"
+                        >
+                          <AlertTriangle size={11} />sem efeito
+                        </span>
                       )}
                     </div>
                     <div className="flex items-center gap-1">

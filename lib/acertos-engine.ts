@@ -76,6 +76,9 @@ type RegraCondicaoRow = {
   regra_condicao_termos?: { indicador_id: string }[];
 };
 
+// Duplicado de lib/types.ts (evita import circular) — se mudar aqui, muda lá
+// também, junto com CAMPOS_POR_SETTLEMENT (que precisa bater com o switch de
+// club.settlement_type abaixo).
 export type CampoClube = "fee_mtt" | "fee_cash" | "taxa_op" | "spinup" | "rake_total";
 
 type RegraEntidadeRow = {

@@ -614,6 +614,15 @@ export async function buscarEntidades(tipo: EntidadeTipo, query: string, limit =
   return (data ?? []).map((r: any) => ({ id: r.id, nome: r[coluna] }))
 }
 
+// Usado na tela de Vínculos pra avisar quando o campo escolhido não tem
+// efeito no tipo de cobrança do clube (ver lib/types.ts CAMPOS_POR_SETTLEMENT).
+export async function buscarSettlementTypesClubes(ids: string[]): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map()
+  const { data, error } = await supabase.from('clubs').select('id, settlement_type').in('id', ids)
+  if (error) throw error
+  return new Map((data ?? []).map((r: any) => [r.id as string, r.settlement_type as string]))
+}
+
 export interface RegraAplicada {
   regra_id: string
   regra_nome: string
