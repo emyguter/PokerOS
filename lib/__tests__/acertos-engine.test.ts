@@ -276,4 +276,23 @@ describe('calcularAcerto — outros tipos de cobrança', () => {
     const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
     expect(resultado.valor_acerto).toBe(0)
   })
+
+  it('taxa_fixa_variavel: Regra vinculada no campo Rake Total substitui o fee_mtt_pct fixo', () => {
+    const r = row({ rake_total: 1000, player_result: -100 })
+    const c = club({ settlement_type: 'taxa_fixa_variavel', fee_mtt_pct: 10 })
+    const condicoesPorCampo = { ...CONDICOES_VAZIAS, rake_total: [condicao({ operador: '>', valor: 0, resultado_pct: 25 })] }
+    const resultado = calcularAcerto(r, c, condicoesPorCampo, null)
+    expect(resultado.fee_calculado).toBe(250) // 1000 * 25%, não os 10% fixos do cadastro
+    expect(resultado.valor_acerto).toBe(1000 - 100 - 250)
+  })
+
+  it('weekly_usd: Regra vinculada no campo Rake Total substitui o fee_mtt_pct fixo', () => {
+    const r = row({ rake_total: 1000 })
+    const c = club({ settlement_type: 'weekly_usd', fee_mtt_pct: 15, rebate_pct: 5, crypto_rebate_pct: 2 })
+    const condicoesPorCampo = { ...CONDICOES_VAZIAS, rake_total: [condicao({ operador: '>', valor: 0, resultado_pct: 20 })] }
+    const resultado = calcularAcerto(r, c, condicoesPorCampo, null)
+    expect(resultado.fee_calculado).toBe(200) // 1000 * 20%, não os 15% fixos do cadastro
+    expect(resultado.rebate_calculado).toBe(70)
+    expect(resultado.valor_acerto).toBe(200 - 70)
+  })
 })

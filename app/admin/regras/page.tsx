@@ -17,7 +17,7 @@ interface IndicadorInfo { nome: string; descricao: string | null }
 // clube (Fee MTT/Fee Cash/Taxa Operacional/SpinUp) o percentual da regra
 // incide (campo escolhido explicitamente na Regra, não mais inferido).
 const LABEL_CAMPO: Record<CampoClube, string> = {
-  fee_mtt: 'Fee MTT', fee_cash: 'Fee Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp',
+  fee_mtt: 'Fee MTT', fee_cash: 'Fee Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp', rake_total: 'Rake Total',
 }
 
 // Frase em linguagem simples do que a regra faz — em vez de só "3 faixas",

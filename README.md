@@ -530,6 +530,12 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   tela (obrigatória pra tipo Faixa), e é isso que o motor de cálculo (`lib/acertos-engine.ts`) lê —
   não depende mais de adivinhar nada. Regras existentes foram migradas automaticamente pra manter o
   campo que já estava funcionando (mesma lógica antiga, só rodada uma vez via SQL de migração)
+- [x] "Aplica em" ganhou uma 5ª opção: "Rake Total". É a taxa única dos clubes `taxa_fixa_variavel`
+  e `weekly_usd` (% sobre o Rake Total inteiro, sem separar MTT/Cash) — diferente de Taxa
+  Operacional, que só existe em clubes `taxa_dinamica`. Antes, esses dois tipos de clube não tinham
+  como usar Regra de Faixa nenhuma: a % vinha sempre fixa do cadastro, sem opção de SE/ENTÃO.
+  `lib/acertos-engine.ts` agora lê a Regra vinculada no campo Rake Total nesses dois tipos de
+  cobrança, caindo pro % fixo do cadastro quando não tem vínculo
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

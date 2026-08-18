@@ -76,7 +76,7 @@ type RegraCondicaoRow = {
   regra_condicao_termos?: { indicador_id: string }[];
 };
 
-export type CampoClube = "fee_mtt" | "fee_cash" | "taxa_op" | "spinup";
+export type CampoClube = "fee_mtt" | "fee_cash" | "taxa_op" | "spinup" | "rake_total";
 
 type RegraEntidadeRow = {
   entidade_id: string;
@@ -85,7 +85,7 @@ type RegraEntidadeRow = {
 };
 
 export const CONDICOES_VAZIAS: Record<CampoClube, CondicaoAvaliavel[]> = {
-  fee_mtt: [], fee_cash: [], taxa_op: [], spinup: [],
+  fee_mtt: [], fee_cash: [], taxa_op: [], spinup: [], rake_total: [],
 };
 
 // Mapeia o nome de um indicador pro valor real dele numa linha importada.
@@ -209,21 +209,32 @@ export function calcularAcerto(
       valor_acerto = rake_total + row.player_result - fee_calculado;
       break;
     }
-    case "taxa_fixa_variavel":
-      fee_calculado = rake_total * (club.fee_mtt_pct / 100);
+    case "taxa_fixa_variavel": {
+      // Taxa única do clube, sem separar MTT/Cash — se tiver Regra vinculada
+      // no campo "Rake Total", a % SE/ENTÃO substitui o fee_mtt_pct fixo do
+      // cadastro (mesmo campo usado só por convenção histórica de coluna).
+      const condRakeTotal = condicoesPorCampo.rake_total.length > 0
+        ? avaliarCondicoes(condicoesPorCampo.rake_total, row, wtr4Semanas)
+        : null;
+      fee_calculado = rake_total * ((condRakeTotal ?? club.fee_mtt_pct) / 100);
       valor_acerto = rake_total + row.player_result - fee_calculado;
       break;
+    }
     case "rakeback":
       rebate_calculado = rake_total * (club.rakeback_pct / 100);
       valor_acerto = -rebate_calculado;
       break;
-    case "weekly_usd":
+    case "weekly_usd": {
+      const condRakeTotal = condicoesPorCampo.rake_total.length > 0
+        ? avaliarCondicoes(condicoesPorCampo.rake_total, row, wtr4Semanas)
+        : null;
       rebate_calculado =
         rake_total * (club.rebate_pct / 100) +
         rake_total * (club.crypto_rebate_pct / 100);
-      fee_calculado = rake_total * (club.fee_mtt_pct / 100);
+      fee_calculado = rake_total * ((condRakeTotal ?? club.fee_mtt_pct) / 100);
       valor_acerto  = fee_calculado - rebate_calculado;
       break;
+    }
     default:
       valor_acerto = 0;
   }

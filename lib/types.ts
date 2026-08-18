@@ -294,10 +294,13 @@ export type LayoutCampoForm = {
 
 export type EntidadeTipo = 'plataforma' | 'mega_liga' | 'superliga' | 'liga' | 'clube' | 'agente' | 'jogador'
 
-// As 4 variáveis do clube que podem virar Fixa (% direto no cadastro) ou
+// As variáveis do clube que podem virar Fixa (% direto no cadastro) ou
 // Variável (faixa SE/ENTÃO, via vínculo de Regra) — só faz sentido quando
 // para_tipo === 'clube'; nos outros tipos de entidade fica null.
-export type CampoClube = 'fee_mtt' | 'fee_cash' | 'taxa_op' | 'spinup'
+// rake_total é a taxa única de clubes taxa_fixa_variavel/weekly_usd (% sobre
+// o Rake Total inteiro, sem separar MTT/Cash) — diferente de Taxa
+// Operacional, que só existe em clubes taxa_dinamica.
+export type CampoClube = 'fee_mtt' | 'fee_cash' | 'taxa_op' | 'spinup' | 'rake_total'
 
 export type Regra = {
   id: string
