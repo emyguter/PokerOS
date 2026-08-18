@@ -292,11 +292,24 @@ export type LayoutCampoForm = {
   visivel: boolean
 }
 
+export type EntidadeTipo = 'plataforma' | 'mega_liga' | 'superliga' | 'liga' | 'clube' | 'agente' | 'jogador'
+
+// As 4 variáveis do clube que podem virar Fixa (% direto no cadastro) ou
+// Variável (faixa SE/ENTÃO, via vínculo de Regra) — só faz sentido quando
+// para_tipo === 'clube'; nos outros tipos de entidade fica null.
+export type CampoClube = 'fee_mtt' | 'fee_cash' | 'taxa_op' | 'spinup'
+
 export type Regra = {
   id: string
   nome: string
   created_at: string
   tipo: RegraTipo
+  // Só usado no tipo 'faixa' — sobre qual taxa do clube (Fee MTT/Cash/
+  // Operacional/SpinUp) essa regra vale. Escolhido explicitamente na tela
+  // (não é mais adivinhado a partir do indicador usado na condição — isso
+  // já causou regra "silenciosa" que não aplicava em nada, ex: condição
+  // usando "Fee Total" como indicador, que não mapeava pra nenhum campo).
+  campo: CampoClube | null
   condicoes: RegraCondicaoForm[]
   faixasMulta: FaixaMultaForm[]
   layoutCampos: LayoutCampoForm[]
@@ -306,17 +319,11 @@ export type Regra = {
 export type RegraForm = {
   nome: string
   tipo: RegraTipo
+  campo: CampoClube | null
   condicoes: RegraCondicaoForm[]
   faixasMulta: FaixaMultaForm[]
   layoutCampos: LayoutCampoForm[]
 }
-
-export type EntidadeTipo = 'plataforma' | 'mega_liga' | 'superliga' | 'liga' | 'clube' | 'agente' | 'jogador'
-
-// As 4 variáveis do clube que podem virar Fixa (% direto no cadastro) ou
-// Variável (faixa SE/ENTÃO, via vínculo de Regra) — só faz sentido quando
-// para_tipo === 'clube'; nos outros tipos de entidade fica null.
-export type CampoClube = 'fee_mtt' | 'fee_cash' | 'taxa_op' | 'spinup'
 
 // Vínculo tem lado (quem cobra/define a regra) e lado (quem paga/recebe) —
 // de_* pode ficar em branco pra regras "de cima" sem uma origem clara

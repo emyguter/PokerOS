@@ -3,13 +3,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { X, Trash2, ArrowRight, Pencil } from 'lucide-react'
 import type { Regra, RegraVinculo, EntidadeTipo, CampoClube } from '@/lib/types'
 import { getVinculos, addVinculo, updateVinculo, removeVinculo, buscarEntidades } from '@/lib/cadastro-api'
-import { campoFromCondicoes } from '@/lib/indicadores'
 
 interface Props {
   open: boolean
   regra: Regra | null
   resumo?: string
-  indicadorNomePorId: Map<string, string>
   onClose: () => void
 }
 
@@ -151,7 +149,7 @@ function SeletorEntidade({ titulo, opcional, multi, lado, onChange }: { titulo: 
   )
 }
 
-export function VinculosPanel({ open, regra, resumo, indicadorNomePorId, onClose }: Props) {
+export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
   const [vinculos, setVinculos] = useState<RegraVinculo[]>([])
   const [loading, setLoading] = useState(false)
   const [editando, setEditando] = useState<RegraVinculo | null>(null)
@@ -202,10 +200,9 @@ export function VinculosPanel({ open, regra, resumo, indicadorNomePorId, onClose
         : [null]
       const paras = ladoPara.selecionados.map(p => ({ tipo: ladoPara.tipo, id: p.id }))
       const combos = paras.flatMap(para => des.map(de => ({ de, para })))
-      // Campo do clube que a regra substitui já vem do indicador usado na
-      // condição da própria regra (Rake Cash → Fee Cash, Rake MTT → Fee MTT,
-      // Rake Spinup → SpinUp) — não pergunta de novo aqui.
-      const campoParaSalvar: CampoClube | null = ladoPara.tipo === 'clube' ? campoFromCondicoes(regra.condicoes, indicadorNomePorId) : null
+      // Campo do clube que a regra substitui é escolhido explicitamente na
+      // tela de criar/editar Regra (RegraModal) — não adivinhado aqui.
+      const campoParaSalvar: CampoClube | null = ladoPara.tipo === 'clube' ? regra.campo : null
 
       const [primeiro, ...resto] = combos
       if (editando) {
@@ -255,14 +252,13 @@ export function VinculosPanel({ open, regra, resumo, indicadorNomePorId, onClose
               <ArrowRight size={16} className="text-gray-600 shrink-0 mt-6" />
               <SeletorEntidade titulo="Para (quem recebe a regra)" multi lado={ladoPara} onChange={setLadoPara} />
             </div>
-            {ladoPara.tipo === 'clube' && (() => {
-              const campo = campoFromCondicoes(regra.condicoes, indicadorNomePorId)
-              return campo ? (
-                <p className="text-xs text-gray-500">Essa regra vai substituir <span className="text-gold">{LABEL_CAMPO[campo]}</span> do clube (indicador usado na condição).</p>
+            {ladoPara.tipo === 'clube' && (
+              regra.campo ? (
+                <p className="text-xs text-gray-500">Essa regra vai substituir <span className="text-gold">{LABEL_CAMPO[regra.campo]}</span> do clube.</p>
               ) : (
-                <p className="text-xs text-alert">Essa regra não usa Rake Cash / Rake MTT / Rake Spinup na condição, então não dá pra saber qual taxa do clube ela substitui — o vínculo não vai afetar nenhum cálculo até a regra usar um desses indicadores.</p>
+                <p className="text-xs text-alert">Essa regra não tem &quot;Aplica em&quot; definido (só vale pra tipo Cálculo de Acerto) — o vínculo não vai afetar nenhum cálculo até isso ser configurado na Regra.</p>
               )
-            })()}
+            )}
             {(() => {
               const totalCombos = Math.max(ladoDe.selecionados.length, 1) * ladoPara.selecionados.length
               return (

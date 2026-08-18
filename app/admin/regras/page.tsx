@@ -1,8 +1,8 @@
 'use client'
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { getRegras, createRegra, updateRegra, deleteRegra } from '@/lib/cadastro-api'
 import { supabase } from '@/lib/supabase'
-import { formatIndicadorNome, campoFromCondicoes } from '@/lib/indicadores'
+import { formatIndicadorNome } from '@/lib/indicadores'
 import { resolverLayout, LABEL_CAMPO as LABEL_CAMPO_ACERTO } from '@/lib/relatorio-acerto'
 import type { CampoClube, Regra, RegraForm } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
@@ -15,7 +15,7 @@ interface IndicadorInfo { nome: string; descricao: string | null }
 
 // Mesmo rótulo usado em VinculosPanel/RegrasAplicadas — sobre qual taxa do
 // clube (Fee MTT/Fee Cash/Taxa Operacional/SpinUp) o percentual da regra
-// incide, inferido do indicador usado na condição.
+// incide (campo escolhido explicitamente na Regra, não mais inferido).
 const LABEL_CAMPO: Record<CampoClube, string> = {
   fee_mtt: 'Fee MTT', fee_cash: 'Fee Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp',
 }
@@ -72,8 +72,6 @@ export default function RegrasPage() {
 
   useEffect(() => { load() }, [load])
 
-  const indicadorNomePorId = useMemo(() => new Map([...indicadores].map(([id, info]) => [id, info.nome])), [indicadores])
-
   async function handleSave(form: RegraForm) {
     setSaving(true); setError(null)
     try {
@@ -103,7 +101,7 @@ export default function RegrasPage() {
       // Layout do Acerto não tem nome digitado — fica sempre com o mesmo
       // nome fixo, a cópia também (ver RegraModal.tsx).
       const nome = regra.tipo === 'layout_acerto' ? 'Layout do Acerto' : `${regra.nome} (cópia)`
-      await createRegra({ nome, tipo: regra.tipo, condicoes: regra.condicoes, faixasMulta: regra.faixasMulta, layoutCampos: regra.layoutCampos })
+      await createRegra({ nome, tipo: regra.tipo, campo: regra.campo, condicoes: regra.condicoes, faixasMulta: regra.faixasMulta, layoutCampos: regra.layoutCampos })
       await load()
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
   }
@@ -143,7 +141,7 @@ export default function RegrasPage() {
             key: 'tipo',
             label: 'O que faz',
             render: (_: string, row: Regra) => {
-              const campo = row.tipo === 'faixa' ? campoFromCondicoes(row.condicoes, indicadorNomePorId) : null
+              const campo = row.tipo === 'faixa' ? row.campo : null
               return (
                 <span className="text-xs text-gray-300">
                   {row.tipo === 'multa_atraso' && (
@@ -196,7 +194,6 @@ export default function RegrasPage() {
         open={!!vinculosRegra}
         regra={vinculosRegra}
         resumo={vinculosRegra ? resumoRegra(vinculosRegra, indicadores) : undefined}
-        indicadorNomePorId={indicadorNomePorId}
         onClose={() => { setVinculosRegra(null); load() }}
       />
 

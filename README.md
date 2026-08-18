@@ -521,6 +521,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
 - [x] Regra do tipo Layout do Acerto não pede mais Nome — não fazia sentido nomear "em que ordem os
   campos aparecem". Aparece na lista de Regras sempre como "Layout do Acerto" (nome fixo, inclusive
   ao duplicar). Cálculo de Acerto e Multa de Acerto continuam pedindo Nome normalmente
+- [x] Regra do tipo Cálculo de Acerto ganhou um seletor explícito "Aplica em" (Fee MTT / Fee Cash /
+  Taxa Operacional / SpinUp) na hora de criar/editar — antes o campo era adivinhado a partir do
+  indicador usado na condição SE/ENTÃO (`campoFromCondicoes`), reconhecia só 4 nomes de indicador
+  específicos, e não avisava se não reconhecesse nada — uma regra montada com indicador "Fee Total",
+  por exemplo, ficava vinculada mas não afetava cálculo nenhum, sem aviso nenhum além de um texto
+  pequeno escondido no painel de Vínculos. Agora `regras.campo` é uma coluna própria, escolhida na
+  tela (obrigatória pra tipo Faixa), e é isso que o motor de cálculo (`lib/acertos-engine.ts`) lê —
+  não depende mais de adivinhar nada. Regras existentes foram migradas automaticamente pra manter o
+  campo que já estava funcionando (mesma lógica antiga, só rodada uma vez via SQL de migração)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

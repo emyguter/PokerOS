@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { X, Loader2, Plus, Trash2, GripVertical, ChevronUp, ChevronDown } from 'lucide-react'
-import type { Regra, RegraForm, RegraCondicaoForm, RegraTipo, FaixaMultaForm, LayoutCampoForm } from '@/lib/types'
+import type { Regra, RegraForm, RegraCondicaoForm, RegraTipo, FaixaMultaForm, LayoutCampoForm, CampoClube } from '@/lib/types'
 import { formatIndicadorNome } from '@/lib/indicadores'
 import { supabase } from '@/lib/supabase'
 import { LAYOUT_PADRAO, LABEL_CAMPO, ehObrigatorio } from '@/lib/relatorio-acerto'
@@ -21,11 +21,15 @@ const EMPTY_COND: RegraCondicaoForm = { indicador_ids: [''], operador: '>', valo
 const EMPTY_FAIXA: FaixaMultaForm = { quantidade: null, unidade: 'semanas', percentual: null }
 const LAYOUT_INICIAL: LayoutCampoForm[] = LAYOUT_PADRAO.map((campo, ordem) => ({ campo, ordem, visivel: true }))
 const LABEL_TIPO: Record<RegraTipo, string> = { faixa: 'Cálculo de Acerto', multa_atraso: 'Multa de Acerto', layout_acerto: 'Layout do Acerto' }
+// Nome diferente de LABEL_CAMPO (importado acima) pra não colidir — aquele é
+// dos campos do Layout do Acerto, esse é sobre qual taxa do clube a regra incide.
+const LABEL_CAMPO_CLUBE: Record<CampoClube, string> = { fee_mtt: 'Fee MTT', fee_cash: 'Fee Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp' }
 const inputCls = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20'
 
 export function RegraModal({ open, editing, onClose, onSave, saving, error }: Props) {
   const [nome, setNome] = useState('')
   const [tipo, setTipo] = useState<RegraTipo>('faixa')
+  const [campo, setCampo] = useState<CampoClube | null>(null)
   const [condicoes, setCondicoes] = useState<RegraCondicaoForm[]>([])
   const [faixasMulta, setFaixasMulta] = useState<FaixaMultaForm[]>([{ ...EMPTY_FAIXA }])
   const [layoutCampos, setLayoutCampos] = useState<LayoutCampoForm[]>(LAYOUT_INICIAL)
@@ -39,6 +43,7 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
   useEffect(() => {
     setNome(editing?.nome ?? '')
     setTipo(editing?.tipo ?? 'faixa')
+    setCampo(editing?.campo ?? null)
     setCondicoes(editing?.condicoes ?? [])
     setFaixasMulta(editing?.faixasMulta && editing.faixasMulta.length > 0 ? editing.faixasMulta : [{ ...EMPTY_FAIXA }])
     setLayoutCampos(editing?.layoutCampos && editing.layoutCampos.length > 0 ? [...editing.layoutCampos].sort((a, b) => a.ordem - b.ordem) : LAYOUT_INICIAL)
@@ -104,7 +109,7 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
     // Layout do Acerto não pede Nome — não faz muito sentido nomear "qual
     // ordem os campos aparecem", então usa um nome fixo na lista de Regras.
     const nomeFinal = tipo === 'layout_acerto' ? 'Layout do Acerto' : nome
-    onSave({ nome: nomeFinal, tipo, condicoes, faixasMulta, layoutCampos })
+    onSave({ nome: nomeFinal, tipo, campo: tipo === 'faixa' ? campo : null, condicoes, faixasMulta, layoutCampos })
   }
 
   return (
@@ -216,7 +221,16 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
                 </button>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">Aplica em<span className="text-gray-500 ml-1">*</span></label>
+                  <p className="text-xs text-gray-600 mb-1.5">Sobre qual taxa do clube esse percentual incide.</p>
+                  <select value={campo ?? ''} onChange={e => setCampo(e.target.value ? e.target.value as CampoClube : null)} required className={inputCls}>
+                    <option value="">Selecione</option>
+                    {(Object.keys(LABEL_CAMPO_CLUBE) as CampoClube[]).map(c => <option key={c} value={c}>{LABEL_CAMPO_CLUBE[c]}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
                 <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Condições SE / ENTÃO</p>
                 {condicoes.map((c, i) => (
                   <div key={i} className={`p-3 rounded-lg border space-y-2 ${c.is_fallback ? 'border-gold/30 bg-gold/5' : 'border-white/10 bg-surface2'}`}>
@@ -261,6 +275,7 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
                       <Plus size={12} />SENÃO (regra padrão)
                     </button>
                   )}
+                </div>
                 </div>
               </div>
             )}

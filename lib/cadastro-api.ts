@@ -424,7 +424,7 @@ function mapCondicaoRow(c: CondicaoRow): RegraCondicaoForm {
 export async function getRegras(): Promise<Regra[]> {
   const { data, error } = await supabase
     .from('regras')
-    .select('id, nome, created_at, tipo, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id, ordem)), regra_multa_faixas(quantidade, unidade, percentual), regra_layout_campos(campo, ordem, visivel), regra_entidades(id)')
+    .select('id, nome, created_at, tipo, campo, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id, ordem)), regra_multa_faixas(quantidade, unidade, percentual), regra_layout_campos(campo, ordem, visivel), regra_entidades(id)')
     .order('nome')
   if (error) throw error
   return (data ?? []).map((r: any) => ({
@@ -432,6 +432,7 @@ export async function getRegras(): Promise<Regra[]> {
     nome: r.nome,
     created_at: r.created_at,
     tipo: (r.tipo ?? 'faixa') as Regra['tipo'],
+    campo: (r.campo ?? null) as Regra['campo'],
     condicoes: (r.regra_condicoes ?? []).map(mapCondicaoRow),
     faixasMulta: (r.regra_multa_faixas ?? []).map((f: any) => ({ quantidade: f.quantidade, unidade: f.unidade, percentual: f.percentual })),
     layoutCampos: (r.regra_layout_campos ?? []).map((c: any) => ({ campo: c.campo, ordem: c.ordem, visivel: c.visivel })),
@@ -481,7 +482,7 @@ async function salvarLayoutCampos(regraId: string, campos: LayoutCampoForm[]): P
 }
 
 export async function createRegra(form: RegraForm): Promise<string> {
-  const { data: nova, error } = await supabase.from('regras').insert({ nome: form.nome, tipo: form.tipo }).select().single()
+  const { data: nova, error } = await supabase.from('regras').insert({ nome: form.nome, tipo: form.tipo, campo: form.tipo === 'faixa' ? form.campo : null }).select().single()
   if (error) throw error
   if (form.tipo === 'faixa') await salvarCondicoes(nova.id, form.condicoes)
   else if (form.tipo === 'multa_atraso') await salvarFaixasMulta(nova.id, form.faixasMulta)
@@ -490,7 +491,7 @@ export async function createRegra(form: RegraForm): Promise<string> {
 }
 
 export async function updateRegra(id: string, form: RegraForm): Promise<void> {
-  const { error } = await supabase.from('regras').update({ nome: form.nome, tipo: form.tipo }).eq('id', id)
+  const { error } = await supabase.from('regras').update({ nome: form.nome, tipo: form.tipo, campo: form.tipo === 'faixa' ? form.campo : null }).eq('id', id)
   if (error) throw error
   const { error: delErr } = await supabase.from('regra_condicoes').delete().eq('regra_id', id)
   if (delErr) throw delErr
