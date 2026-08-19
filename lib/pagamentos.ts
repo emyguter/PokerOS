@@ -50,7 +50,9 @@ interface PagamentoRow {
 // a cada um (os "Envios" da planilha do Cássio — Controle de Pagamentos).
 // Mesma regra de sinal usada em todo o resto do app (ExtratoView, AcertosView,
 // ClubAcertoCard): crédito soma, débito subtrai. Diferença = Valor do Acerto
-// − Valor Pago, então um Acerto quitado dá diferença 0.
+// + Valor Pago (confirmado pelo Cássio) — Valor do Acerto já vem negativo
+// quando o clube deve, então o Envio (positivo, crédito) soma por cima até
+// zerar; usar subtração dobrava a dívida em vez de quitar.
 export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow[]): AcertoPagamento[] {
   const enviosPorAcerto = new Map<string, EnvioPagamento[]>()
   for (const p of pagamentos) {
@@ -73,7 +75,7 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
       valor_acerto: a.valor_acerto,
       envios,
       valor_pago,
-      diferenca: Math.round((a.valor_acerto - valor_pago) * 100) / 100,
+      diferenca: Math.round((a.valor_acerto + valor_pago) * 100) / 100,
       caucao: 0,
     }
   })
@@ -176,7 +178,7 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
   })
 }
 
-// `AcertoPagamento.diferenca` (valor_acerto − valor_pago) é sempre guardado
+// `AcertoPagamento.diferenca` (valor_acerto + valor_pago) é sempre guardado
 // do ponto de vista do CLUBE — mesmo sinal usado em todo o resto do app
 // (totais.valor_acerto em AcertosView etc): positivo = o clube vai receber,
 // negativo = o clube precisa pagar. O Suporte usa esse número direto (é

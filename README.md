@@ -563,6 +563,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   vínculo com Liga (a tela de Vínculos avisa e pede confirmação se tentar vincular num Clube, mesmo
   padrão do aviso "sem efeito" dos outros campos). Nova linha no card de Acerto e no Layout do Acerto
   (togglável, não obrigatória)
+- [x] Fix: Diferença no Controle de Pagamentos (Suporte) e Cobrança (Financeiro) estava calculada como
+  Valor do Acerto **menos** o Total pago — como Valor do Acerto já vem negativo quando o clube deve, a
+  subtração dobrava a dívida em vez de quitar (ex: devia R$2.237,30, pagou R$2.238,00 — mostrava
+  diferença de -R$4.475,30 em vez dos ~R$0,70 corretos). Agora soma os dois (`lib/pagamentos.ts`,
+  `agregarPagamentos`), confirmado pelo Cássio
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
