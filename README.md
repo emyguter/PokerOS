@@ -587,6 +587,14 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   "trocar o tipo" de uma regra já criada) — por isso a trava por vínculo (`vinculoCount > 0`) não faz
   mais sentido e foi removida; "Duplicar" continua existindo pra partir de uma regra parecida sem
   mexer na original
+- [x] VIP ganhou 2 abas novas além do Lançamento: "Relatório" (cross-clube, filtro Todos/clube
+  específico + mês, mostra enviados/limite e quanto falta pro teto por clube+tipo) e "Configurar
+  Limites" (admin — define o máximo mensal de VIP por clube e por tipo). O limite deixou de ser a
+  constante global fixa `LIMITES_VIP` (Silver 20/Black 10/Platinum 5 pra liga toda) e passou a viver
+  em `clubs.limite_vip_silver/black/platinum`, configurável por clube; sem valor definido conta como
+  0 — o modal de confirmação de limite continua permitindo lançar mesmo assim, é só aviso. Abas novas
+  usam permissões próprias (`vip.relatorio`, `vip.limites`), que não herdam de `vip` (mesmo padrão de
+  `relatorios.taxas`: dado sensível, só abre pra quem for liberado explicitamente)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

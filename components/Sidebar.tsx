@@ -55,9 +55,9 @@ const NAV = [
   { href: '/financeiro', labelKey: 'nav.financeiro', icon: Landmark, chaves: ['lancamento.genia'], subItems: FINANCEIRO_SUB },
   { href: '/seguranca', labelKey: 'nav.seguranca', icon: ShieldAlert, chaves: ['seguranca'], subItems: SEGURANCA_SUB },
   { href: '/stoploss', labelKey: 'nav.stoploss', icon: Gauge, chaves: ['stoploss'] },
-  { href: '/vip', labelKey: 'nav.vip', icon: Crown, chaves: ['vip'] },
+  { href: '/vip', labelKey: 'nav.vip', icon: Crown, chaves: ['vip', 'vip.relatorio', 'vip.limites'] },
   { href: '/dividas', labelKey: 'nav.dividas', icon: Banknote, chaves: ['dividas'] },
-  { href: '/relatorios', labelKey: 'nav.relatorios', icon: FileText, chaves: ['relatorios', 'relatorios.acertos', 'relatorios.lancamentos'] },
+  { href: '/relatorios', labelKey: 'nav.relatorios', icon: FileText, chaves: ['relatorios', 'relatorios.acertos', 'relatorios.lancamentos', 'relatorios.taxas'] },
   { href: '/admin/regras', labelKey: 'nav.regras', icon: ListChecks, chaves: ['regras'] },
 ]
 

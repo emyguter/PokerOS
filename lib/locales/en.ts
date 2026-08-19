@@ -216,7 +216,7 @@ export const en: typeof pt = {
     escopo_col: 'Scope',
   },
   vip: {
-    titulo: 'VIP', subtitulo: 'VIP invites per club — Silver up to 20/month, Black up to 10/month, Platinum up to 5/month. Once it runs out, it runs out.',
+    titulo: 'VIP', subtitulo: 'VIP invites per club — each club\'s monthly max is set in "Configure Limits". Once it runs out, it runs out.',
     tipo: 'VIP type',
     tipos: { platinum: 'Platinum', black: 'Black', silver: 'Silver' },
     id_clube: 'Club ID',
@@ -227,6 +227,11 @@ export const en: typeof pt = {
     no_mes: 'This month',
     limite_titulo: 'Monthly limit reached',
     limite_desc: 'This club has already reached the maximum VIPs for the month. Send anyway?',
+    aba_lancamento: 'Log', aba_relatorio: 'Report', aba_limites: 'Configure Limits',
+    relatorio_subtitulo: 'How many VIPs each club has requested this month, by type — with how much room is left before the limit',
+    limites_subtitulo: 'Monthly VIP max per club and per type — blank means no limit configured',
+    faltam: '{n} left', excedeu: 'limit exceeded',
+    buscar_clube: 'Search club...',
   },
   relatorios: {
     aba_acertos: 'Settlements', aba_lancamentos: 'Entries', aba_taxas: 'Fee Summary',

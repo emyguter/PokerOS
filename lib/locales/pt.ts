@@ -214,7 +214,7 @@ export const pt = {
     escopo_col: 'Escopo',
   },
   vip: {
-    titulo: 'VIP', subtitulo: 'Convites VIP por clube — Silver até 20/mês, Black até 10/mês, Platinum até 5/mês. Se acabar, acabou.',
+    titulo: 'VIP', subtitulo: 'Convites VIP por clube — o máximo mensal de cada clube é configurado em "Configurar Limites". Se acabar, acabou.',
     tipo: 'Tipo de VIP',
     tipos: { platinum: 'Platinum', black: 'Black', silver: 'Silver' },
     id_clube: 'ID do clube',
@@ -225,6 +225,11 @@ export const pt = {
     no_mes: 'No mês',
     limite_titulo: 'Limite do mês atingido',
     limite_desc: 'Este clube já atingiu o máximo de VIPs para o mês. Enviar assim mesmo?',
+    aba_lancamento: 'Lançar', aba_relatorio: 'Relatório', aba_limites: 'Configurar Limites',
+    relatorio_subtitulo: 'Quantos VIPs cada clube já solicitou no mês, por tipo — com o quanto ainda falta pro limite',
+    limites_subtitulo: 'Máximo mensal de VIP por clube e por tipo — em branco, sem limite configurado',
+    faltam: 'faltam {n}', excedeu: 'excedeu o limite',
+    buscar_clube: 'Buscar clube...',
   },
   relatorios: {
     aba_acertos: 'Acertos', aba_lancamentos: 'Lançamentos', aba_taxas: 'Resumo de Taxas',

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { corVip, LIMITES_VIP } from '../vip'
+import { corVip, limiteVipDoClube } from '../vip'
 
 describe('corVip', () => {
   it('branco quando bem abaixo do limite', () => {
@@ -17,10 +17,21 @@ describe('corVip', () => {
     expect(corVip(25, 20)).toBe('vermelho')
   })
 
-  it('respeita os limites reais de cada tipo (Silver 20 / Black 10 / Platinum 5)', () => {
-    expect(corVip(LIMITES_VIP.silver, LIMITES_VIP.silver)).toBe('vermelho')
-    expect(corVip(8, LIMITES_VIP.black)).toBe('amarelo')
-    expect(corVip(4, LIMITES_VIP.platinum)).toBe('amarelo')
-    expect(corVip(3, LIMITES_VIP.platinum)).toBe('branco')
+  it('branco quando não há limite configurado (0)', () => {
+    expect(corVip(5, 0)).toBe('branco')
+  })
+})
+
+describe('limiteVipDoClube', () => {
+  it('lê a coluna certa por tipo', () => {
+    const clube = { limite_vip_silver: 20, limite_vip_black: 10, limite_vip_platinum: 5 }
+    expect(limiteVipDoClube(clube, 'silver')).toBe(20)
+    expect(limiteVipDoClube(clube, 'black')).toBe(10)
+    expect(limiteVipDoClube(clube, 'platinum')).toBe(5)
+  })
+
+  it('trata null como 0 (sem limite configurado)', () => {
+    const clube = { limite_vip_silver: null, limite_vip_black: null, limite_vip_platinum: null }
+    expect(limiteVipDoClube(clube, 'silver')).toBe(0)
   })
 })

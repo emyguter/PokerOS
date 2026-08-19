@@ -1,8 +1,22 @@
 export type TipoVip = 'silver' | 'black' | 'platinum'
 
-// Limites mensais por clube, fixos — "se acabar, acabou" (Cássio). Não é
-// configurável por clube, é regra da liga.
-export const LIMITES_VIP: Record<TipoVip, number> = { silver: 20, black: 10, platinum: 5 }
+// Limite mensal por clube+tipo — configurável por clube (VIP → Configurar
+// Limites), guardado em clubs.limite_vip_silver/black/platinum. Sem valor
+// configurado (null) = 0 — "se acabar, acabou" até alguém definir o máximo
+// daquele clube.
+export const COLUNA_LIMITE_VIP: Record<TipoVip, 'limite_vip_silver' | 'limite_vip_black' | 'limite_vip_platinum'> = {
+  silver: 'limite_vip_silver', black: 'limite_vip_black', platinum: 'limite_vip_platinum',
+}
+
+export interface LimitesVipClube {
+  limite_vip_silver: number | null
+  limite_vip_black: number | null
+  limite_vip_platinum: number | null
+}
+
+export function limiteVipDoClube(clube: LimitesVipClube, tipo: TipoVip): number {
+  return clube[COLUNA_LIMITE_VIP[tipo]] ?? 0
+}
 
 export const TIPOS_VIP: { value: TipoVip; labelKey: string }[] = [
   { value: 'platinum', labelKey: 'vip.tipos.platinum' },
