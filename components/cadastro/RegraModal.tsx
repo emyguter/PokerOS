@@ -12,7 +12,10 @@ interface Props {
   open: boolean
   editing: Regra | null
   onClose: () => void
-  onSave: (form: RegraForm) => void
+  // Uma etapa marcada = uma Regra criada — pode ser 1, 2 ou 3 de uma vez
+  // (Cálculo/Layout/Multa coexistem, nenhuma sobrepõe a outra). Editando,
+  // vem sempre com exatamente 1 item (a etapa fixa daquela regra).
+  onSave: (forms: RegraForm[]) => void
   saving: boolean
   error?: string | null
 }
@@ -26,15 +29,35 @@ const LABEL_TIPO: Record<RegraTipo, string> = { faixa: 'Cálculo de Acerto', mul
 const LABEL_CAMPO_CLUBE: Record<CampoClube, string> = { fee_mtt: 'Fee MTT', fee_cash: 'Fee Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp', rake_total: 'Rake Total', taxa_liga: 'Taxa da Liga' }
 const inputCls = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20'
 
+function Etapa({ titulo, descricao, checked, onToggle, children }: { titulo: string; descricao: string; checked: boolean; onToggle: () => void; children?: React.ReactNode }) {
+  return (
+    <div className={`rounded-lg border transition-colors ${checked ? 'border-gold/40 bg-gold/[0.03]' : 'border-white/10'}`}>
+      <label className="flex items-start gap-3 px-3 py-3 cursor-pointer select-none">
+        <input type="checkbox" checked={checked} onChange={onToggle} className="accent-gold mt-0.5" />
+        <div>
+          <p className="text-sm font-medium text-white">{titulo}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{descricao}</p>
+        </div>
+      </label>
+      {checked && children && <div className="px-3 pb-3 space-y-3">{children}</div>}
+    </div>
+  )
+}
+
 export function RegraModal({ open, editing, onClose, onSave, saving, error }: Props) {
   const [nome, setNome] = useState('')
-  const [tipo, setTipo] = useState<RegraTipo>('faixa')
   const [campo, setCampo] = useState<CampoClube | null>(null)
   const [condicoes, setCondicoes] = useState<RegraCondicaoForm[]>([])
   const [faixasMulta, setFaixasMulta] = useState<FaixaMultaForm[]>([{ ...EMPTY_FAIXA }])
   const [layoutCampos, setLayoutCampos] = useState<LayoutCampoForm[]>(LAYOUT_INICIAL)
   const [arrastando, setArrastando] = useState<string | null>(null)
   const [indicadores, setIndicadores] = useState<Indicador[]>([])
+  // Só valem criando regra nova — as 3 etapas podem coexistir, cada uma
+  // marcada vira sua própria Regra. Editando, a etapa já é fixa (é o
+  // editing.tipo) — não existe mais conversão de tipo numa regra existente.
+  const [incluirCalculo, setIncluirCalculo] = useState(true)
+  const [incluirLayout, setIncluirLayout] = useState(true)
+  const [incluirMulta, setIncluirMulta] = useState(false)
 
   useEffect(() => {
     if (open) supabase.from('indicadores').select('*').order('nome').then(({ data }) => { if (data) setIndicadores(data) })
@@ -42,11 +65,13 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
 
   useEffect(() => {
     setNome(editing?.nome ?? '')
-    setTipo(editing?.tipo ?? 'faixa')
     setCampo(editing?.campo ?? null)
     setCondicoes(editing?.condicoes ?? [])
     setFaixasMulta(editing?.faixasMulta && editing.faixasMulta.length > 0 ? editing.faixasMulta : [{ ...EMPTY_FAIXA }])
     setLayoutCampos(editing?.layoutCampos && editing.layoutCampos.length > 0 ? [...editing.layoutCampos].sort((a, b) => a.ordem - b.ordem) : LAYOUT_INICIAL)
+    setIncluirCalculo(true)
+    setIncluirLayout(true)
+    setIncluirMulta(false)
   }, [editing, open])
 
   if (!open) return null
@@ -94,22 +119,25 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
     })
   }
 
-  // Trocar o tipo de uma regra já vinculada apaga a configuração do tipo
-  // antigo pra sempre (updateRegra deleta regra_condicoes/regra_multa_faixas/
-  // regra_layout_campos do tipo anterior) — os vínculos com clube/liga
-  // continuam, mas o SE/ENTÃO ou as faixas de multa somem sem aviso nenhum.
-  // Já aconteceu de verdade uma vez. Em vez de só confirmar (fácil de clicar
-  // sem ler), a partir de vinculada o tipo trava por completo — pra
-  // "experimentar" outro tipo, duplique a regra (a cópia nasce sem vínculo,
-  // aí sim pode trocar livre, é o primeiro ajuste dela).
-  const tipoTravado = !!editing && editing.vinculoCount > 0
+  // Cálculo de Acerto, Layout do Acerto e Multa de Acerto coexistem — cada
+  // uma vira sua própria Regra (com seu próprio vínculo), nenhuma sobrepõe
+  // as outras. Editando, só existe UMA etapa: a que a regra já é (tipo fixo
+  // pra sempre — não existe mais conversão de tipo numa regra existente).
+  const mostrarCalculo = editing ? editing.tipo === 'faixa' : incluirCalculo
+  const mostrarLayout = editing ? editing.tipo === 'layout_acerto' : incluirLayout
+  const mostrarMulta = editing ? editing.tipo === 'multa_atraso' : incluirMulta
+  const precisaNome = mostrarCalculo || mostrarMulta
+  const nenhumaEtapa = !editing && !incluirCalculo && !incluirLayout && !incluirMulta
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const forms: RegraForm[] = []
+    if (mostrarCalculo) forms.push({ nome, tipo: 'faixa', campo, condicoes, faixasMulta: [], layoutCampos: [] })
     // Layout do Acerto não pede Nome — não faz muito sentido nomear "qual
     // ordem os campos aparecem", então usa um nome fixo na lista de Regras.
-    const nomeFinal = tipo === 'layout_acerto' ? 'Layout do Acerto' : nome
-    onSave({ nome: nomeFinal, tipo, campo: tipo === 'faixa' ? campo : null, condicoes, faixasMulta, layoutCampos })
+    if (mostrarLayout) forms.push({ nome: 'Layout do Acerto', tipo: 'layout_acerto', campo: null, condicoes: [], faixasMulta: [], layoutCampos })
+    if (mostrarMulta) forms.push({ nome, tipo: 'multa_atraso', campo: null, condicoes: [], faixasMulta, layoutCampos: [] })
+    onSave(forms)
   }
 
   return (
@@ -117,110 +145,33 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
-          <h2 className="text-lg font-semibold text-white">{editing ? 'Editar Regra' : 'Nova Regra'}</h2>
+          <h2 className="text-lg font-semibold text-white">{editing ? `Editar Regra — ${LABEL_TIPO[editing.tipo]}` : 'Nova Regra'}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
-            <div className="space-y-2">
-              <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Tipo de regra</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <button type="button" disabled={tipoTravado} onClick={() => setTipo('faixa')} title={tipoTravado ? 'Regra já vinculada — duplique pra trocar o tipo' : undefined} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left disabled:cursor-not-allowed disabled:opacity-40 ${tipo === 'faixa' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
-                  Cálculo de Acerto
-                  <p className="text-xs font-normal text-gray-500 mt-0.5">Faixa SE/ENTÃO — % que varia por rake/ganhos</p>
-                </button>
-                <button type="button" disabled={tipoTravado} onClick={() => setTipo('multa_atraso')} title={tipoTravado ? 'Regra já vinculada — duplique pra trocar o tipo' : undefined} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left disabled:cursor-not-allowed disabled:opacity-40 ${tipo === 'multa_atraso' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
-                  Multa de Acerto
-                  <p className="text-xs font-normal text-gray-500 mt-0.5">% de multa por atraso, pra Dívidas e Acordos</p>
-                </button>
-                <button type="button" disabled={tipoTravado} onClick={() => setTipo('layout_acerto')} title={tipoTravado ? 'Regra já vinculada — duplique pra trocar o tipo' : undefined} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left disabled:cursor-not-allowed disabled:opacity-40 ${tipo === 'layout_acerto' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
-                  Layout do Acerto
-                  <p className="text-xs font-normal text-gray-500 mt-0.5">Quais campos aparecem e em que ordem, no card de Acerto</p>
-                </button>
-              </div>
-              {tipoTravado && (
-                <p className="text-xs text-gray-500">
-                  Essa regra já tem {editing!.vinculoCount} vínculo(s) — o tipo ({LABEL_TIPO[editing!.tipo]}) não pode mais mudar.
-                  Pra experimentar outro tipo, feche aqui e use o botão de duplicar na lista — a cópia nasce sem vínculo e pode ter o tipo trocado livremente.
-                </p>
-              )}
-            </div>
+            {!editing && (
+              <p className="text-xs text-gray-500">
+                Marque as etapas que essa regra vai ter — Cálculo de Acerto, Layout do Acerto e Multa de Acerto coexistem, nenhuma substitui a outra. Cada etapa marcada nasce como sua própria Regra na lista, e vai precisar do próprio vínculo depois.
+              </p>
+            )}
 
-            {tipo !== 'layout_acerto' && (
+            {precisaNome && (
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1.5">Nome<span className="text-gray-500 ml-1">*</span></label>
-                <input type="text" value={nome} onChange={e => setNome(e.target.value)} required placeholder={tipo === 'multa_atraso' ? 'Ex: Multa padrão por atraso' : 'Ex: 5%-15%'} className={inputCls} />
+                <input type="text" value={nome} onChange={e => setNome(e.target.value)} required placeholder="Ex: 5%-15%" className={inputCls} />
+                {!editing && mostrarCalculo && mostrarMulta && (
+                  <p className="text-xs text-gray-600 mt-1">Usado nas duas regras (Cálculo e Multa) — dá pra renomear cada uma depois, separadamente.</p>
+                )}
               </div>
             )}
 
-            {tipo === 'layout_acerto' ? (
-              <div className="space-y-2">
-                <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Campos do card de Acerto</p>
-                <p className="text-xs text-gray-600">Arraste pra reordenar (ou use as setinhas — funcionam melhor no celular). Os marcados como obrigatório sempre aparecem — só dá pra ligar/desligar os outros.</p>
-                <div className="space-y-1">
-                  {layoutCampos.map((c, i) => {
-                    const obrigatorio = ehObrigatorio(c.campo)
-                    return (
-                      <div
-                        key={c.campo}
-                        draggable
-                        onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.campo); setArrastando(c.campo) }}
-                        onDragOver={(e) => { e.preventDefault(); if (arrastando !== null && arrastando !== c.campo) moverCampo(arrastando, i) }}
-                        onDrop={(e) => e.preventDefault()}
-                        onDragEnd={() => setArrastando(null)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-grab active:cursor-grabbing transition-colors ${arrastando === c.campo ? 'border-gold/50 bg-gold/10 opacity-60' : 'border-white/10 bg-surface2'}`}
-                      >
-                        <GripVertical size={14} className="text-gray-600 shrink-0" />
-                        <div className="flex flex-col shrink-0 -my-1">
-                          <button type="button" onClick={() => moverPorSeta(i, -1)} disabled={i === 0} className="text-gray-500 hover:text-white disabled:opacity-20 disabled:hover:text-gray-500 transition-colors"><ChevronUp size={13} /></button>
-                          <button type="button" onClick={() => moverPorSeta(i, 1)} disabled={i === layoutCampos.length - 1} className="text-gray-500 hover:text-white disabled:opacity-20 disabled:hover:text-gray-500 transition-colors"><ChevronDown size={13} /></button>
-                        </div>
-                        <span className="text-sm text-white flex-1">{LABEL_CAMPO[c.campo as keyof typeof LABEL_CAMPO] ?? c.campo}</span>
-                        {obrigatorio ? (
-                          <span className="px-1.5 py-0.5 rounded-full bg-surface border border-white/10 text-gray-500 text-[10px] whitespace-nowrap">obrigatório</span>
-                        ) : (
-                          <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer select-none">
-                            <input type="checkbox" checked={c.visivel} onChange={() => toggleVisivel(i)} className="accent-gold" />
-                            visível
-                          </label>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            ) : tipo === 'multa_atraso' ? (
-              <div className="space-y-2">
-                <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Faixas de atraso</p>
-                <p className="text-xs text-gray-600">A maior faixa já atingida vale sozinha (não soma com as anteriores) — incide sobre o valor da parcela atrasada.</p>
-                {faixasMulta.map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 p-3 rounded-lg border border-white/10 bg-surface2">
-                    <input
-                      type="number" step="1" min="1" value={f.quantidade ?? ''}
-                      onChange={e => setFaixa(i, 'quantidade', e.target.value === '' ? null : Number(e.target.value))}
-                      placeholder="Ex: 1" className={`${inputCls} w-20`}
-                    />
-                    <select value={f.unidade} onChange={e => setFaixa(i, 'unidade', e.target.value)} className={`${inputCls} w-auto`}>
-                      <option value="dias">dia(s)</option>
-                      <option value="semanas">semana(s)</option>
-                    </select>
-                    <span className="text-gray-500 text-sm">de atraso →</span>
-                    <input
-                      type="number" step="any" value={f.percentual ?? ''}
-                      onChange={e => setFaixa(i, 'percentual', e.target.value === '' ? null : Number(e.target.value))}
-                      placeholder="Ex: 2" className={`${inputCls} w-24`}
-                    />
-                    <span className="text-gray-500 text-sm">%</span>
-                    {faixasMulta.length > 1 && (
-                      <button type="button" onClick={() => removeFaixa(i)} className="ml-auto text-gray-500 hover:text-alert transition-colors"><Trash2 size={14} /></button>
-                    )}
-                  </div>
-                ))}
-                <button type="button" onClick={addFaixa} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
-                  <Plus size={12} />Faixa
-                </button>
-              </div>
-            ) : (
+            <Etapa
+              titulo="Cálculo de Acerto"
+              descricao="Faixa SE/ENTÃO — % que varia por rake/ganhos"
+              checked={mostrarCalculo}
+              onToggle={() => setIncluirCalculo(v => !v)}
+            >
               <div className="space-y-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1.5">Aplica em<span className="text-gray-500 ml-1">*</span></label>
@@ -231,61 +182,137 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
                   </select>
                 </div>
                 <div className="space-y-2">
-                <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Condições SE / ENTÃO</p>
-                {condicoes.map((c, i) => (
-                  <div key={i} className={`p-3 rounded-lg border space-y-2 ${c.is_fallback ? 'border-gold/30 bg-gold/5' : 'border-white/10 bg-surface2'}`}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-gray-400">{c.is_fallback ? 'SENÃO' : `SE ${i + 1}`}</span>
-                      <button type="button" onClick={() => removeCondicao(i)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={13} /></button>
+                  <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Condições SE / ENTÃO</p>
+                  {condicoes.map((c, i) => (
+                    <div key={i} className={`p-3 rounded-lg border space-y-2 ${c.is_fallback ? 'border-gold/30 bg-gold/5' : 'border-white/10 bg-surface2'}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-gray-400">{c.is_fallback ? 'SENÃO' : `SE ${i + 1}`}</span>
+                        <button type="button" onClick={() => removeCondicao(i)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={13} /></button>
+                      </div>
+                      {!c.is_fallback && (
+                        <>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {c.indicador_ids.map((id, ti) => (
+                              <div key={ti} className="flex items-center gap-1">
+                                {ti > 0 && <span className="text-gray-500 text-xs">+</span>}
+                                <select value={id} onChange={e => setTermo(i, ti, e.target.value)} className={`${inputCls} w-auto`}>
+                                  <option value="">Indicador</option>
+                                  {indicadores.map(ind => <option key={ind.id} value={ind.id}>{formatIndicadorNome(ind.nome, ind.descricao)}</option>)}
+                                </select>
+                                {c.indicador_ids.length > 1 && (
+                                  <button type="button" onClick={() => removeTermo(i, ti)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={12} /></button>
+                                )}
+                              </div>
+                            ))}
+                            <button type="button" onClick={() => addTermo(i)} className="text-gold text-xs hover:underline">+ variável</button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <select value={c.operador} onChange={e => setCondicao(i, 'operador', e.target.value)} className={inputCls}>
+                              {['>', '>=', '<', '<='].map(op => <option key={op} value={op}>{op}</option>)}
+                            </select>
+                            <input type="number" step="any" value={c.valor ?? ''} onChange={e => setCondicao(i, 'valor', e.target.value === '' ? null : Number(e.target.value))} placeholder="Valor" className={inputCls} />
+                          </div>
+                        </>
+                      )}
+                      <input type="number" step="any" value={c.resultado_pct ?? ''} onChange={e => setCondicao(i, 'resultado_pct', e.target.value === '' ? null : Number(e.target.value))} placeholder="Resultado (%)" className={inputCls} />
                     </div>
-                    {!c.is_fallback && (
-                      <>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {c.indicador_ids.map((id, ti) => (
-                            <div key={ti} className="flex items-center gap-1">
-                              {ti > 0 && <span className="text-gray-500 text-xs">+</span>}
-                              <select value={id} onChange={e => setTermo(i, ti, e.target.value)} className={`${inputCls} w-auto`}>
-                                <option value="">Indicador</option>
-                                {indicadores.map(ind => <option key={ind.id} value={ind.id}>{formatIndicadorNome(ind.nome, ind.descricao)}</option>)}
-                              </select>
-                              {c.indicador_ids.length > 1 && (
-                                <button type="button" onClick={() => removeTermo(i, ti)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={12} /></button>
-                              )}
-                            </div>
-                          ))}
-                          <button type="button" onClick={() => addTermo(i)} className="text-gold text-xs hover:underline">+ variável</button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <select value={c.operador} onChange={e => setCondicao(i, 'operador', e.target.value)} className={inputCls}>
-                            {['>', '>=', '<', '<='].map(op => <option key={op} value={op}>{op}</option>)}
-                          </select>
-                          <input type="number" step="any" value={c.valor ?? ''} onChange={e => setCondicao(i, 'valor', e.target.value === '' ? null : Number(e.target.value))} placeholder="Valor" className={inputCls} />
-                        </div>
-                      </>
-                    )}
-                    <input type="number" step="any" value={c.resultado_pct ?? ''} onChange={e => setCondicao(i, 'resultado_pct', e.target.value === '' ? null : Number(e.target.value))} placeholder="Resultado (%)" className={inputCls} />
-                  </div>
-                ))}
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={addCondicao} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
-                    <Plus size={12} />SE condição
-                  </button>
-                  {!condicoes.some(c => c.is_fallback) && (
-                    <button type="button" onClick={addFallback} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
-                      <Plus size={12} />SENÃO (regra padrão)
+                  ))}
+                  <div className="flex gap-2 pt-1">
+                    <button type="button" onClick={addCondicao} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
+                      <Plus size={12} />SE condição
                     </button>
-                  )}
-                </div>
+                    {!condicoes.some(c => c.is_fallback) && (
+                      <button type="button" onClick={addFallback} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
+                        <Plus size={12} />SENÃO (regra padrão)
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            )}
+            </Etapa>
 
+            <Etapa
+              titulo="Layout do Acerto"
+              descricao="Quais campos aparecem e em que ordem, no card de Acerto"
+              checked={mostrarLayout}
+              onToggle={() => setIncluirLayout(v => !v)}
+            >
+              <p className="text-xs text-gray-600">Arraste pra reordenar (ou use as setinhas — funcionam melhor no celular). Os marcados como obrigatório sempre aparecem — só dá pra ligar/desligar os outros.</p>
+              <div className="space-y-1">
+                {layoutCampos.map((c, i) => {
+                  const obrigatorio = ehObrigatorio(c.campo)
+                  return (
+                    <div
+                      key={c.campo}
+                      draggable
+                      onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.campo); setArrastando(c.campo) }}
+                      onDragOver={(e) => { e.preventDefault(); if (arrastando !== null && arrastando !== c.campo) moverCampo(arrastando, i) }}
+                      onDrop={(e) => e.preventDefault()}
+                      onDragEnd={() => setArrastando(null)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-grab active:cursor-grabbing transition-colors ${arrastando === c.campo ? 'border-gold/50 bg-gold/10 opacity-60' : 'border-white/10 bg-surface2'}`}
+                    >
+                      <GripVertical size={14} className="text-gray-600 shrink-0" />
+                      <div className="flex flex-col shrink-0 -my-1">
+                        <button type="button" onClick={() => moverPorSeta(i, -1)} disabled={i === 0} className="text-gray-500 hover:text-white disabled:opacity-20 disabled:hover:text-gray-500 transition-colors"><ChevronUp size={13} /></button>
+                        <button type="button" onClick={() => moverPorSeta(i, 1)} disabled={i === layoutCampos.length - 1} className="text-gray-500 hover:text-white disabled:opacity-20 disabled:hover:text-gray-500 transition-colors"><ChevronDown size={13} /></button>
+                      </div>
+                      <span className="text-sm text-white flex-1">{LABEL_CAMPO[c.campo as keyof typeof LABEL_CAMPO] ?? c.campo}</span>
+                      {obrigatorio ? (
+                        <span className="px-1.5 py-0.5 rounded-full bg-surface border border-white/10 text-gray-500 text-[10px] whitespace-nowrap">obrigatório</span>
+                      ) : (
+                        <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer select-none">
+                          <input type="checkbox" checked={c.visivel} onChange={() => toggleVisivel(i)} className="accent-gold" />
+                          visível
+                        </label>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </Etapa>
+
+            <Etapa
+              titulo="Multa de Acerto"
+              descricao="% de multa por atraso, pra Dívidas e Acordos — opcional, nem toda regra precisa"
+              checked={mostrarMulta}
+              onToggle={() => setIncluirMulta(v => !v)}
+            >
+              <p className="text-xs text-gray-600">A maior faixa já atingida vale sozinha (não soma com as anteriores) — incide sobre o valor da parcela atrasada.</p>
+              {faixasMulta.map((f, i) => (
+                <div key={i} className="flex items-center gap-2 p-3 rounded-lg border border-white/10 bg-surface2">
+                  <input
+                    type="number" step="1" min="1" value={f.quantidade ?? ''}
+                    onChange={e => setFaixa(i, 'quantidade', e.target.value === '' ? null : Number(e.target.value))}
+                    placeholder="Ex: 1" className={`${inputCls} w-20`}
+                  />
+                  <select value={f.unidade} onChange={e => setFaixa(i, 'unidade', e.target.value)} className={`${inputCls} w-auto`}>
+                    <option value="dias">dia(s)</option>
+                    <option value="semanas">semana(s)</option>
+                  </select>
+                  <span className="text-gray-500 text-sm">de atraso →</span>
+                  <input
+                    type="number" step="any" value={f.percentual ?? ''}
+                    onChange={e => setFaixa(i, 'percentual', e.target.value === '' ? null : Number(e.target.value))}
+                    placeholder="Ex: 2" className={`${inputCls} w-24`}
+                  />
+                  <span className="text-gray-500 text-sm">%</span>
+                  {faixasMulta.length > 1 && (
+                    <button type="button" onClick={() => removeFaixa(i)} className="ml-auto text-gray-500 hover:text-alert transition-colors"><Trash2 size={14} /></button>
+                  )}
+                </div>
+              ))}
+              <button type="button" onClick={addFaixa} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
+                <Plus size={12} />Faixa
+              </button>
+            </Etapa>
+
+            {nenhumaEtapa && <p className="text-xs text-alert">Marque pelo menos uma etapa pra salvar.</p>}
             {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
           </div>
           <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
             <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
-            <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
-              {saving && <Loader2 size={14} className="animate-spin" />}Salvar Regra
+            <button type="submit" disabled={saving || nenhumaEtapa} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
+              {saving && <Loader2 size={14} className="animate-spin" />}Salvar Regra{!editing && (incluirCalculo ? 1 : 0) + (incluirLayout ? 1 : 0) + (incluirMulta ? 1 : 0) > 1 ? 's' : ''}
             </button>
           </div>
         </form>

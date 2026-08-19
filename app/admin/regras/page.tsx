@@ -72,29 +72,34 @@ export default function RegrasPage() {
 
   useEffect(() => { load() }, [load])
 
-  async function handleSave(form: RegraForm) {
+  // Cálculo de Acerto, Layout do Acerto e Multa de Acerto coexistem — o
+  // modal manda 1 form por etapa marcada (editando, sempre só 1: a etapa
+  // fixa daquela regra). Cada form novo vira sua própria Regra.
+  async function handleSave(forms: RegraForm[]) {
     setSaving(true); setError(null)
     try {
       if (editing) {
-        await updateRegra(editing.id, form)
+        await updateRegra(editing.id, forms[0])
         await load()
       } else {
         // Regra nova não serve pra nada até ser vinculada a alguém — em vez
-        // de fechar e deixar órfã, já abre o painel de vínculo na sequência.
-        const novoId = await createRegra(form)
+        // de fechar e deixar órfã, já abre o painel de vínculo da primeira
+        // etapa criada na sequência (as outras ficam na lista, "a vincular").
+        const novosIds: string[] = []
+        for (const form of forms) novosIds.push(await createRegra(form))
         const lista = await getRegras()
         setItems(lista)
-        const nova = lista.find(r => r.id === novoId)
-        if (nova) setVinculosRegra(nova)
+        const primeira = lista.find(r => r.id === novosIds[0])
+        if (primeira) setVinculosRegra(primeira)
       }
       setModalOpen(false); setEditing(null)
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setSaving(false) }
   }
 
-  // Cria uma cópia solta, sem nenhum vínculo — a original (já vinculada a
-  // clube/liga) não deixa mais trocar de tipo, então duplicar é o jeito de
-  // "experimentar" outro tipo sem mexer no que já tá valendo pra ninguém.
+  // Cria uma cópia solta, sem nenhum vínculo — jeito rápido de partir de uma
+  // regra parecida (mesma etapa/tipo) sem mexer na original, que já pode
+  // estar valendo pra alguém.
   async function handleDuplicate(regra: Regra) {
     setError(null)
     try {

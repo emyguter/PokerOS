@@ -577,6 +577,14 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   não a semana que os dados cobrem) e "Projeto" (mesmo campo do cadastro do Clube usado no Stoploss)
   — filtra as linhas da semana já selecionada. `buscarImportsComAcerto` agora traz `created_at`, e
   `buscarPagamentosPorImport` traz o `projeto` de cada clube (`lib/pagamentos.ts`)
+- [x] Tela de Nova/Editar Regra reformulada: Cálculo de Acerto, Layout do Acerto e Multa de Acerto
+  deixaram de ser um seletor de tipo excludente (escolhe 1) e viraram etapas que coexistem — marca
+  quantas quiser (Multa é opcional, desmarcada por padrão), cada uma vira sua própria Regra na lista,
+  cada uma com seu próprio vínculo depois. Por baixo continuam sendo regras separadas (`regras.tipo`
+  não mudou) — só a tela de criação virou um fluxo de etapas em vez de um either/or. Editando uma
+  regra existente, a etapa fica fixa pra sempre (não existe mais "trocar o tipo" de uma regra já
+  criada) — por isso a trava por vínculo (`vinculoCount > 0`) não faz mais sentido e foi removida;
+  "Duplicar" continua existindo pra partir de uma regra parecida sem mexer na original
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
