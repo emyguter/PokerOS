@@ -40,6 +40,7 @@ interface Acerto {
   fee_cash_valor: number;
   fee_operacional_valor: number;
   fee_spinup_valor: number;
+  taxa_liga_valor: number;
   taxa_cash_pct_aplicada: number | null;
   bilhetes: number;
   pendencias_antecipacao: number;
@@ -310,6 +311,7 @@ export default function AcertosView() {
       Ganhos: a.player_result,
       "Fee Calculado": feeDisplay(a),
       Rebate: a.rebate_calculado,
+      "Taxa da Liga": a.taxa_liga_valor,
       "Acerto (Rake)": valorDisplay(a),
       Bilhetes: a.bilhetes,
       "Pendências/Antecipação": a.pendencias_antecipacao,

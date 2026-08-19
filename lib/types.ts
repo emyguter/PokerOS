@@ -298,24 +298,34 @@ export type LayoutCampoForm = {
 
 export type EntidadeTipo = 'plataforma' | 'mega_liga' | 'superliga' | 'liga' | 'clube' | 'agente' | 'jogador'
 
-// As variáveis do clube que podem virar Fixa (% direto no cadastro) ou
-// Variável (faixa SE/ENTÃO, via vínculo de Regra) — só faz sentido quando
-// para_tipo === 'clube'; nos outros tipos de entidade fica null.
-// rake_total é a taxa única de clubes taxa_fixa_variavel/weekly_usd (% sobre
-// o Rake Total inteiro, sem separar MTT/Cash) — diferente de Taxa
-// Operacional, que só existe em clubes taxa_dinamica.
-export type CampoClube = 'fee_mtt' | 'fee_cash' | 'taxa_op' | 'spinup' | 'rake_total'
+// As variáveis do clube (ou da liga, no caso de taxa_liga) que podem virar
+// Fixa (% direto no cadastro) ou Variável (faixa SE/ENTÃO, via vínculo de
+// Regra). rake_total é a taxa única de clubes taxa_fixa_variavel/weekly_usd
+// (% sobre o Rake Total inteiro, sem separar MTT/Cash) — diferente de Taxa
+// Operacional, que só existe em clubes taxa_dinamica. taxa_liga é o único
+// campo daqui que não é do clube — é da Liga (regra_entidades.entidade_tipo
+// = 'liga'), incide sobre Rake Total + SpinUp Rake somados, em cima de
+// qualquer tipo de cobrança do clube.
+export type CampoClube = 'fee_mtt' | 'fee_cash' | 'taxa_op' | 'spinup' | 'rake_total' | 'taxa_liga'
 
 // Quais campos o motor de cálculo (lib/acertos-engine.ts, switch por
 // club.settlement_type) realmente lê pra cada tipo de cobrança — precisa
 // ficar em sync manual com aquele switch. Um vínculo de Regra num campo fora
 // dessa lista pro settlement_type do clube fica salvo, mas sem efeito nenhum
-// no cálculo (usado pra avisar isso na tela de Vínculos).
+// no cálculo (usado pra avisar isso na tela de Vínculos). taxa_liga fica de
+// fora — não é campo de clube, ver campoAplicavelAoTipo.
 export const CAMPOS_POR_SETTLEMENT: Record<string, CampoClube[]> = {
   taxa_dinamica: ['fee_mtt', 'fee_cash', 'taxa_op', 'spinup'],
   taxa_fixa_variavel: ['rake_total'],
   weekly_usd: ['rake_total'],
   rakeback: [],
+}
+
+// taxa_liga só faz sentido vinculada a uma Liga; os outros campos só fazem
+// sentido vinculados a um Clube (aí sim, checar CAMPOS_POR_SETTLEMENT pra
+// saber se o settlement_type daquele clube específico realmente usa).
+export function campoAplicavelAoTipo(campo: CampoClube, entidadeTipo: EntidadeTipo): boolean {
+  return campo === 'taxa_liga' ? entidadeTipo === 'liga' : entidadeTipo === 'clube'
 }
 
 export const LABEL_SETTLEMENT: Record<string, string> = {

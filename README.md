@@ -552,6 +552,17 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   sensível, só deve ser liberado explicitamente na tela de Permissões pra quem for executivo).
   Clube também ganhou um marcador manual "Termos especiais" (checkbox na etapa Taxas do cadastro,
   não afeta cálculo nenhum) que aparece como selo nesse relatório
+- [x] Renomeados 3 rótulos no card de Acerto e no Layout do Acerto (pedido do Cássio): "Taxa Atual -
+  MTT" → "Taxa MTT", "Taxa Dinâmica - Cash" → "Taxa Cash", "SpinUp Lucro" → "SpinUp Rake" — só o
+  texto exibido mudou, nenhum campo/cálculo foi alterado
+- [x] Nova taxa "Taxa da Liga" (pedido do Cássio): incide sobre Rake Total + SpinUp Rake (todo o rake
+  do período somado) e desconta do Valor do Acerto, em cima de qualquer taxa que o clube já tenha —
+  vale pra qualquer tipo de cobrança. % fixo fica no cadastro da Liga (reaproveita
+  `leagues.taxa_app_pct`, que já existia no banco mas nunca tinha tela nem cálculo). Pode virar Faixa
+  SE/ENTÃO via Regra vinculada à própria Liga — "Aplica em" ganhou essa 6ª opção, só selecionável pra
+  vínculo com Liga (a tela de Vínculos avisa e pede confirmação se tentar vincular num Clube, mesmo
+  padrão do aviso "sem efeito" dos outros campos). Nova linha no card de Acerto e no Layout do Acerto
+  (togglável, não obrigatória)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

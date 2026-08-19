@@ -27,6 +27,7 @@ function club(overrides: Partial<ClubSettings> = {}): ClubSettings {
     spinup_pct: 3,
     wtr4_semanas_manual: null,
     elite: false,
+    league_id: null,
     ...overrides,
   }
 }
@@ -294,5 +295,38 @@ describe('calcularAcerto — outros tipos de cobrança', () => {
     expect(resultado.fee_calculado).toBe(200) // 1000 * 20%, não os 15% fixos do cadastro
     expect(resultado.rebate_calculado).toBe(70)
     expect(resultado.valor_acerto).toBe(200 - 70)
+  })
+})
+
+describe('calcularAcerto — Taxa da Liga', () => {
+  it('sem Taxa da Liga configurada (parâmetro omitido): não desconta nada', () => {
+    const r = row({ rake_total: 1000, rake_spinup: 100, player_result: -100 })
+    const c = club({ settlement_type: 'taxa_dinamica' })
+    const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
+    expect(resultado.taxa_liga_valor).toBe(0)
+  })
+
+  it('% fixo do cadastro da Liga: incide sobre Rake Total + SpinUp Rake, desconta do Valor do Acerto', () => {
+    const r = row({ rake_total: 1000, rake_mtt: 0, rake_cash: 0, rake_spinup: 100, player_result: 0 })
+    const c = club({ settlement_type: 'taxa_dinamica', fee_mtt_pct: 0, fee_cash_pct: 0, taxa_op_ativo: false, spinup_pct: 0 })
+    const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null, { pctFixo: 10, condicoes: [] })
+    expect(resultado.taxa_liga_valor).toBe(110) // (1000 + 100) * 10%
+    expect(resultado.valor_acerto).toBe(1000 - 110) // rake_total + ganhos(0) - fee(0) - taxa_liga
+  })
+
+  it('Regra de Faixa vinculada à Liga substitui o % fixo do cadastro', () => {
+    const r = row({ rake_total: 1000, rake_mtt: 0, rake_cash: 0, rake_spinup: 0, player_result: 0 })
+    const c = club({ settlement_type: 'taxa_dinamica', fee_mtt_pct: 0, fee_cash_pct: 0, taxa_op_ativo: false, spinup_pct: 0 })
+    const condicoesTaxaLiga = [condicao({ operador: '>', valor: 0, resultado_pct: 5 })]
+    const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null, { pctFixo: 10, condicoes: condicoesTaxaLiga })
+    expect(resultado.taxa_liga_valor).toBe(50) // 1000 * 5%, não os 10% fixos
+  })
+
+  it('tipo de cobrança desconhecido: não aplica Taxa da Liga (fallback já zera tudo)', () => {
+    const r = row({ rake_total: 1000, rake_spinup: 100 })
+    const c = club({ settlement_type: 'tipo_que_nao_existe' })
+    const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null, { pctFixo: 10, condicoes: [] })
+    expect(resultado.taxa_liga_valor).toBe(0)
+    expect(resultado.valor_acerto).toBe(0)
   })
 })

@@ -138,7 +138,17 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
               </div>
             </Sec>
 
-            <Sec title="Regras — Taxa do App">
+            <Sec title="Taxa da Liga">
+              <Fld label="Taxa da Liga (%)">
+                <input
+                  type="number" step="any" value={form.taxa_app_pct ?? ''}
+                  onChange={e => set('taxa_app_pct', e.target.value === '' ? null : Number(e.target.value))}
+                  placeholder="Ex: 2" className={inputCls}
+                />
+              </Fld>
+              <p className="text-xs text-gray-500">
+                Incide sobre Rake Total + SpinUp Rake do clube (todo o rake do período, os 3 tipos de jogo somados) — desconta do Valor do Acerto, em cima de qualquer taxa que o clube já tenha. Vale fixo aqui, a menos que tenha uma Regra de Faixa vinculada (abaixo).
+              </p>
               <RegrasAplicadas entidadeTipo="liga" entidadeId={editing?.id ?? null} />
             </Sec>
 

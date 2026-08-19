@@ -12,7 +12,7 @@ export const CAMPOS_OBRIGATORIOS = [
 // virar automática — confirmado pelo Cássio que era a mesma coisa, removido
 // de propósito pra não ter dois lugares representando o mesmo bônus.
 export const CAMPOS_OPCIONAIS = [
-  'taxa_mtt', 'wtr4', 'taxa_cash', 'rake_mtt', 'rake_cash', 'taxa_operacional',
+  'taxa_mtt', 'wtr4', 'taxa_cash', 'rake_mtt', 'rake_cash', 'taxa_operacional', 'taxa_liga',
   'rebate', 'indicacao', 'lancamentos_periodo', 'dividas_acordos',
 ] as const
 
@@ -26,13 +26,14 @@ export const LABEL_CAMPO: Record<CampoAcerto, string> = {
   ganhos: 'Ganhos/Perdas',
   bilhetes: 'Bilhetes',
   seguranca: 'Segurança',
-  spinup: 'SpinUp Lucro',
-  taxa_mtt: 'Taxa Atual - MTT',
+  spinup: 'SpinUp Rake',
+  taxa_mtt: 'Taxa MTT',
   wtr4: 'WtR 4 Semanas',
-  taxa_cash: 'Taxa Dinâmica - Cash',
+  taxa_cash: 'Taxa Cash',
   rake_mtt: 'Rake MTT',
   rake_cash: 'Rake Cash',
   taxa_operacional: 'Taxa Operacional',
+  taxa_liga: 'Taxa da Liga',
   rebate: 'Rebate',
   indicacao: 'Indicação',
   lancamentos_periodo: 'Lançamentos do período',
@@ -44,7 +45,7 @@ export const LABEL_CAMPO: Record<CampoAcerto, string> = {
 export const LAYOUT_PADRAO: CampoAcerto[] = [
   'semana', 'clube', 'taxa_mtt', 'wtr4', 'taxa_cash',
   'rake_total', 'rake_mtt', 'rake_cash', 'ganhos',
-  'taxa_operacional', 'spinup', 'bilhetes', 'pendencias', 'seguranca',
+  'taxa_operacional', 'spinup', 'taxa_liga', 'bilhetes', 'pendencias', 'seguranca',
   'rebate', 'indicacao', 'lancamentos_periodo', 'dividas_acordos',
 ]
 

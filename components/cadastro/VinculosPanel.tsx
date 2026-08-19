@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X, Trash2, ArrowRight, Pencil, AlertTriangle } from 'lucide-react'
 import type { Regra, RegraVinculo, EntidadeTipo, CampoClube } from '@/lib/types'
-import { CAMPOS_POR_SETTLEMENT, LABEL_SETTLEMENT, settlementsQueAceitam } from '@/lib/types'
+import { CAMPOS_POR_SETTLEMENT, LABEL_SETTLEMENT, settlementsQueAceitam, campoAplicavelAoTipo } from '@/lib/types'
 import { getVinculos, addVinculo, updateVinculo, removeVinculo, buscarEntidades, buscarSettlementTypesClubes } from '@/lib/cadastro-api'
 
 interface Props {
@@ -33,7 +33,7 @@ const LABEL_TIPO: Record<EntidadeTipo, string> = {
 }
 
 const LABEL_CAMPO: Record<CampoClube, string> = {
-  fee_mtt: 'Fee MTT', fee_cash: 'Fee Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp', rake_total: 'Rake Total',
+  fee_mtt: 'Fee MTT', fee_cash: 'Fee Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp', rake_total: 'Rake Total', taxa_liga: 'Taxa da Liga',
 }
 
 interface Entidade { id: string; nome: string }
@@ -207,14 +207,19 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
 
   if (!open || !regra) return null
 
-  function campoTemEfeito(clubeId: string, campo: CampoClube): boolean | null {
-    const settlementType = settlementPorClube.get(clubeId)
+  // taxa_liga só tem efeito vinculado a uma Liga; os outros campos só tem
+  // efeito vinculados a um Clube — e mesmo aí, só se o settlement_type
+  // daquele clube usar aquele campo de verdade (CAMPOS_POR_SETTLEMENT).
+  function campoTemEfeito(tipo: EntidadeTipo, entidadeId: string, campo: CampoClube): boolean | null {
+    if (!campoAplicavelAoTipo(campo, tipo)) return false
+    if (tipo !== 'clube') return true // taxa_liga numa Liga: sempre tem efeito, Liga não tem settlement_type
+    const settlementType = settlementPorClube.get(entidadeId)
     if (settlementType === undefined) return null // ainda carregando — não afirma nada
     return (CAMPOS_POR_SETTLEMENT[settlementType] ?? []).includes(campo)
   }
 
-  const incompativeisNovo = ladoPara.tipo === 'clube' && regra.campo
-    ? ladoPara.selecionados.filter(s => campoTemEfeito(s.id, regra.campo!) === false)
+  const incompativeisNovo = regra.campo && (ladoPara.tipo === 'clube' || ladoPara.tipo === 'liga')
+    ? ladoPara.selecionados.filter(s => campoTemEfeito(ladoPara.tipo, s.id, regra.campo!) === false)
     : []
   const precisaConfirmar = incompativeisNovo.length > 0 && !cienteIncompatibilidade
 
@@ -238,7 +243,7 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
       const combos = paras.flatMap(para => des.map(de => ({ de, para })))
       // Campo do clube que a regra substitui é escolhido explicitamente na
       // tela de criar/editar Regra (RegraModal) — não adivinhado aqui.
-      const campoParaSalvar: CampoClube | null = ladoPara.tipo === 'clube' ? regra.campo : null
+      const campoParaSalvar: CampoClube | null = regra.campo && campoAplicavelAoTipo(regra.campo, ladoPara.tipo) ? regra.campo : null
 
       const [primeiro, ...resto] = combos
       if (editando) {
@@ -288,9 +293,9 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
               <ArrowRight size={16} className="text-gray-600 shrink-0 mt-6" />
               <SeletorEntidade titulo="Para (quem recebe a regra)" multi lado={ladoPara} onChange={setLadoParaEZerarAviso} />
             </div>
-            {ladoPara.tipo === 'clube' && (
+            {(ladoPara.tipo === 'clube' || ladoPara.tipo === 'liga') && (
               regra.campo ? (
-                <p className="text-xs text-gray-500">Essa regra vai substituir <span className="text-gold">{LABEL_CAMPO[regra.campo]}</span> do clube.</p>
+                <p className="text-xs text-gray-500">Essa regra vai substituir <span className="text-gold">{LABEL_CAMPO[regra.campo]}</span> {ladoPara.tipo === 'liga' ? 'da liga' : 'do clube'}.</p>
               ) : (
                 <p className="text-xs text-alert">Essa regra não tem &quot;Aplica em&quot; definido (só vale pra tipo Cálculo de Acerto) — o vínculo não vai afetar nenhum cálculo até isso ser configurado na Regra.</p>
               )
@@ -353,7 +358,7 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
                       {v.campo && (
                         <span className="px-2 py-0.5 rounded-full bg-surface border border-white/10 text-gray-400 text-xs">{LABEL_CAMPO[v.campo]}</span>
                       )}
-                      {v.campo && v.para_tipo === 'clube' && campoTemEfeito(v.para_id, v.campo) === false && (
+                      {v.campo && campoTemEfeito(v.para_tipo, v.para_id, v.campo) === false && (
                         <span
                           title={`O tipo de cobrança desse clube não usa "${LABEL_CAMPO[v.campo]}" no cálculo — vínculo salvo, mas sem efeito`}
                           className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-alert/10 border border-alert/30 text-alert text-xs"

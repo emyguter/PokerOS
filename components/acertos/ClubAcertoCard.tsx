@@ -21,6 +21,7 @@ export interface AcertoCard {
   fee_cash_valor: number
   fee_operacional_valor: number
   fee_spinup_valor: number
+  taxa_liga_valor: number
   taxa_cash_pct_aplicada: number | null
   rebate_calculado: number
   bilhetes: number
@@ -43,6 +44,7 @@ interface ClubSettings {
   spinup_pct: number | null
   security: number | null
   wtr4_semanas_manual: number | null
+  leagues: { taxa_app_pct: number | null } | null
 }
 
 interface LancamentoCard {
@@ -101,8 +103,8 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
 
   useEffect(() => {
     if (acerto.club_id) {
-      supabase.from('clubs').select('fee_mtt_pct, taxa_op_pct, taxa_op_ativo, spinup_pct, security, wtr4_semanas_manual').eq('id', acerto.club_id).maybeSingle()
-        .then(({ data }) => setClub(data))
+      supabase.from('clubs').select('fee_mtt_pct, taxa_op_pct, taxa_op_ativo, spinup_pct, security, wtr4_semanas_manual, leagues(taxa_app_pct)').eq('id', acerto.club_id).maybeSingle()
+        .then(({ data }) => setClub(data as unknown as ClubSettings))
     }
   }, [acerto.club_id])
 
@@ -208,7 +210,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           </div>
         )
       case 'taxa_mtt':
-        return <Linha key={campo} label={`Taxa Atual - MTT (${fmtPct(club?.fee_mtt_pct ?? null)}%)`} value={-acerto.fee_mtt_valor} />
+        return <Linha key={campo} label={`Taxa MTT (${fmtPct(club?.fee_mtt_pct ?? null)}%)`} value={-acerto.fee_mtt_valor} />
       case 'wtr4':
         return (
           <div key={campo} className="flex items-center justify-between py-1.5 px-3 text-sm">
@@ -217,7 +219,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           </div>
         )
       case 'taxa_cash':
-        return <Linha key={campo} label={`Taxa Dinâmica - Cash (${fmtPct(acerto.taxa_cash_pct_aplicada)}%)`} value={-acerto.fee_cash_valor} />
+        return <Linha key={campo} label={`Taxa Cash (${fmtPct(acerto.taxa_cash_pct_aplicada)}%)`} value={-acerto.fee_cash_valor} />
       case 'rake_total':
         return <Linha key={campo} label="Rake Total" value={acerto.rake_total} />
       case 'rake_mtt':
@@ -229,7 +231,9 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       case 'taxa_operacional':
         return <Linha key={campo} label={club?.taxa_op_ativo === false ? 'Taxa Operacional (desativada)' : `Taxa Operacional (${fmtPct(club?.taxa_op_pct ?? null)}%)`} value={-acerto.fee_operacional_valor} />
       case 'spinup':
-        return <Linha key={campo} label={`SpinUp Lucro (${fmtPct(club?.spinup_pct ?? null)}%)`} value={-acerto.fee_spinup_valor} />
+        return <Linha key={campo} label={`SpinUp Rake (${fmtPct(club?.spinup_pct ?? null)}%)`} value={-acerto.fee_spinup_valor} />
+      case 'taxa_liga':
+        return <Linha key={campo} label={`Taxa da Liga (${fmtPct(club?.leagues?.taxa_app_pct ?? null)}%)`} value={-acerto.taxa_liga_valor} />
       case 'bilhetes':
         return <Linha key={campo} label="Bilhetes" value={acerto.bilhetes} />
       case 'pendencias':

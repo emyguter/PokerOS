@@ -16,7 +16,17 @@ export interface ClubSettings {
   spinup_pct: number;
   wtr4_semanas_manual: number | null;
   elite: boolean;
+  league_id: string | null;
 }
+
+// % fixo do cadastro da Liga (leagues.taxa_app_pct) + Regra de Faixa
+// vinculada à Liga no campo taxa_liga, se tiver — ver calcularAcerto.
+export interface TaxaLigaConfig {
+  pctFixo: number | null;
+  condicoes: CondicaoAvaliavel[];
+}
+
+export const TAXA_LIGA_VAZIA: TaxaLigaConfig = { pctFixo: null, condicoes: [] };
 
 export interface ImportRow {
   id: string;
@@ -56,6 +66,10 @@ export interface AcertoCalculado {
   // % de cash efetivamente aplicado no período (fixo ou resolvido pela
   // condição SE/ENTÃO quando taxa_tipo é variável) — pra mostrar no card.
   taxa_cash_pct_aplicada: number | null;
+  // Taxa da Liga — incide sobre Rake Total + SpinUp Rake, em cima de
+  // qualquer tipo de cobrança do clube (ver calcularAcerto). Já descontada
+  // de valor_acerto; guardada separada só pra mostrar a linha no card.
+  taxa_liga_valor: number;
 }
 
 // Condição SE/ENTÃO já resolvida em nomes de indicador (em vez de indicador_id),
@@ -78,8 +92,9 @@ type RegraCondicaoRow = {
 
 // Duplicado de lib/types.ts (evita import circular) — se mudar aqui, muda lá
 // também, junto com CAMPOS_POR_SETTLEMENT (que precisa bater com o switch de
-// club.settlement_type abaixo).
-export type CampoClube = "fee_mtt" | "fee_cash" | "taxa_op" | "spinup" | "rake_total";
+// club.settlement_type abaixo). taxa_liga é o único campo daqui vinculado a
+// uma Liga, não a um Clube — ver buscarCondicoesTaxaLigaPorLiga.
+export type CampoClube = "fee_mtt" | "fee_cash" | "taxa_op" | "spinup" | "rake_total" | "taxa_liga";
 
 type RegraEntidadeRow = {
   entidade_id: string;
@@ -88,7 +103,7 @@ type RegraEntidadeRow = {
 };
 
 export const CONDICOES_VAZIAS: Record<CampoClube, CondicaoAvaliavel[]> = {
-  fee_mtt: [], fee_cash: [], taxa_op: [], spinup: [], rake_total: [],
+  fee_mtt: [], fee_cash: [], taxa_op: [], spinup: [], rake_total: [], taxa_liga: [],
 };
 
 // Mapeia o nome de um indicador pro valor real dele numa linha importada.
@@ -151,7 +166,8 @@ export function calcularAcerto(
   row: ImportRow,
   club: ClubSettings,
   condicoesPorCampo: Record<CampoClube, CondicaoAvaliavel[]>,
-  wtr4Semanas: number | null
+  wtr4Semanas: number | null,
+  taxaLiga: TaxaLigaConfig = TAXA_LIGA_VAZIA
 ): AcertoCalculado {
   let fee_calculado = 0;
   let rebate_calculado = 0;
@@ -160,7 +176,9 @@ export function calcularAcerto(
   let fee_cash_valor = 0;
   let fee_operacional_valor = 0;
   let fee_spinup_valor = 0;
+  let taxa_liga_valor = 0;
   let taxa_cash_pct_aplicada: number | null = null;
+  let tipoReconhecido = true;
 
   const rake_mtt    = Math.abs(row.rake_mtt ?? 0);
   const rake_cash   = Math.abs(row.rake_cash ?? 0);
@@ -240,6 +258,22 @@ export function calcularAcerto(
     }
     default:
       valor_acerto = 0;
+      tipoReconhecido = false;
+  }
+
+  // Taxa da Liga: incide sobre TODO o rake do período (Rake Total + SpinUp
+  // Rake, os 3 tipos de jogo somados) — layer por cima do resto, em cima de
+  // qualquer tipo de cobrança do clube (confirmado com o Cássio). % fixo
+  // vem do cadastro da Liga; Regra vinculada à Liga (campo taxa_liga) manda
+  // se tiver. Não se aplica quando o clube nem tem tipo de cobrança
+  // reconhecido (fallback "sem_regra" — nada mais é cobrado ali também).
+  if (tipoReconhecido) {
+    const baseTaxaLiga = rake_total + rake_spinup;
+    const condTaxaLiga = taxaLiga.condicoes.length > 0
+      ? avaliarCondicoes(taxaLiga.condicoes, row, wtr4Semanas)
+      : null;
+    taxa_liga_valor = baseTaxaLiga * ((condTaxaLiga ?? taxaLiga.pctFixo ?? 0) / 100);
+    valor_acerto -= taxa_liga_valor;
   }
 
   return {
@@ -260,6 +294,7 @@ export function calcularAcerto(
     fee_cash_valor:         Math.round(fee_cash_valor         * 100) / 100,
     fee_operacional_valor:  Math.round(fee_operacional_valor  * 100) / 100,
     fee_spinup_valor:       Math.round(fee_spinup_valor       * 100) / 100,
+    taxa_liga_valor:        Math.round(taxa_liga_valor        * 100) / 100,
     taxa_cash_pct_aplicada,
     status: "calculado",
   };
@@ -296,6 +331,39 @@ async function buscarCondicoesPorClube(clubIds: string[]): Promise<Map<string, R
     const atual = mapa.get(re.entidade_id) ?? { ...CONDICOES_VAZIAS };
     atual[re.campo] = condicoes;
     mapa.set(re.entidade_id, atual);
+  }
+
+  return mapa;
+}
+
+// Mesma ideia de buscarCondicoesPorClube, mas pra Taxa da Liga — vinculada à
+// Liga (entidade_tipo='liga'), não ao Clube, e sempre no campo taxa_liga.
+async function buscarCondicoesTaxaLigaPorLiga(leagueIds: string[]): Promise<Map<string, CondicaoAvaliavel[]>> {
+  const mapa = new Map<string, CondicaoAvaliavel[]>();
+  if (leagueIds.length === 0) return mapa;
+
+  const { data: indicadores } = await supabase.from("indicadores").select("id, nome");
+  const nomeIndicadorPorId = new Map<string, string>((indicadores ?? []).map((i) => [i.id, i.nome]));
+
+  const { data: regraEntidades } = await supabase
+    .from("regra_entidades")
+    .select("entidade_id, campo, regras(regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id)))")
+    .eq("entidade_tipo", "liga")
+    .eq("campo", "taxa_liga")
+    .in("entidade_id", leagueIds);
+
+  for (const re of (regraEntidades ?? []) as RegraEntidadeRow[]) {
+    const condicoesBrutas = re.regras?.regra_condicoes ?? [];
+    const condicoes: CondicaoAvaliavel[] = condicoesBrutas.map((c) => ({
+      operador: c.operador,
+      valor: c.valor,
+      resultado_pct: c.resultado_pct,
+      is_fallback: c.is_fallback,
+      indicadorNomes: (c.regra_condicao_termos ?? [])
+        .map((t) => nomeIndicadorPorId.get(t.indicador_id))
+        .filter((nome): nome is string => !!nome),
+    }));
+    mapa.set(re.entidade_id, condicoes);
   }
 
   return mapa;
@@ -372,7 +440,7 @@ export async function processarAcertos(importId: string): Promise<{
 
     const { data: clubs, error: clubsError } = await supabase
       .from("clubs")
-      .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual, elite");
+      .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual, elite, league_id");
 
     if (clubsError) throw new Error(clubsError.message);
 
@@ -398,6 +466,19 @@ export async function processarAcertos(importId: string): Promise<{
       [...new Set((rows as ImportRow[]).map((r) => r.club_external_id))],
       importId
     );
+
+    // Taxa da Liga (ver TaxaLigaConfig) — inclui a liga do import mesmo que
+    // nenhum clube já cadastrado pertença a ela ainda, pra cobrir o caso de
+    // pré-cadastro automático (clube novo criado abaixo com esse league_id).
+    const leagueIds = new Set((clubs ?? []).map((c) => c.league_id).filter((id): id is string => !!id));
+    if (importInfo?.league_id) leagueIds.add(importInfo.league_id);
+    const { data: leaguesData } = await supabase.from("leagues").select("id, taxa_app_pct").in("id", [...leagueIds]);
+    const taxaAppPctPorLiga = new Map<string, number | null>((leaguesData ?? []).map((l) => [l.id as string, l.taxa_app_pct as number | null]));
+    const condicoesTaxaLigaPorLiga = await buscarCondicoesTaxaLigaPorLiga([...leagueIds]);
+    const taxaLigaDoClube = (c: ClubSettings): TaxaLigaConfig =>
+      c.league_id
+        ? { pctFixo: taxaAppPctPorLiga.get(c.league_id) ?? null, condicoes: condicoesTaxaLigaPorLiga.get(c.league_id) ?? [] }
+        : TAXA_LIGA_VAZIA;
 
     await supabase.from("acertos").delete().eq("import_id", importId);
 
@@ -434,7 +515,7 @@ export async function processarAcertos(importId: string): Promise<{
                   fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: null, taxa_op_ativo: false, spinup_pct: null,
                   caucao_atual: null, stoploss_inicial: null,
                 })
-                .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual, elite")
+                .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual, elite, league_id")
                 .single()
             ).data
           : null;
@@ -450,7 +531,7 @@ export async function processarAcertos(importId: string): Promise<{
             rake_total: Math.abs(row.rake_total ?? 0),
             player_result: row.player_result ?? 0,
             fee_calculado: 0, rebate_calculado: 0, valor_acerto: 0,
-            fee_mtt_valor: 0, fee_cash_valor: 0, fee_operacional_valor: 0, fee_spinup_valor: 0,
+            fee_mtt_valor: 0, fee_cash_valor: 0, fee_operacional_valor: 0, fee_spinup_valor: 0, taxa_liga_valor: 0,
             taxa_cash_pct_aplicada: null,
             status: "sem_regra",
           });
@@ -472,7 +553,7 @@ export async function processarAcertos(importId: string): Promise<{
         historicoWtr.length < 3 && club.wtr4_semanas_manual != null
           ? club.wtr4_semanas_manual
           : calcularWtr4Semanas(row as ImportRow, historicoWtr);
-      acertos.push(calcularAcerto(row as ImportRow, club, condicoesPorClube.get(club.id) ?? CONDICOES_VAZIAS, wtr4Semanas));
+      acertos.push(calcularAcerto(row as ImportRow, club, condicoesPorClube.get(club.id) ?? CONDICOES_VAZIAS, wtr4Semanas, taxaLigaDoClube(club)));
     }
 
     const bilhetesPorClube = new Map<string, number>(
