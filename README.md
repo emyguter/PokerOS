@@ -568,6 +568,10 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   subtração dobrava a dívida em vez de quitar (ex: devia R$2.237,30, pagou R$2.238,00 — mostrava
   diferença de -R$4.475,30 em vez dos ~R$0,70 corretos). Agora soma os dois (`lib/pagamentos.ts`,
   `agregarPagamentos`), confirmado pelo Cássio
+- [x] Fix: tela de Cadastro (Mega Ligas/Superligas/Ligas/Clubes/Super Agentes/Agentes/Jogadores)
+  repetia o mesmo menu que já existe no submenu "Cadastros" da Sidebar — um segundo menu idêntico
+  dentro da própria tela (`app/admin/cadastro/layout.tsx`). Removido; a tela agora só cuida do
+  bloqueio por permissão, sem duplicar navegação
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
