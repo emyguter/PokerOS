@@ -232,6 +232,11 @@ export const en: typeof pt = {
     limites_subtitulo: 'Monthly VIP max per club and per type — blank means no limit configured',
     faltam: '{n} left', excedeu: 'limit exceeded',
     buscar_clube: 'Search club...',
+    limite_padrao_titulo: 'Apply a value to all at once',
+    limite_padrao_desc: 'Fill in only the types you want to overwrite — blank leaves each club\'s existing setting untouched.',
+    aplicar_todos: 'Apply to all',
+    aplicar_todos_desc: 'This will overwrite the limit for the {n} active clubs below, for the types filled in:',
+    padrao_aplicado: 'Applied successfully',
   },
   relatorios: {
     aba_acertos: 'Settlements', aba_lancamentos: 'Entries', aba_taxas: 'Fee Summary',

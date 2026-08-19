@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
-import { Loader2, Check } from 'lucide-react'
+import { Loader2, Check, AlertTriangle, Users } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
@@ -38,6 +38,15 @@ export function VipLimitesView() {
   const [salvoId, setSalvoId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Valor padrão aplicado de uma vez pra todos os clubes ativos — em vez de
+  // salvar clube por clube ("pensa que ele pode cadastrar 1x pra vários",
+  // Cássio). Só os tipos preenchidos aqui são sobrescritos; tipo em branco
+  // não mexe no que já estava configurado em cada clube.
+  const [padrao, setPadrao] = useState<Edicao>({ silver: '', black: '', platinum: '' })
+  const [confirmandoPadrao, setConfirmandoPadrao] = useState(false)
+  const [aplicandoPadrao, setAplicandoPadrao] = useState(false)
+  const [padraoAplicado, setPadraoAplicado] = useState(false)
+
   useEffect(() => {
     supabase
       .from('clubs')
@@ -64,6 +73,38 @@ export function VipLimitesView() {
     setSalvoId(null)
   }
 
+  function setCampoPadrao(tipo: TipoVip, valor: string) {
+    if (valor !== '' && !/^\d*$/.test(valor)) return
+    setPadrao((prev) => ({ ...prev, [tipo]: valor }))
+    setPadraoAplicado(false)
+  }
+
+  const tiposPreenchidosNoPadrao = TIPOS_VIP.filter((tp) => padrao[tp.value] !== '')
+
+  async function aplicarPadrao() {
+    const campos = Object.fromEntries(
+      tiposPreenchidosNoPadrao.map((tp) => [`limite_vip_${tp.value}`, Number(padrao[tp.value])])
+    )
+    setAplicandoPadrao(true); setError(null)
+    try {
+      const { error: updErr } = await supabase.from('clubs').update(campos).eq('ativo', true)
+      if (updErr) throw updErr
+      setClubes((prev) => prev.map((c) => ({ ...c, ...campos })))
+      setEdicoes((prev) => {
+        const next = { ...prev }
+        for (const id of Object.keys(next)) next[id] = { ...next[id], ...Object.fromEntries(tiposPreenchidosNoPadrao.map((tp) => [tp.value, padrao[tp.value]])) }
+        return next
+      })
+      setPadrao({ silver: '', black: '', platinum: '' })
+      setPadraoAplicado(true)
+      setConfirmandoPadrao(false)
+    } catch (err) {
+      setError(errMsg(err))
+    } finally {
+      setAplicandoPadrao(false)
+    }
+  }
+
   async function salvar(clubeId: string) {
     const edicao = edicoes[clubeId]
     setSalvandoId(clubeId); setError(null)
@@ -87,6 +128,37 @@ export function VipLimitesView() {
 
   return (
     <div className="space-y-4">
+      <div className="rounded-xl border border-gold/20 bg-gold/5 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Users size={15} className="text-gold" />
+          <p className="text-sm font-semibold text-white">{t('vip.limite_padrao_titulo')}</p>
+        </div>
+        <p className="text-xs text-gray-400">{t('vip.limite_padrao_desc')}</p>
+        <div className="flex flex-wrap items-end gap-3">
+          {TIPOS_VIP.map((tp) => (
+            <div key={tp.value}>
+              <label className="block text-xs text-gray-500 mb-1.5">{t(tp.labelKey)}</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={padrao[tp.value]}
+                onChange={(e) => setCampoPadrao(tp.value, e.target.value)}
+                placeholder="—"
+                className="w-20 bg-surface border border-white/10 rounded-lg px-2 py-2 text-white text-sm text-center focus:outline-none focus:border-gold/50"
+              />
+            </div>
+          ))}
+          <button
+            onClick={() => setConfirmandoPadrao(true)}
+            disabled={tiposPreenchidosNoPadrao.length === 0}
+            className="flex items-center gap-1.5 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {t('vip.aplicar_todos')}
+          </button>
+          {padraoAplicado && <span className="flex items-center gap-1 text-xs text-emerald-400"><Check size={13} />{t('vip.padrao_aplicado')}</span>}
+        </div>
+      </div>
+
       <input
         type="text"
         value={busca}
@@ -151,6 +223,30 @@ export function VipLimitesView() {
           </div>
         )}
       </div>
+
+      {confirmandoPadrao && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-sm mx-4 shadow-2xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-lg bg-yellow-400/10 text-yellow-400"><AlertTriangle size={18} /></div>
+              <h2 className="text-lg font-semibold text-white">{t('vip.aplicar_todos')}</h2>
+            </div>
+            <p className="text-sm text-gray-400 mb-2">{t('vip.aplicar_todos_desc', { n: String(clubes.length) })}</p>
+            <ul className="text-sm text-white mb-6 space-y-0.5">
+              {tiposPreenchidosNoPadrao.map((tp) => (
+                <li key={tp.value}>{t(tp.labelKey)}: <span className="text-gold font-semibold">{padrao[tp.value]}</span></li>
+              ))}
+            </ul>
+            <div className="flex items-center justify-end gap-3">
+              <button onClick={() => setConfirmandoPadrao(false)} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">{t('common.nao')}</button>
+              <button onClick={aplicarPadrao} disabled={aplicandoPadrao} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
+                {aplicandoPadrao && <Loader2 size={14} className="animate-spin" />}{t('common.sim')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

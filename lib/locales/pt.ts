@@ -230,6 +230,11 @@ export const pt = {
     limites_subtitulo: 'Máximo mensal de VIP por clube e por tipo — em branco, sem limite configurado',
     faltam: 'faltam {n}', excedeu: 'excedeu o limite',
     buscar_clube: 'Buscar clube...',
+    limite_padrao_titulo: 'Aplicar um valor pra todos de uma vez',
+    limite_padrao_desc: 'Preenche só os tipos que quer sobrescrever — em branco, não mexe no que já estava configurado em cada clube.',
+    aplicar_todos: 'Aplicar a todos',
+    aplicar_todos_desc: 'Isso vai sobrescrever o limite dos {n} clubes ativos abaixo, nos tipos preenchidos:',
+    padrao_aplicado: 'Aplicado com sucesso',
   },
   relatorios: {
     aba_acertos: 'Acertos', aba_lancamentos: 'Lançamentos', aba_taxas: 'Resumo de Taxas',
