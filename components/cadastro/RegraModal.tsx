@@ -29,7 +29,23 @@ const LABEL_TIPO: Record<RegraTipo, string> = { faixa: 'Cálculo de Acerto', mul
 const LABEL_CAMPO_CLUBE: Record<CampoClube, string> = { fee_mtt: 'Fee MTT', fee_cash: 'Fee Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp', rake_total: 'Rake Total', taxa_liga: 'Taxa da Liga' }
 const inputCls = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20'
 
-function Etapa({ titulo, descricao, checked, onToggle, children }: { titulo: string; descricao: string; checked: boolean; onToggle: () => void; children?: React.ReactNode }) {
+// Cálculo de Acerto e Layout do Acerto sempre nascem juntos — não fazem
+// sentido isolados (é o que define a % E o que mostra no card de Acerto),
+// por isso não têm checkbox pra desligar, sempre viram sua Regra. Multa de
+// Acerto é a única etapa de verdade opcional.
+function Secao({ titulo, descricao, children }: { titulo: string; descricao: string; children?: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <div>
+        <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">{titulo}</p>
+        <p className="text-xs text-gray-600 mt-0.5">{descricao}</p>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function EtapaOpcional({ titulo, descricao, checked, onToggle, children }: { titulo: string; descricao: string; checked: boolean; onToggle: () => void; children?: React.ReactNode }) {
   return (
     <div className={`rounded-lg border transition-colors ${checked ? 'border-gold/40 bg-gold/[0.03]' : 'border-white/10'}`}>
       <label className="flex items-start gap-3 px-3 py-3 cursor-pointer select-none">
@@ -52,11 +68,9 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
   const [layoutCampos, setLayoutCampos] = useState<LayoutCampoForm[]>(LAYOUT_INICIAL)
   const [arrastando, setArrastando] = useState<string | null>(null)
   const [indicadores, setIndicadores] = useState<Indicador[]>([])
-  // Só valem criando regra nova — as 3 etapas podem coexistir, cada uma
-  // marcada vira sua própria Regra. Editando, a etapa já é fixa (é o
+  // Só vale criando regra nova — Multa é a única etapa opcional (Cálculo e
+  // Layout sempre nascem juntos). Editando, a etapa já é fixa (é o
   // editing.tipo) — não existe mais conversão de tipo numa regra existente.
-  const [incluirCalculo, setIncluirCalculo] = useState(true)
-  const [incluirLayout, setIncluirLayout] = useState(true)
   const [incluirMulta, setIncluirMulta] = useState(false)
 
   useEffect(() => {
@@ -69,8 +83,6 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
     setCondicoes(editing?.condicoes ?? [])
     setFaixasMulta(editing?.faixasMulta && editing.faixasMulta.length > 0 ? editing.faixasMulta : [{ ...EMPTY_FAIXA }])
     setLayoutCampos(editing?.layoutCampos && editing.layoutCampos.length > 0 ? [...editing.layoutCampos].sort((a, b) => a.ordem - b.ordem) : LAYOUT_INICIAL)
-    setIncluirCalculo(true)
-    setIncluirLayout(true)
     setIncluirMulta(false)
   }, [editing, open])
 
@@ -119,15 +131,47 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
     })
   }
 
-  // Cálculo de Acerto, Layout do Acerto e Multa de Acerto coexistem — cada
-  // uma vira sua própria Regra (com seu próprio vínculo), nenhuma sobrepõe
-  // as outras. Editando, só existe UMA etapa: a que a regra já é (tipo fixo
-  // pra sempre — não existe mais conversão de tipo numa regra existente).
-  const mostrarCalculo = editing ? editing.tipo === 'faixa' : incluirCalculo
-  const mostrarLayout = editing ? editing.tipo === 'layout_acerto' : incluirLayout
+  // Criando regra nova, Cálculo e Layout sempre existem juntos (é o que
+  // define a % e o que mostra no card de Acerto — não faz sentido um sem o
+  // outro). Multa é a única etapa opcional. Editando, só existe UMA etapa:
+  // a que a regra já é (tipo fixo pra sempre — não existe mais conversão de
+  // tipo numa regra existente).
+  const mostrarCalculo = editing ? editing.tipo === 'faixa' : true
+  const mostrarLayout = editing ? editing.tipo === 'layout_acerto' : true
   const mostrarMulta = editing ? editing.tipo === 'multa_atraso' : incluirMulta
   const precisaNome = mostrarCalculo || mostrarMulta
-  const nenhumaEtapa = !editing && !incluirCalculo && !incluirLayout && !incluirMulta
+
+  const multaConteudo = (
+    <>
+      <p className="text-xs text-gray-600">A maior faixa já atingida vale sozinha (não soma com as anteriores) — incide sobre o valor da parcela atrasada.</p>
+      {faixasMulta.map((f, i) => (
+        <div key={i} className="flex items-center gap-2 p-3 rounded-lg border border-white/10 bg-surface2">
+          <input
+            type="number" step="1" min="1" value={f.quantidade ?? ''}
+            onChange={e => setFaixa(i, 'quantidade', e.target.value === '' ? null : Number(e.target.value))}
+            placeholder="Ex: 1" className={`${inputCls} w-20`}
+          />
+          <select value={f.unidade} onChange={e => setFaixa(i, 'unidade', e.target.value)} className={`${inputCls} w-auto`}>
+            <option value="dias">dia(s)</option>
+            <option value="semanas">semana(s)</option>
+          </select>
+          <span className="text-gray-500 text-sm">de atraso →</span>
+          <input
+            type="number" step="any" value={f.percentual ?? ''}
+            onChange={e => setFaixa(i, 'percentual', e.target.value === '' ? null : Number(e.target.value))}
+            placeholder="Ex: 2" className={`${inputCls} w-24`}
+          />
+          <span className="text-gray-500 text-sm">%</span>
+          {faixasMulta.length > 1 && (
+            <button type="button" onClick={() => removeFaixa(i)} className="ml-auto text-gray-500 hover:text-alert transition-colors"><Trash2 size={14} /></button>
+          )}
+        </div>
+      ))}
+      <button type="button" onClick={addFaixa} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
+        <Plus size={12} />Faixa
+      </button>
+    </>
+  )
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -152,7 +196,7 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
           <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
             {!editing && (
               <p className="text-xs text-gray-500">
-                Marque as etapas que essa regra vai ter — Cálculo de Acerto, Layout do Acerto e Multa de Acerto coexistem, nenhuma substitui a outra. Cada etapa marcada nasce como sua própria Regra na lista, e vai precisar do próprio vínculo depois.
+                Cálculo de Acerto e Layout do Acerto sempre nascem juntos aqui — Multa de Acerto é opcional, marque só se essa regra tiver. Cada etapa vira sua própria Regra na lista, e vai precisar do próprio vínculo depois.
               </p>
             )}
 
@@ -160,18 +204,14 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1.5">Nome<span className="text-gray-500 ml-1">*</span></label>
                 <input type="text" value={nome} onChange={e => setNome(e.target.value)} required placeholder="Ex: 5%-15%" className={inputCls} />
-                {!editing && mostrarCalculo && mostrarMulta && (
+                {!editing && incluirMulta && (
                   <p className="text-xs text-gray-600 mt-1">Usado nas duas regras (Cálculo e Multa) — dá pra renomear cada uma depois, separadamente.</p>
                 )}
               </div>
             )}
 
-            <Etapa
-              titulo="Cálculo de Acerto"
-              descricao="Faixa SE/ENTÃO — % que varia por rake/ganhos"
-              checked={mostrarCalculo}
-              onToggle={() => setIncluirCalculo(v => !v)}
-            >
+            {mostrarCalculo && (
+            <Secao titulo="Cálculo de Acerto" descricao="Faixa SE/ENTÃO — % que varia por rake/ganhos">
               <div className="space-y-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1.5">Aplica em<span className="text-gray-500 ml-1">*</span></label>
@@ -229,14 +269,11 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
                   </div>
                 </div>
               </div>
-            </Etapa>
+            </Secao>
+            )}
 
-            <Etapa
-              titulo="Layout do Acerto"
-              descricao="Quais campos aparecem e em que ordem, no card de Acerto"
-              checked={mostrarLayout}
-              onToggle={() => setIncluirLayout(v => !v)}
-            >
+            {mostrarLayout && (
+            <Secao titulo="Layout do Acerto" descricao="Quais campos aparecem e em que ordem, no card de Acerto">
               <p className="text-xs text-gray-600">Arraste pra reordenar (ou use as setinhas — funcionam melhor no celular). Os marcados como obrigatório sempre aparecem — só dá pra ligar/desligar os outros.</p>
               <div className="space-y-1">
                 {layoutCampos.map((c, i) => {
@@ -269,50 +306,30 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
                   )
                 })}
               </div>
-            </Etapa>
+            </Secao>
+            )}
 
-            <Etapa
-              titulo="Multa de Acerto"
-              descricao="% de multa por atraso, pra Dívidas e Acordos — opcional, nem toda regra precisa"
-              checked={mostrarMulta}
-              onToggle={() => setIncluirMulta(v => !v)}
-            >
-              <p className="text-xs text-gray-600">A maior faixa já atingida vale sozinha (não soma com as anteriores) — incide sobre o valor da parcela atrasada.</p>
-              {faixasMulta.map((f, i) => (
-                <div key={i} className="flex items-center gap-2 p-3 rounded-lg border border-white/10 bg-surface2">
-                  <input
-                    type="number" step="1" min="1" value={f.quantidade ?? ''}
-                    onChange={e => setFaixa(i, 'quantidade', e.target.value === '' ? null : Number(e.target.value))}
-                    placeholder="Ex: 1" className={`${inputCls} w-20`}
-                  />
-                  <select value={f.unidade} onChange={e => setFaixa(i, 'unidade', e.target.value)} className={`${inputCls} w-auto`}>
-                    <option value="dias">dia(s)</option>
-                    <option value="semanas">semana(s)</option>
-                  </select>
-                  <span className="text-gray-500 text-sm">de atraso →</span>
-                  <input
-                    type="number" step="any" value={f.percentual ?? ''}
-                    onChange={e => setFaixa(i, 'percentual', e.target.value === '' ? null : Number(e.target.value))}
-                    placeholder="Ex: 2" className={`${inputCls} w-24`}
-                  />
-                  <span className="text-gray-500 text-sm">%</span>
-                  {faixasMulta.length > 1 && (
-                    <button type="button" onClick={() => removeFaixa(i)} className="ml-auto text-gray-500 hover:text-alert transition-colors"><Trash2 size={14} /></button>
-                  )}
-                </div>
-              ))}
-              <button type="button" onClick={addFaixa} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
-                <Plus size={12} />Faixa
-              </button>
-            </Etapa>
+            {!editing ? (
+              <EtapaOpcional
+                titulo="Multa de Acerto"
+                descricao="% de multa por atraso, pra Dívidas e Acordos — opcional, nem toda regra precisa"
+                checked={incluirMulta}
+                onToggle={() => setIncluirMulta(v => !v)}
+              >
+                {multaConteudo}
+              </EtapaOpcional>
+            ) : mostrarMulta && (
+              <Secao titulo="Multa de Acerto" descricao="% de multa por atraso, pra Dívidas e Acordos">
+                {multaConteudo}
+              </Secao>
+            )}
 
-            {nenhumaEtapa && <p className="text-xs text-alert">Marque pelo menos uma etapa pra salvar.</p>}
             {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
           </div>
           <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
             <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
-            <button type="submit" disabled={saving || nenhumaEtapa} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
-              {saving && <Loader2 size={14} className="animate-spin" />}Salvar Regra{!editing && (incluirCalculo ? 1 : 0) + (incluirLayout ? 1 : 0) + (incluirMulta ? 1 : 0) > 1 ? 's' : ''}
+            <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
+              {saving && <Loader2 size={14} className="animate-spin" />}Salvar Regra{!editing && incluirMulta ? 's' : ''}
             </button>
           </div>
         </form>
