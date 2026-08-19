@@ -22,6 +22,9 @@ export interface AcertoPagamento {
   // por buscarPagamentosPorImport (agregarPagamentos não sabe de Caução,
   // continua puro/testável do jeito que já era).
   caucao: number
+  // Projeto do clube (Mega Liga/Superliga/Liga/Clube — mesmo campo usado no
+  // Stoploss) — só pra filtrar a tabela na tela, não entra em cálculo nenhum.
+  projeto: string | null
 }
 
 interface AcertoRow {
@@ -77,6 +80,7 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
       valor_pago,
       diferenca: Math.round((a.valor_acerto + valor_pago) * 100) / 100,
       caucao: 0,
+      projeto: null,
     }
   })
 }
@@ -157,7 +161,7 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
   const { data: importInfo } = await supabase.from('imports').select('period_start, period_end').eq('id', importId).single()
   const clubIds = [...new Set(lista.map((a) => a.club_id).filter((id): id is string => !!id))]
 
-  const [{ data: pagamentos }, valorCompletoPorId, caucaoPorId] = await Promise.all([
+  const [{ data: pagamentos }, valorCompletoPorId, caucaoPorId, { data: clubesData }] = await Promise.all([
     supabase
       .from('lancamentos')
       .select('id, acerto_id, natureza, valor, data_lancamento')
@@ -166,7 +170,9 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
       .order('data_lancamento', { ascending: true }),
     valorAcertoCompletoPorRow(lista, importInfo?.period_start ?? '', importInfo?.period_end ?? ''),
     caucaoPorClube(clubIds, importInfo?.period_start ?? '', importInfo?.period_end ?? ''),
+    clubIds.length > 0 ? supabase.from('clubs').select('id, projeto').in('id', clubIds) : Promise.resolve({ data: [] }),
   ])
+  const projetoPorClube = new Map((clubesData ?? []).map((c) => [c.id as string, c.projeto as string | null]))
 
   const listaCompleta: AcertoRow[] = lista.map((a) => ({ ...a, valor_acerto: valorCompletoPorId.get(a.id) ?? a.valor_acerto }))
   const clubIdPorAcertoId = new Map(lista.map((a) => [a.id, a.club_id]))
@@ -174,7 +180,11 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
   const resultado = agregarPagamentos(listaCompleta, (pagamentos ?? []) as PagamentoRow[])
   return resultado.map((r) => {
     const clubId = clubIdPorAcertoId.get(r.acerto_id)
-    return { ...r, caucao: clubId ? caucaoPorId.get(clubId) ?? 0 : 0 }
+    return {
+      ...r,
+      caucao: clubId ? caucaoPorId.get(clubId) ?? 0 : 0,
+      projeto: clubId ? projetoPorClube.get(clubId) ?? null : null,
+    }
   })
 }
 
@@ -207,16 +217,23 @@ export interface ImportResumo {
   file_name: string
   period_start: string
   period_end: string
+  // Quando o import foi de fato feito na Central de Importação — diferente
+  // de period_start/period_end, que é a semana que os DADOS cobrem. Usado só
+  // pro filtro "Data do import" (achar o import pela data que foi subido,
+  // não pela semana que ele representa).
+  created_at: string
 }
 
 // Últimos imports com Acerto calculado — só esses fazem sentido pra
 // Controle de Pagamentos/Cobrança (sem acerto calculado não tem o que cobrar).
+// Limite mais alto que o normal (500) de propósito: o filtro de Data do
+// Import precisa conseguir achar imports mais antigos, não só os recentes.
 export async function buscarImportsComAcerto(): Promise<ImportResumo[]> {
   const { data } = await supabase
     .from('imports')
-    .select('id, file_name, period_start, period_end')
+    .select('id, file_name, period_start, period_end, created_at')
     .in('status', ['acertos_calculados', 'parcial'])
     .order('period_start', { ascending: false })
-    .limit(30)
+    .limit(500)
   return (data ?? []) as ImportResumo[]
 }

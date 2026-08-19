@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useI18n } from '@/lib/i18n'
 import { buscarImportsComAcerto, buscarPagamentosPorImport, corDiferenca, type ImportResumo, type AcertoPagamento } from '@/lib/pagamentos'
 
@@ -25,6 +25,9 @@ export function ControlePagamentosView() {
   const { t } = useI18n()
   const [imports, setImports] = useState<ImportResumo[]>([])
   const [importId, setImportId] = useState('')
+  const [dataImportDe, setDataImportDe] = useState('')
+  const [dataImportAte, setDataImportAte] = useState('')
+  const [projetoFiltro, setProjetoFiltro] = useState('')
   const [linhas, setLinhas] = useState<AcertoPagamento[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -35,6 +38,18 @@ export function ControlePagamentosView() {
     })
   }, [])
 
+  // Data que o import foi feito na Central de Importação (created_at) —
+  // diferente da semana que os dados cobrem (period_start/period_end).
+  const importsFiltrados = useMemo(() => imports.filter((i) => {
+    const dataImport = i.created_at.slice(0, 10)
+    return (!dataImportDe || dataImport >= dataImportDe) && (!dataImportAte || dataImport <= dataImportAte)
+  }), [imports, dataImportDe, dataImportAte])
+
+  useEffect(() => {
+    if (importsFiltrados.length === 0) { setImportId(''); return }
+    if (!importsFiltrados.some((i) => i.id === importId)) setImportId(importsFiltrados[0].id)
+  }, [importsFiltrados, importId])
+
   const load = useCallback(async (id: string) => {
     if (!id) { setLinhas([]); return }
     setLoading(true)
@@ -44,7 +59,13 @@ export function ControlePagamentosView() {
 
   useEffect(() => { load(importId) }, [importId, load])
 
-  const maxEnvios = linhas.reduce((max, l) => Math.max(max, l.envios.length), 0)
+  const projetosDisponiveis = useMemo(
+    () => [...new Set(linhas.map((l) => l.projeto).filter((p): p is string => !!p))].sort(),
+    [linhas]
+  )
+  const linhasFiltradas = projetoFiltro ? linhas.filter((l) => l.projeto === projetoFiltro) : linhas
+
+  const maxEnvios = linhasFiltradas.reduce((max, l) => Math.max(max, l.envios.length), 0)
 
   return (
     <div className="space-y-4">
@@ -53,17 +74,34 @@ export function ControlePagamentosView() {
         <p className="text-sm text-gray-400 mt-1">{t('pagamentos.subtitulo')}</p>
       </div>
 
-      <div className="max-w-md">
-        <label className="block text-xs text-gray-500 mb-1.5">{t('pagamentos.import')}</label>
-        <select value={importId} onChange={(e) => setImportId(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
-          {imports.length === 0 && <option value="">{t('pagamentos.nenhum_import')}</option>}
-          {imports.map((i) => <option key={i.id} value={i.id}>{formatImportLabel(i)}</option>)}
-        </select>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div>
+          <label className="block text-xs text-gray-500 mb-1.5">{t('pagamentos.import')}</label>
+          <select value={importId} onChange={(e) => setImportId(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
+            {importsFiltrados.length === 0 && <option value="">{t('pagamentos.nenhum_import')}</option>}
+            {importsFiltrados.map((i) => <option key={i.id} value={i.id}>{formatImportLabel(i)}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1.5">{t('pagamentos.data_import_de')}</label>
+          <input type="date" value={dataImportDe} onChange={(e) => setDataImportDe(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1.5">{t('pagamentos.data_import_ate')}</label>
+          <input type="date" value={dataImportAte} onChange={(e) => setDataImportAte(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.projeto')}</label>
+          <select value={projetoFiltro} onChange={(e) => setProjetoFiltro(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
+            <option value="">{t('stoploss.todos_projetos')}</option>
+            {projetosDisponiveis.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
       </div>
 
       {loading ? (
         <p className="text-sm text-gray-500">{t('common.carregando')}</p>
-      ) : linhas.length === 0 ? (
+      ) : linhasFiltradas.length === 0 ? (
         <p className="text-sm text-gray-500 italic">{t('pagamentos.nenhum_acerto')}</p>
       ) : (
         <div className="rounded-xl border border-white/10 overflow-x-auto">
@@ -82,7 +120,7 @@ export function ControlePagamentosView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {linhas.map((l) => (
+              {linhasFiltradas.map((l) => (
                 <tr key={l.acerto_id}>
                   <td className="px-3 py-2 text-gray-400 whitespace-nowrap">{l.club_external_id}</td>
                   <td className="px-3 py-2 text-white whitespace-nowrap">{l.club_name}</td>

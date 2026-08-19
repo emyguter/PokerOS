@@ -572,6 +572,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   repetia o mesmo menu que já existe no submenu "Cadastros" da Sidebar — um segundo menu idêntico
   dentro da própria tela (`app/admin/cadastro/layout.tsx`). Removido; a tela agora só cuida do
   bloqueio por permissão, sem duplicar navegação
+- [x] Cobrança (Financeiro) e Controle de Pagamentos (Suporte) ganharam 2 filtros novos: "Data do
+  import" (de/até — pela data que o import foi feito na Central de Importação, `imports.created_at`,
+  não a semana que os dados cobrem) e "Projeto" (mesmo campo do cadastro do Clube usado no Stoploss)
+  — filtra as linhas da semana já selecionada. `buscarImportsComAcerto` agora traz `created_at`, e
+  `buscarPagamentosPorImport` traz o `projeto` de cada clube (`lib/pagamentos.ts`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
