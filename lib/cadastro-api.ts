@@ -509,6 +509,64 @@ export async function deleteRegra(id: string): Promise<void> {
   if (error) throw error
 }
 
+export async function getRegraPorId(id: string): Promise<Regra | null> {
+  const { data, error } = await supabase
+    .from('regras')
+    .select('id, nome, created_at, tipo, campo, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id, ordem)), regra_multa_faixas(quantidade, unidade, percentual), regra_layout_campos(campo, ordem, visivel), regra_entidades(id)')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  const r: any = data
+  return {
+    id: r.id,
+    nome: r.nome,
+    created_at: r.created_at,
+    tipo: (r.tipo ?? 'faixa') as Regra['tipo'],
+    campo: (r.campo ?? null) as Regra['campo'],
+    condicoes: (r.regra_condicoes ?? []).map(mapCondicaoRow),
+    faixasMulta: (r.regra_multa_faixas ?? []).map((f: any) => ({ quantidade: f.quantidade, unidade: f.unidade, percentual: f.percentual })),
+    layoutCampos: (r.regra_layout_campos ?? []).map((c: any) => ({ campo: c.campo, ordem: c.ordem, visivel: c.visivel })),
+    vinculoCount: (r.regra_entidades ?? []).length,
+  }
+}
+
+// Cálculo de Acerto e Layout do Acerto nascem sempre juntos (RegraModal), mas
+// continuam sendo 2 Regras separadas por baixo — não existe FK ligando uma à
+// outra. "Irmã" aqui é achada na hora, por vínculo em comum: mesma
+// entidade (Liga/Clube/Agente) vinculada às duas. Se a regra ainda não tem
+// vínculo, ou o vínculo dela é compartilhado com mais de uma regra do tipo
+// oposto, não dá pra saber qual é a irmã — editar mostra só o tipo fixo
+// mesmo, como já era antes desse recurso.
+export async function getRegraIrma(regraId: string, tipoOposto: Regra['tipo']): Promise<Regra | null> {
+  const { data: meusVinculos, error: e1 } = await supabase
+    .from('regra_entidades')
+    .select('entidade_id')
+    .eq('regra_id', regraId)
+  if (e1) throw e1
+  const entidadeIds = [...new Set((meusVinculos ?? []).map((v) => v.entidade_id as string))]
+  if (entidadeIds.length === 0) return null
+
+  const { data: vinculosMesmaEntidade, error: e2 } = await supabase
+    .from('regra_entidades')
+    .select('regra_id')
+    .in('entidade_id', entidadeIds)
+    .neq('regra_id', regraId)
+  if (e2) throw e2
+  const candidatoIds = [...new Set((vinculosMesmaEntidade ?? []).map((v) => v.regra_id as string))]
+  if (candidatoIds.length === 0) return null
+
+  const { data: regrasCandidatas, error: e3 } = await supabase
+    .from('regras')
+    .select('id')
+    .in('id', candidatoIds)
+    .eq('tipo', tipoOposto)
+  if (e3) throw e3
+  const idsIrma = (regrasCandidatas ?? []).map((r) => r.id as string)
+  if (idsIrma.length !== 1) return null
+  return getRegraPorId(idsIrma[0])
+}
+
 const TABELA_ENTIDADE: Record<EntidadeTipo, { tabela: string; coluna: string }> = {
   plataforma: { tabela: 'plataformas', coluna: 'nome' },
   mega_liga: { tabela: 'mega_ligas', coluna: 'nome' },

@@ -4,6 +4,7 @@ import { X, Loader2, Plus, Trash2, GripVertical, ChevronUp, ChevronDown } from '
 import type { Regra, RegraForm, RegraCondicaoForm, RegraTipo, FaixaMultaForm, LayoutCampoForm, CampoClube } from '@/lib/types'
 import { formatIndicadorNome } from '@/lib/indicadores'
 import { supabase } from '@/lib/supabase'
+import { getRegraIrma } from '@/lib/cadastro-api'
 import { LAYOUT_PADRAO, LABEL_CAMPO, ehObrigatorio } from '@/lib/relatorio-acerto'
 
 interface Indicador { id: string; nome: string; descricao: string | null }
@@ -14,8 +15,10 @@ interface Props {
   onClose: () => void
   // Uma etapa marcada = uma Regra criada — pode ser 1, 2 ou 3 de uma vez
   // (Cálculo/Layout/Multa coexistem, nenhuma sobrepõe a outra). Editando,
-  // vem sempre com exatamente 1 item (a etapa fixa daquela regra).
-  onSave: (forms: RegraForm[]) => void
+  // vem 1 item (a etapa fixa daquela regra) ou 2 (achou a irmã Cálculo/
+  // Layout por vínculo em comum — ver getRegraIrma) — nesse caso `ids` traz
+  // o id de destino de cada form, na mesma ordem.
+  onSave: (forms: RegraForm[], ids?: string[]) => void
   saving: boolean
   error?: string | null
 }
@@ -72,19 +75,34 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
   // Layout sempre nascem juntos). Editando, a etapa já é fixa (é o
   // editing.tipo) — não existe mais conversão de tipo numa regra existente.
   const [incluirMulta, setIncluirMulta] = useState(false)
+  // Regra irmã (Cálculo↔Layout) achada por vínculo em comum — só faz
+  // sentido editando, e só pros tipos faixa/layout_acerto (Multa não pareia
+  // com nada). Ver getRegraIrma.
+  const [irma, setIrma] = useState<Regra | null>(null)
+  const [loadingIrma, setLoadingIrma] = useState(false)
 
   useEffect(() => {
     if (open) supabase.from('indicadores').select('*').order('nome').then(({ data }) => { if (data) setIndicadores(data) })
   }, [open])
 
   useEffect(() => {
-    setNome(editing?.nome ?? '')
-    setCampo(editing?.campo ?? null)
-    setCondicoes(editing?.condicoes ?? [])
-    setFaixasMulta(editing?.faixasMulta && editing.faixasMulta.length > 0 ? editing.faixasMulta : [{ ...EMPTY_FAIXA }])
-    setLayoutCampos(editing?.layoutCampos && editing.layoutCampos.length > 0 ? [...editing.layoutCampos].sort((a, b) => a.ordem - b.ordem) : LAYOUT_INICIAL)
-    setIncluirMulta(false)
+    if (!open || !editing || editing.tipo === 'multa_atraso') { setIrma(null); return }
+    const tipoOposto = editing.tipo === 'faixa' ? 'layout_acerto' : 'faixa'
+    setLoadingIrma(true)
+    getRegraIrma(editing.id, tipoOposto).then((r) => { setIrma(r); setLoadingIrma(false) })
   }, [editing, open])
+
+  useEffect(() => {
+    const calculoFonte = editing?.tipo === 'faixa' ? editing : irma?.tipo === 'faixa' ? irma : null
+    const layoutFonte = editing?.tipo === 'layout_acerto' ? editing : irma?.tipo === 'layout_acerto' ? irma : null
+    const multaFonte = editing?.tipo === 'multa_atraso' ? editing : null
+    setNome(calculoFonte?.nome ?? multaFonte?.nome ?? '')
+    setCampo(calculoFonte?.campo ?? null)
+    setCondicoes(calculoFonte?.condicoes ?? [])
+    setFaixasMulta(multaFonte?.faixasMulta && multaFonte.faixasMulta.length > 0 ? multaFonte.faixasMulta : [{ ...EMPTY_FAIXA }])
+    setLayoutCampos(layoutFonte?.layoutCampos && layoutFonte.layoutCampos.length > 0 ? [...layoutFonte.layoutCampos].sort((a, b) => a.ordem - b.ordem) : LAYOUT_INICIAL)
+    setIncluirMulta(false)
+  }, [editing, irma, open])
 
   if (!open) return null
 
@@ -133,11 +151,13 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
 
   // Criando regra nova, Cálculo e Layout sempre existem juntos (é o que
   // define a % e o que mostra no card de Acerto — não faz sentido um sem o
-  // outro). Multa é a única etapa opcional. Editando, só existe UMA etapa:
-  // a que a regra já é (tipo fixo pra sempre — não existe mais conversão de
-  // tipo numa regra existente).
-  const mostrarCalculo = editing ? editing.tipo === 'faixa' : true
-  const mostrarLayout = editing ? editing.tipo === 'layout_acerto' : true
+  // outro). Multa é a única etapa opcional. Editando, a etapa da própria
+  // regra sempre aparece (tipo fixo pra sempre); a irmã (Cálculo↔Layout,
+  // achada por vínculo em comum) aparece junto quando existe, pra edição
+  // ficar igual à de criação — as duas continuam sendo Regras separadas por
+  // baixo, só a tela mostra juntas.
+  const mostrarCalculo = editing ? editing.tipo === 'faixa' || irma?.tipo === 'faixa' : true
+  const mostrarLayout = editing ? editing.tipo === 'layout_acerto' || irma?.tipo === 'layout_acerto' : true
   const mostrarMulta = editing ? editing.tipo === 'multa_atraso' : incluirMulta
   const precisaNome = mostrarCalculo || mostrarMulta
 
@@ -176,12 +196,22 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const forms: RegraForm[] = []
-    if (mostrarCalculo) forms.push({ nome, tipo: 'faixa', campo, condicoes, faixasMulta: [], layoutCampos: [] })
+    const ids: string[] = []
+    if (mostrarCalculo) {
+      forms.push({ nome, tipo: 'faixa', campo, condicoes, faixasMulta: [], layoutCampos: [] })
+      if (editing) ids.push((editing.tipo === 'faixa' ? editing.id : irma?.id) ?? editing.id)
+    }
     // Layout do Acerto não pede Nome — não faz muito sentido nomear "qual
     // ordem os campos aparecem", então usa um nome fixo na lista de Regras.
-    if (mostrarLayout) forms.push({ nome: 'Layout do Acerto', tipo: 'layout_acerto', campo: null, condicoes: [], faixasMulta: [], layoutCampos })
-    if (mostrarMulta) forms.push({ nome, tipo: 'multa_atraso', campo: null, condicoes: [], faixasMulta, layoutCampos: [] })
-    onSave(forms)
+    if (mostrarLayout) {
+      forms.push({ nome: 'Layout do Acerto', tipo: 'layout_acerto', campo: null, condicoes: [], faixasMulta: [], layoutCampos })
+      if (editing) ids.push((editing.tipo === 'layout_acerto' ? editing.id : irma?.id) ?? editing.id)
+    }
+    if (mostrarMulta) {
+      forms.push({ nome, tipo: 'multa_atraso', campo: null, condicoes: [], faixasMulta, layoutCampos: [] })
+      if (editing) ids.push(editing.id)
+    }
+    onSave(forms, editing ? ids : undefined)
   }
 
   return (
@@ -189,7 +219,9 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
-          <h2 className="text-lg font-semibold text-white">{editing ? `Editar Regra — ${LABEL_TIPO[editing.tipo]}` : 'Nova Regra'}</h2>
+          <h2 className="text-lg font-semibold text-white">
+            {editing ? (irma ? 'Editar Regra — Cálculo + Layout' : `Editar Regra — ${LABEL_TIPO[editing.tipo]}`) : 'Nova Regra'}
+          </h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
@@ -197,6 +229,15 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
             {!editing && (
               <p className="text-xs text-gray-500">
                 Cálculo de Acerto e Layout do Acerto sempre nascem juntos aqui — Multa de Acerto é opcional, marque só se essa regra tiver. Cada etapa vira sua própria Regra na lista, e vai precisar do próprio vínculo depois.
+              </p>
+            )}
+
+            {editing && loadingIrma && (
+              <p className="text-xs text-gray-500">Procurando Cálculo/Layout vinculado junto...</p>
+            )}
+            {editing && irma && (
+              <p className="text-xs text-gray-500">
+                Essa Regra tem {irma.tipo === 'layout_acerto' ? 'um Layout do Acerto' : 'um Cálculo de Acerto'} vinculado à mesma Liga/Clube/Agente — editando aqui, atualiza as duas juntas.
               </p>
             )}
 
@@ -328,7 +369,7 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
           </div>
           <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
             <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
-            <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
+            <button type="submit" disabled={saving || loadingIrma} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
               {saving && <Loader2 size={14} className="animate-spin" />}Salvar Regra{!editing && incluirMulta ? 's' : ''}
             </button>
           </div>

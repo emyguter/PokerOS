@@ -73,13 +73,16 @@ export default function RegrasPage() {
   useEffect(() => { load() }, [load])
 
   // Cálculo de Acerto, Layout do Acerto e Multa de Acerto coexistem — o
-  // modal manda 1 form por etapa marcada (editando, sempre só 1: a etapa
-  // fixa daquela regra). Cada form novo vira sua própria Regra.
-  async function handleSave(forms: RegraForm[]) {
+  // modal manda 1 form por etapa marcada. Criando, cada form novo vira sua
+  // própria Regra. Editando, vem 1 form (a etapa fixa daquela regra) ou 2
+  // (achou a irmã Cálculo/Layout por vínculo em comum) — `ids` traz o
+  // destino de cada form, na mesma ordem (ver RegraModal.tsx).
+  async function handleSave(forms: RegraForm[], ids?: string[]) {
     setSaving(true); setError(null)
     try {
       if (editing) {
-        await updateRegra(editing.id, forms[0])
+        if (ids) for (let i = 0; i < forms.length; i++) await updateRegra(ids[i], forms[i])
+        else await updateRegra(editing.id, forms[0])
         await load()
       } else {
         // Regra nova não serve pra nada até ser vinculada a alguém — em vez
