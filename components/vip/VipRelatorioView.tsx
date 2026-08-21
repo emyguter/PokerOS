@@ -7,7 +7,7 @@ import { TIPOS_VIP, corVip, limiteVipDoClube, type TipoVip, type LimitesVipClube
 
 const TODOS_CLUBES = '__todos__'
 
-interface ClubeRelatorio extends LimitesVipClube { id: string; name: string; external_id: string | null }
+interface ClubeRelatorio extends LimitesVipClube { id: string; name: string; external_id: string | null; projeto: string | null }
 
 function mesAtual() {
   return new Date().toISOString().slice(0, 7)
@@ -33,12 +33,13 @@ export function VipRelatorioView() {
   const { t } = useI18n()
   const [clubes, setClubes] = useState<ClubeRelatorio[]>([])
   const [clubeId, setClubeId] = useState(TODOS_CLUBES)
+  const [projetoFiltro, setProjetoFiltro] = useState('')
   const [mesFiltro, setMesFiltro] = useState(mesAtual())
   const [contagens, setContagens] = useState<Map<string, number>>(new Map())
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    supabase.from('clubs').select('id, name, external_id, limite_vip_silver, limite_vip_black, limite_vip_platinum').eq('ativo', true).order('name').then(({ data }) => setClubes(data ?? []))
+    supabase.from('clubs').select('id, name, external_id, projeto, limite_vip_silver, limite_vip_black, limite_vip_platinum').eq('ativo', true).order('name').then(({ data }) => setClubes(data ?? []))
   }, [])
 
   const load = useCallback(async () => {
@@ -60,14 +61,19 @@ export function VipRelatorioView() {
 
   useEffect(() => { load() }, [load])
 
-  const linhas = useMemo(
-    () => clubeId === TODOS_CLUBES ? clubes : clubes.filter((c) => c.id === clubeId),
-    [clubes, clubeId]
+  const projetosDisponiveis = useMemo(
+    () => [...new Set(clubes.map((c) => c.projeto).filter((p): p is string => !!p))].sort(),
+    [clubes]
   )
+
+  const linhas = useMemo(() => {
+    const porClube = clubeId === TODOS_CLUBES ? clubes : clubes.filter((c) => c.id === clubeId)
+    return projetoFiltro ? porClube.filter((c) => c.projeto === projetoFiltro) : porClube
+  }, [clubes, clubeId, projetoFiltro])
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <div className="md:col-span-2">
           <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.clube')}</label>
           <BuscaSelect
@@ -76,6 +82,13 @@ export function VipRelatorioView() {
             opcoes={[{ id: TODOS_CLUBES, nome: t('extrato.todos_clubes') }, ...clubes.map((c) => ({ id: c.id, nome: c.name }))]}
             placeholder={t('common.selecione')}
           />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.projeto')}</label>
+          <select value={projetoFiltro} onChange={(e) => setProjetoFiltro(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
+            <option value="">{t('stoploss.todos_projetos')}</option>
+            {projetosDisponiveis.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1.5">{t('vip.no_mes')}</label>
