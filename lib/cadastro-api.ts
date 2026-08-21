@@ -424,7 +424,7 @@ function mapCondicaoRow(c: CondicaoRow): RegraCondicaoForm {
 export async function getRegras(): Promise<Regra[]> {
   const { data, error } = await supabase
     .from('regras')
-    .select('id, nome, created_at, tipo, campo, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id, ordem)), regra_multa_faixas(quantidade, unidade, percentual), regra_layout_campos(campo, ordem, visivel), regra_entidades(id)')
+    .select('id, nome, created_at, tipo, campo, regra_pai_id, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id, ordem)), regra_multa_faixas(quantidade, unidade, percentual), regra_layout_campos(campo, ordem, visivel), regra_entidades(id)')
     .order('nome')
   if (error) throw error
   return (data ?? []).map((r: any) => ({
@@ -437,6 +437,7 @@ export async function getRegras(): Promise<Regra[]> {
     faixasMulta: (r.regra_multa_faixas ?? []).map((f: any) => ({ quantidade: f.quantidade, unidade: f.unidade, percentual: f.percentual })),
     layoutCampos: (r.regra_layout_campos ?? []).map((c: any) => ({ campo: c.campo, ordem: c.ordem, visivel: c.visivel })),
     vinculoCount: (r.regra_entidades ?? []).length,
+    regraPaiId: (r.regra_pai_id ?? null) as string | null,
   }))
 }
 
@@ -481,8 +482,12 @@ async function salvarLayoutCampos(regraId: string, campos: LayoutCampoForm[]): P
   if (error) throw error
 }
 
-export async function createRegra(form: RegraForm): Promise<string> {
-  const { data: nova, error } = await supabase.from('regras').insert({ nome: form.nome, tipo: form.tipo, campo: form.tipo === 'faixa' ? form.campo : null }).select().single()
+// regraPaiId: só faz sentido pra Layout (sempre) e Multa (quando nasce
+// junto com um Cálculo, ver RegraModal/handleSave) — anexa a Regra nova
+// como filha, sem vínculo (regra_entidades) próprio: o vínculo da mãe já
+// cobre a filha também.
+export async function createRegra(form: RegraForm, regraPaiId?: string | null): Promise<string> {
+  const { data: nova, error } = await supabase.from('regras').insert({ nome: form.nome, tipo: form.tipo, campo: form.tipo === 'faixa' ? form.campo : null, regra_pai_id: regraPaiId ?? null }).select().single()
   if (error) throw error
   if (form.tipo === 'faixa') await salvarCondicoes(nova.id, form.condicoes)
   else if (form.tipo === 'multa_atraso') await salvarFaixasMulta(nova.id, form.faixasMulta)
@@ -638,10 +643,22 @@ export interface RegraAplicada {
 // criação/edição em si vive só na tela de Regras, aqui é só leitura do
 // vínculo (Para = essa entidade). Pra Clube, um vínculo pode valer só pra
 // um campo específico (Fee MTT/Cash/Operacional/SpinUp) — vem junto no `campo`.
+const SELECT_REGRA_APLICADA = 'id, nome, tipo, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicadores(nome, descricao))), regra_multa_faixas(quantidade, unidade, percentual), regra_layout_campos(campo, ordem, visivel)'
+
+function linhasDaRegra(regra: any): string[] {
+  if (regra?.tipo === 'multa_atraso') return ((regra?.regra_multa_faixas ?? []) as any[]).map((f) => `${f.quantidade} ${f.unidade} → ${f.percentual}%`)
+  if (regra?.tipo === 'layout_acerto') return resolverLayout(regra?.regra_layout_campos ?? null).map((c) => `${LABEL_CAMPO_ACERTO[c.campo]}${c.visivel ? '' : ' (oculto)'}`)
+  return ((regra?.regra_condicoes ?? []) as any[]).map(c => {
+    if (c.is_fallback) return `SENÃO → ${c.resultado_pct}%`
+    const termos = (c.regra_condicao_termos ?? []).map((t: any) => t.indicadores?.descricao || t.indicadores?.nome || '?').join(' + ')
+    return `SE ${termos} ${c.operador} ${c.valor} → ${c.resultado_pct}%`
+  })
+}
+
 export async function getRegrasDaEntidade(tipo: EntidadeTipo, id: string): Promise<RegraAplicada[]> {
   const { data, error } = await supabase
     .from('regra_entidades')
-    .select('regra_id, de_tipo, de_id, campo, regras(id, nome, tipo, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicadores(nome, descricao))), regra_multa_faixas(quantidade, unidade, percentual), regra_layout_campos(campo, ordem, visivel))')
+    .select(`regra_id, de_tipo, de_id, campo, regras(${SELECT_REGRA_APLICADA})`)
     .eq('entidade_tipo', tipo)
     .eq('entidade_id', id)
   if (error) throw error
@@ -658,23 +675,30 @@ export async function getRegrasDaEntidade(tipo: EntidadeTipo, id: string): Promi
     for (const e of (entRows ?? []) as any[]) deNomesPorId.set(e.id, e[coluna])
   }
 
-  return rows.map(r => {
-    const linhas = r.regras?.tipo === 'multa_atraso'
-      ? ((r.regras?.regra_multa_faixas ?? []) as any[]).map((f) => `${f.quantidade} ${f.unidade} → ${f.percentual}%`)
-      : r.regras?.tipo === 'layout_acerto'
-      ? resolverLayout(r.regras?.regra_layout_campos ?? null).map((c) => `${LABEL_CAMPO_ACERTO[c.campo]}${c.visivel ? '' : ' (oculto)'}`)
-      : ((r.regras?.regra_condicoes ?? []) as any[]).map(c => {
-          if (c.is_fallback) return `SENÃO → ${c.resultado_pct}%`
-          const termos = (c.regra_condicao_termos ?? []).map((t: any) => t.indicadores?.descricao || t.indicadores?.nome || '?').join(' + ')
-          return `SE ${termos} ${c.operador} ${c.valor} → ${c.resultado_pct}%`
-        })
-    return {
-      regra_id: r.regra_id as string,
-      regra_nome: (r.regras?.nome as string) ?? '—',
-      de_tipo: r.de_tipo,
-      de_nome: r.de_id ? deNomesPorId.get(r.de_id) ?? '—' : null,
-      campo: r.campo ?? null,
-      linhas,
-    }
-  })
+  const diretas: RegraAplicada[] = rows.map(r => ({
+    regra_id: r.regra_id as string,
+    regra_nome: (r.regras?.nome as string) ?? '—',
+    de_tipo: r.de_tipo,
+    de_nome: r.de_id ? deNomesPorId.get(r.de_id) ?? '—' : null,
+    campo: r.campo ?? null,
+    linhas: linhasDaRegra(r.regras),
+  }))
+
+  // Layout/Multa anexados (regra_pai_id) a uma Regra de Cálculo vinculada
+  // aqui valem junto, mesmo sem vínculo (regra_entidades) próprio — o
+  // vínculo da mãe já cobre a filha (ver migração regra_pai_id).
+  const calculoIds = rows.filter(r => r.regras?.tipo === 'faixa').map(r => r.regras!.id as string)
+  if (calculoIds.length === 0) return diretas
+
+  const { data: filhas } = await supabase.from('regras').select(SELECT_REGRA_APLICADA).in('regra_pai_id', calculoIds)
+  const anexadas: RegraAplicada[] = ((filhas ?? []) as any[]).map(f => ({
+    regra_id: f.id as string,
+    regra_nome: (f.nome as string) ?? '—',
+    de_tipo: null,
+    de_nome: null,
+    campo: null,
+    linhas: linhasDaRegra(f),
+  }))
+
+  return [...diretas, ...anexadas]
 }

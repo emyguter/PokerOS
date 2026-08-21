@@ -357,6 +357,12 @@ export type Regra = {
   faixasMulta: FaixaMultaForm[]
   layoutCampos: LayoutCampoForm[]
   vinculoCount: number
+  // Regra "mãe" (sempre tipo 'faixa') que essa Regra nasceu anexada — Layout
+  // sempre tem uma (nasce junto com o Cálculo); Multa pode ter (nasceu junto)
+  // ou não (solta, com vínculo próprio). null = não é filha de ninguém.
+  // Vincular a mãe a uma Liga/Clube/Agente já traz a filha junto — ela não
+  // tem vínculo (regra_entidades) próprio.
+  regraPaiId: string | null
 }
 
 export type RegraForm = {

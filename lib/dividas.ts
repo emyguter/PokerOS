@@ -220,16 +220,29 @@ export async function excluirDivida(dividaId: string): Promise<void> {
 
 // Regra de Multa vinculada ao clube (regra_entidades, tipo 'multa_atraso')
 // — mesma amarração de Faixa SE/ENTÃO, só filtrando pelo tipo novo.
+// Multa pode estar vinculada direto ao clube (solta/standalone, criada na
+// aba Multa sozinha) OU anexada (regra_pai_id) a uma Regra de Cálculo
+// vinculada ao clube (nasceu junto com ela, sem vínculo próprio) — soma as
+// duas fontes.
 export async function getFaixasMultaDoClube(clubeId: string): Promise<FaixaMulta[]> {
   const { data } = await supabase
     .from('regra_entidades')
-    .select('regras(tipo, regra_multa_faixas(quantidade, unidade, percentual))')
+    .select('regras(id, tipo, regra_multa_faixas(quantidade, unidade, percentual))')
     .eq('entidade_tipo', 'clube')
     .eq('entidade_id', clubeId)
-  const linhas = (data ?? []) as unknown as { regras: { tipo: string; regra_multa_faixas: FaixaMulta[] } | null }[]
-  return linhas
-    .filter((l) => l.regras?.tipo === 'multa_atraso')
-    .flatMap((l) => l.regras?.regra_multa_faixas ?? [])
+  const linhas = (data ?? []) as unknown as { regras: { id: string; tipo: string; regra_multa_faixas: FaixaMulta[] } | null }[]
+  const diretas = linhas.filter((l) => l.regras?.tipo === 'multa_atraso').flatMap((l) => l.regras?.regra_multa_faixas ?? [])
+
+  const calculoIds = linhas.filter((l) => l.regras?.tipo === 'faixa').map((l) => l.regras!.id)
+  if (calculoIds.length === 0) return diretas
+
+  const { data: filhas } = await supabase
+    .from('regras')
+    .select('regra_multa_faixas(quantidade, unidade, percentual)')
+    .eq('tipo', 'multa_atraso')
+    .in('regra_pai_id', calculoIds)
+  const anexadas = ((filhas ?? []) as unknown as { regra_multa_faixas: FaixaMulta[] }[]).flatMap((f) => f.regra_multa_faixas ?? [])
+  return [...diretas, ...anexadas]
 }
 
 export interface ItemDividaAcerto {

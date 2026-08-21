@@ -82,17 +82,31 @@ export function resolverLayout(config: CampoLayoutConfig[] | null): CampoResolvi
     .map((c) => ({ campo: c.campo, visivel: ehObrigatorio(c.campo) ? true : c.visivel }))
 }
 
-// Regra de Layout vinculada ao clube (regra_entidades, tipo 'layout_acerto')
-// — mesma amarração de Faixa e Multa. Sem vínculo, `resolverLayout(null)`
-// já devolve o padrão sozinho.
+// Layout nasce sempre anexado (regra_pai_id) a uma Regra de Cálculo — não
+// tem vínculo (regra_entidades) próprio. Acha a(s) Regra(s) de Cálculo
+// vinculada(s) ao clube, usa o Layout filho da primeira que tiver um (clube
+// com Cálculo por campo — Fee MTT, Fee Cash... — usando Layouts diferentes
+// entre si é caso raro/mal configurado; fica o primeiro achado). Sem
+// Cálculo vinculado, ou sem Layout anexado a nenhum, `resolverLayout(null)`
+// devolve o padrão sozinho.
 export async function getLayoutDoClube(clubeId: string): Promise<CampoResolvido[]> {
-  const { data } = await supabase
+  const { data: vinculos } = await supabase
     .from('regra_entidades')
-    .select('regras(tipo, regra_layout_campos(campo, ordem, visivel))')
+    .select('regras(id, tipo)')
     .eq('entidade_tipo', 'clube')
     .eq('entidade_id', clubeId)
-  const linhas = (data ?? []) as unknown as { regras: { tipo: string; regra_layout_campos: CampoLayoutConfig[] } | null }[]
-  const config = linhas.find((l) => l.regras?.tipo === 'layout_acerto')?.regras?.regra_layout_campos ?? null
+  const calculoIds = ((vinculos ?? []) as unknown as { regras: { id: string; tipo: string } | null }[])
+    .filter((v) => v.regras?.tipo === 'faixa')
+    .map((v) => v.regras!.id)
+  if (calculoIds.length === 0) return resolverLayout(null)
+
+  const { data: filhos } = await supabase
+    .from('regras')
+    .select('regra_layout_campos(campo, ordem, visivel)')
+    .eq('tipo', 'layout_acerto')
+    .in('regra_pai_id', calculoIds)
+    .limit(1)
+  const config = (filhos?.[0] as unknown as { regra_layout_campos: CampoLayoutConfig[] } | undefined)?.regra_layout_campos ?? null
   return resolverLayout(config)
 }
 

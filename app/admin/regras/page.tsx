@@ -86,7 +86,11 @@ export default function RegrasPage() {
 
   // Cálculo de Acerto, Layout do Acerto e Multa de Acerto coexistem — o
   // modal manda 1 form por etapa marcada (editando, sempre só 1: a etapa
-  // fixa daquela regra). Cada form novo vira sua própria Regra.
+  // fixa daquela regra). Quando um Cálculo nasce nessa submissão, Layout e
+  // Multa (se vierem junto) nascem anexados a ele (regra_pai_id) — só o
+  // Cálculo precisa de vínculo, ele já traz os dois junto (pedido do
+  // Cássio). Multa sozinha (aba Multa, sem Cálculo nessa submissão) continua
+  // solta, com vínculo próprio.
   async function handleSave(forms: RegraForm[]) {
     setSaving(true); setError(null)
     try {
@@ -95,10 +99,16 @@ export default function RegrasPage() {
         await load()
       } else {
         // Regra nova não serve pra nada até ser vinculada a alguém — em vez
-        // de fechar e deixar órfã, já abre o painel de vínculo da primeira
-        // etapa criada na sequência (as outras ficam na lista, "a vincular").
-        const novosIds: string[] = []
-        for (const form of forms) novosIds.push(await createRegra(form))
+        // de fechar e deixar órfã, já abre o painel de vínculo da mãe (ou da
+        // própria, se não tiver mãe) — as filhas anexadas não precisam do
+        // próprio vínculo.
+        const calculoForm = forms.find(f => f.tipo === 'faixa')
+        const paiId = calculoForm ? await createRegra(calculoForm) : null
+        const novosIds: string[] = paiId ? [paiId] : []
+        for (const form of forms) {
+          if (form === calculoForm) continue
+          novosIds.push(await createRegra(form, paiId))
+        }
         const lista = await getRegras()
         setItems(lista)
         const primeira = lista.find(r => r.id === novosIds[0])
@@ -165,9 +175,12 @@ export default function RegrasPage() {
           {
             key: 'nome',
             label: 'Nome',
-            render: (v: string, row: Regra) => (
-              <button onClick={() => setVinculosRegra(row)} className="text-gold hover:underline text-left">{v}</button>
-            ),
+            render: (v: string, row: Regra) => {
+              const pai = row.regraPaiId ? items.find(i => i.id === row.regraPaiId) : null
+              return (
+                <button onClick={() => setVinculosRegra(pai ?? row)} className="text-gold hover:underline text-left">{v}</button>
+              )
+            },
           },
           {
             key: 'tipo',
@@ -189,11 +202,24 @@ export default function RegrasPage() {
           {
             key: 'vinculoCount',
             label: 'Vínculos',
-            render: (v: number, row: Regra) => (
-              <button onClick={() => setVinculosRegra(row)} className={`flex items-center gap-1.5 text-sm transition-colors ${v === 0 ? 'text-gold hover:underline' : 'text-gray-300 hover:text-gold'}`}>
-                <Link2 size={13} />{v === 0 ? 'Vincular agora' : v}
-              </button>
-            ),
+            render: (v: number, row: Regra) => {
+              // Filha (Layout/Multa nascida junto com um Cálculo) não tem
+              // vínculo próprio — segue o vínculo da mãe. Mostra isso em vez
+              // de "0/Vincular agora", e clicar abre o painel da mãe.
+              if (row.regraPaiId) {
+                const pai = items.find(i => i.id === row.regraPaiId)
+                return (
+                  <button onClick={() => pai && setVinculosRegra(pai)} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gold transition-colors">
+                    <Link2 size={13} />Segue {pai?.nome ?? 'Cálculo'}
+                  </button>
+                )
+              }
+              return (
+                <button onClick={() => setVinculosRegra(row)} className={`flex items-center gap-1.5 text-sm transition-colors ${v === 0 ? 'text-gold hover:underline' : 'text-gray-300 hover:text-gold'}`}>
+                  <Link2 size={13} />{v === 0 ? 'Vincular agora' : v}
+                </button>
+              )
+            },
           },
         ]}
         data={itemsFiltrados}

@@ -602,6 +602,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   próprio `processarAcertos` passa a marcar sozinho como paga a Dívida/parcela que acabou de ser
   descontada daquele período (`marcarDividasPagasComRake`), fechando o buraco do desconto duplicado.
   Dívidas já cadastradas migram como "Sim" (mantém o comportamento de hoje)
+- [x] Regra de Cálculo virou "mãe": ao criar um Cálculo de Acerto, dá pra já anexar um Layout e/ou
+  uma Multa junto (`regras.regra_pai_id`) — vincular só o Cálculo a uma Liga/Clube/Agente já traz o
+  Layout e a Multa anexados junto, sem precisar vincular os três separado. Layout/Multa anexados não
+  têm vínculo próprio (`regra_entidades`); pertencem a um Cálculo só — pra reusar em outro, duplica.
+  Multa criada sozinha (aba "Multa de Acerto", sem Cálculo na mesma submissão) continua solta, com
+  vínculo próprio, como sempre foi. A tela de Regras (`/admin/regras`) mostra "Segue [Cálculo]" no
+  lugar do contador de vínculos pras filhas anexadas
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
