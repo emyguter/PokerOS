@@ -25,6 +25,8 @@ interface LancamentoRecente {
   descricao: string | null
   data_lancamento: string
   status: string | null
+  clube_id: string
+  acerto_id: string | null
   clubs: { name: string } | null
 }
 
@@ -105,7 +107,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
     setLoadingRecentes(true)
     const { data } = await supabase
       .from('lancamentos')
-      .select('id, tipo, natureza, valor, descricao, data_lancamento, status, clubs(name)')
+      .select('id, tipo, natureza, valor, descricao, data_lancamento, status, clube_id, acerto_id, clubs(name)')
       .eq('origem', origem)
       .order('created_at', { ascending: false })
       .limit(10)

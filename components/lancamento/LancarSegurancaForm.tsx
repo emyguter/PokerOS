@@ -20,6 +20,8 @@ interface LancamentoRecente {
   descricao: string | null
   data_lancamento: string
   categoria_seguranca: string | null
+  clube_id: string
+  acerto_id: string | null
   clubs: { name: string } | null
 }
 
@@ -66,7 +68,7 @@ export function LancarSegurancaForm() {
     setLoadingRecentes(true)
     const { data } = await supabase
       .from('lancamentos')
-      .select('id, tipo, natureza, valor, descricao, data_lancamento, categoria_seguranca, clubs(name)')
+      .select('id, tipo, natureza, valor, descricao, data_lancamento, categoria_seguranca, clube_id, acerto_id, clubs(name)')
       .eq('origem', 'seguranca')
       .order('created_at', { ascending: false })
       .limit(10)

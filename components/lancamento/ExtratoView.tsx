@@ -53,6 +53,8 @@ interface Lancamento {
   created_at: string
   categoria_seguranca: string | null
   liberado: boolean
+  clube_id: string
+  acerto_id: string | null
   clubs: { name: string } | null
 }
 
@@ -129,7 +131,7 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
     setLoading(true)
     let query = supabase
       .from('lancamentos')
-      .select('id, tipo, natureza, valor, descricao, data_lancamento, created_at, categoria_seguranca, liberado, clubs(name)')
+      .select('id, tipo, natureza, valor, descricao, data_lancamento, created_at, categoria_seguranca, liberado, clube_id, acerto_id, clubs(name)')
       .in('origem', origens)
       .order('data_lancamento', { ascending: true })
       .order('created_at', { ascending: true })

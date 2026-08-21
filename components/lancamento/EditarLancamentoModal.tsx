@@ -14,6 +14,23 @@ export interface LancamentoEditavel {
   descricao: string | null
   data_lancamento: string
   categoria_seguranca?: string | null
+  clube_id: string
+  acerto_id: string | null
+}
+
+interface AcertoOpcao {
+  id: string
+  valor_acerto: number
+  period_start: string | null
+  period_end: string | null
+}
+
+function formatPeriodoAcerto(a: AcertoOpcao) {
+  const fmtM = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  if (!a.period_start) return `R$ ${fmtM(a.valor_acerto)}`
+  const fmtD = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+  const periodo = a.period_end ? `${fmtD(a.period_start)}–${fmtD(a.period_end)}` : fmtD(a.period_start)
+  return `${periodo} · R$ ${fmtM(a.valor_acerto)}`
 }
 
 interface Props {
@@ -31,6 +48,8 @@ export function EditarLancamentoModal({ open, lancamento, onClose, onSaved }: Pr
   const [valor, setValor] = useState('')
   const [descricao, setDescricao] = useState('')
   const [data, setData] = useState('')
+  const [acertoId, setAcertoId] = useState('')
+  const [acertosClube, setAcertosClube] = useState<AcertoOpcao[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -42,8 +61,27 @@ export function EditarLancamentoModal({ open, lancamento, onClose, onSaved }: Pr
     setValor(String(lancamento.valor).replace('.', ','))
     setDescricao(lancamento.descricao ?? '')
     setData(lancamento.data_lancamento)
+    setAcertoId(lancamento.acerto_id ?? '')
     setError(null)
   }, [lancamento])
+
+  // Lista de Acertos do clube do lançamento — pra poder corrigir/preencher
+  // "Qual Acerto está sendo pago?" num Pagamento/Antecipação que ainda não
+  // tinha esse vínculo (lançado antes desse campo existir, por exemplo).
+  useEffect(() => {
+    if (!lancamento?.clube_id) { setAcertosClube([]); return }
+    supabase
+      .from('acertos')
+      .select('id, valor_acerto, imports(period_start, period_end)')
+      .eq('club_id', lancamento.clube_id)
+      .order('created_at', { ascending: false })
+      .limit(20)
+      .then(({ data }) => {
+        const lista = ((data ?? []) as unknown as { id: string; valor_acerto: number; imports: { period_start: string | null; period_end: string | null } | null }[])
+          .map((a) => ({ id: a.id, valor_acerto: a.valor_acerto, period_start: a.imports?.period_start ?? null, period_end: a.imports?.period_end ?? null }))
+        setAcertosClube(lista)
+      })
+  }, [lancamento?.clube_id])
 
   if (!open || !lancamento) return null
 
@@ -52,16 +90,20 @@ export function EditarLancamentoModal({ open, lancamento, onClose, onSaved }: Pr
   // troca o Tipo/Natureza genéricos pela mesma Ação + Categoria da tela de
   // Segurança, pra não deixar salvar uma combinação incoerente.
   const seguranca = ehTipoSeguranca(lancamento.tipo)
+  // Mesmo campo do LancarForm — Pagamento/Antecipação editados aqui também
+  // precisam apontar pra um Acerto, senão somem do Controle de Pagamentos.
+  const ehPagamentoComAcerto = !seguranca && (tipo === 'pagamento' || tipo === 'antecipacao')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const valorNum = Number(valor.replace(',', '.'))
     if (!valorNum || valorNum <= 0) { setError('Informe um valor válido.'); return }
+    if (ehPagamentoComAcerto && !acertoId) { setError(t('pagamentos.qual_acerto_obrigatorio')); return }
     setSaving(true); setError(null)
     try {
       const payload = seguranca
         ? { tipo, natureza, categoria_seguranca: categoria, valor: valorNum, descricao: descricao || null, data_lancamento: data }
-        : { tipo, natureza, valor: valorNum, descricao: descricao || null, data_lancamento: data }
+        : { tipo, natureza, valor: valorNum, descricao: descricao || null, data_lancamento: data, acerto_id: ehPagamentoComAcerto ? acertoId : null }
       const { error: updErr } = await supabase.from('lancamentos').update(payload).eq('id', lancamento!.id)
       if (updErr) throw updErr
       onSaved()
@@ -160,6 +202,17 @@ export function EditarLancamentoModal({ open, lancamento, onClose, onSaved }: Pr
                   <input type="text" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
                 </div>
               </div>
+
+              {ehPagamentoComAcerto && (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1.5">{t('pagamentos.qual_acerto')}</label>
+                  <select value={acertoId} onChange={(e) => setAcertoId(e.target.value)} className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
+                    <option value="">{t('pagamentos.selecione_acerto')}</option>
+                    {acertosClube.map((a) => <option key={a.id} value={a.id}>{formatPeriodoAcerto(a)}</option>)}
+                  </select>
+                  {acertosClube.length === 0 && <p className="text-xs text-gray-500 mt-1.5">{t('pagamentos.nenhum_acerto_do_clube')}</p>}
+                </div>
+              )}
             </>
           )}
 
