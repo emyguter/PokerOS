@@ -9,9 +9,20 @@ import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { RegraModal } from '@/components/cadastro/RegraModal'
 import { VinculosPanel } from '@/components/cadastro/VinculosPanel'
-import { Plus, Link2 } from 'lucide-react'
+import { Plus, Link2, Percent, LayoutList, AlertTriangle } from 'lucide-react'
+import type { RegraTipo } from '@/lib/types'
 
 interface IndicadorInfo { nome: string; descricao: string | null }
+
+// Cálculo, Layout e Multa viram submenu — cada um numa aba/tela separada,
+// em vez de tentar juntar Cálculo+Layout na mesma edição (não dá pra
+// adivinhar com segurança qual Layout pareia quando o Cálculo é reusado em
+// clubes com Layouts diferentes entre si).
+const ABAS: { key: RegraTipo; label: string; icon: typeof Percent }[] = [
+  { key: 'faixa', label: 'Cálculo de Acerto', icon: Percent },
+  { key: 'layout_acerto', label: 'Layout do Acerto', icon: LayoutList },
+  { key: 'multa_atraso', label: 'Multa de Acerto', icon: AlertTriangle },
+]
 
 // Mesmo rótulo usado em VinculosPanel/RegrasAplicadas — sobre qual taxa do
 // clube (Fee MTT/Fee Cash/Taxa Operacional/SpinUp) o percentual da regra
@@ -46,6 +57,7 @@ export default function RegrasPage() {
   const [items, setItems] = useState<Regra[]>([])
   const [indicadores, setIndicadores] = useState<Map<string, IndicadorInfo>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState<RegraTipo>('faixa')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Regra | null>(null)
   const [vinculosRegra, setVinculosRegra] = useState<Regra | null>(null)
@@ -73,16 +85,13 @@ export default function RegrasPage() {
   useEffect(() => { load() }, [load])
 
   // Cálculo de Acerto, Layout do Acerto e Multa de Acerto coexistem — o
-  // modal manda 1 form por etapa marcada. Criando, cada form novo vira sua
-  // própria Regra. Editando, vem 1 form (a etapa fixa daquela regra) ou 2
-  // (achou a irmã Cálculo/Layout por vínculo em comum) — `ids` traz o
-  // destino de cada form, na mesma ordem (ver RegraModal.tsx).
-  async function handleSave(forms: RegraForm[], ids?: string[]) {
+  // modal manda 1 form por etapa marcada (editando, sempre só 1: a etapa
+  // fixa daquela regra). Cada form novo vira sua própria Regra.
+  async function handleSave(forms: RegraForm[]) {
     setSaving(true); setError(null)
     try {
       if (editing) {
-        if (ids) for (let i = 0; i < forms.length; i++) await updateRegra(ids[i], forms[i])
-        else await updateRegra(editing.id, forms[0])
+        await updateRegra(editing.id, forms[0])
         await load()
       } else {
         // Regra nova não serve pra nada até ser vinculada a alguém — em vez
@@ -122,6 +131,8 @@ export default function RegrasPage() {
     finally { setSaving(false) }
   }
 
+  const itemsFiltrados = items.filter(r => r.tipo === tab)
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -132,6 +143,19 @@ export default function RegrasPage() {
         <button onClick={() => { setEditing(null); setModalOpen(true) }} className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors">
           <Plus size={16} />Nova Regra
         </button>
+      </div>
+
+      <div className="flex gap-2 border-b border-white/10">
+        {ABAS.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === key ? 'border-gold text-gold' : 'border-transparent text-gray-400 hover:text-white'}`}
+          >
+            <Icon size={14} />{label}
+            <span className="text-xs text-gray-500">{items.filter(r => r.tipo === key).length}</span>
+          </button>
+        ))}
       </div>
 
       {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
@@ -152,16 +176,6 @@ export default function RegrasPage() {
               const campo = row.tipo === 'faixa' ? row.campo : null
               return (
                 <span className="text-xs text-gray-300">
-                  {row.tipo === 'multa_atraso' && (
-                    <span className="mr-2 px-1.5 py-0.5 rounded-full bg-alert/10 border border-alert/30 text-alert text-[10px] align-middle whitespace-nowrap">
-                      Multa
-                    </span>
-                  )}
-                  {row.tipo === 'layout_acerto' && (
-                    <span className="mr-2 px-1.5 py-0.5 rounded-full bg-blue-400/10 border border-blue-400/30 text-blue-400 text-[10px] align-middle whitespace-nowrap">
-                      Layout
-                    </span>
-                  )}
                   {resumoRegra(row, indicadores)}
                   {campo && (
                     <span className="ml-2 px-1.5 py-0.5 rounded-full bg-surface2 border border-white/10 text-gray-400 text-[10px] align-middle whitespace-nowrap">
@@ -182,7 +196,7 @@ export default function RegrasPage() {
             ),
           },
         ]}
-        data={items}
+        data={itemsFiltrados}
         loading={loading}
         onEdit={item => { setEditing(item); setModalOpen(true) }}
         onDelete={item => setDeleteTarget(item)}
