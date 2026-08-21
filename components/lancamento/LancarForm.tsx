@@ -78,11 +78,13 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
     supabase.from('clubs').select('id, name').order('name').then(({ data }) => setClubes(data ?? []))
   }, [])
 
-  // Pagamento (Envio), de Suporte ou Financeiro, precisa apontar pra um
-  // Acerto — alimenta Controle de Pagamentos/Cobrança (ver lib/pagamentos.ts,
-  // buscarPagamentosPorImport busca por tipo "pagamento" com acerto_id, sem
-  // filtrar por origem). Os dois times lançam pagamento pro mesmo lugar.
-  const ehPagamentoComAcerto = tipo === 'pagamento'
+  // Pagamento e Antecipação (Envio), de Suporte ou Financeiro, precisam
+  // apontar pra um Acerto — alimentam Controle de Pagamentos/Cobrança (ver
+  // lib/pagamentos.ts, buscarPagamentosPorImport busca pelos dois tipos com
+  // acerto_id, sem filtrar por origem). Antecipação é só outro jeito de
+  // registrar um pagamento do clube — mesmo tratamento de Pagamento daqui pra
+  // frente, exceto o nome.
+  const ehPagamentoComAcerto = tipo === 'pagamento' || tipo === 'antecipacao'
   useEffect(() => {
     if (!ehPagamentoComAcerto || !clubeId) { setAcertosClube([]); setAcertoId(''); return }
     supabase

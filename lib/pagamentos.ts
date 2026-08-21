@@ -102,7 +102,6 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
           .in('clube_id', clubIds)
           .in('origem', ['suporte', 'seguranca'])
           .neq('tipo', 'caucao')
-          .neq('tipo', 'antecipacao')
           .gte('data_lancamento', periodStart)
           .lte('data_lancamento', periodEnd || periodStart)
       : Promise.resolve({ data: [] as { clube_id: string; natureza: 'credito' | 'debito'; valor: number }[] }),
@@ -166,7 +165,7 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
       .from('lancamentos')
       .select('id, acerto_id, natureza, valor, data_lancamento')
       .in('acerto_id', lista.map((a) => a.id))
-      .eq('tipo', 'pagamento')
+      .in('tipo', ['pagamento', 'antecipacao'])
       .order('data_lancamento', { ascending: true }),
     valorAcertoCompletoPorRow(lista, importInfo?.period_start ?? '', importInfo?.period_end ?? ''),
     caucaoPorClube(clubIds, importInfo?.period_start ?? '', importInfo?.period_end ?? ''),
