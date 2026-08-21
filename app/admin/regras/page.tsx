@@ -4,25 +4,14 @@ import { getRegras, createRegra, updateRegra, deleteRegra } from '@/lib/cadastro
 import { supabase } from '@/lib/supabase'
 import { formatIndicadorNome } from '@/lib/indicadores'
 import { resolverLayout, LABEL_CAMPO as LABEL_CAMPO_ACERTO } from '@/lib/relatorio-acerto'
-import type { CampoClube, Regra, RegraForm } from '@/lib/types'
+import type { CampoClube, Regra } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
-import { RegraModal } from '@/components/cadastro/RegraModal'
+import { RegraModal, type RegraModalResult } from '@/components/cadastro/RegraModal'
 import { VinculosPanel } from '@/components/cadastro/VinculosPanel'
-import { Plus, Link2, Percent, LayoutList, AlertTriangle } from 'lucide-react'
-import type { RegraTipo } from '@/lib/types'
+import { Plus, Link2 } from 'lucide-react'
 
 interface IndicadorInfo { nome: string; descricao: string | null }
-
-// Cálculo, Layout e Multa viram submenu — cada um numa aba/tela separada,
-// em vez de tentar juntar Cálculo+Layout na mesma edição (não dá pra
-// adivinhar com segurança qual Layout pareia quando o Cálculo é reusado em
-// clubes com Layouts diferentes entre si).
-const ABAS: { key: RegraTipo; label: string; icon: typeof Percent }[] = [
-  { key: 'faixa', label: 'Cálculo de Acerto', icon: Percent },
-  { key: 'layout_acerto', label: 'Layout do Acerto', icon: LayoutList },
-  { key: 'multa_atraso', label: 'Multa de Acerto', icon: AlertTriangle },
-]
 
 // Mesmo rótulo usado em VinculosPanel/RegrasAplicadas — sobre qual taxa do
 // clube (Fee MTT/Fee Cash/Taxa Operacional/SpinUp) o percentual da regra
@@ -57,7 +46,6 @@ export default function RegrasPage() {
   const [items, setItems] = useState<Regra[]>([])
   const [indicadores, setIndicadores] = useState<Map<string, IndicadorInfo>>(new Map())
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<RegraTipo>('faixa')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Regra | null>(null)
   const [vinculosRegra, setVinculosRegra] = useState<Regra | null>(null)
@@ -84,31 +72,45 @@ export default function RegrasPage() {
 
   useEffect(() => { load() }, [load])
 
-  // Cálculo de Acerto, Layout do Acerto e Multa de Acerto coexistem — o
-  // modal manda 1 form por etapa marcada (editando, sempre só 1: a etapa
-  // fixa daquela regra). Quando um Cálculo nasce nessa submissão, Layout e
-  // Multa (se vierem junto) nascem anexados a ele (regra_pai_id) — só o
-  // Cálculo precisa de vínculo, ele já traz os dois junto (pedido do
-  // Cássio). Multa sozinha (aba Multa, sem Cálculo nessa submissão) continua
+  // Cálculo, Layout e Multa são editados/criados juntos no mesmo modal
+  // agora — Layout e Multa pertencem só a 1 Cálculo (regra_pai_id), sem a
+  // ambiguidade de quando eram compartilháveis entre vários. Editando um
+  // Cálculo: atualiza ele e cria/atualiza/apaga os filhos conforme o que
+  // voltou do modal. Editando uma Multa Avulsa ou um Layout avulso legado
+  // (sem mãe): só 1 form mesmo, update direto. Criando: Cálculo nasce
+  // primeiro (se tiver) pra virar o pai de Layout/Multa; Multa Avulsa nasce
   // solta, com vínculo próprio.
-  async function handleSave(forms: RegraForm[]) {
+  async function handleSave(result: RegraModalResult) {
     setSaving(true); setError(null)
     try {
       if (editing) {
-        await updateRegra(editing.id, forms[0])
+        if (editing.tipo === 'faixa') {
+          if (result.calculo) await updateRegra(editing.id, result.calculo)
+          const layoutFilho = items.find(r => r.regraPaiId === editing.id && r.tipo === 'layout_acerto')
+          if (result.layout) {
+            if (layoutFilho) await updateRegra(layoutFilho.id, result.layout)
+            else await createRegra(result.layout, editing.id)
+          }
+          const multaFilha = items.find(r => r.regraPaiId === editing.id && r.tipo === 'multa_atraso')
+          if (result.multa) {
+            if (multaFilha) await updateRegra(multaFilha.id, result.multa)
+            else await createRegra(result.multa, editing.id)
+          } else if (result.removerMulta && multaFilha) {
+            await deleteRegra(multaFilha.id)
+          }
+        } else {
+          const form = result.calculo ?? result.layout ?? result.multa
+          if (form) await updateRegra(editing.id, form)
+        }
         await load()
       } else {
         // Regra nova não serve pra nada até ser vinculada a alguém — em vez
         // de fechar e deixar órfã, já abre o painel de vínculo da mãe (ou da
-        // própria, se não tiver mãe) — as filhas anexadas não precisam do
-        // próprio vínculo.
-        const calculoForm = forms.find(f => f.tipo === 'faixa')
-        const paiId = calculoForm ? await createRegra(calculoForm) : null
+        // própria Multa Avulsa, se for o caso).
+        const paiId = result.calculo ? await createRegra(result.calculo) : null
         const novosIds: string[] = paiId ? [paiId] : []
-        for (const form of forms) {
-          if (form === calculoForm) continue
-          novosIds.push(await createRegra(form, paiId))
-        }
+        if (result.layout) novosIds.push(await createRegra(result.layout, paiId))
+        if (result.multa) novosIds.push(await createRegra(result.multa, paiId))
         const lista = await getRegras()
         setItems(lista)
         const primeira = lista.find(r => r.id === novosIds[0])
@@ -120,15 +122,25 @@ export default function RegrasPage() {
   }
 
   // Cria uma cópia solta, sem nenhum vínculo — jeito rápido de partir de uma
-  // regra parecida (mesma etapa/tipo) sem mexer na original, que já pode
-  // estar valendo pra alguém.
+  // regra parecida sem mexer na original, que já pode estar valendo pra
+  // alguém. Duplicando um Cálculo, o Layout/Multa anexados a ele vêm junto
+  // (anexados à cópia) — é o jeito de reusar um Layout/Multa noutro lugar,
+  // já que agora pertencem só a 1 Cálculo (não dá pra vincular o mesmo em 2).
   async function handleDuplicate(regra: Regra) {
     setError(null)
     try {
-      // Layout do Acerto não tem nome digitado — fica sempre com o mesmo
-      // nome fixo, a cópia também (ver RegraModal.tsx).
-      const nome = regra.tipo === 'layout_acerto' ? 'Layout do Acerto' : `${regra.nome} (cópia)`
-      await createRegra({ nome, tipo: regra.tipo, campo: regra.campo, condicoes: regra.condicoes, faixasMulta: regra.faixasMulta, layoutCampos: regra.layoutCampos })
+      if (regra.tipo === 'faixa') {
+        const paiId = await createRegra({ nome: `${regra.nome} (cópia)`, tipo: 'faixa', campo: regra.campo, condicoes: regra.condicoes, faixasMulta: [], layoutCampos: [] })
+        const layoutFilho = items.find(r => r.regraPaiId === regra.id && r.tipo === 'layout_acerto')
+        if (layoutFilho) await createRegra({ nome: 'Layout do Acerto', tipo: 'layout_acerto', campo: null, condicoes: [], faixasMulta: [], layoutCampos: layoutFilho.layoutCampos }, paiId)
+        const multaFilha = items.find(r => r.regraPaiId === regra.id && r.tipo === 'multa_atraso')
+        if (multaFilha) await createRegra({ nome: `${regra.nome} (cópia)`, tipo: 'multa_atraso', campo: null, condicoes: [], faixasMulta: multaFilha.faixasMulta, layoutCampos: [] }, paiId)
+      } else {
+        // Layout do Acerto não tem nome digitado — fica sempre com o mesmo
+        // nome fixo, a cópia também (ver RegraModal.tsx).
+        const nome = regra.tipo === 'layout_acerto' ? 'Layout do Acerto' : `${regra.nome} (cópia)`
+        await createRegra({ nome, tipo: regra.tipo, campo: regra.campo, condicoes: regra.condicoes, faixasMulta: regra.faixasMulta, layoutCampos: regra.layoutCampos })
+      }
       await load()
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
   }
@@ -141,31 +153,22 @@ export default function RegrasPage() {
     finally { setSaving(false) }
   }
 
-  const itemsFiltrados = items.filter(r => r.tipo === tab)
+  // Layout/Multa anexados (regra_pai_id) a um Cálculo não aparecem como
+  // linha própria — pertencem só a ele, são editados junto no mesmo modal
+  // (ver RegraModal). Só sobra na lista: Cálculos, Multa Avulsa e qualquer
+  // Layout avulso legado (de antes da Regra "mãe" existir).
+  const itemsTopo = items.filter(r => r.regraPaiId === null)
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-white">Regras</h1>
-          <p className="text-sm text-gray-400 mt-1">Faixas SE/ENTÃO reutilizáveis — crie a regra aqui, depois vincule a Ligas, Clubes ou Agentes</p>
+          <p className="text-sm text-gray-400 mt-1">Cálculo, Layout e Multa de Acerto — crie/edite tudo junto aqui, depois vincule a Ligas, Clubes ou Agentes</p>
         </div>
         <button onClick={() => { setEditing(null); setModalOpen(true) }} className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors">
           <Plus size={16} />Nova Regra
         </button>
-      </div>
-
-      <div className="flex gap-2 border-b border-white/10">
-        {ABAS.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === key ? 'border-gold text-gold' : 'border-transparent text-gray-400 hover:text-white'}`}
-          >
-            <Icon size={14} />{label}
-            <span className="text-xs text-gray-500">{items.filter(r => r.tipo === key).length}</span>
-          </button>
-        ))}
       </div>
 
       {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
@@ -175,18 +178,17 @@ export default function RegrasPage() {
           {
             key: 'nome',
             label: 'Nome',
-            render: (v: string, row: Regra) => {
-              const pai = row.regraPaiId ? items.find(i => i.id === row.regraPaiId) : null
-              return (
-                <button onClick={() => setVinculosRegra(pai ?? row)} className="text-gold hover:underline text-left">{v}</button>
-              )
-            },
+            render: (v: string, row: Regra) => (
+              <button onClick={() => setVinculosRegra(row)} className="text-gold hover:underline text-left">{v}</button>
+            ),
           },
           {
             key: 'tipo',
             label: 'O que faz',
             render: (_: string, row: Regra) => {
               const campo = row.tipo === 'faixa' ? row.campo : null
+              const temLayout = row.tipo === 'faixa' && items.some(r => r.regraPaiId === row.id && r.tipo === 'layout_acerto')
+              const temMulta = row.tipo === 'faixa' && items.some(r => r.regraPaiId === row.id && r.tipo === 'multa_atraso')
               return (
                 <span className="text-xs text-gray-300">
                   {resumoRegra(row, indicadores)}
@@ -195,6 +197,8 @@ export default function RegrasPage() {
                       sobre {LABEL_CAMPO[campo]}
                     </span>
                   )}
+                  {temLayout && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-surface2 border border-white/10 text-gray-400 text-[10px] align-middle whitespace-nowrap">+ Layout</span>}
+                  {temMulta && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-surface2 border border-white/10 text-gray-400 text-[10px] align-middle whitespace-nowrap">+ Multa</span>}
                 </span>
               )
             },
@@ -202,27 +206,14 @@ export default function RegrasPage() {
           {
             key: 'vinculoCount',
             label: 'Vínculos',
-            render: (v: number, row: Regra) => {
-              // Filha (Layout/Multa nascida junto com um Cálculo) não tem
-              // vínculo próprio — segue o vínculo da mãe. Mostra isso em vez
-              // de "0/Vincular agora", e clicar abre o painel da mãe.
-              if (row.regraPaiId) {
-                const pai = items.find(i => i.id === row.regraPaiId)
-                return (
-                  <button onClick={() => pai && setVinculosRegra(pai)} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gold transition-colors">
-                    <Link2 size={13} />Segue {pai?.nome ?? 'Cálculo'}
-                  </button>
-                )
-              }
-              return (
-                <button onClick={() => setVinculosRegra(row)} className={`flex items-center gap-1.5 text-sm transition-colors ${v === 0 ? 'text-gold hover:underline' : 'text-gray-300 hover:text-gold'}`}>
-                  <Link2 size={13} />{v === 0 ? 'Vincular agora' : v}
-                </button>
-              )
-            },
+            render: (v: number, row: Regra) => (
+              <button onClick={() => setVinculosRegra(row)} className={`flex items-center gap-1.5 text-sm transition-colors ${v === 0 ? 'text-gold hover:underline' : 'text-gray-300 hover:text-gold'}`}>
+                <Link2 size={13} />{v === 0 ? 'Vincular agora' : v}
+              </button>
+            ),
           },
         ]}
-        data={itemsFiltrados}
+        data={itemsTopo}
         loading={loading}
         onEdit={item => { setEditing(item); setModalOpen(true) }}
         onDelete={item => setDeleteTarget(item)}
@@ -232,7 +223,8 @@ export default function RegrasPage() {
       <RegraModal
         open={modalOpen}
         editing={editing}
-        tipoNovo={tab}
+        layoutFilho={editing?.tipo === 'faixa' ? items.find(r => r.regraPaiId === editing.id && r.tipo === 'layout_acerto') ?? null : null}
+        multaFilha={editing?.tipo === 'faixa' ? items.find(r => r.regraPaiId === editing.id && r.tipo === 'multa_atraso') ?? null : null}
         onClose={() => { setModalOpen(false); setEditing(null); setError(null) }}
         onSave={handleSave}
         saving={saving}

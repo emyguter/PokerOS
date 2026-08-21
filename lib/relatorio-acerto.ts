@@ -82,22 +82,28 @@ export function resolverLayout(config: CampoLayoutConfig[] | null): CampoResolvi
     .map((c) => ({ campo: c.campo, visivel: ehObrigatorio(c.campo) ? true : c.visivel }))
 }
 
-// Layout nasce sempre anexado (regra_pai_id) a uma Regra de Cálculo — não
-// tem vínculo (regra_entidades) próprio. Acha a(s) Regra(s) de Cálculo
-// vinculada(s) ao clube, usa o Layout filho da primeira que tiver um (clube
-// com Cálculo por campo — Fee MTT, Fee Cash... — usando Layouts diferentes
-// entre si é caso raro/mal configurado; fica o primeiro achado). Sem
-// Cálculo vinculado, ou sem Layout anexado a nenhum, `resolverLayout(null)`
-// devolve o padrão sozinho.
+// Layout pode estar vinculado direto ao clube (jeito de sempre, de quando
+// Layout tinha vínculo próprio como qualquer outra Regra) OU anexado
+// (regra_pai_id) a uma Regra de Cálculo vinculada ao clube (nasce junto com
+// ela agora, sem vínculo próprio) — o direto tem prioridade (preserva quem
+// já estava configurado assim antes da Regra "mãe" existir). Achando um
+// Cálculo vinculado sem Layout direto, usa o Layout filho da primeira Regra
+// de Cálculo que tiver um (clube com Cálculo por campo — Fee MTT, Fee
+// Cash... — usando Layouts diferentes entre si é caso raro/mal configurado;
+// fica o primeiro achado). Sem nada, `resolverLayout(null)` devolve o
+// padrão sozinho.
 export async function getLayoutDoClube(clubeId: string): Promise<CampoResolvido[]> {
   const { data: vinculos } = await supabase
     .from('regra_entidades')
-    .select('regras(id, tipo)')
+    .select('regras(id, tipo, regra_layout_campos(campo, ordem, visivel))')
     .eq('entidade_tipo', 'clube')
     .eq('entidade_id', clubeId)
-  const calculoIds = ((vinculos ?? []) as unknown as { regras: { id: string; tipo: string } | null }[])
-    .filter((v) => v.regras?.tipo === 'faixa')
-    .map((v) => v.regras!.id)
+  const linhas = (vinculos ?? []) as unknown as { regras: { id: string; tipo: string; regra_layout_campos: CampoLayoutConfig[] } | null }[]
+
+  const direto = linhas.find((v) => v.regras?.tipo === 'layout_acerto')
+  if (direto) return resolverLayout(direto.regras!.regra_layout_campos ?? null)
+
+  const calculoIds = linhas.filter((v) => v.regras?.tipo === 'faixa').map((v) => v.regras!.id)
   if (calculoIds.length === 0) return resolverLayout(null)
 
   const { data: filhos } = await supabase

@@ -8,22 +8,29 @@ import { LAYOUT_PADRAO, LABEL_CAMPO, ehObrigatorio } from '@/lib/relatorio-acert
 
 interface Indicador { id: string; nome: string; descricao: string | null }
 
+// O que salvar por etapa — Cálculo/Layout/Multa podem coexistir na mesma
+// edição/criação agora (Layout e Multa pertencem a 1 Cálculo só, nascem
+// anexados a ele via regra_pai_id, então não tem mais a ambiguidade de
+// quando eram compartilháveis entre vários Cálculos). `removerMulta`: só
+// importa editando um Cálculo que já tinha Multa anexada e o usuário
+// desmarcou o checkbox — sinaliza pra apagar a Multa filha.
+export interface RegraModalResult {
+  calculo?: RegraForm
+  layout?: RegraForm
+  multa?: RegraForm
+  removerMulta?: boolean
+}
+
 interface Props {
   open: boolean
   editing: Regra | null
-  // Só vale criando (editing null) — de qual aba o "Nova Regra" foi aberto.
-  // 'multa_atraso' cria só a Multa sozinha, sem forçar o par Cálculo+Layout
-  // junto (a aba de Multa não tem porque ver Cálculo/Layout no meio). As
-  // outras abas (ou sem passar nada) mantêm o padrão de sempre criar o par.
-  tipoNovo?: RegraTipo
+  // Só valem editando um Cálculo (editing.tipo === 'faixa') — o Layout e a
+  // Multa já anexados a ele, se tiver, pra mostrar/editar juntos no mesmo
+  // modal.
+  layoutFilho?: Regra | null
+  multaFilha?: Regra | null
   onClose: () => void
-  // Uma etapa marcada = uma Regra criada — pode ser 1, 2 ou 3 de uma vez
-  // (Cálculo/Layout/Multa coexistem, nenhuma sobrepõe a outra). Editando,
-  // vem sempre com exatamente 1 item (a etapa fixa daquela regra) — Cálculo
-  // e Layout são editados em telas/submenus separados (não dá pra adivinhar
-  // com segurança qual Layout pareia quando a Regra de Cálculo é reusada em
-  // clubes com Layouts diferentes entre si).
-  onSave: (forms: RegraForm[]) => void
+  onSave: (result: RegraModalResult) => void
   saving: boolean
   error?: string | null
 }
@@ -68,7 +75,7 @@ function EtapaOpcional({ titulo, descricao, checked, onToggle, children }: { tit
   )
 }
 
-export function RegraModal({ open, editing, tipoNovo, onClose, onSave, saving, error }: Props) {
+export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, onSave, saving, error }: Props) {
   const [nome, setNome] = useState('')
   const [campo, setCampo] = useState<CampoClube | null>(null)
   const [condicoes, setCondicoes] = useState<RegraCondicaoForm[]>([])
@@ -76,23 +83,33 @@ export function RegraModal({ open, editing, tipoNovo, onClose, onSave, saving, e
   const [layoutCampos, setLayoutCampos] = useState<LayoutCampoForm[]>(LAYOUT_INICIAL)
   const [arrastando, setArrastando] = useState<string | null>(null)
   const [indicadores, setIndicadores] = useState<Indicador[]>([])
-  // Só vale criando regra nova — Multa é a única etapa opcional (Cálculo e
-  // Layout sempre nascem juntos). Editando, a etapa já é fixa (é o
-  // editing.tipo) — não existe mais conversão de tipo numa regra existente.
+  // Multa é a única etapa sempre opcional (checkbox) — criando um Cálculo
+  // completo, ou editando um que já existe (reflete se já tem Multa
+  // anexada). Editando uma Multa Avulsa direto, não tem checkbox (a própria
+  // edição já é a Multa).
   const [incluirMulta, setIncluirMulta] = useState(false)
+  // Só vale criando regra nova (editing null) — "Nova Regra" abre perguntando
+  // o que criar antes de mostrar o formulário.
+  const [tipoCriacao, setTipoCriacao] = useState<'completo' | 'multa' | null>(null)
 
   useEffect(() => {
     if (open) supabase.from('indicadores').select('*').order('nome').then(({ data }) => { if (data) setIndicadores(data) })
   }, [open])
 
   useEffect(() => {
+    if (open) setTipoCriacao(null)
+  }, [open, editing])
+
+  useEffect(() => {
     setNome(editing?.nome ?? '')
     setCampo(editing?.campo ?? null)
     setCondicoes(editing?.condicoes ?? [])
-    setFaixasMulta(editing?.faixasMulta && editing.faixasMulta.length > 0 ? editing.faixasMulta : [{ ...EMPTY_FAIXA }])
-    setLayoutCampos(editing?.layoutCampos && editing.layoutCampos.length > 0 ? [...editing.layoutCampos].sort((a, b) => a.ordem - b.ordem) : LAYOUT_INICIAL)
-    setIncluirMulta(false)
-  }, [editing, open])
+    const layoutFonte = editing?.tipo === 'layout_acerto' ? editing : editing?.tipo === 'faixa' ? layoutFilho : null
+    setLayoutCampos(layoutFonte?.layoutCampos && layoutFonte.layoutCampos.length > 0 ? [...layoutFonte.layoutCampos].sort((a, b) => a.ordem - b.ordem) : LAYOUT_INICIAL)
+    const multaFonte = editing?.tipo === 'multa_atraso' ? editing : editing?.tipo === 'faixa' ? multaFilha : null
+    setFaixasMulta(multaFonte?.faixasMulta && multaFonte.faixasMulta.length > 0 ? multaFonte.faixasMulta : [{ ...EMPTY_FAIXA }])
+    setIncluirMulta(!!multaFonte)
+  }, [editing, open, layoutFilho, multaFilha])
 
   if (!open) return null
 
@@ -139,19 +156,25 @@ export function RegraModal({ open, editing, tipoNovo, onClose, onSave, saving, e
     })
   }
 
-  // Criando regra nova, Cálculo e Layout sempre existem juntos (é o que
-  // define a % e o que mostra no card de Acerto — não faz sentido um sem o
-  // outro) — exceto quando o "Nova Regra" foi aberto de dentro da aba Multa
-  // (tipoNovo), aí cria só a Multa sozinha, sem Cálculo/Layout no meio.
-  // Editando, só existe UMA etapa: a que a regra já é (tipo fixo pra
-  // sempre) — cada tipo é editado no seu próprio submenu (ver
-  // app/admin/regras/page.tsx), não dá pra combinar Cálculo+Layout numa
-  // edição só sem arriscar editar o Layout errado quando o Cálculo é
-  // reusado em clubes com Layouts diferentes.
-  const criandoSoMulta = !editing && tipoNovo === 'multa_atraso'
-  const mostrarCalculo = editing ? editing.tipo === 'faixa' : !criandoSoMulta
-  const mostrarLayout = editing ? editing.tipo === 'layout_acerto' : !criandoSoMulta
-  const mostrarMulta = editing ? editing.tipo === 'multa_atraso' : (criandoSoMulta || incluirMulta)
+  // Cálculo e Layout sempre existem juntos (é o que define a % e o que
+  // mostra no card de Acerto — não faz sentido um sem o outro), com Multa
+  // opcional — tanto criando quanto editando um Cálculo (Layout/Multa
+  // pertencem só a ele, não tem mais o risco de editar o Layout errado de
+  // um Cálculo reusado em vários lugares, já que agora não são
+  // compartilháveis entre Cálculos). "Multa Avulsa" continua existindo à
+  // parte pra quem já tem o Cálculo configurado em outro lugar.
+  const step0 = !editing && tipoCriacao === null
+  const criandoCompleto = !editing && tipoCriacao === 'completo'
+  const criandoSoMulta = !editing && tipoCriacao === 'multa'
+  const editandoCalculo = editing?.tipo === 'faixa'
+  const editandoMultaAvulsa = editing?.tipo === 'multa_atraso'
+  const editandoLayoutAvulso = editing?.tipo === 'layout_acerto'
+
+  const mostrarCalculo = editandoCalculo || criandoCompleto
+  const mostrarLayout = editandoCalculo || editandoLayoutAvulso || criandoCompleto
+  const mostrarMultaComCheckbox = editandoCalculo || criandoCompleto
+  const mostrarMultaFixa = editandoMultaAvulsa || criandoSoMulta
+  const mostrarMulta = mostrarMultaFixa || (mostrarMultaComCheckbox && incluirMulta)
   const precisaNome = mostrarCalculo || mostrarMulta
 
   const multaConteudo = (
@@ -188,13 +211,16 @@ export function RegraModal({ open, editing, tipoNovo, onClose, onSave, saving, e
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const forms: RegraForm[] = []
-    if (mostrarCalculo) forms.push({ nome, tipo: 'faixa', campo, condicoes, faixasMulta: [], layoutCampos: [] })
+    const result: RegraModalResult = {}
+    if (mostrarCalculo) result.calculo = { nome, tipo: 'faixa', campo, condicoes, faixasMulta: [], layoutCampos: [] }
     // Layout do Acerto não pede Nome — não faz muito sentido nomear "qual
     // ordem os campos aparecem", então usa um nome fixo na lista de Regras.
-    if (mostrarLayout) forms.push({ nome: 'Layout do Acerto', tipo: 'layout_acerto', campo: null, condicoes: [], faixasMulta: [], layoutCampos })
-    if (mostrarMulta) forms.push({ nome, tipo: 'multa_atraso', campo: null, condicoes: [], faixasMulta, layoutCampos: [] })
-    onSave(forms)
+    if (mostrarLayout) result.layout = { nome: 'Layout do Acerto', tipo: 'layout_acerto', campo: null, condicoes: [], faixasMulta: [], layoutCampos }
+    if (mostrarMulta) result.multa = { nome, tipo: 'multa_atraso', campo: null, condicoes: [], faixasMulta, layoutCampos: [] }
+    // Editando um Cálculo que já tinha Multa anexada e o checkbox foi
+    // desmarcado — sinaliza pra apagar a filha em vez de só não enviar nada.
+    else if (editandoCalculo && multaFilha) result.removerMulta = true
+    onSave(result)
   }
 
   return (
@@ -203,16 +229,42 @@ export function RegraModal({ open, editing, tipoNovo, onClose, onSave, saving, e
       <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
           <h2 className="text-lg font-semibold text-white">
-            {editing ? `Editar Regra — ${LABEL_TIPO[editing.tipo]}` : criandoSoMulta ? 'Nova Multa de Acerto' : 'Nova Regra'}
+            {editing ? `Editar ${LABEL_TIPO[editing.tipo]}` : step0 ? 'Nova Regra' : criandoSoMulta ? 'Nova Multa Avulsa' : 'Novo Cálculo de Acerto'}
           </h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><X size={18} /></button>
         </div>
+        {step0 ? (
+          <>
+            <div className="overflow-y-auto flex-1 px-6 py-5 space-y-3">
+              <p className="text-xs text-gray-500 mb-1">O que você quer criar?</p>
+              <button type="button" onClick={() => setTipoCriacao('completo')} className="w-full text-left p-4 rounded-lg border border-white/10 hover:border-gold/50 transition-colors">
+                <p className="text-sm font-medium text-white">Cálculo de Acerto</p>
+                <p className="text-xs text-gray-500 mt-1">% que varia por Rake/Ganhos — já vem com o Layout do card de Acerto junto, e Multa por atraso se quiser</p>
+              </button>
+              <button type="button" onClick={() => setTipoCriacao('multa')} className="w-full text-left p-4 rounded-lg border border-white/10 hover:border-gold/50 transition-colors">
+                <p className="text-sm font-medium text-white">Multa Avulsa</p>
+                <p className="text-xs text-gray-500 mt-1">Só a % de multa por atraso, sem Cálculo — raro, use só se o Cálculo já existir em outro lugar</p>
+              </button>
+            </div>
+            <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
+              <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
+            </div>
+          </>
+        ) : (
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
-            {!editing && !criandoSoMulta && (
-              <p className="text-xs text-gray-500">
-                Cálculo de Acerto e Layout do Acerto sempre nascem juntos aqui — Multa de Acerto é opcional, marque só se essa regra tiver. Cada etapa vira sua própria Regra na lista, e vai precisar do próprio vínculo depois.
-              </p>
+            {!editing && (
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-gray-500">
+                  {criandoCompleto
+                    ? 'Cálculo e Layout do Acerto nascem juntos — Multa é opcional, marque só se essa regra tiver.'
+                    : 'Multa avulsa — sem Cálculo/Layout, precisa do próprio vínculo depois.'}
+                </p>
+                <button type="button" onClick={() => setTipoCriacao(null)} className="text-xs text-gray-500 hover:text-gold shrink-0 ml-2">← voltar</button>
+              </div>
+            )}
+            {editandoCalculo && (
+              <p className="text-xs text-gray-500">Layout e Multa aqui pertencem só a este Cálculo — editar/desmarcar muda só ele, não afeta outros.</p>
             )}
 
             {precisaNome && (
@@ -324,16 +376,16 @@ export function RegraModal({ open, editing, tipoNovo, onClose, onSave, saving, e
             </Secao>
             )}
 
-            {!editing && !criandoSoMulta ? (
+            {mostrarMultaComCheckbox ? (
               <EtapaOpcional
                 titulo="Multa de Acerto"
-                descricao="% de multa por atraso, pra Dívidas e Acordos — opcional, nem toda regra precisa"
+                descricao="% de multa por atraso, pra Dívidas e Acordos — opcional, nem todo Cálculo precisa"
                 checked={incluirMulta}
                 onToggle={() => setIncluirMulta(v => !v)}
               >
                 {multaConteudo}
               </EtapaOpcional>
-            ) : mostrarMulta && (
+            ) : mostrarMultaFixa && (
               <Secao titulo="Multa de Acerto" descricao="% de multa por atraso, pra Dívidas e Acordos">
                 {multaConteudo}
               </Secao>
@@ -344,10 +396,11 @@ export function RegraModal({ open, editing, tipoNovo, onClose, onSave, saving, e
           <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
             <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
             <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
-              {saving && <Loader2 size={14} className="animate-spin" />}Salvar Regra{!editing && incluirMulta ? 's' : ''}
+              {saving && <Loader2 size={14} className="animate-spin" />}Salvar
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   )

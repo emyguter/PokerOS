@@ -602,13 +602,14 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   próprio `processarAcertos` passa a marcar sozinho como paga a Dívida/parcela que acabou de ser
   descontada daquele período (`marcarDividasPagasComRake`), fechando o buraco do desconto duplicado.
   Dívidas já cadastradas migram como "Sim" (mantém o comportamento de hoje)
-- [x] Regra de Cálculo virou "mãe": ao criar um Cálculo de Acerto, dá pra já anexar um Layout e/ou
-  uma Multa junto (`regras.regra_pai_id`) — vincular só o Cálculo a uma Liga/Clube/Agente já traz o
-  Layout e a Multa anexados junto, sem precisar vincular os três separado. Layout/Multa anexados não
-  têm vínculo próprio (`regra_entidades`); pertencem a um Cálculo só — pra reusar em outro, duplica.
-  Multa criada sozinha (aba "Multa de Acerto", sem Cálculo na mesma submissão) continua solta, com
-  vínculo próprio, como sempre foi. A tela de Regras (`/admin/regras`) mostra "Segue [Cálculo]" no
-  lugar do contador de vínculos pras filhas anexadas
+- [x] Regra de Cálculo virou "mãe": ao criar/editar um Cálculo de Acerto, o Layout e a Multa
+  anexados a ele (`regras.regra_pai_id`) são editados juntos no mesmo modal — vincular só o Cálculo
+  a uma Liga/Clube/Agente já traz o Layout e a Multa anexados junto, sem precisar vincular os três
+  separado. Layout/Multa anexados não têm vínculo próprio (`regra_entidades`); pertencem a um
+  Cálculo só — duplicar o Cálculo é o jeito de reusar o mesmo Layout/Multa em outro lugar. "Nova
+  Regra" pergunta primeiro o que criar (Cálculo completo ou Multa Avulsa, essa sim solta, com
+  vínculo próprio). A tela de Regras (`/admin/regras`) volta a mostrar uma lista só (sem submenu por
+  tipo) — Layout/Multa anexados não aparecem como linha própria
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
