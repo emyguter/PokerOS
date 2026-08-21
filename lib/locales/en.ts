@@ -180,9 +180,9 @@ export const en: typeof pt = {
   },
   conferencia: {
     titulo: 'App Verification',
-    subtitulo: "Check Rake, Winnings and Tickets directly in the platform app for the highest-rake clubs in this import — just a visual checklist, doesn't change anything.",
+    subtitulo: "Check Rake and Winnings directly in the platform app for the highest-rake clubs in this import — just a visual checklist, doesn't change anything.",
     nenhum_clube: 'No club calculated in this import yet.',
-    rake: 'Rake', ganhos: 'Winnings', bilhetes: 'Tickets',
+    rake: 'Rake', ganhos: 'Winnings',
   },
   stoploss: {
     titulo: 'Stoploss Control', subtitulo: 'Loss limit per club — initial, current and Support adjustments',

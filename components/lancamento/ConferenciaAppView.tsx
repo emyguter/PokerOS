@@ -13,8 +13,8 @@ function formatImportLabel(i: ImportResumo) {
   return i.period_start ? `${i.period_start} → ${i.period_end || i.period_start}` : i.file_name
 }
 
-interface ValoresVistos { rake: string; ganhos: string; bilhetes: string }
-const VAZIO: ValoresVistos = { rake: '', ganhos: '', bilhetes: '' }
+interface ValoresVistos { rake: string; ganhos: string }
+const VAZIO: ValoresVistos = { rake: '', ganhos: '' }
 
 function toNumero(v: string): number | null {
   if (!v.trim()) return null
@@ -113,7 +113,6 @@ export function ConferenciaAppView() {
                 </div>
                 <LinhaConferencia label={t('conferencia.rake')} calculado={c.rake_total} visto={visto.rake} onChange={(v) => setValor(key, 'rake', v)} />
                 <LinhaConferencia label={t('conferencia.ganhos')} calculado={c.player_result} visto={visto.ganhos} onChange={(v) => setValor(key, 'ganhos', v)} />
-                <LinhaConferencia label={t('conferencia.bilhetes')} calculado={c.bilhetes} visto={visto.bilhetes} onChange={(v) => setValor(key, 'bilhetes', v)} />
               </div>
             )
           })}

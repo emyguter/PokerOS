@@ -178,9 +178,9 @@ export const pt = {
   },
   conferencia: {
     titulo: 'Conferência do App',
-    subtitulo: 'Confira Rake, Ganhos e Bilhetes direto no app da plataforma pros clubes de maior rake desse import — só um checklist visual, não altera nada.',
+    subtitulo: 'Confira Rake e Ganhos direto no app da plataforma pros clubes de maior rake desse import — só um checklist visual, não altera nada.',
     nenhum_clube: 'Nenhum clube calculado nesse import ainda.',
-    rake: 'Rake', ganhos: 'Ganhos', bilhetes: 'Bilhetes',
+    rake: 'Rake', ganhos: 'Ganhos',
   },
   stoploss: {
     titulo: 'Controle de Stoploss', subtitulo: 'Limite de perda por clube — inicial, atual e ajustes do Suporte',
