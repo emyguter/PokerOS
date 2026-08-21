@@ -6,6 +6,7 @@ import { errMsg } from '@/lib/errors'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import {
   getDividas, getParcelas, criarDivida, marcarParcelaPaga, atualizarStatusDivida, excluirDivida, getFaixasMultaDoClube,
+  atualizarDividaPagoComRake, atualizarParcelaPagoComRake,
   diasDeAtraso, valorComMulta, percentualMulta,
   type DividaRow, type DividaForm, type ParcelaRow, type FaixaMulta,
 } from '@/lib/dividas'
@@ -85,6 +86,20 @@ export function DividasView() {
     await atualizarStatusDivida(selecionada.id, 'quitado')
     await load()
     setSelecionada((s) => (s ? { ...s, status: 'quitado' } : s))
+  }
+
+  async function handleTogglePagoComRake() {
+    if (!selecionada) return
+    const novo = !selecionada.pago_com_rake
+    await atualizarDividaPagoComRake(selecionada.id, novo)
+    await load()
+    setSelecionada((s) => (s ? { ...s, pago_com_rake: novo } : s))
+  }
+
+  async function handleToggleParcelaPagoComRake(parcela: ParcelaRow) {
+    const novo = !parcela.pago_com_rake
+    await atualizarParcelaPagoComRake(parcela.id, novo)
+    setParcelas((ps) => ps.map((p) => (p.id === parcela.id ? { ...p, pago_com_rake: novo } : p)))
   }
 
   async function handleExcluir() {
@@ -169,16 +184,24 @@ export function DividasView() {
               </div>
 
               {selecionada.tipo === 'simples' ? (
-                <div className="rounded-lg border border-white/10 bg-surface2 p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-gray-500">Valor</p>
-                    <p className="text-lg font-semibold text-white">{fmt(selecionada.valor_integral)}</p>
+                <div className="rounded-lg border border-white/10 bg-surface2 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-500">Valor</p>
+                      <p className="text-lg font-semibold text-white">{fmt(selecionada.valor_integral)}</p>
+                    </div>
+                    {selecionada.status === 'ativo' && (
+                      <button onClick={handleMarcarSimplesQuitada} className="flex items-center gap-1.5 px-3 py-2 bg-success/10 border border-success/30 text-success rounded-lg text-sm font-medium hover:bg-success/20 transition-colors">
+                        <CheckCircle2 size={14} />Marcar como quitada
+                      </button>
+                    )}
                   </div>
-                  {selecionada.status === 'ativo' && (
-                    <button onClick={handleMarcarSimplesQuitada} className="flex items-center gap-1.5 px-3 py-2 bg-success/10 border border-success/30 text-success rounded-lg text-sm font-medium hover:bg-success/20 transition-colors">
-                      <CheckCircle2 size={14} />Marcar como quitada
-                    </button>
-                  )}
+                  <label className="flex items-center gap-3 cursor-pointer w-fit">
+                    <div onClick={handleTogglePagoComRake} className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${selecionada.pago_com_rake ? 'bg-gold' : 'bg-white/10'}`}>
+                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${selecionada.pago_com_rake ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </div>
+                    <span className="text-xs text-gray-400">Pagar com Rake</span>
+                  </label>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -190,7 +213,7 @@ export function DividasView() {
                     const pct = atraso > 0 ? percentualMulta(atraso, faixasMulta) : 0
                     const valorComPenalidade = atraso > 0 ? valorComMulta(p.valor, atraso, faixasMulta) : p.valor
                     return (
-                      <div key={p.id} className={`rounded-lg border p-3 flex items-center justify-between ${p.pago ? 'border-white/10 bg-surface2' : atraso > 0 ? 'border-alert/30 bg-alert/5' : 'border-white/10 bg-surface2'}`}>
+                      <div key={p.id} className={`rounded-lg border p-3 flex items-center justify-between gap-3 ${p.pago ? 'border-white/10 bg-surface2' : atraso > 0 ? 'border-alert/30 bg-alert/5' : 'border-white/10 bg-surface2'}`}>
                         <div>
                           <p className="text-sm text-white">Parcela {p.numero} <span className="text-gray-500">— vence {new Date(p.vencimento + 'T00:00:00').toLocaleDateString('pt-BR')}</span></p>
                           {p.pago ? (
@@ -200,9 +223,17 @@ export function DividasView() {
                           ) : (
                             <p className="text-xs text-gray-500 mt-0.5">Em aberto — {fmt(p.valor)}</p>
                           )}
+                          {!p.pago && (
+                            <label className="flex items-center gap-2 cursor-pointer w-fit mt-1.5">
+                              <div onClick={() => handleToggleParcelaPagoComRake(p)} className={`w-8 h-4 rounded-full transition-colors relative cursor-pointer ${p.pago_com_rake ? 'bg-gold' : 'bg-white/10'}`}>
+                                <div className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white transition-transform ${p.pago_com_rake ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                              </div>
+                              <span className="text-[11px] text-gray-500">Pagar com Rake</span>
+                            </label>
+                          )}
                         </div>
                         {!p.pago && (
-                          <button onClick={() => handleMarcarPaga(p)} className="px-3 py-1.5 bg-gold text-surface rounded-lg text-xs font-semibold hover:bg-gold/90 transition-colors">
+                          <button onClick={() => handleMarcarPaga(p)} className="shrink-0 px-3 py-1.5 bg-gold text-surface rounded-lg text-xs font-semibold hover:bg-gold/90 transition-colors">
                             Marcar como paga
                           </button>
                         )}

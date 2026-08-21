@@ -595,6 +595,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   0 — o modal de confirmação de limite continua permitindo lançar mesmo assim, é só aviso. Abas novas
   usam permissões próprias (`vip.relatorio`, `vip.limites`), que não herdam de `vip` (mesmo padrão de
   `relatorios.taxas`: dado sensível, só abre pra quem for liberado explicitamente)
+- [x] Dívida/Acordo ganhou "Pagar com Rake?" — antes, toda Dívida descontava automático do Acerto
+  toda semana até alguém lembrar de marcar como paga na mão (risco real de descontar duas vezes se
+  esquecesse). Agora só quem tiver essa opção ligada desconta/aparece no Acerto — pra Dívida Simples é
+  um campo só, pra Acordo é por parcela (dá pra ajustar parcela a parcela na tela de Dívidas). E o
+  próprio `processarAcertos` passa a marcar sozinho como paga a Dívida/parcela que acabou de ser
+  descontada daquele período (`marcarDividasPagasComRake`), fechando o buraco do desconto duplicado.
+  Dívidas já cadastradas migram como "Sim" (mantém o comportamento de hoje)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

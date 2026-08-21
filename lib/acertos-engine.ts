@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { marcarDividasPagasComRake } from "@/lib/dividas";
 
 export interface ClubSettings {
   id: string;
@@ -588,6 +589,15 @@ export async function processarAcertos(importId: string): Promise<{
 
     const { error: insertError } = await supabase.from("acertos").insert(acertosComExtras);
     if (insertError) throw new Error(insertError.message);
+
+    // Dívida/parcela marcada "Pagar com Rake" acabou de ter seu valor
+    // descontado deste período (calcularTotalAcerto, chamado por quem exibe
+    // o Acerto) — marca como paga agora, senão desconta de novo no próximo
+    // import. Best-effort: os Acertos já foram salvos com sucesso acima,
+    // isso não pode derrubar o processamento do import.
+    try {
+      await marcarDividasPagasComRake(clubIdsResolvidos, importInfo?.period_end || importInfo?.period_start || "");
+    } catch { /* best-effort */ }
 
     const semRegra = acertos.filter((a) => a.status === "sem_regra").length;
     await supabase

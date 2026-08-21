@@ -35,12 +35,13 @@ export function DividaModal({ open, clubes, onClose, onSave, saving, error }: Pr
   const [jurosAtivo, setJurosAtivo] = useState(false)
   const [jurosPct, setJurosPct] = useState('')
   const [dataPrimeiraParcela, setDataPrimeiraParcela] = useState(hoje())
+  const [pagoComRake, setPagoComRake] = useState(true)
 
   useEffect(() => {
     if (!open) return
     setClubeId(''); setTipo('simples'); setValorIntegral(''); setDescricao('')
     setPagamentoMinimo(''); setQuantidadeParcelas('4'); setJurosAtivo(false); setJurosPct('')
-    setDataPrimeiraParcela(hoje())
+    setDataPrimeiraParcela(hoje()); setPagoComRake(true)
   }, [open])
 
   const preview = useMemo(() => {
@@ -74,6 +75,7 @@ export function DividaModal({ open, clubes, onClose, onSave, saving, error }: Pr
       juros_ativo: tipo === 'acordo' && jurosAtivo,
       juros_pct: tipo === 'acordo' && jurosAtivo && jurosPct ? Number(jurosPct.replace(',', '.')) : null,
       data_primeira_parcela: tipo === 'acordo' ? dataPrimeiraParcela : null,
+      pago_com_rake: pagoComRake,
     })
   }
 
@@ -111,6 +113,20 @@ export function DividaModal({ open, clubes, onClose, onSave, saving, error }: Pr
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1.5">Descrição (opcional)</label>
               <input type="text" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex: motivo da dívida" className={inputCls} />
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 cursor-pointer w-fit">
+                <div onClick={() => setPagoComRake(!pagoComRake)} className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${pagoComRake ? 'bg-gold' : 'bg-white/10'}`}>
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${pagoComRake ? 'translate-x-5' : 'translate-x-1'}`} />
+                </div>
+                <span className="text-sm text-gray-300">Pagar com Rake</span>
+              </label>
+              <p className="text-xs text-gray-500">
+                {tipo === 'acordo'
+                  ? 'Vale como padrão pras parcelas geradas agora — dá pra ajustar parcela a parcela depois, na tela de Dívidas.'
+                  : 'Ligado, desconta automático do Acerto toda semana até quitar. Desligado, o clube paga por fora e alguém marca como quitada na mão.'}
+              </p>
             </div>
 
             {tipo === 'acordo' && (
