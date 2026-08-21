@@ -33,7 +33,7 @@ const LABEL_TIPO: Record<EntidadeTipo, string> = {
 }
 
 const LABEL_CAMPO: Record<CampoClube, string> = {
-  fee_mtt: 'Fee MTT', fee_cash: 'Fee Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp', rake_total: 'Rake Total', taxa_liga: 'Taxa da Liga',
+  fee_mtt: 'Rake MTT', fee_cash: 'Rake Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp', rake_total: 'Rake', taxa_liga: 'Taxa da Liga',
 }
 
 interface Entidade { id: string; nome: string }

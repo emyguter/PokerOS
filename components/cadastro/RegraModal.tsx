@@ -29,7 +29,7 @@ const LAYOUT_INICIAL: LayoutCampoForm[] = LAYOUT_PADRAO.map((campo, ordem) => ({
 const LABEL_TIPO: Record<RegraTipo, string> = { faixa: 'Cálculo de Acerto', multa_atraso: 'Multa de Acerto', layout_acerto: 'Layout do Acerto' }
 // Nome diferente de LABEL_CAMPO (importado acima) pra não colidir — aquele é
 // dos campos do Layout do Acerto, esse é sobre qual taxa do clube a regra incide.
-const LABEL_CAMPO_CLUBE: Record<CampoClube, string> = { fee_mtt: 'Fee MTT', fee_cash: 'Fee Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp', rake_total: 'Rake Total', taxa_liga: 'Taxa da Liga' }
+const LABEL_CAMPO_CLUBE: Record<CampoClube, string> = { fee_mtt: 'Rake MTT', fee_cash: 'Rake Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp', rake_total: 'Rake', taxa_liga: 'Taxa da Liga' }
 const inputCls = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20'
 
 // Cálculo de Acerto e Layout do Acerto sempre nascem juntos — não fazem

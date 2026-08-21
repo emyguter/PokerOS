@@ -17,8 +17,8 @@ interface Props {
 }
 
 const CAMPOS_CRITICOS: { campo: CampoClube; label: string }[] = [
-  { campo: 'fee_cash', label: 'Fee Cash' },
-  { campo: 'fee_mtt', label: 'Fee MTT' },
+  { campo: 'fee_cash', label: 'Rake Cash' },
+  { campo: 'fee_mtt', label: 'Rake MTT' },
 ]
 
 const LABEL_TIPO: Record<EntidadeTipo, string> = {
@@ -32,7 +32,7 @@ const LABEL_TIPO: Record<EntidadeTipo, string> = {
 }
 
 const LABEL_CAMPO: Record<CampoClube, string> = {
-  fee_mtt: 'Fee MTT', fee_cash: 'Fee Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp', rake_total: 'Rake Total', taxa_liga: 'Taxa da Liga',
+  fee_mtt: 'Rake MTT', fee_cash: 'Rake Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp', rake_total: 'Rake', taxa_liga: 'Taxa da Liga',
 }
 
 function RegraCard({ r }: { r: RegraAplicada }) {
