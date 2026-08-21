@@ -78,13 +78,13 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
     supabase.from('clubs').select('id, name').order('name').then(({ data }) => setClubes(data ?? []))
   }, [])
 
-  // Pagamento (Envio) do Suporte precisa apontar pra um Acerto — alimenta
-  // Controle de Pagamentos/Cobrança (ver lib/pagamentos.ts). Financeiro
-  // (origem "genia") não usa isso: é só a conferência interna, não o
-  // pagamento de verdade.
-  const ehPagamentoDoSuporte = origem === 'suporte' && tipo === 'pagamento'
+  // Pagamento (Envio), de Suporte ou Financeiro, precisa apontar pra um
+  // Acerto — alimenta Controle de Pagamentos/Cobrança (ver lib/pagamentos.ts,
+  // buscarPagamentosPorImport busca por tipo "pagamento" com acerto_id, sem
+  // filtrar por origem). Os dois times lançam pagamento pro mesmo lugar.
+  const ehPagamentoComAcerto = tipo === 'pagamento'
   useEffect(() => {
-    if (!ehPagamentoDoSuporte || !clubeId) { setAcertosClube([]); setAcertoId(''); return }
+    if (!ehPagamentoComAcerto || !clubeId) { setAcertosClube([]); setAcertoId(''); return }
     supabase
       .from('acertos')
       .select('id, valor_acerto, imports(period_start, period_end)')
@@ -97,7 +97,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
         setAcertosClube(lista)
         setAcertoId('')
       })
-  }, [ehPagamentoDoSuporte, clubeId])
+  }, [ehPagamentoComAcerto, clubeId])
 
   const loadRecentes = useCallback(async () => {
     setLoadingRecentes(true)
@@ -118,7 +118,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
     if (!clubeId) { setError('Escolha o clube.'); return }
     const valorNum = Number(valor.replace(',', '.'))
     if (!valorNum || valorNum <= 0) { setError('Informe um valor válido.'); return }
-    if (ehPagamentoDoSuporte && !acertoId) { setError(t('pagamentos.qual_acerto_obrigatorio')); return }
+    if (ehPagamentoComAcerto && !acertoId) { setError(t('pagamentos.qual_acerto_obrigatorio')); return }
 
     // Caução do Suporte pula direto pra fila da Genia — fácil de lançar
     // duplicado sem querer, então avisa antes se já existe algo igual.
@@ -158,7 +158,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
         criado_por: userData.user?.id ?? null,
         origem,
         status,
-        acerto_id: ehPagamentoDoSuporte ? acertoId : null,
+        acerto_id: ehPagamentoComAcerto ? acertoId : null,
       })
       if (insErr) throw insErr
       setValor('')
@@ -220,7 +220,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
           </div>
         </div>
 
-        {ehPagamentoDoSuporte && clubeId && (
+        {ehPagamentoComAcerto && clubeId && (
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">{t('pagamentos.qual_acerto')}</label>
             <select value={acertoId} onChange={(e) => setAcertoId(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
