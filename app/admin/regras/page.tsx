@@ -206,6 +206,7 @@ export default function RegrasPage() {
       <RegraModal
         open={modalOpen}
         editing={editing}
+        tipoNovo={tab}
         onClose={() => { setModalOpen(false); setEditing(null); setError(null) }}
         onSave={handleSave}
         saving={saving}

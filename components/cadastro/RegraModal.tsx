@@ -11,6 +11,11 @@ interface Indicador { id: string; nome: string; descricao: string | null }
 interface Props {
   open: boolean
   editing: Regra | null
+  // Só vale criando (editing null) — de qual aba o "Nova Regra" foi aberto.
+  // 'multa_atraso' cria só a Multa sozinha, sem forçar o par Cálculo+Layout
+  // junto (a aba de Multa não tem porque ver Cálculo/Layout no meio). As
+  // outras abas (ou sem passar nada) mantêm o padrão de sempre criar o par.
+  tipoNovo?: RegraTipo
   onClose: () => void
   // Uma etapa marcada = uma Regra criada — pode ser 1, 2 ou 3 de uma vez
   // (Cálculo/Layout/Multa coexistem, nenhuma sobrepõe a outra). Editando,
@@ -63,7 +68,7 @@ function EtapaOpcional({ titulo, descricao, checked, onToggle, children }: { tit
   )
 }
 
-export function RegraModal({ open, editing, onClose, onSave, saving, error }: Props) {
+export function RegraModal({ open, editing, tipoNovo, onClose, onSave, saving, error }: Props) {
   const [nome, setNome] = useState('')
   const [campo, setCampo] = useState<CampoClube | null>(null)
   const [condicoes, setCondicoes] = useState<RegraCondicaoForm[]>([])
@@ -136,14 +141,17 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
 
   // Criando regra nova, Cálculo e Layout sempre existem juntos (é o que
   // define a % e o que mostra no card de Acerto — não faz sentido um sem o
-  // outro). Multa é a única etapa opcional. Editando, só existe UMA etapa:
-  // a que a regra já é (tipo fixo pra sempre) — cada tipo é editado no seu
-  // próprio submenu (ver app/admin/regras/page.tsx), não dá pra combinar
-  // Cálculo+Layout numa edição só sem arriscar editar o Layout errado
-  // quando o Cálculo é reusado em clubes com Layouts diferentes.
-  const mostrarCalculo = editing ? editing.tipo === 'faixa' : true
-  const mostrarLayout = editing ? editing.tipo === 'layout_acerto' : true
-  const mostrarMulta = editing ? editing.tipo === 'multa_atraso' : incluirMulta
+  // outro) — exceto quando o "Nova Regra" foi aberto de dentro da aba Multa
+  // (tipoNovo), aí cria só a Multa sozinha, sem Cálculo/Layout no meio.
+  // Editando, só existe UMA etapa: a que a regra já é (tipo fixo pra
+  // sempre) — cada tipo é editado no seu próprio submenu (ver
+  // app/admin/regras/page.tsx), não dá pra combinar Cálculo+Layout numa
+  // edição só sem arriscar editar o Layout errado quando o Cálculo é
+  // reusado em clubes com Layouts diferentes.
+  const criandoSoMulta = !editing && tipoNovo === 'multa_atraso'
+  const mostrarCalculo = editing ? editing.tipo === 'faixa' : !criandoSoMulta
+  const mostrarLayout = editing ? editing.tipo === 'layout_acerto' : !criandoSoMulta
+  const mostrarMulta = editing ? editing.tipo === 'multa_atraso' : (criandoSoMulta || incluirMulta)
   const precisaNome = mostrarCalculo || mostrarMulta
 
   const multaConteudo = (
@@ -194,12 +202,14 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
-          <h2 className="text-lg font-semibold text-white">{editing ? `Editar Regra — ${LABEL_TIPO[editing.tipo]}` : 'Nova Regra'}</h2>
+          <h2 className="text-lg font-semibold text-white">
+            {editing ? `Editar Regra — ${LABEL_TIPO[editing.tipo]}` : criandoSoMulta ? 'Nova Multa de Acerto' : 'Nova Regra'}
+          </h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
-            {!editing && (
+            {!editing && !criandoSoMulta && (
               <p className="text-xs text-gray-500">
                 Cálculo de Acerto e Layout do Acerto sempre nascem juntos aqui — Multa de Acerto é opcional, marque só se essa regra tiver. Cada etapa vira sua própria Regra na lista, e vai precisar do próprio vínculo depois.
               </p>
@@ -314,7 +324,7 @@ export function RegraModal({ open, editing, onClose, onSave, saving, error }: Pr
             </Secao>
             )}
 
-            {!editing ? (
+            {!editing && !criandoSoMulta ? (
               <EtapaOpcional
                 titulo="Multa de Acerto"
                 descricao="% de multa por atraso, pra Dívidas e Acordos — opcional, nem toda regra precisa"
