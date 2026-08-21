@@ -29,7 +29,7 @@ const EMPTY: ClubForm = {
   caucao_atual: null, stoploss_inicial: null, ratio_caucao_stoploss: null, projeto: null,
   hora_virada_semana: 2,
   plataforma_id: null, operador_ext_id: null, operador_nickname: null, rebate_ativo: false,
-  wtr4_semanas_manual: null, elite: false, termos_especiais: false,
+  wtr4_semanas_manual: null, elite: false, termos_especiais: null,
 }
 
 const STEPS: ModalStep[] = [
@@ -59,7 +59,7 @@ function toForm(c: Club): ClubForm {
     rebate_ativo: c.rebate_ativo ?? false,
     wtr4_semanas_manual: c.wtr4_semanas_manual ?? null,
     elite: c.elite ?? false,
-    termos_especiais: c.termos_especiais ?? false,
+    termos_especiais: c.termos_especiais ?? null,
   }
 }
 
@@ -333,19 +333,19 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
           )}
 
           <div className="space-y-2 pt-2 border-t border-white/10">
-            <label className="flex items-center gap-3 cursor-pointer w-fit">
-              <div
-                onClick={() => set('termos_especiais', !form.termos_especiais)}
-                className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${form.termos_especiais ? 'bg-gold' : 'bg-white/10'}`}
-              >
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${form.termos_especiais ? 'translate-x-5' : 'translate-x-1'}`} />
-              </div>
-              <span className="text-sm text-gray-300">Termos especiais</span>
-            </label>
-            {/* Marcador manual, não calculado — só pra sinalizar no Resumo de
-                Taxas (Relatórios) que esse clube tem condição negociada fora
-                do padrão. Não afeta cálculo de Acerto nenhum. */}
-            <p className="text-xs text-gray-500">Marca esse clube com um selo no Resumo de Taxas — não afeta nenhum cálculo.</p>
+            <Fld label="Termos especiais">
+              <textarea
+                value={form.termos_especiais ?? ''}
+                onChange={e => set('termos_especiais', e.target.value === '' ? null : e.target.value)}
+                placeholder="Ex: 5% de desconto na Taxa Operacional até dez/2026"
+                rows={2}
+                className={inputCls}
+              />
+            </Fld>
+            {/* Texto livre, não calculado — aparece direto na coluna Termos
+                Especiais do Resumo de Taxas (Relatórios). Não afeta cálculo
+                de Acerto nenhum. */}
+            <p className="text-xs text-gray-500">Aparece direto no Resumo de Taxas — não afeta nenhum cálculo. Vazio = sem termos especiais.</p>
           </div>
         </>
       )}

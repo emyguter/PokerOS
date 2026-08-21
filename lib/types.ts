@@ -111,9 +111,10 @@ export type Club = {
   ativo: boolean
   wtr4_semanas_manual: number | null
   elite: boolean
-  // Marcador manual (não calculado) — clube tem condição de taxa negociada
-  // fora do padrão. Só aparece como selo no Resumo de Taxas.
-  termos_especiais: boolean
+  // Texto livre (não calculado) — condição de taxa negociada fora do padrão
+  // pra esse clube. Aparece direto na coluna Termos Especiais do Resumo de
+  // Taxas. null/vazio = sem termos especiais.
+  termos_especiais: string | null
   created_at: string
   leagues?: League
 }
@@ -150,7 +151,7 @@ export type ClubForm = {
   rebate_ativo: boolean
   wtr4_semanas_manual: number | null
   elite: boolean
-  termos_especiais: boolean
+  termos_especiais: string | null
 }
 
 // ─── AGENTES ─────────────────────────────────────────────────

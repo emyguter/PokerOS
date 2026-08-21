@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Star } from 'lucide-react'
 import { buscarResumoTaxas, type ResumoTaxaClube, type TaxaCampoResumo } from '@/lib/relatorio-taxas'
 import { LABEL_SETTLEMENT } from '@/lib/types'
 
@@ -51,11 +50,11 @@ export function RelatorioTaxas() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Fee Cash</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Taxa Operacional</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">SpinUp</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Rake Total</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Taxa da Liga</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Rebate</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Crypto Rebate</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Rakeback</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Termos especiais</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Termos especiais</th>
               </tr>
             </thead>
             <tbody>
@@ -73,16 +72,12 @@ export function RelatorioTaxas() {
                     <td className="px-4 py-3"><Celula campo={l.feeCash} /></td>
                     <td className="px-4 py-3"><Celula campo={l.taxaOperacional} /></td>
                     <td className="px-4 py-3"><Celula campo={l.spinup} /></td>
-                    <td className="px-4 py-3"><Celula campo={l.rakeTotal} /></td>
+                    <td className="px-4 py-3"><Celula campo={l.taxaLiga} /></td>
                     <td className="px-4 py-3"><CelulaPct v={l.rebatePct} /></td>
                     <td className="px-4 py-3"><CelulaPct v={l.cryptoRebatePct} /></td>
                     <td className="px-4 py-3"><CelulaPct v={l.rakebackPct} /></td>
-                    <td className="px-4 py-3 text-center">
-                      {l.termosEspeciais && (
-                        <span title="Termos especiais">
-                          <Star size={14} className="inline text-gold fill-gold" />
-                        </span>
-                      )}
+                    <td className="px-4 py-3 max-w-[220px] truncate text-gray-300" title={l.termosEspeciais ?? undefined}>
+                      {l.termosEspeciais ?? <span className="text-gray-700">—</span>}
                     </td>
                   </tr>
                 ))

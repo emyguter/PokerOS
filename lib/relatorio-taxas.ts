@@ -15,11 +15,14 @@ export interface ResumoTaxaClube {
   feeCash: TaxaCampoResumo | null
   taxaOperacional: TaxaCampoResumo | null
   spinup: TaxaCampoResumo | null
-  rakeTotal: TaxaCampoResumo | null
+  // Da Liga do clube (leagues.taxa_app_pct fixo, ou faixa de uma Regra
+  // vinculada à Liga com campo taxa_liga) — não é mais Rake Total (pedido do
+  // Cássio: "no lugar de Rake Total, Taxa da Liga").
+  taxaLiga: TaxaCampoResumo | null
   rebatePct: number | null
   cryptoRebatePct: number | null
   rakebackPct: number | null
-  termosEspeciais: boolean
+  termosEspeciais: string | null
 }
 
 export function formatCampo(fixo: number | null, faixa: { min: number; max: number } | undefined): TaxaCampoResumo {
@@ -60,6 +63,30 @@ async function buscarFaixasPorClube(clubIds: string[]): Promise<Map<string, Part
   return mapa
 }
 
+// Mesma ideia de buscarFaixasPorClube, mas pra Taxa da Liga — vínculo é na
+// Liga (entidade_tipo='liga'), não no Clube.
+async function buscarFaixasPorLiga(leagueIds: string[]): Promise<Map<string, { min: number; max: number }>> {
+  const mapa = new Map<string, { min: number; max: number }>()
+  if (leagueIds.length === 0) return mapa
+
+  const { data, error } = await supabase
+    .from('regra_entidades')
+    .select('entidade_id, campo, regras(regra_condicoes(resultado_pct))')
+    .eq('entidade_tipo', 'liga')
+    .eq('campo', 'taxa_liga')
+    .in('entidade_id', leagueIds)
+  if (error) throw error
+
+  for (const re of (data ?? []) as any[]) {
+    const pcts = ((re.regras?.regra_condicoes ?? []) as any[])
+      .map((c: any) => c.resultado_pct)
+      .filter((v: any): v is number => v != null)
+    if (pcts.length === 0) continue
+    mapa.set(re.entidade_id, { min: Math.min(...pcts), max: Math.max(...pcts) })
+  }
+  return mapa
+}
+
 // Visão executiva cross-clube das taxas cadastradas — pedido a partir de uma
 // planilha de referência (Cássio). Cada coluna só aparece quando o tipo de
 // cobrança do clube realmente usa aquele campo (mesma fonte de verdade que
@@ -68,13 +95,15 @@ async function buscarFaixasPorClube(clubIds: string[]): Promise<Map<string, Part
 export async function buscarResumoTaxas(): Promise<ResumoTaxaClube[]> {
   const { data: clubs, error } = await supabase
     .from('clubs')
-    .select('id, external_id, name, settlement_type, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, spinup_pct, rebate_pct, rebate_ativo, crypto_rebate_pct, rakeback_pct, termos_especiais')
+    .select('id, external_id, name, settlement_type, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, spinup_pct, rebate_pct, rebate_ativo, crypto_rebate_pct, rakeback_pct, termos_especiais, league_id, leagues(taxa_app_pct)')
     .eq('ativo', true)
     .order('name')
   if (error) throw error
 
   const rows = (clubs ?? []) as any[]
   const faixas = await buscarFaixasPorClube(rows.map(r => r.id as string))
+  const leagueIds = [...new Set(rows.map(r => r.league_id as string | null).filter((id): id is string => !!id))]
+  const faixasLiga = await buscarFaixasPorLiga(leagueIds)
 
   return rows.map(c => {
     const camposDoTipo = CAMPOS_POR_SETTLEMENT[c.settlement_type as string] ?? []
@@ -98,11 +127,11 @@ export async function buscarResumoTaxas(): Promise<ResumoTaxaClube[]> {
       feeCash: campo('fee_cash', c.fee_cash_pct),
       taxaOperacional,
       spinup: campo('spinup', c.spinup_pct),
-      rakeTotal: campo('rake_total', c.fee_mtt_pct),
+      taxaLiga: c.league_id ? formatCampo(c.leagues?.taxa_app_pct ?? null, faixasLiga.get(c.league_id as string)) : null,
       rebatePct: c.settlement_type === 'weekly_usd' && c.rebate_ativo ? (c.rebate_pct as number | null) : null,
       cryptoRebatePct: c.settlement_type === 'weekly_usd' ? (c.crypto_rebate_pct as number | null) : null,
       rakebackPct: c.settlement_type === 'rakeback' ? (c.rakeback_pct as number | null) : null,
-      termosEspeciais: !!c.termos_especiais,
+      termosEspeciais: (c.termos_especiais as string | null) ?? null,
     }
   })
 }
