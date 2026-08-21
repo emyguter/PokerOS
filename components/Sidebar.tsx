@@ -1,7 +1,7 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { BookOpen, Upload, FileText, LogOut, ShieldCheck, ShieldAlert, Wallet, Receipt, PanelLeftClose, PanelLeftOpen, HandCoins, ListChecks, Landmark, Gauge, Crown, Banknote, Menu, X, ChevronDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
@@ -47,6 +47,29 @@ const SEGURANCA_SUB: SubNavItem[] = [
   { key: 'lancar', labelKey: 'lancamento.aba_lancar', href: '/seguranca?tab=lancar' },
   { key: 'extrato', labelKey: 'lancamento.aba_extrato', href: '/seguranca?tab=extrato' },
 ]
+
+// Sub-item ativo: mesma rota (path) e, se o link usa ?tab= (Lançamento/
+// Financeiro/Segurança — várias abas, uma rota só), a mesma aba. Sem aba na
+// URL ainda (acabou de entrar na tela) conta a primeira do submenu, que é o
+// tab inicial de cada View (useState('lancar') em todas as três). Cadastros
+// não usa ?tab=, cada item já é uma rota própria — o path sozinho decide.
+function subItemAtivo(sub: SubNavItem, path: string, tabAtivo: string | null, subVisiveis: SubNavItem[]): boolean {
+  const subPath = sub.href.split('?')[0]
+  if (path !== subPath) return false
+  if (!sub.href.includes('?')) return true
+  return sub.key === (tabAtivo ?? subVisiveis[0]?.key)
+}
+
+// useSearchParams só entra aqui, isolado num componente próprio e coberto
+// por Suspense — usar direto na Sidebar (que renderiza em toda página, via
+// app/layout.tsx) tiraria o app inteiro da renderização estática (mesmo
+// motivo já documentado no LANCAMENTO_SUB acima). Só serve pra saber qual
+// ?tab= está ativo; sem isso, a Sidebar cai no fallback (path-only, sem
+// destacar a aba) até hidratar — quase sempre imperceptível.
+function ComTabAtivo({ children }: { children: (tab: string | null) => React.ReactNode }) {
+  const tab = useSearchParams().get('tab')
+  return <>{children(tab)}</>
+}
 
 const NAV = [
   { href: '/admin/cadastro/superligas', labelKey: 'nav.cadastros', icon: BookOpen, chaves: CADASTRO_CHAVES, subItems: CADASTRO_SUB },
@@ -114,6 +137,54 @@ export default function Sidebar() {
 
   const nav = NAV.filter(item => loading || item.chaves.some(c => hasPermission(c)))
 
+  function renderNavItems(tabAtivo: string | null) {
+    return nav.map(({ href, labelKey, icon: Icon, subItems }) => {
+      const active = path.startsWith(href)
+      const expanded = expandedSubmenus.has(href)
+      const subVisiveis = subItems?.filter((sub) => !sub.chave || loading || hasPermission(sub.chave)) ?? []
+      return (
+        <div key={href}>
+          <div
+            className={`flex items-center rounded-lg text-sm font-medium transition-all ${
+              active ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+            }`}
+          >
+            <Link href={href} onClick={() => setMobileOpen(false)} className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0">
+              <Icon size={16} className="shrink-0" />
+              <span className="truncate">{t(labelKey)}</span>
+            </Link>
+            {subVisiveis.length > 0 && (
+              <button
+                type="button"
+                onClick={() => toggleSubmenu(href)}
+                aria-label={expanded ? t('nav.esconder_submenu') : t('nav.mostrar_submenu')}
+                className="pl-1 pr-3 py-2.5 shrink-0"
+              >
+                <ChevronDown size={14} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
+              </button>
+            )}
+          </div>
+          {subVisiveis.length > 0 && expanded && (
+            <div className="ml-4 mt-0.5 mb-1 space-y-0.5 border-l border-white/10 pl-3">
+              {subVisiveis.map((sub) => (
+                <Link
+                  key={sub.key}
+                  href={sub.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={`block px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    subItemAtivo(sub, path, tabAtivo, subVisiveis) ? 'bg-gold/10 text-gold' : 'text-gray-500 hover:text-white hover:bg-white/[0.06]'
+                  }`}
+                >
+                  {t(sub.labelKey)}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    })
+  }
+
   const navBody = (
     <>
       <div className="px-4 pt-3">
@@ -156,49 +227,9 @@ export default function Sidebar() {
           </Link>
         ) : (
           <>
-            {nav.map(({ href, labelKey, icon: Icon, subItems }) => {
-              const active = path.startsWith(href)
-              const expanded = expandedSubmenus.has(href)
-              const subVisiveis = subItems?.filter((sub) => !sub.chave || loading || hasPermission(sub.chave)) ?? []
-              return (
-                <div key={href}>
-                  <div
-                    className={`flex items-center rounded-lg text-sm font-medium transition-all ${
-                      active ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
-                    }`}
-                  >
-                    <Link href={href} onClick={() => setMobileOpen(false)} className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0">
-                      <Icon size={16} className="shrink-0" />
-                      <span className="truncate">{t(labelKey)}</span>
-                    </Link>
-                    {subVisiveis.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => toggleSubmenu(href)}
-                        aria-label={expanded ? t('nav.esconder_submenu') : t('nav.mostrar_submenu')}
-                        className="pl-1 pr-3 py-2.5 shrink-0"
-                      >
-                        <ChevronDown size={14} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
-                      </button>
-                    )}
-                  </div>
-                  {subVisiveis.length > 0 && expanded && (
-                    <div className="ml-4 mt-0.5 mb-1 space-y-0.5 border-l border-white/10 pl-3">
-                      {subVisiveis.map((sub) => (
-                        <Link
-                          key={sub.key}
-                          href={sub.href}
-                          onClick={() => setMobileOpen(false)}
-                          className="block px-3 py-1.5 rounded-md text-xs font-medium text-gray-500 hover:text-white hover:bg-white/[0.06] transition-all"
-                        >
-                          {t(sub.labelKey)}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+            <Suspense fallback={renderNavItems(null)}>
+              <ComTabAtivo>{(tabAtivo) => renderNavItems(tabAtivo)}</ComTabAtivo>
+            </Suspense>
             {isSuperAdmin && (
               <Link
                 href="/admin/permissoes"
