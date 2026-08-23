@@ -4,18 +4,21 @@ import { X, Loader2, Dices, Copy, Check } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { BuscaSelect } from '@/components/BuscaSelect'
-import type { AgenteOpcao, ClubeOpcao, RoleRow } from './PermissoesView'
+import type { AgenteOpcao, ClubeOpcao, LigaOpcao, RoleRow } from './PermissoesView'
 
 interface Props {
   open: boolean
   roles: RoleRow[]
   clubes: ClubeOpcao[]
   agentes: AgenteOpcao[]
+  ligas: LigaOpcao[]
+  superLigas: LigaOpcao[]
+  megaLigas: LigaOpcao[]
   onClose: () => void
   onSaved: () => void
 }
 
-type TipoAcesso = 'staff' | 'clube' | 'agente'
+type TipoAcesso = 'staff' | 'clube' | 'agente' | 'liga' | 'superliga' | 'megaliga'
 
 const inputCls = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20'
 
@@ -26,7 +29,7 @@ function gerarSenha() {
   return s
 }
 
-export function NewUserModal({ open, roles, clubes, agentes, onClose, onSaved }: Props) {
+export function NewUserModal({ open, roles, clubes, agentes, ligas, superLigas, megaLigas, onClose, onSaved }: Props) {
   const { t } = useI18n()
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
@@ -35,6 +38,9 @@ export function NewUserModal({ open, roles, clubes, agentes, onClose, onSaved }:
   const [tipoAcesso, setTipoAcesso] = useState<TipoAcesso>('staff')
   const [clubeId, setClubeId] = useState('')
   const [agenteId, setAgenteId] = useState('')
+  const [ligaId, setLigaId] = useState('')
+  const [superLigaId, setSuperLigaId] = useState('')
+  const [megaLigaId, setMegaLigaId] = useState('')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
@@ -43,7 +49,8 @@ export function NewUserModal({ open, roles, clubes, agentes, onClose, onSaved }:
   useEffect(() => {
     if (!open) return
     setNome(''); setEmail(''); setPassword(gerarSenha()); setCopiado(false)
-    setTipoAcesso('staff'); setClubeId(''); setAgenteId(''); setIsSuperAdmin(false)
+    setTipoAcesso('staff'); setClubeId(''); setAgenteId('')
+    setLigaId(''); setSuperLigaId(''); setMegaLigaId(''); setIsSuperAdmin(false)
     setSelectedRoleIds(new Set()); setError(null)
   }, [open])
 
@@ -66,6 +73,9 @@ export function NewUserModal({ open, roles, clubes, agentes, onClose, onSaved }:
     if (!email.trim() || !password) { setError('Email e senha são obrigatórios.'); return }
     if (tipoAcesso === 'clube' && !clubeId) { setError('Escolha o clube.'); return }
     if (tipoAcesso === 'agente' && !agenteId) { setError('Escolha o agente.'); return }
+    if (tipoAcesso === 'liga' && !ligaId) { setError('Escolha a liga.'); return }
+    if (tipoAcesso === 'superliga' && !superLigaId) { setError('Escolha a superliga.'); return }
+    if (tipoAcesso === 'megaliga' && !megaLigaId) { setError('Escolha a megaliga.'); return }
     setSaving(true); setError(null)
     try {
       const { data, error: invokeErr } = await supabase.functions.invoke('criar-usuario', {
@@ -77,6 +87,9 @@ export function NewUserModal({ open, roles, clubes, agentes, onClose, onSaved }:
           isSuperAdmin,
           clubeId: tipoAcesso === 'clube' ? clubeId : undefined,
           agenteId: tipoAcesso === 'agente' ? agenteId : undefined,
+          ligaId: tipoAcesso === 'liga' ? ligaId : undefined,
+          superLigaId: tipoAcesso === 'superliga' ? superLigaId : undefined,
+          megaLigaId: tipoAcesso === 'megaliga' ? megaLigaId : undefined,
           roleIds: tipoAcesso === 'staff' ? Array.from(selectedRoleIds) : undefined,
         },
       })
@@ -149,6 +162,30 @@ export function NewUserModal({ open, roles, clubes, agentes, onClose, onSaved }:
                   {t('user_modal.agente')}
                   <p className="text-xs font-normal text-gray-500 mt-0.5">{t('user_modal.agente_desc')}</p>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoAcesso('liga')}
+                  className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipoAcesso === 'liga' ? 'border-purple/50 bg-purple/10 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+                >
+                  {t('user_modal.liga')}
+                  <p className="text-xs font-normal text-gray-500 mt-0.5">{t('user_modal.liga_desc')}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoAcesso('superliga')}
+                  className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipoAcesso === 'superliga' ? 'border-purple/50 bg-purple/10 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+                >
+                  {t('user_modal.superliga')}
+                  <p className="text-xs font-normal text-gray-500 mt-0.5">{t('user_modal.superliga_desc')}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoAcesso('megaliga')}
+                  className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipoAcesso === 'megaliga' ? 'border-purple/50 bg-purple/10 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+                >
+                  {t('user_modal.megaliga')}
+                  <p className="text-xs font-normal text-gray-500 mt-0.5">{t('user_modal.megaliga_desc')}</p>
+                </button>
               </div>
               {tipoAcesso === 'clube' && (
                 <div className="mt-2">
@@ -167,6 +204,36 @@ export function NewUserModal({ open, roles, clubes, agentes, onClose, onSaved }:
                     onChange={setAgenteId}
                     opcoes={agentes.map(a => ({ id: a.id, nome: a.name }))}
                     placeholder={t('user_modal.selecione_agente')}
+                  />
+                </div>
+              )}
+              {tipoAcesso === 'liga' && (
+                <div className="mt-2">
+                  <BuscaSelect
+                    value={ligaId}
+                    onChange={setLigaId}
+                    opcoes={ligas.map(l => ({ id: l.id, nome: l.name }))}
+                    placeholder={t('user_modal.selecione_liga')}
+                  />
+                </div>
+              )}
+              {tipoAcesso === 'superliga' && (
+                <div className="mt-2">
+                  <BuscaSelect
+                    value={superLigaId}
+                    onChange={setSuperLigaId}
+                    opcoes={superLigas.map(s => ({ id: s.id, nome: s.name }))}
+                    placeholder={t('user_modal.selecione_superliga')}
+                  />
+                </div>
+              )}
+              {tipoAcesso === 'megaliga' && (
+                <div className="mt-2">
+                  <BuscaSelect
+                    value={megaLigaId}
+                    onChange={setMegaLigaId}
+                    opcoes={megaLigas.map(m => ({ id: m.id, nome: m.name }))}
+                    placeholder={t('user_modal.selecione_megaliga')}
                   />
                 </div>
               )}

@@ -1,7 +1,8 @@
 // Edge Function: criar-usuario
 // Chamada pela tela de Permissões (só super admin) pra criar um login novo
 // de ponta a ponta: usuário no Supabase Auth + profile já configurado
-// (staff com papéis, ou login travado num clube). Precisa da service role
+// (staff com papéis, ou login travado numa entidade — clube, agente, liga,
+// superliga ou megaliga). Precisa da service role
 // key porque criar usuário via Admin API não dá pra fazer com a anon key
 // no navegador.
 
@@ -22,10 +23,13 @@ interface Body {
   email: string;
   password: string;
   nome?: string;
-  tipoAcesso: "staff" | "clube" | "agente";
+  tipoAcesso: "staff" | "clube" | "agente" | "liga" | "superliga" | "megaliga";
   isSuperAdmin?: boolean;
   clubeId?: string;
   agenteId?: string;
+  ligaId?: string;
+  superLigaId?: string;
+  megaLigaId?: string;
   roleIds?: string[];
 }
 
@@ -65,11 +69,24 @@ Deno.serve(async (req) => {
     }
     const ehClube = body.tipoAcesso === "clube";
     const ehAgente = body.tipoAcesso === "agente";
+    const ehLiga = body.tipoAcesso === "liga";
+    const ehSuperLiga = body.tipoAcesso === "superliga";
+    const ehMegaLiga = body.tipoAcesso === "megaliga";
+    const ehEntidade = ehClube || ehAgente || ehLiga || ehSuperLiga || ehMegaLiga;
     if (ehClube && !body.clubeId) {
       return jsonResponse({ ok: false, error: "Escolha o clube." }, 400);
     }
     if (ehAgente && !body.agenteId) {
       return jsonResponse({ ok: false, error: "Escolha o agente." }, 400);
+    }
+    if (ehLiga && !body.ligaId) {
+      return jsonResponse({ ok: false, error: "Escolha a liga." }, 400);
+    }
+    if (ehSuperLiga && !body.superLigaId) {
+      return jsonResponse({ ok: false, error: "Escolha a superliga." }, 400);
+    }
+    if (ehMegaLiga && !body.megaLigaId) {
+      return jsonResponse({ ok: false, error: "Escolha a megaliga." }, 400);
     }
 
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
@@ -86,14 +103,17 @@ Deno.serve(async (req) => {
       .from("profiles")
       .update({
         nome: body.nome || null,
-        is_super_admin: ehClube || ehAgente ? false : !!body.isSuperAdmin,
+        is_super_admin: ehEntidade ? false : !!body.isSuperAdmin,
         clube_id: ehClube ? body.clubeId : null,
         agente_id: ehAgente ? body.agenteId : null,
+        liga_id: ehLiga ? body.ligaId : null,
+        super_league_id: ehSuperLiga ? body.superLigaId : null,
+        mega_liga_id: ehMegaLiga ? body.megaLigaId : null,
       })
       .eq("id", novoId);
     if (profileErr) throw new Error(`Usuário criado, mas erro ao configurar acesso: ${profileErr.message}`);
 
-    if (!ehClube && !ehAgente && body.roleIds && body.roleIds.length > 0) {
+    if (!ehEntidade && body.roleIds && body.roleIds.length > 0) {
       const { error: rolesErr } = await admin
         .from("user_roles")
         .insert(body.roleIds.map((role_id) => ({ user_id: novoId, role_id })));

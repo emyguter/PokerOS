@@ -106,6 +106,7 @@ const NAV = [
   { href: '/stoploss', labelKey: 'nav.stoploss', icon: Gauge, chaves: ['stoploss'], subItems: STOPLOSS_SUB },
   { href: '/vip', labelKey: 'nav.vip', icon: Crown, chaves: ['vip', 'vip.relatorio', 'vip.limites'], subItems: VIP_SUB },
   { href: '/dividas', labelKey: 'nav.dividas', icon: Banknote, chaves: ['dividas'] },
+  { href: '/acertos', labelKey: 'nav.acertos', icon: Receipt, chaves: ['acertos.ver'] },
   { href: '/relatorios', labelKey: 'nav.relatorios', icon: FileText, chaves: ['relatorios', 'relatorios.acertos', 'relatorios.lancamentos', 'relatorios.taxas', 'relatorios.resumo_acertos'], subItems: RELATORIOS_SUB },
   { href: '/admin/regras', labelKey: 'nav.regras', icon: ListChecks, chaves: ['regras'] },
 ]
@@ -173,6 +174,13 @@ export default function Sidebar() {
   const ehClube = !loading && !!profile?.clube_id
   // Login de agente: mesma ideia, só o próprio rakeback consolidado.
   const ehAgente = !loading && !!profile?.agente_id
+  // Login de Liga/SuperLiga/MegaLiga: mesma experiência isolada dos de
+  // cima, mas sem Extrato próprio (isso é sempre por clube) — só o menu
+  // Acertos, com a hierarquia inteira abaixo da entidade.
+  const ehLiga = !loading && !!profile?.liga_id
+  const ehSuperLiga = !loading && !!profile?.super_league_id
+  const ehMegaLiga = !loading && !!profile?.mega_liga_id
+  const ehEntidadeRestrita = ehClube || ehAgente || ehLiga || ehSuperLiga || ehMegaLiga
 
   const nav = NAV.filter(item => loading || item.chaves.some(c => hasPermission(c)))
 
@@ -242,28 +250,45 @@ export default function Sidebar() {
           abertos ao mesmo tempo passam da altura disponível, sem empurrar
           o rodapé (usuário/logout) pra fora da tela. */}
       <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-1">
-        {ehClube ? (
-          <Link
-            href="/extrato"
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              path.startsWith('/extrato') ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
-            }`}
-          >
-            <Receipt size={16} />
-            {t('nav.extrato')}
-          </Link>
-        ) : ehAgente ? (
-          <Link
-            href="/agente/extrato"
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              path.startsWith('/agente') ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
-            }`}
-          >
-            <HandCoins size={16} />
-            {t('nav.meusGanhos')}
-          </Link>
+        {ehEntidadeRestrita ? (
+          <>
+            {ehClube && (
+              <Link
+                href="/extrato"
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  path.startsWith('/extrato') ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                }`}
+              >
+                <Receipt size={16} />
+                {t('nav.extrato')}
+              </Link>
+            )}
+            {ehAgente && (
+              <Link
+                href="/agente/extrato"
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  path.startsWith('/agente') ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                }`}
+              >
+                <HandCoins size={16} />
+                {t('nav.meusGanhos')}
+              </Link>
+            )}
+            {!ehAgente && (
+              <Link
+                href="/acertos"
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  path.startsWith('/acertos') ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                }`}
+              >
+                <FileText size={16} />
+                {t('nav.acertos')}
+              </Link>
+            )}
+          </>
         ) : (
           <>
             <Suspense fallback={<>{renderNavItems(null)}{isSuperAdmin && renderNavItems(null, PERMISSOES_ITEM)}</>}>

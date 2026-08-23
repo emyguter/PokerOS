@@ -663,6 +663,14 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   de âncora auto-referenciada), busca-e-adiciona igual Indicações. Só afeta o Resumo de Acertos: clubes
   vinculados aparecem numa linha só, com os valores somados e o detalhe de cada plataforma listado
   embaixo do nome. Acertos e Controle de Pagamentos continuam mostrando cada clube separado
+- [x] Novo menu **Acertos** (topo do menu): Clube, Liga e Valor do Acerto (mesma fonte de verdade —
+  `calcularTotalAcerto`), clique numa linha abre o card completo com o layout configurado do clube
+  (mesmo `ClubAcertoCard` de sempre). Acesso por hierarquia — login vinculado a uma
+  MegaLiga/SuperLiga/Liga/Clube (`profiles.mega_liga_id`/`super_league_id`/`liga_id`/`clube_id`) vê os
+  Acertos da própria entidade + tudo abaixo dela na cascata (nunca pros lados nem pra cima —
+  `lib/acesso-hierarquia.ts`); staff enxerga tudo com a permissão `acertos.ver`. Tela de Permissões
+  ganha os 3 tipos de acesso novos (Liga/SuperLiga/MegaLiga) pra criar esses logins, mesmo padrão de
+  Clube/Agente já existente
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
