@@ -135,17 +135,17 @@ export async function getStoplossAtualBatch(clubeIds: string[], asOf?: Date): Pr
   return mapa
 }
 
-// Só a fatia de Antecipação (tipo='antecipacao') do Stoploss Atual, por
-// clube — "Pre Payment" na planilha manual do Cássio. Mesma lógica de
-// asOf/soma que getStoplossAtualBatch, só filtrando um tipo em vez de todos
-// os TIPOS_QUE_SOMAM, pra dar pra mostrar essa fatia como coluna própria no
-// Relatório de Stoploss sem duplicar o total.
-export async function getAntecipacaoBatch(clubeIds: string[], asOf?: Date): Promise<Map<string, number>> {
+// Só a fatia de 1 tipo do Stoploss Atual, por clube — cada "coluna própria"
+// da planilha manual do Cássio (Pre Payment, Bug PPPoker, Liberado pela
+// Gerência, Margem de Monitoria) é uma fatia dessas, sem duplicar o total.
+// Mesma lógica de asOf/soma que getStoplossAtualBatch, só filtrando 1 tipo
+// em vez de todos os TIPOS_QUE_SOMAM.
+async function getSomaTipoBatch(clubeIds: string[], tipo: string, asOf?: Date): Promise<Map<string, number>> {
   const mapa = new Map<string, number>()
   if (clubeIds.length === 0) return mapa
   const [basesPorClube, { data: historico }] = await Promise.all([
     asOf ? basesClubesAsOf(clubeIds, asOf) : supabase.from('clubs').select(SELECT_BASE).in('id', clubeIds).then(r => new Map(((r.data ?? []) as ClubeBaseStoploss[]).map(c => [c.id, c]))),
-    supabase.from('stoploss_historico').select('clube_id, valor_delta, escopo, criado_em').in('clube_id', clubeIds).eq('tipo', 'antecipacao'),
+    supabase.from('stoploss_historico').select('clube_id, valor_delta, escopo, criado_em').in('clube_id', clubeIds).eq('tipo', tipo),
   ])
   const linhasPorClube = new Map<string, HistoricoRow[]>()
   for (const h of (historico ?? []) as HistoricoRow[]) {
@@ -157,6 +157,30 @@ export async function getAntecipacaoBatch(clubeIds: string[], asOf?: Date): Prom
     mapa.set(id, somarHistorico(linhasPorClube.get(id) ?? [], c.hora_virada_semana ?? 2, asOf))
   }
   return mapa
+}
+
+export async function getAntecipacaoBatch(clubeIds: string[], asOf?: Date): Promise<Map<string, number>> {
+  return getSomaTipoBatch(clubeIds, 'antecipacao', asOf)
+}
+
+// "Bug PPP" na planilha do Cássio — correções de rake/resultado errado
+// reportado pela plataforma (ver aplicarAjusteBugPpp).
+export async function getBugPppBatch(clubeIds: string[], asOf?: Date): Promise<Map<string, number>> {
+  return getSomaTipoBatch(clubeIds, 'bug_ppp', asOf)
+}
+
+// "Liberado pela Gerência" na planilha do Cássio — ajuste do Suporte já
+// aprovado pelo comitê/gerência (ver aprovarAjusteSuporte). Só o que já foi
+// aprovado entra em stoploss_historico (pendente fica só em
+// stoploss_ajustes), então essa soma já é exatamente "o que foi liberado".
+export async function getLiberadoGerenciaBatch(clubeIds: string[], asOf?: Date): Promise<Map<string, number>> {
+  return getSomaTipoBatch(clubeIds, 'ajuste_suporte', asOf)
+}
+
+// "Stop loss Margem Monitoria" na planilha do Cássio — o +10% de uso único
+// (ver aplicarMargemMonitoria/retirarMargemMonitoria).
+export async function getMargemMonitoriaBatch(clubeIds: string[], asOf?: Date): Promise<Map<string, number>> {
+  return getSomaTipoBatch(clubeIds, 'margem_monitoria', asOf)
 }
 
 // Snapshot de caução/ratio de cada clube numa data — usado pelo Relatório de

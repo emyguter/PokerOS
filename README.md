@@ -631,6 +631,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Name, Total (soma dos Envios pagos até agora), Acerto (Valor do Acerto), Caução, Envio 1 em diante,
   Diferença. Sempre pelo menos 40 colunas de Envio abertas (mesmo sem nenhum envio ainda) — um clube
   pode fazer várias dezenas de envios numa semana só, a coluna já precisa estar lá esperando
+- [x] Relatório de Stoploss reordenado/ampliado pra bater com a planilha do Cássio: ID, Projeto,
+  Clube, Liga, Caução, Stoploss Inicial, **Bug PPPoker**, **Liberado pela Gerência**, Pre Payment,
+  **Margem de Monitoria**, Stoploss Atual, Ratio. As 3 colunas em negrito já existiam como tipo de
+  ajuste (`stoploss_historico.tipo`: `bug_ppp`/`ajuste_suporte`/`margem_monitoria`) mas não apareciam
+  isoladas no relatório — `lib/stoploss.ts` ganha `getBugPppBatch`/`getLiberadoGerenciaBatch`/
+  `getMargemMonitoriaBatch` (mesmo padrão de `getAntecipacaoBatch`, agora todos via um helper
+  genérico `getSomaTipoBatch` por trás)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

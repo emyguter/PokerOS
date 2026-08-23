@@ -3,10 +3,11 @@ import { useState, useEffect, useMemo } from 'react'
 import { Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
-import { getStoplossAtualBatch, getBasesClubesAsOf, getAntecipacaoBatch } from '@/lib/stoploss'
+import { getStoplossAtualBatch, getBasesClubesAsOf, getAntecipacaoBatch, getBugPppBatch, getLiberadoGerenciaBatch, getMargemMonitoriaBatch } from '@/lib/stoploss'
 
 interface ClubeLinha {
   id: string
+  external_id: string | null
   name: string
   projeto: string | null
   stoploss_inicial: number | null
@@ -51,6 +52,9 @@ export function RelatorioStoploss() {
   const [clubes, setClubes] = useState<ClubeLinha[]>([])
   const [stoplossAtualPorClube, setStoplossAtualPorClube] = useState<Map<string, number>>(new Map())
   const [antecipacaoPorClube, setAntecipacaoPorClube] = useState<Map<string, number>>(new Map())
+  const [bugPppPorClube, setBugPppPorClube] = useState<Map<string, number>>(new Map())
+  const [liberadoGerenciaPorClube, setLiberadoGerenciaPorClube] = useState<Map<string, number>>(new Map())
+  const [margemMonitoriaPorClube, setMargemMonitoriaPorClube] = useState<Map<string, number>>(new Map())
   const [basesAsOf, setBasesAsOf] = useState<Map<string, { caucao_atual: number | null; ratio_caucao_stoploss: number | null; stoploss_inicial: number | null }>>(new Map())
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState('')
@@ -61,7 +65,7 @@ export function RelatorioStoploss() {
   useEffect(() => {
     supabase
       .from('clubs')
-      .select('id, name, projeto, stoploss_inicial, caucao_atual, ratio_caucao_stoploss, leagues(name, projeto, super_leagues(projeto, mega_ligas(projeto)))')
+      .select('id, external_id, name, projeto, stoploss_inicial, caucao_atual, ratio_caucao_stoploss, leagues(name, projeto, super_leagues(projeto, mega_ligas(projeto)))')
       .order('name')
       .then(({ data }) => { setClubes((data ?? []) as unknown as ClubeLinha[]); setLoading(false) })
 
@@ -94,10 +98,16 @@ export function RelatorioStoploss() {
       getStoplossAtualBatch(ids, asOf),
       asOf ? getBasesClubesAsOf(ids, asOf) : Promise.resolve(new Map()),
       getAntecipacaoBatch(ids, asOf),
-    ]).then(([stoploss, bases, antecipacao]) => {
+      getBugPppBatch(ids, asOf),
+      getLiberadoGerenciaBatch(ids, asOf),
+      getMargemMonitoriaBatch(ids, asOf),
+    ]).then(([stoploss, bases, antecipacao, bugPpp, liberadoGerencia, margemMonitoria]) => {
       setStoplossAtualPorClube(stoploss)
       setBasesAsOf(bases)
       setAntecipacaoPorClube(antecipacao)
+      setBugPppPorClube(bugPpp)
+      setLiberadoGerenciaPorClube(liberadoGerencia)
+      setMargemMonitoriaPorClube(margemMonitoria)
     })
   }, [clubes, periodoFiltro])
 
@@ -129,8 +139,11 @@ export function RelatorioStoploss() {
       stoploss: acc.stoploss + (stoplossAtualPorClube.get(c.id) ?? 0),
       caucao: acc.caucao + (caucao ?? 0),
       antecipacao: acc.antecipacao + (antecipacaoPorClube.get(c.id) ?? 0),
+      bugPpp: acc.bugPpp + (bugPppPorClube.get(c.id) ?? 0),
+      liberadoGerencia: acc.liberadoGerencia + (liberadoGerenciaPorClube.get(c.id) ?? 0),
+      margemMonitoria: acc.margemMonitoria + (margemMonitoriaPorClube.get(c.id) ?? 0),
     }
-  }, { stoploss: 0, caucao: 0, antecipacao: 0 }), [filtrados, stoplossAtualPorClube, basesAsOf, antecipacaoPorClube, periodoFiltro])
+  }, { stoploss: 0, caucao: 0, antecipacao: 0, bugPpp: 0, liberadoGerencia: 0, margemMonitoria: 0 }), [filtrados, stoplossAtualPorClube, basesAsOf, antecipacaoPorClube, bugPppPorClube, liberadoGerenciaPorClube, margemMonitoriaPorClube, periodoFiltro])
 
   return (
     <div className="space-y-3">
@@ -176,33 +189,41 @@ export function RelatorioStoploss() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 bg-surface2">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">ID</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.projeto')}</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.clube')}</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.liga')}</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.stoploss_inicial')}</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.stoploss_atual')}</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.caucao_atual')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.stoploss_inicial')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider" title="Correções manuais de rake/resultado errado reportado pela plataforma.">Bug PPPoker</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider" title="Ajuste do Suporte já aprovado pela gerência/comitê.">Liberado pela Gerência</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.pre_payment')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider" title="+10% de uso único.">Margem de Monitoria</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.stoploss_atual')}</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.ratio')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-500 text-sm">{t('common.carregando')}</td></tr>
+                <tr><td colSpan={12} className="px-4 py-8 text-center text-gray-500 text-sm">{t('common.carregando')}</td></tr>
               ) : filtrados.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-500 text-sm">{t('common.nenhum_registro')}</td></tr>
+                <tr><td colSpan={12} className="px-4 py-8 text-center text-gray-500 text-sm">{t('common.nenhum_registro')}</td></tr>
               ) : (
                 filtrados.map(c => {
                   const base = baseDe(c)
                   return (
                     <tr key={c.id} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
+                      <td className="px-4 py-3 text-gray-500">{c.external_id ?? '—'}</td>
                       <td className="px-4 py-3 text-gray-400">{projetoEfetivo(c) ?? '—'}</td>
                       <td className="px-4 py-3 text-white">{c.name}</td>
                       <td className="px-4 py-3 text-gray-400">{c.leagues?.name ?? '—'}</td>
-                      <td className="px-4 py-3 text-right text-gray-300">{base.stoploss_inicial != null ? formatMoeda(base.stoploss_inicial) : '—'}</td>
-                      <td className="px-4 py-3 text-right text-gold font-medium">{formatMoeda(stoplossAtualPorClube.get(c.id) ?? 0)}</td>
                       <td className="px-4 py-3 text-right text-gray-300">{base.caucao_atual != null ? formatMoeda(base.caucao_atual) : '—'}</td>
+                      <td className="px-4 py-3 text-right text-gray-300">{base.stoploss_inicial != null ? formatMoeda(base.stoploss_inicial) : '—'}</td>
+                      <td className="px-4 py-3 text-right text-gray-300">{formatMoeda(bugPppPorClube.get(c.id) ?? 0)}</td>
+                      <td className="px-4 py-3 text-right text-gray-300">{formatMoeda(liberadoGerenciaPorClube.get(c.id) ?? 0)}</td>
                       <td className="px-4 py-3 text-right text-gray-300">{formatMoeda(antecipacaoPorClube.get(c.id) ?? 0)}</td>
+                      <td className="px-4 py-3 text-right text-gray-300">{formatMoeda(margemMonitoriaPorClube.get(c.id) ?? 0)}</td>
+                      <td className="px-4 py-3 text-right text-gold font-medium">{formatMoeda(stoplossAtualPorClube.get(c.id) ?? 0)}</td>
                       <td className="px-4 py-3 text-right text-gray-500">{base.ratio_caucao_stoploss ?? 1}x</td>
                     </tr>
                   )
@@ -213,9 +234,13 @@ export function RelatorioStoploss() {
               <tfoot>
                 <tr className="border-t border-white/10 bg-surface2">
                   <td className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider" colSpan={4}>{t('stoploss.total')} ({filtrados.length})</td>
-                  <td className="px-4 py-3 text-right text-gold font-semibold">{formatMoeda(totais.stoploss)}</td>
                   <td className="px-4 py-3 text-right text-gray-300 font-semibold">{formatMoeda(totais.caucao)}</td>
+                  <td></td>
+                  <td className="px-4 py-3 text-right text-gray-300 font-semibold">{formatMoeda(totais.bugPpp)}</td>
+                  <td className="px-4 py-3 text-right text-gray-300 font-semibold">{formatMoeda(totais.liberadoGerencia)}</td>
                   <td className="px-4 py-3 text-right text-gray-300 font-semibold">{formatMoeda(totais.antecipacao)}</td>
+                  <td className="px-4 py-3 text-right text-gray-300 font-semibold">{formatMoeda(totais.margemMonitoria)}</td>
+                  <td className="px-4 py-3 text-right text-gold font-semibold">{formatMoeda(totais.stoploss)}</td>
                   <td></td>
                 </tr>
               </tfoot>
