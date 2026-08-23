@@ -653,6 +653,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   `clubs.bloqueado`, só sinaliza o clube pro time, não trava nada tecnicamente no sistema). Corte 50%
   fica atrás da mesma permissão de aprovar ajuste (`stoploss.aprovar`); Bloquear fica aberto pra quem
   já acessa a tela
+- [x] Fila de Cotação (Acertos) passa a valer pra qualquer moeda diferente de BRL, não só USD, e só
+  entra na fila quem ainda não tem Cotação cadastrada no clube — quem já tem, usa direto, sem
+  perguntar nada. Ao salvar a Cotação do primeiro clube da fila, pergunta se quer replicar o mesmo
+  valor pros demais; se sim, confirma mais uma vez que nenhum deles tem uma cotação diferente antes de
+  aplicar em lote
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

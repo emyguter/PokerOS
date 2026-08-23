@@ -100,7 +100,7 @@ export default function AcertosView() {
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [confirmRecalcular, setConfirmRecalcular] = useState(false);
-  const [filaCotacao, setFilaCotacao] = useState<{ id: string; name: string; cotacao: number | null }[]>([]);
+  const [filaCotacao, setFilaCotacao] = useState<{ id: string; name: string }[]>([]);
   const [filterType, setFilterType] = useState("todos");
   const [search, setSearch] = useState("");
   const [ordenacaoImports, setOrdenacaoImports] = useState<"importacao" | "periodo" | "nome">("importacao");
@@ -251,14 +251,18 @@ export default function AcertosView() {
     setCalculating(false);
   }
 
-  // Clubes em dólar que entram nesse import — pergunta a Cotação (valor
-  // considerado na Identificação do Clube) antes de calcular, um por vez.
-  async function buscarClubesUsdDoImport(importId: string) {
+  // Clubes em moeda estrangeira (qualquer uma diferente de BRL) que entram
+  // nesse import e ainda não têm Cotação cadastrada — pergunta o valor antes
+  // de calcular, um por vez. Clube com Cotação já cadastrada usa ela direto,
+  // sem perguntar nada.
+  async function buscarClubesCotacaoDoImport(importId: string) {
     const { data: rows } = await supabase.from("import_rows").select("club_external_id").eq("import_id", importId);
     const extIds = [...new Set((rows ?? []).map((r) => r.club_external_id as string))];
     if (extIds.length === 0) return [];
-    const { data: clubes } = await supabase.from("clubs").select("id, name, cotacao").in("external_id", extIds).eq("moeda", "USD");
-    return (clubes ?? []) as { id: string; name: string; cotacao: number | null }[];
+    const { data: clubes } = await supabase.from("clubs").select("id, name, cotacao, moeda").in("external_id", extIds);
+    return ((clubes ?? []) as { id: string; name: string; cotacao: number | null; moeda: string | null }[])
+      .filter((c) => c.moeda && c.moeda !== "BRL" && c.cotacao == null)
+      .map((c) => ({ id: c.id, name: c.name }));
   }
 
   async function handleCalcular() {
@@ -267,7 +271,7 @@ export default function AcertosView() {
       setConfirmRecalcular(true);
       return;
     }
-    const fila = await buscarClubesUsdDoImport(selected.id);
+    const fila = await buscarClubesCotacaoDoImport(selected.id);
     if (fila.length > 0) { setFilaCotacao(fila); return; }
     await executarCalculo(selected.id);
   }
@@ -275,7 +279,7 @@ export default function AcertosView() {
   async function handleConfirmarRecalculo() {
     setConfirmRecalcular(false);
     if (!selected) return;
-    const fila = await buscarClubesUsdDoImport(selected.id);
+    const fila = await buscarClubesCotacaoDoImport(selected.id);
     if (fila.length > 0) { setFilaCotacao(fila); return; }
     await executarCalculo(selected.id);
   }
@@ -289,9 +293,20 @@ export default function AcertosView() {
   async function handleSalvarCotacao(valor: number) {
     const atual = filaCotacao[0];
     if (!atual) return;
+    const resto = filaCotacao.slice(1);
     setCalculating(true);
     try {
       await supabase.from("clubs").update({ cotacao: valor }).eq("id", atual.id);
+      if (
+        resto.length > 0 &&
+        confirm(`Usar essa mesma cotação (${valor}) para os outros ${resto.length} clube${resto.length > 1 ? "s" : ""} dessa fila?`) &&
+        confirm("Tem certeza que nenhum desses clubes tem uma cotação diferente?")
+      ) {
+        await supabase.from("clubs").update({ cotacao: valor }).in("id", resto.map((c) => c.id));
+        setFilaCotacao([]);
+        if (selected) await executarCalculo(selected.id);
+        return;
+      }
     } finally {
       setCalculating(false);
     }
@@ -601,7 +616,6 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
         <ConfirmCotacaoModal
           clube={filaCotacao[0]}
           saving={calculating}
-          onConfirmar={avancarFilaCotacao}
           onSalvar={handleSalvarCotacao}
         />
       )}
