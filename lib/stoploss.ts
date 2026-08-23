@@ -191,13 +191,24 @@ export async function getBasesClubesAsOf(clubeIds: string[], asOf: Date): Promis
   return basesClubesAsOf(clubeIds, asOf)
 }
 
+// "Ativa nessa semana" é calculado ao vivo (soma só o que ainda conta na
+// semana atual, escopo 'semanal') em vez de confiar só na flag
+// `clubs.margem_monitoria_ativa` — assim, quando a semana vira, a Margem
+// zera sozinha (soma volta a 0) mesmo que ninguém tenha clicado em
+// "Retirar" antes. A flag continua sendo atualizada (compatibilidade/
+// exibição), mas não é mais a fonte de verdade do gate.
+export async function margemMonitoriaAtivaEstaSemana(clubeId: string): Promise<boolean> {
+  const soma = (await getSomaTipoBatch([clubeId], 'margem_monitoria')).get(clubeId) ?? 0
+  return soma > 0
+}
+
 // Líder do Suporte aplica direto, sem fila de aprovação — mas só uma vez
-// por clube. Quem aprova ajuste normal (stoploss.aprovar) precisa "retirar"
-// antes de poder aplicar de novo (ver retirarMargemMonitoria).
+// por semana por clube (ver margemMonitoriaAtivaEstaSemana). Escopo
+// 'semanal': soma automaticamente na virada, sem precisar "Retirar" — o
+// botão de retirar continua servindo pra cancelar antes da virada, se for engano.
 export async function aplicarMargemMonitoria(clubeId: string): Promise<void> {
-  const { data: club } = await supabase.from('clubs').select('margem_monitoria_ativa').eq('id', clubeId).single()
-  if (club?.margem_monitoria_ativa) {
-    throw new Error('Margem de Monitoria já está em uso nesse clube — precisa ser retirada antes de aplicar de novo.')
+  if (await margemMonitoriaAtivaEstaSemana(clubeId)) {
+    throw new Error('Margem de Monitoria já está em uso nesse clube essa semana — precisa ser retirada antes de aplicar de novo.')
   }
   const stoplossAtual = await getStoplossAtual(clubeId)
   const delta = Math.round(stoplossAtual * 0.10 * 100) / 100
@@ -206,7 +217,7 @@ export async function aplicarMargemMonitoria(clubeId: string): Promise<void> {
   const { error: histErr } = await supabase.from('stoploss_historico').insert({
     clube_id: clubeId,
     tipo: 'margem_monitoria',
-    escopo: 'permanente',
+    escopo: 'semanal',
     valor_delta: delta,
     valor_resultante: stoplossAtual + delta,
     motivo: 'Margem de Monitoria (+10%, sem aprovação)',
@@ -220,8 +231,12 @@ export async function aplicarMargemMonitoria(clubeId: string): Promise<void> {
 
 // "Bug do PPPoker": correção manual pra quando a plataforma reporta rake/
 // resultado errado. Tratado como já liberado pela gerência — o Suporte
-// lança direto, sem fila de aprovação (diferente do Ajuste normal).
-export async function aplicarAjusteBugPpp(clubeId: string, natureza: 'credito' | 'debito', valor: number, descricao: string): Promise<void> {
+// lança direto, sem fila de aprovação (diferente do Ajuste normal). Escopo
+// 'semanal': some sozinho na virada da semana, igual Pre Payment/Margem/
+// Liberado pela Gerência. `dataLancamento` (opcional, padrão agora) decide
+// EM QUE SEMANA o valor conta — lançar com uma data de semana já virada
+// soma lá, não na semana atual (confirmado pelo Cássio).
+export async function aplicarAjusteBugPpp(clubeId: string, natureza: 'credito' | 'debito', valor: number, descricao: string, dataLancamento?: Date): Promise<void> {
   const stoplossAtual = await getStoplossAtual(clubeId)
   const delta = natureza === 'credito' ? valor : -valor
   const { data: userData } = await supabase.auth.getUser()
@@ -229,24 +244,23 @@ export async function aplicarAjusteBugPpp(clubeId: string, natureza: 'credito' |
   const { error: histErr } = await supabase.from('stoploss_historico').insert({
     clube_id: clubeId,
     tipo: 'bug_ppp',
-    escopo: 'permanente',
+    escopo: 'semanal',
     valor_delta: delta,
     valor_resultante: stoplossAtual + delta,
     motivo: `Bug do PPPoker: ${descricao}`,
     criado_por: userData.user?.id ?? null,
+    criado_em: (dataLancamento ?? new Date()).toISOString(),
   })
   if (histErr) throw histErr
 }
 
-// Reverte a Margem de Monitoria ativa (soma um delta negativo igual ao que
-// foi aplicado) e libera o clube pra poder usar de novo numa próxima vez.
+// Reverte a Margem de Monitoria ativa nessa semana (soma um delta negativo
+// igual ao que foi aplicado) e libera o clube pra poder usar de novo antes
+// da virada. Só soma o que ainda conta essa semana (escopo 'semanal') —
+// margens de semanas passadas já saíram da conta sozinhas, não precisam
+// (e não devem) ser somadas aqui de novo.
 export async function retirarMargemMonitoria(clubeId: string): Promise<void> {
-  const { data: historico } = await supabase
-    .from('stoploss_historico')
-    .select('valor_delta')
-    .eq('clube_id', clubeId)
-    .eq('tipo', 'margem_monitoria')
-  const somaAtiva = (historico ?? []).reduce((s, h) => s + (h.valor_delta ?? 0), 0)
+  const somaAtiva = (await getSomaTipoBatch([clubeId], 'margem_monitoria')).get(clubeId) ?? 0
   if (somaAtiva === 0) {
     await supabase.from('clubs').update({ margem_monitoria_ativa: false }).eq('id', clubeId)
     return
@@ -257,7 +271,7 @@ export async function retirarMargemMonitoria(clubeId: string): Promise<void> {
   const { error: histErr } = await supabase.from('stoploss_historico').insert({
     clube_id: clubeId,
     tipo: 'margem_monitoria',
-    escopo: 'permanente',
+    escopo: 'semanal',
     valor_delta: -somaAtiva,
     valor_resultante: stoplossAtual - somaAtiva,
     motivo: 'Margem de Monitoria retirada',
@@ -271,7 +285,9 @@ export async function retirarMargemMonitoria(clubeId: string): Promise<void> {
 
 // Aprovação de ajuste de gerência/comitê (fila normal) — quem aprova
 // escolhe se o valor soma no Stoploss Inicial (permanente) ou vale só até a
-// virada da semana desse clube (escopo 'semanal').
+// virada da semana desse clube (escopo 'semanal'). A semana que conta é a
+// da DATA DO LANÇAMENTO original (ajuste.criado_em, escolhida por quem
+// solicitou) — aprovar não muda isso pra "agora", só efetiva o valor.
 export async function aprovarAjusteSuporte(ajuste: StoplossAjuste, escopo: StoplossEscopo): Promise<void> {
   const stoplossAtual = await getStoplossAtual(ajuste.clube_id)
   const delta = ajuste.natureza === 'credito' ? ajuste.valor : -ajuste.valor
@@ -290,6 +306,7 @@ export async function aprovarAjusteSuporte(ajuste: StoplossAjuste, escopo: Stopl
     valor_resultante: stoplossAtual + delta,
     motivo: ajuste.justificativa,
     ajuste_id: ajuste.id,
+    criado_em: ajuste.criado_em,
     criado_por: ajuste.criado_por,
   })
   if (histErr) throw histErr

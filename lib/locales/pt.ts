@@ -192,6 +192,8 @@ export const pt = {
     stoploss_inicial: 'Stoploss Inicial', stoploss_atual: 'Stoploss Atual', caucao_atual: 'Caução Atual', pre_payment: 'Pre Payment',
     solicitar_ajuste: 'Solicitar ajuste', natureza: 'Natureza', valor: 'Valor', justificativa: 'Justificativa',
     justificativa_placeholder: 'Ex: liberado pela gerência, bug do PPPoker...',
+    data_lancamento: 'Data do lançamento',
+    data_lancamento_aviso: 'Decide em que semana o valor conta — uma data de semana já virada soma lá, não na semana atual.',
     enviar_solicitacao: 'Enviar pra aprovação', solicitacao_enviada: 'Solicitação enviada, aguardando aprovação do Admin.',
     historico_vazio: 'Nenhum evento ainda.',
     col_data: 'Data', col_tipo: 'Tipo', col_motivo: 'Motivo', col_delta: 'Variação', col_resultante: 'Saldo após',

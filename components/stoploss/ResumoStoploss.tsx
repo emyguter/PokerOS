@@ -6,14 +6,24 @@ import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
 import { usePermissions } from '@/lib/permissions'
 import { BuscaSelect } from '@/components/BuscaSelect'
-import { getStoplossAtual, aplicarMargemMonitoria, retirarMargemMonitoria, aplicarAjusteBugPpp } from '@/lib/stoploss'
+import { getStoplossAtual, aplicarMargemMonitoria, retirarMargemMonitoria, aplicarAjusteBugPpp, margemMonitoriaAtivaEstaSemana } from '@/lib/stoploss'
 import type { StoplossAjuste } from '@/lib/types'
 
 interface ClubeOpcao { id: string; name: string }
-interface ClubeResumo { name: string; stoploss_inicial: number | null; caucao_atual: number | null; ratio_caucao_stoploss: number | null; margem_monitoria_ativa: boolean }
+interface ClubeResumo { name: string; stoploss_inicial: number | null; caucao_atual: number | null; ratio_caucao_stoploss: number | null }
 
 function formatMoeda(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function hoje() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+// Meio-dia de Brasília no dia escolhido — evita qualquer ambiguidade de
+// fuso na hora de decidir de que lado da virada da semana a data cai.
+function dataEmMeioDiaBrasilia(data: string): Date {
+  return new Date(`${data}T12:00:00-03:00`)
 }
 
 const STATUS_CLS: Record<string, string> = {
@@ -29,6 +39,7 @@ export function ResumoStoploss() {
   const [clubeId, setClubeId] = useState('')
   const [clube, setClube] = useState<ClubeResumo | null>(null)
   const [stoplossAtual, setStoplossAtual] = useState<number | null>(null)
+  const [margemAtiva, setMargemAtiva] = useState(false)
   const [ajustes, setAjustes] = useState<StoplossAjuste[]>([])
   const [loading, setLoading] = useState(false)
   const [processandoMargem, setProcessandoMargem] = useState(false)
@@ -37,6 +48,7 @@ export function ResumoStoploss() {
   const [aberto, setAberto] = useState(false)
   const [natureza, setNatureza] = useState<'credito' | 'debito'>('debito')
   const [valor, setValor] = useState('')
+  const [dataAjuste, setDataAjuste] = useState(hoje)
   const [justificativa, setJustificativa] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,6 +57,7 @@ export function ResumoStoploss() {
   const [abertoBug, setAbertoBug] = useState(false)
   const [naturezaBug, setNaturezaBug] = useState<'credito' | 'debito'>('debito')
   const [valorBug, setValorBug] = useState('')
+  const [dataBug, setDataBug] = useState(hoje)
   const [descricaoBug, setDescricaoBug] = useState('')
   const [savingBug, setSavingBug] = useState(false)
   const [erroBug, setErroBug] = useState<string | null>(null)
@@ -55,15 +68,17 @@ export function ResumoStoploss() {
   }, [])
 
   const load = useCallback(async () => {
-    if (!clubeId) { setClube(null); setStoplossAtual(null); setAjustes([]); return }
+    if (!clubeId) { setClube(null); setStoplossAtual(null); setMargemAtiva(false); setAjustes([]); return }
     setLoading(true)
-    const [{ data: c }, atual, { data: a }] = await Promise.all([
-      supabase.from('clubs').select('name, stoploss_inicial, caucao_atual, ratio_caucao_stoploss, margem_monitoria_ativa').eq('id', clubeId).single(),
+    const [{ data: c }, atual, ativa, { data: a }] = await Promise.all([
+      supabase.from('clubs').select('name, stoploss_inicial, caucao_atual, ratio_caucao_stoploss').eq('id', clubeId).single(),
       getStoplossAtual(clubeId),
+      margemMonitoriaAtivaEstaSemana(clubeId),
       supabase.from('stoploss_ajustes').select('*').eq('clube_id', clubeId).order('criado_em', { ascending: false }).limit(20),
     ])
     setClube(c ?? null)
     setStoplossAtual(atual)
+    setMargemAtiva(ativa)
     setAjustes((a ?? []) as StoplossAjuste[])
     setLoading(false)
   }, [clubeId])
@@ -99,9 +114,12 @@ export function ResumoStoploss() {
         justificativa: justificativa.trim(),
         status: 'pendente',
         criado_por: userData.user?.id ?? null,
+        // Decide em que semana o valor conta quando aprovado (ver
+        // aprovarAjusteSuporte) — não necessariamente hoje.
+        criado_em: dataEmMeioDiaBrasilia(dataAjuste).toISOString(),
       })
       if (insErr) throw insErr
-      setValor(''); setJustificativa(''); setSucesso(true); setAberto(false)
+      setValor(''); setJustificativa(''); setDataAjuste(hoje()); setSucesso(true); setAberto(false)
       await load()
     } catch (err) {
       setError(errMsg(err))
@@ -120,8 +138,8 @@ export function ResumoStoploss() {
     if (!descricaoBug.trim()) { setErroBug('Descreva o que aconteceu (ex: rake duplicado no relatório do dia X).'); return }
     setSavingBug(true); setErroBug(null); setSucessoBug(false)
     try {
-      await aplicarAjusteBugPpp(clubeId, naturezaBug, valorNum, descricaoBug.trim())
-      setValorBug(''); setDescricaoBug(''); setSucessoBug(true); setAbertoBug(false)
+      await aplicarAjusteBugPpp(clubeId, naturezaBug, valorNum, descricaoBug.trim(), dataEmMeioDiaBrasilia(dataBug))
+      setValorBug(''); setDescricaoBug(''); setDataBug(hoje()); setSucessoBug(true); setAbertoBug(false)
       await load()
     } catch (err) {
       setErroBug(errMsg(err))
@@ -168,7 +186,7 @@ export function ResumoStoploss() {
 
           {erroMargem && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroMargem}</div>}
 
-          {clube?.margem_monitoria_ativa ? (
+          {margemAtiva ? (
             <div className="flex items-center justify-between p-3 rounded-lg border border-gold/30 bg-gold/5">
               <p className="text-xs text-gray-300 flex items-center gap-2"><ShieldAlert size={14} className="text-gold" />{t('stoploss.margem_ativa')}</p>
               {hasPermission('stoploss.aprovar') && (
@@ -209,6 +227,11 @@ export function ResumoStoploss() {
                   </div>
                 </div>
                 <div>
+                  <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.data_lancamento')}</label>
+                  <input type="date" value={dataAjuste} onChange={e => setDataAjuste(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
+                  <p className="text-xs text-gray-600 mt-1">{t('stoploss.data_lancamento_aviso')}</p>
+                </div>
+                <div>
                   <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.justificativa')}</label>
                   <input type="text" value={justificativa} onChange={e => setJustificativa(e.target.value)} placeholder={t('stoploss.justificativa_placeholder')} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
                 </div>
@@ -246,6 +269,11 @@ export function ResumoStoploss() {
                 <div>
                   <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.bug_ppp_o_que_houve')}</label>
                   <input type="text" value={descricaoBug} onChange={e => setDescricaoBug(e.target.value)} placeholder={t('stoploss.bug_ppp_placeholder')} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.data_lancamento')}</label>
+                  <input type="date" value={dataBug} onChange={e => setDataBug(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
+                  <p className="text-xs text-gray-600 mt-1">{t('stoploss.data_lancamento_aviso')}</p>
                 </div>
                 {erroBug && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroBug}</div>}
                 <div className="flex justify-end">

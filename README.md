@@ -638,6 +638,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   isoladas no relatório — `lib/stoploss.ts` ganha `getBugPppBatch`/`getLiberadoGerenciaBatch`/
   `getMargemMonitoriaBatch` (mesmo padrão de `getAntecipacaoBatch`, agora todos via um helper
   genérico `getSomaTipoBatch` por trás)
+- [x] Pre Payment, Bug PPPoker e Margem de Monitoria passam a somar como `escopo: 'semanal'` (igual
+  Liberado pela Gerência quando aprovado assim) — somem sozinhos da conta do Stoploss Atual na virada
+  da semana do clube, sem precisar de nenhuma ação manual. Margem de Monitoria ganha checagem "ativa
+  nessa semana" calculada ao vivo (`margemMonitoriaAtivaEstaSemana`) em vez de confiar só na flag
+  `clubs.margem_monitoria_ativa` — assim ela libera pra usar de novo sozinha na virada, mesmo que
+  ninguém clique em "Retirar" antes. Os formulários de "Solicitar Ajuste" e "Bug do PPPoker" (Resumo
+  de Stoploss) ganham campo de Data do Lançamento — decide em que semana o valor conta; lançar com
+  data de uma semana já virada soma lá, não na semana atual (`criado_em` do registro vira a data
+  escolhida, não mais sempre "agora")
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

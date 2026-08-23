@@ -65,6 +65,10 @@ async function registrarAntecipacaoNoStoploss(suporte: Entrada, criadoPor: strin
   await supabase.from('stoploss_historico').insert({
     clube_id: suporte.clube_id,
     tipo: 'antecipacao',
+    // Some sozinho na virada da semana, igual Bug PPP/Margem/Liberado pela
+    // Gerência — Pre Payment não é permanente, é só enquanto durar a semana
+    // em que a Antecipação foi conciliada.
+    escopo: 'semanal',
     valor_delta: delta,
     valor_resultante: atual + delta,
     motivo: 'Antecipação conciliada',

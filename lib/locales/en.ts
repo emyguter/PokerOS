@@ -194,6 +194,8 @@ export const en: typeof pt = {
     stoploss_inicial: 'Initial Stoploss', stoploss_atual: 'Current Stoploss', caucao_atual: 'Current Deposit', pre_payment: 'Pre Payment',
     solicitar_ajuste: 'Request adjustment', natureza: 'Nature', valor: 'Amount', justificativa: 'Justification',
     justificativa_placeholder: 'E.g.: cleared by management, PPPoker bug...',
+    data_lancamento: 'Entry date',
+    data_lancamento_aviso: 'Decides which week the amount counts toward — a date from an already-rolled-over week counts there, not the current week.',
     enviar_solicitacao: 'Send for approval', solicitacao_enviada: 'Request sent, awaiting Admin approval.',
     historico_vazio: 'No events yet.',
     col_data: 'Date', col_tipo: 'Type', col_motivo: 'Reason', col_delta: 'Change', col_resultante: 'Balance after',
