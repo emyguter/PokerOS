@@ -287,6 +287,9 @@ export async function retirarMargemMonitoria(clubeId: string): Promise<void> {
 // ajuste permanente (não some sozinho na virada, diferente de Pre Payment/
 // Bug PPP/Margem), fica cortado até alguém reverter na mão (Solicitar
 // Ajuste, se for o caso). Igual Bug PPP, aplica direto, sem fila de aprovação.
+// clubs.corte_50_ativo é só sinalização de STATUS (pro Relatório de Acertos
+// Pendentes) — não mexe no valor já cortado, que continua permanente até um
+// Ajuste manual; ver reverterCorte50 pra desligar só o status.
 export async function aplicarCorte50(clubeId: string): Promise<void> {
   const stoplossAtual = await getStoplossAtual(clubeId)
   const delta = -(Math.round(stoplossAtual * 0.5 * 100) / 100)
@@ -302,6 +305,16 @@ export async function aplicarCorte50(clubeId: string): Promise<void> {
     criado_por: userData.user?.id ?? null,
   })
   if (histErr) throw histErr
+
+  const { error: clubErr } = await supabase.from('clubs').update({ corte_50_ativo: true }).eq('id', clubeId)
+  if (clubErr) throw clubErr
+}
+
+// Desliga só o status "50%" (Relatório de Acertos Pendentes) — o corte já
+// aplicado no Stoploss Atual continua valendo, permanente, igual sempre foi.
+export async function reverterCorte50(clubeId: string): Promise<void> {
+  const { error } = await supabase.from('clubs').update({ corte_50_ativo: false }).eq('id', clubeId)
+  if (error) throw error
 }
 
 // "Acerto pendente — Bloquear": só sinaliza o clube (clubs.bloqueado) —

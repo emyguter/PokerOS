@@ -7,11 +7,12 @@ import AcertosView from '@/components/acertos/AcertosView'
 import { RelatorioLancamentos } from './RelatorioLancamentos'
 import { RelatorioTaxas } from './RelatorioTaxas'
 import { RelatorioResumoAcertos } from './RelatorioResumoAcertos'
+import { RelatorioAcertosPendentes } from './RelatorioAcertosPendentes'
 
-type Tab = 'acertos' | 'lancamentos' | 'taxas' | 'resumo_acertos'
+type Tab = 'acertos' | 'lancamentos' | 'taxas' | 'resumo_acertos' | 'acertos_pendentes'
 
 function tabDaUrl(valor: string | null): Tab | null {
-  return valor === 'acertos' || valor === 'lancamentos' || valor === 'taxas' || valor === 'resumo_acertos' ? valor : null
+  return valor === 'acertos' || valor === 'lancamentos' || valor === 'taxas' || valor === 'resumo_acertos' || valor === 'acertos_pendentes' ? valor : null
 }
 
 export function RelatoriosView() {
@@ -32,8 +33,11 @@ export function RelatoriosView() {
   // Mesma regra de relatorios.taxas — visão executiva cross-clube (todas as
   // Ligas de uma vez), só abre pra quem for liberado explicitamente.
   const podeResumoAcertos = hasPermission('relatorios.resumo_acertos')
-  const primeiraPermitida: Tab | null = podeAcertos ? 'acertos' : podeLancamentos ? 'lancamentos' : podeTaxas ? 'taxas' : podeResumoAcertos ? 'resumo_acertos' : null
-  const ehPermitida = (aba: Tab) => aba === 'acertos' ? podeAcertos : aba === 'lancamentos' ? podeLancamentos : aba === 'taxas' ? podeTaxas : podeResumoAcertos
+  // Mesma regra — visão de cobrança cross-clube (quem deve/não pagou), só
+  // abre pra quem for liberado explicitamente.
+  const podeAcertosPendentes = hasPermission('relatorios.acertos_pendentes')
+  const primeiraPermitida: Tab | null = podeAcertos ? 'acertos' : podeLancamentos ? 'lancamentos' : podeTaxas ? 'taxas' : podeResumoAcertos ? 'resumo_acertos' : podeAcertosPendentes ? 'acertos_pendentes' : null
+  const ehPermitida = (aba: Tab) => aba === 'acertos' ? podeAcertos : aba === 'lancamentos' ? podeLancamentos : aba === 'taxas' ? podeTaxas : aba === 'resumo_acertos' ? podeResumoAcertos : podeAcertosPendentes
 
   const [tab, setTab] = useState<Tab | null>(null)
 
@@ -76,6 +80,15 @@ export function RelatoriosView() {
             <p className="text-sm text-gray-400 mt-1">{t('relatorios.subtitulo_resumo_acertos')}</p>
           </div>
           <RelatorioResumoAcertos />
+        </div>
+      )}
+      {abaAtiva === 'acertos_pendentes' && (
+        <div style={{ background: '#0C0E0B', minHeight: '100vh' }} className="space-y-6 p-4 md:p-10">
+          <div>
+            <h1 className="text-2xl font-semibold text-white">{t('relatorios.titulo_acertos_pendentes')}</h1>
+            <p className="text-sm text-gray-400 mt-1">{t('relatorios.subtitulo_acertos_pendentes')}</p>
+          </div>
+          <RelatorioAcertosPendentes />
         </div>
       )}
     </div>

@@ -6,11 +6,11 @@ import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
 import { usePermissions } from '@/lib/permissions'
 import { BuscaSelect } from '@/components/BuscaSelect'
-import { getStoplossAtual, aplicarMargemMonitoria, retirarMargemMonitoria, aplicarAjusteBugPpp, margemMonitoriaAtivaEstaSemana, aplicarCorte50, setClubeBloqueado } from '@/lib/stoploss'
+import { getStoplossAtual, aplicarMargemMonitoria, retirarMargemMonitoria, aplicarAjusteBugPpp, margemMonitoriaAtivaEstaSemana, aplicarCorte50, reverterCorte50, setClubeBloqueado } from '@/lib/stoploss'
 import type { StoplossAjuste } from '@/lib/types'
 
 interface ClubeOpcao { id: string; name: string }
-interface ClubeResumo { name: string; stoploss_inicial: number | null; caucao_atual: number | null; ratio_caucao_stoploss: number | null; bloqueado: boolean }
+interface ClubeResumo { name: string; stoploss_inicial: number | null; caucao_atual: number | null; ratio_caucao_stoploss: number | null; bloqueado: boolean; corte_50_ativo: boolean }
 
 function formatMoeda(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -76,7 +76,7 @@ export function ResumoStoploss() {
     if (!clubeId) { setClube(null); setStoplossAtual(null); setMargemAtiva(false); setAjustes([]); return }
     setLoading(true)
     const [{ data: c }, atual, ativa, { data: a }] = await Promise.all([
-      supabase.from('clubs').select('name, stoploss_inicial, caucao_atual, ratio_caucao_stoploss, bloqueado').eq('id', clubeId).single(),
+      supabase.from('clubs').select('name, stoploss_inicial, caucao_atual, ratio_caucao_stoploss, bloqueado, corte_50_ativo').eq('id', clubeId).single(),
       getStoplossAtual(clubeId),
       margemMonitoriaAtivaEstaSemana(clubeId),
       supabase.from('stoploss_ajustes').select('*').eq('clube_id', clubeId).order('criado_em', { ascending: false }).limit(20),
@@ -108,6 +108,13 @@ export function ResumoStoploss() {
     if (!confirm(t('stoploss.corte_50_confirmar'))) return
     setProcessandoCorte(true); setErroCorte(null); setSucessoCorte(false)
     try { await aplicarCorte50(clubeId); setSucessoCorte(true); await load() }
+    catch (err) { setErroCorte(errMsg(err)) }
+    finally { setProcessandoCorte(false) }
+  }
+
+  async function handleReverterCorte50() {
+    setProcessandoCorte(true); setErroCorte(null)
+    try { await reverterCorte50(clubeId); await load() }
     catch (err) { setErroCorte(errMsg(err)) }
     finally { setProcessandoCorte(false) }
   }
@@ -230,14 +237,23 @@ export function ResumoStoploss() {
             )}
 
             {hasPermission('stoploss.aprovar') && (
-              <button
-                type="button"
-                onClick={handleAplicarCorte50}
-                disabled={processandoCorte}
-                className="flex items-center gap-2 px-4 py-2 border border-amber-500/30 text-amber-500 rounded-lg text-sm font-medium hover:bg-amber-500/10 disabled:opacity-50 transition-colors w-fit"
-              >
-                {processandoCorte ? <Loader2 size={14} className="animate-spin" /> : <ShieldAlert size={14} />}{t('stoploss.corte_50_aplicar')}
-              </button>
+              clube?.corte_50_ativo ? (
+                <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
+                  <p className="text-xs text-gray-300 flex items-center gap-2"><ShieldAlert size={14} className="text-amber-500" />{t('stoploss.corte_50_ativo')}</p>
+                  <button type="button" onClick={handleReverterCorte50} disabled={processandoCorte} className="text-xs text-amber-500 hover:underline disabled:opacity-50">
+                    {t('stoploss.corte_50_reverter')}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleAplicarCorte50}
+                  disabled={processandoCorte}
+                  className="flex items-center gap-2 px-4 py-2 border border-amber-500/30 text-amber-500 rounded-lg text-sm font-medium hover:bg-amber-500/10 disabled:opacity-50 transition-colors w-fit"
+                >
+                  {processandoCorte ? <Loader2 size={14} className="animate-spin" /> : <ShieldAlert size={14} />}{t('stoploss.corte_50_aplicar')}
+                </button>
+              )
             )}
 
             <button

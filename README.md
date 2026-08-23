@@ -671,6 +671,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   `lib/acesso-hierarquia.ts`); staff enxerga tudo com a permissão `acertos.ver`. Tela de Permissões
   ganha os 3 tipos de acesso novos (Liga/SuperLiga/MegaLiga) pra criar esses logins, mesmo padrão de
   Clube/Agente já existente
+- [x] Novo submenu **Acertos Pendentes** (Relatórios): duas tabelas vide planilha do Cássio —
+  "Acertos Pendentes da Semana" (Acerto mais recente ainda não totalmente pago, mesma fonte do
+  Controle de Pagamentos) e "Clubes com Dívidas Antigas" (Dívidas/Acordos ainda ativos em
+  `lib/dividas.ts`, Acerto = valor total, Pago = soma das parcelas já pagas, Data = vencimento em
+  aberto mais antigo) — as duas ordenadas do menor pro maior pela Diferença, Status = Stoploss
+  (Ativo/50%/Bloqueado). Só abre com a Conciliação zerada (reaproveita `useConciliacao` — mesma
+  lógica da tela Financeiro → Conciliação); com pendência, mostra aviso com atalho pra corrigir antes.
+  Corte 50% ganha status reversível: `clubs.corte_50_ativo` liga ao aplicar e desliga com o novo botão
+  "Reverter status" no Resumo de Stoploss — o valor já cortado continua permanente, só o status muda
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
