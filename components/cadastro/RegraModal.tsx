@@ -179,7 +179,7 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
 
   const multaConteudo = (
     <>
-      <p className="text-xs text-gray-600">A maior faixa já atingida vale sozinha (não soma com as anteriores) — incide sobre o valor da parcela atrasada.</p>
+      <p className="text-xs text-gray-600">A maior faixa já atingida vale sozinha (não soma com as anteriores) — incide sobre o valor da parcela atrasada. A última faixa cadastrada já vale pra sempre dali pra frente: não precisa cadastrar uma faixa por semana, quem passar da maior faixa continua pagando a porcentagem dela.</p>
       {faixasMulta.map((f, i) => (
         <div key={i} className="flex items-center gap-2 p-3 rounded-lg border border-white/10 bg-surface2">
           <input

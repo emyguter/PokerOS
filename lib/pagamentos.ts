@@ -9,6 +9,7 @@ export interface EnvioPagamento {
 
 export interface AcertoPagamento {
   acerto_id: string
+  club_id: string | null
   club_external_id: string
   club_name: string
   valor_acerto: number
@@ -73,6 +74,7 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
     const valor_pago = envios.reduce((s, e) => s + e.valor_assinado, 0)
     return {
       acerto_id: a.id,
+      club_id: null,
       club_external_id: a.club_external_id,
       club_name: a.club_name,
       valor_acerto: a.valor_acerto,
@@ -181,10 +183,45 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
     const clubId = clubIdPorAcertoId.get(r.acerto_id)
     return {
       ...r,
+      club_id: clubId ?? null,
       caucao: clubId ? caucaoPorId.get(clubId) ?? 0 : 0,
       projeto: clubId ? projetoPorClube.get(clubId) ?? null : null,
     }
   })
+}
+
+// "Descontar da Caução": o que sobrou sem pagar no Acerto da semana
+// (Diferença) vira desconto direto na Caução do clube — decisão do
+// Suporte, já apurada, sem passar pela fila do Financeiro (diferente de um
+// lançamento de Caução normal). Dois efeitos, os dois na hora:
+//  1. Lançamento tipo "pagamento" (Envio) vinculado ao Acerto — quita a
+//     Diferença igual um Envio de verdade teria feito.
+//  2. Lançamento tipo "caucao" (débito) + caucao_atual do clube reduzido —
+//     Stoploss Atual cai sozinho no próximo cálculo (é sempre recalculado
+//     ao vivo a partir de caucao_atual, não precisa mexer em mais nada).
+export async function descontarDaCaucao(acertoId: string, clubeId: string, valor: number): Promise<void> {
+  const { data: userData } = await supabase.auth.getUser()
+  const hoje = new Date().toISOString().slice(0, 10)
+  const criado_por = userData.user?.id ?? null
+
+  const { error: pagamentoErr } = await supabase.from('lancamentos').insert({
+    clube_id: clubeId, acerto_id: acertoId, tipo: 'pagamento', natureza: 'credito', valor,
+    descricao: 'Descontado da Caução (rollover do Acerto)', data_lancamento: hoje,
+    origem: 'suporte', status: null, criado_por,
+  })
+  if (pagamentoErr) throw pagamentoErr
+
+  const { error: caucaoErr } = await supabase.from('lancamentos').insert({
+    clube_id: clubeId, tipo: 'caucao', natureza: 'debito', valor,
+    descricao: 'Rollover de Acerto não pago', data_lancamento: hoje,
+    origem: 'suporte', status: 'pago', criado_por,
+  })
+  if (caucaoErr) throw caucaoErr
+
+  const { data: clube, error: clubeErr } = await supabase.from('clubs').select('caucao_atual').eq('id', clubeId).single()
+  if (clubeErr) throw clubeErr
+  const { error: updErr } = await supabase.from('clubs').update({ caucao_atual: (clube.caucao_atual ?? 0) - valor }).eq('id', clubeId)
+  if (updErr) throw updErr
 }
 
 // `AcertoPagamento.diferenca` (valor_acerto + valor_pago) é sempre guardado

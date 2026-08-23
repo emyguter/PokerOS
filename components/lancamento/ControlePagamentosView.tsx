@@ -1,7 +1,9 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Loader2 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
-import { buscarImportsComAcerto, buscarPagamentosPorImport, corDiferenca, type ImportResumo, type AcertoPagamento } from '@/lib/pagamentos'
+import { errMsg } from '@/lib/errors'
+import { buscarImportsComAcerto, buscarPagamentosPorImport, descontarDaCaucao, corDiferenca, type ImportResumo, type AcertoPagamento } from '@/lib/pagamentos'
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -30,6 +32,8 @@ export function ControlePagamentosView() {
   const [projetoFiltro, setProjetoFiltro] = useState('')
   const [linhas, setLinhas] = useState<AcertoPagamento[]>([])
   const [loading, setLoading] = useState(false)
+  const [descontando, setDescontando] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     buscarImportsComAcerto().then((lista) => {
@@ -58,6 +62,21 @@ export function ControlePagamentosView() {
   }, [])
 
   useEffect(() => { load(importId) }, [importId, load])
+
+  async function handleDescontarCaucao(l: AcertoPagamento) {
+    if (!l.club_id) return
+    const valor = Math.abs(l.diferenca)
+    if (!confirm(`Descontar ${fmt(valor)} da Caução de ${l.club_name}? Isso quita a Diferença do Acerto e reduz o Stoploss Atual do clube na hora.`)) return
+    setDescontando(l.acerto_id); setError(null)
+    try {
+      await descontarDaCaucao(l.acerto_id, l.club_id, valor)
+      await load(importId)
+    } catch (err) {
+      setError(errMsg(err))
+    } finally {
+      setDescontando(null)
+    }
+  }
 
   const projetosDisponiveis = useMemo(
     () => [...new Set(linhas.map((l) => l.projeto).filter((p): p is string => !!p))].sort(),
@@ -104,6 +123,8 @@ export function ControlePagamentosView() {
         </div>
       </div>
 
+      {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
+
       {loading ? (
         <p className="text-sm text-gray-500">{t('common.carregando')}</p>
       ) : linhasFiltradas.length === 0 ? (
@@ -122,6 +143,7 @@ export function ControlePagamentosView() {
                   <th key={i} className="text-right px-3 py-2 whitespace-nowrap">{t('pagamentos.col_envio', { n: String(i + 1) })}</th>
                 ))}
                 <th className="text-right px-3 py-2 whitespace-nowrap" title="Do ponto de vista do clube: positivo = o clube vai receber; negativo = o clube precisa pagar.">{t('pagamentos.col_diferenca')}</th>
+                <th className="text-right px-3 py-2 whitespace-nowrap"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -136,6 +158,19 @@ export function ControlePagamentosView() {
                     <td key={i} className="px-3 py-2 text-right text-gray-300 whitespace-nowrap">{l.envios[i] ? fmt(l.envios[i].valor_assinado) : '—'}</td>
                   ))}
                   <td className={`px-3 py-2 text-right font-semibold whitespace-nowrap ${COR_CLASSE[corDiferenca(l.diferenca)]}`}>{fmt(l.diferenca)}</td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap">
+                    {l.diferenca < -0.005 && l.club_id && (
+                      <button
+                        type="button"
+                        onClick={() => handleDescontarCaucao(l)}
+                        disabled={descontando === l.acerto_id}
+                        title="Descontar a Diferença da Caução do clube — quita o Acerto e reduz o Stoploss Atual na hora."
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 border border-gold/30 text-gold rounded-lg text-xs font-medium hover:bg-gold/10 disabled:opacity-50 transition-colors ml-auto"
+                      >
+                        {descontando === l.acerto_id && <Loader2 size={12} className="animate-spin" />}Descontar da Caução
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

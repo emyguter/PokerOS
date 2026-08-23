@@ -693,6 +693,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   (`status='interrompido'`) e abre um Acordo filho (`divida_pai_id`) já com o saldo que faltava como
   Valor Integral, com termos novos. Multa continua só pra quem tiver Regra de Multa vinculada, igual
   sempre foi — sem mudança aí
+- [x] Multa de Acerto: nota explicando que a última faixa cadastrada já vale pra sempre dali pra
+  frente (comportamento que já existia em `percentualMulta`, só deixado explícito na tela)
+- [x] **Descontar da Caução** (Controle de Pagamentos): pra quando sobra Diferença sem pagar no Acerto
+  da semana (ex: devia 5.040, pagou 5.000, sobram 40) — desconta o valor direto da Caução do clube,
+  sem passar pela fila do Financeiro. Lança um Envio (quita a Diferença) + um débito de Caução, e
+  atualiza `clubs.caucao_atual` na hora — Stoploss Atual cai sozinho no próximo cálculo, já que é
+  sempre recalculado ao vivo a partir da Caução
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
