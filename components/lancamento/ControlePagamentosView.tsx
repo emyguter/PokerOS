@@ -65,7 +65,12 @@ export function ControlePagamentosView() {
   )
   const linhasFiltradas = projetoFiltro ? linhas.filter((l) => l.projeto === projetoFiltro) : linhas
 
-  const maxEnvios = linhasFiltradas.reduce((max, l) => Math.max(max, l.envios.length), 0)
+  // Sempre pelo menos 40 colunas de Envio abertas (mesmo pra clube sem
+  // nenhum ainda) — um clube pode fazer várias dezenas de envios numa
+  // semana só, e a coluna precisa já estar lá esperando, não aparecer só
+  // depois que o envio existe (pedido do Cássio, igual a planilha antiga).
+  // Se algum clube passar de 40 de verdade, mostra todos mesmo assim.
+  const maxEnvios = Math.max(40, linhasFiltradas.reduce((max, l) => Math.max(max, l.envios.length), 0))
 
   return (
     <div className="space-y-4">
@@ -110,12 +115,12 @@ export function ControlePagamentosView() {
               <tr className="bg-surface2 text-xs text-gray-500 uppercase tracking-wide">
                 <th className="text-left px-3 py-2 whitespace-nowrap">{t('pagamentos.col_club_id')}</th>
                 <th className="text-left px-3 py-2 whitespace-nowrap">{t('pagamentos.col_club_name')}</th>
-                <th className="text-right px-3 py-2 whitespace-nowrap">{t('pagamentos.col_valor_acerto')}</th>
+                <th className="text-right px-3 py-2 whitespace-nowrap" title="Soma dos Envios pagos até agora.">{t('pagamentos.col_valor_pago')}</th>
+                <th className="text-right px-3 py-2 whitespace-nowrap" title="Valor do Acerto — o que precisa ser quitado.">{t('pagamentos.col_valor_acerto')}</th>
                 <th className="text-right px-3 py-2 whitespace-nowrap" title="Caução lançada no período — só referência, não entra na Diferença (vive na própria conta dela).">Caução</th>
                 {Array.from({ length: maxEnvios }).map((_, i) => (
                   <th key={i} className="text-right px-3 py-2 whitespace-nowrap">{t('pagamentos.col_envio', { n: String(i + 1) })}</th>
                 ))}
-                <th className="text-right px-3 py-2 whitespace-nowrap" title="Soma dos Envios.">Total</th>
                 <th className="text-right px-3 py-2 whitespace-nowrap" title="Do ponto de vista do clube: positivo = o clube vai receber; negativo = o clube precisa pagar.">{t('pagamentos.col_diferenca')}</th>
               </tr>
             </thead>
@@ -124,12 +129,12 @@ export function ControlePagamentosView() {
                 <tr key={l.acerto_id}>
                   <td className="px-3 py-2 text-gray-400 whitespace-nowrap">{l.club_external_id}</td>
                   <td className="px-3 py-2 text-white whitespace-nowrap">{l.club_name}</td>
+                  <td className="px-3 py-2 text-right text-gray-300 whitespace-nowrap">{fmt(l.valor_pago)}</td>
                   <td className="px-3 py-2 text-right text-gray-300 whitespace-nowrap">{fmt(l.valor_acerto)}</td>
                   <td className="px-3 py-2 text-right text-gray-500 whitespace-nowrap">{l.caucao === 0 ? '—' : fmt(l.caucao)}</td>
                   {Array.from({ length: maxEnvios }).map((_, i) => (
                     <td key={i} className="px-3 py-2 text-right text-gray-300 whitespace-nowrap">{l.envios[i] ? fmt(l.envios[i].valor_assinado) : '—'}</td>
                   ))}
-                  <td className="px-3 py-2 text-right text-gray-300 whitespace-nowrap">{fmt(l.valor_pago)}</td>
                   <td className={`px-3 py-2 text-right font-semibold whitespace-nowrap ${COR_CLASSE[corDiferenca(l.diferenca)]}`}>{fmt(l.diferenca)}</td>
                 </tr>
               ))}

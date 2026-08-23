@@ -627,10 +627,14 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   isolando o delta de `valorComMulta`), SpinUp PnL e Indicação — tudo já calculado nas outras telas de
   Acerto, só lado a lado. Permissão própria (`relatorios.resumo_acertos`), não herda de `relatorios`
   genérico (mesmo padrão de `relatorios.taxas`: dado sensível cross-clube/cross-liga)
+- [x] Controle de Pagamentos (Suporte) reordenado pra bater com a planilha do Cássio: Club ID, Club
+  Name, Total (soma dos Envios pagos até agora), Acerto (Valor do Acerto), Caução, Envio 1 em diante,
+  Diferença. Sempre pelo menos 40 colunas de Envio abertas (mesmo sem nenhum envio ainda) — um clube
+  pode fazer várias dezenas de envios numa semana só, a coluna já precisa estar lá esperando
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
-- [ ] Relatórios adicionais do escopo original (rake líquido da liga, resumo de acertos, PnL)
+- [ ] Relatórios adicionais do escopo original (rake líquido da liga, PnL)
 - [ ] Contestação de lançamento pelo clube
 - [ ] Layout responsivo completo — sidebar (gaveta no celular) e as telas principais já se adaptam;
   falta revisar formulário a formulário os modais grandes de cadastro (Liga/Clube/Agente), que ainda
