@@ -234,7 +234,7 @@ export function ResumoStoploss() {
                 type="button"
                 onClick={handleAplicarCorte50}
                 disabled={processandoCorte}
-                className="flex items-center gap-2 px-4 py-2 border border-gold/30 text-gold rounded-lg text-sm font-medium hover:bg-gold/10 disabled:opacity-50 transition-colors w-fit"
+                className="flex items-center gap-2 px-4 py-2 border border-amber-500/30 text-amber-500 rounded-lg text-sm font-medium hover:bg-amber-500/10 disabled:opacity-50 transition-colors w-fit"
               >
                 {processandoCorte ? <Loader2 size={14} className="animate-spin" /> : <ShieldAlert size={14} />}{t('stoploss.corte_50_aplicar')}
               </button>
