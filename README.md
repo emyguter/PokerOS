@@ -671,15 +671,19 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   `lib/acesso-hierarquia.ts`); staff enxerga tudo com a permissão `acertos.ver`. Tela de Permissões
   ganha os 3 tipos de acesso novos (Liga/SuperLiga/MegaLiga) pra criar esses logins, mesmo padrão de
   Clube/Agente já existente
-- [x] Novo submenu **Acertos Pendentes** (Relatórios): duas tabelas vide planilha do Cássio —
-  "Acertos Pendentes da Semana" (Acerto mais recente ainda não totalmente pago, mesma fonte do
-  Controle de Pagamentos) e "Clubes com Dívidas Antigas" (Dívidas/Acordos ainda ativos em
-  `lib/dividas.ts`, Acerto = valor total, Pago = soma das parcelas já pagas, Data = vencimento em
-  aberto mais antigo) — as duas ordenadas do menor pro maior pela Diferença, Status = Stoploss
-  (Ativo/50%/Bloqueado). Só abre com a Conciliação zerada (reaproveita `useConciliacao` — mesma
-  lógica da tela Financeiro → Conciliação); com pendência, mostra aviso com atalho pra corrigir antes.
-  Corte 50% ganha status reversível: `clubs.corte_50_ativo` liga ao aplicar e desliga com o novo botão
-  "Reverter status" no Resumo de Stoploss — o valor já cortado continua permanente, só o status muda
+- [x] Novo submenu **Acertos Pendentes** (Relatórios): "Acertos Pendentes da Semana" (Acerto mais
+  recente ainda não totalmente pago, mesma fonte do Controle de Pagamentos) + "Atrasados" (até 8
+  semanas) e "Inadimplentes" (mais de 8 semanas) — Acerto não pago (rake + bilhetes + pendências +
+  indicação + segurança − Envios), sem multa/acordo/dívida (isso é outro conceito, `lib/dividas.ts`,
+  fica de fora de propósito), somado semana a semana pra cada clube ao longo do último ano, `Data` =
+  semana mais antiga ainda em aberto. Mesmo layout nas duas, só muda o corte de 8 semanas. + "Histórico
+  de Acertos Pendentes": todo mundo que já deveu no período, pago ou não, com Taxa de Pagamento (Total
+  Pago / Dívida) por linha e no total, vide planilha anual do Cássio. Todas ordenadas do menor pro
+  maior pela Diferença/Total Pendente, Status = Stoploss (Ativo/50%/Bloqueado). Só abre com a
+  Conciliação zerada (reaproveita `useConciliacao`); com pendência, mostra aviso com atalho pra
+  corrigir antes. Corte 50% ganha status reversível: `clubs.corte_50_ativo` liga ao aplicar e desliga
+  com o novo botão "Reverter status" no Resumo de Stoploss — o valor já cortado continua permanente,
+  só o status muda
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

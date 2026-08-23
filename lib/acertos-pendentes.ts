@@ -13,17 +13,6 @@ export interface LinhaAcertoPendenteSemana {
   diferenca: number
 }
 
-export interface LinhaDividaAntiga {
-  clubId: string
-  clubExternalId: string
-  clubName: string
-  status: StatusStoploss
-  data: string | null
-  acerto: number
-  pago: number
-  diferenca: number
-}
-
 // Bloqueado tem prioridade sobre 50% (um clube pode ter os dois marcados ao
 // mesmo tempo — o mais grave é o que aparece).
 async function statusStoplossPorClube(clubIds: string[]): Promise<Map<string, StatusStoploss>> {
@@ -73,87 +62,144 @@ export async function buscarAcertosPendentesDaSemana(): Promise<LinhaAcertoPende
     .sort((a, b) => a.diferenca - b.diferenca)
 }
 
-interface DividaAtivaRow {
+export interface LinhaInadimplencia {
+  clubId: string
+  clubExternalId: string
+  clubName: string
+  status: StatusStoploss
+  data: string
+  divida: number
+  totalPago: number
+  totalPendente: number
+  semanasEmAtraso: number
+}
+
+export interface InadimplenciaResultado {
+  atrasados: LinhaInadimplencia[]
+  inadimplentes: LinhaInadimplencia[]
+  historico: LinhaInadimplencia[]
+}
+
+// "Acerto não pago (inadimplência)" — sem multa, sem acordo, nada (isso é
+// Dívidas/Acordos, coisa separada): só o Acerto semanal que o clube não
+// pagou (ou pagou só parte), somado semana a semana. Atrasados = até 8
+// semanas desde a semana mais antiga ainda em aberto; Inadimplentes = mais
+// de 8 semanas; Histórico = todo mundo que já deveu nesse período, pago ou
+// não, pra calcular a Taxa de Pagamento (Total Pago / Dívida).
+const LIMITE_SEMANAS_ATRASADO = 8
+// ~1 ano de histórico — cobre Atrasados/Inadimplentes com folga; mais velho
+// que isso a planilha do Cássio já trata como "não cobra mais".
+const SEMANAS_LOOKBACK = 52
+
+function semanasEntre(dataMaisAntiga: string, hoje: Date): number {
+  const d = new Date(dataMaisAntiga + 'T00:00:00')
+  return Math.floor((hoje.getTime() - d.getTime()) / (7 * 86400000))
+}
+
+interface Semana { periodEnd: string; valorCompleto: number; envios: number }
+interface AcumClube { clubExternalId: string; clubName: string; semanas: Semana[] }
+
+interface AcertoSaldoRow {
   id: string
-  clube_id: string
-  tipo: 'simples' | 'acordo'
-  valor_integral: number
-  clubs: { name: string; external_id: string | null } | null
+  club_id: string | null
+  club_external_id: string
+  club_name: string
+  valor_acerto: number
+  bilhetes: number
+  pendencias_antecipacao: number
+  indicacao_valor: number
+  import_id: string
 }
 
-interface ParcelaAntigaRow {
-  divida_id: string
-  valor: number
-  vencimento: string
-  pago: boolean
-  valor_pago: number | null
+// Valor completo aqui NÃO inclui Dívidas/Acordos (de propósito — essa
+// tabela é só "não pagou o Acerto", os dois conceitos ficam separados) nem
+// Lançamentos do período (bônus/promoção pontuais) — pra não multiplicar
+// consultas por semana num relatório que já olha ~1 ano pra trás. Rake,
+// Bilhetes, Pendências/Antecipação, Indicação e Segurança (fixo por clube)
+// entram, iguais em toda semana.
+async function buscarSaldosPorClube(): Promise<Map<string, AcumClube>> {
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - SEMANAS_LOOKBACK * 7)
+  const cutoffStr = cutoff.toISOString().slice(0, 10)
+
+  const { data: importsData } = await supabase
+    .from('imports')
+    .select('id, period_end')
+    .in('status', ['acertos_calculados', 'parcial'])
+    .gte('period_end', cutoffStr)
+  const periodEndPorImport = new Map(((importsData ?? []) as { id: string; period_end: string }[]).map((i) => [i.id, i.period_end]))
+  const importIds = [...periodEndPorImport.keys()]
+  const porClube = new Map<string, AcumClube>()
+  if (importIds.length === 0) return porClube
+
+  const { data: acertosData } = await supabase
+    .from('acertos')
+    .select('id, club_id, club_external_id, club_name, valor_acerto, bilhetes, pendencias_antecipacao, indicacao_valor, import_id')
+    .in('import_id', importIds)
+  const acertos = (acertosData ?? []) as AcertoSaldoRow[]
+  if (acertos.length === 0) return porClube
+
+  const acertoIds = acertos.map((a) => a.id)
+  const clubIds = [...new Set(acertos.map((a) => a.club_id).filter((id): id is string => !!id))]
+
+  const [{ data: enviosData }, { data: clubesData }] = await Promise.all([
+    supabase.from('lancamentos').select('acerto_id, natureza, valor').in('acerto_id', acertoIds).in('tipo', ['pagamento', 'antecipacao']),
+    clubIds.length > 0 ? supabase.from('clubs').select('id, security').in('id', clubIds) : Promise.resolve({ data: [] as { id: string; security: number | null }[] }),
+  ])
+  const enviosPorAcerto = new Map<string, number>()
+  for (const e of (enviosData ?? []) as { acerto_id: string; natureza: 'credito' | 'debito'; valor: number }[]) {
+    enviosPorAcerto.set(e.acerto_id, (enviosPorAcerto.get(e.acerto_id) ?? 0) + (e.natureza === 'credito' ? e.valor : -e.valor))
+  }
+  const securityPorClube = new Map(((clubesData ?? []) as { id: string; security: number | null }[]).map((c) => [c.id, c.security ?? 0]))
+
+  for (const a of acertos) {
+    if (!a.club_id) continue
+    const periodEnd = periodEndPorImport.get(a.import_id)
+    if (!periodEnd) continue
+    const valorCompleto = a.valor_acerto + a.bilhetes + a.pendencias_antecipacao + a.indicacao_valor + (securityPorClube.get(a.club_id) ?? 0)
+    if (valorCompleto >= -0.005) continue // clube não devia nessa semana
+    const envios = enviosPorAcerto.get(a.id) ?? 0
+    const existente = porClube.get(a.club_id) ?? { clubExternalId: a.club_external_id, clubName: a.club_name, semanas: [] }
+    existente.semanas.push({ periodEnd, valorCompleto, envios })
+    porClube.set(a.club_id, existente)
+  }
+  return porClube
 }
 
-// "Clubes com Dívidas Antigas": todas as Dívidas/Acordos ainda ativos
-// (status='ativo' em `dividas`, independente de estarem marcados "Pagar com
-// Rake" — isso aqui é visão de cobrança, não o desconto automático do
-// Acerto). Acerto = valor total da dívida (Simples: valor_integral; Acordo:
-// soma de todas as parcelas), Pago = soma das parcelas já pagas, Diferença =
-// o que falta. Data = vencimento da parcela em aberto mais antiga (Simples
-// não tem parcela, fica "?" pro Cássio).
-export async function buscarClubesComDividasAntigas(): Promise<LinhaDividaAntiga[]> {
-  const { data: dividasData } = await supabase
-    .from('dividas')
-    .select('id, clube_id, tipo, valor_integral, clubs(name, external_id)')
-    .eq('status', 'ativo')
-  const dividas = (dividasData ?? []) as unknown as DividaAtivaRow[]
-  if (dividas.length === 0) return []
-
-  const dividaIdsAcordo = dividas.filter((d) => d.tipo === 'acordo').map((d) => d.id)
-  const { data: parcelasData } = dividaIdsAcordo.length > 0
-    ? await supabase.from('divida_parcelas').select('divida_id, valor, vencimento, pago, valor_pago').in('divida_id', dividaIdsAcordo)
-    : { data: [] as ParcelaAntigaRow[] }
-  const parcelasPorDivida = new Map<string, ParcelaAntigaRow[]>()
-  for (const p of (parcelasData ?? []) as ParcelaAntigaRow[]) {
-    const lista = parcelasPorDivida.get(p.divida_id) ?? []
-    lista.push(p)
-    parcelasPorDivida.set(p.divida_id, lista)
+function construirLinhas(porClube: Map<string, AcumClube>, apenasEmAberto: boolean, hoje: Date): LinhaInadimplencia[] {
+  const linhas: LinhaInadimplencia[] = []
+  for (const [clubId, v] of porClube) {
+    const semanas = apenasEmAberto ? v.semanas.filter((s) => s.valorCompleto + s.envios < -0.005) : v.semanas
+    if (semanas.length === 0) continue
+    const divida = Math.round(semanas.reduce((s, w) => s + Math.abs(w.valorCompleto), 0) * 100) / 100
+    const totalPago = Math.round(semanas.reduce((s, w) => s + w.envios, 0) * 100) / 100
+    const totalPendente = Math.round((divida - totalPago) * 100) / 100
+    if (apenasEmAberto && totalPendente <= 0.005) continue
+    const data = semanas.reduce((min, w) => (w.periodEnd < min ? w.periodEnd : min), semanas[0].periodEnd)
+    linhas.push({
+      clubId, clubExternalId: v.clubExternalId, clubName: v.clubName,
+      status: 'ativo', data, divida, totalPago, totalPendente,
+      semanasEmAtraso: semanasEntre(data, hoje),
+    })
   }
+  return linhas
+}
 
-  interface Acum { clubName: string; clubExternalId: string; acerto: number; pago: number; data: string | null }
-  const porClube = new Map<string, Acum>()
-  for (const d of dividas) {
-    const existente = porClube.get(d.clube_id) ?? {
-      clubName: d.clubs?.name ?? '—',
-      clubExternalId: d.clubs?.external_id ?? '',
-      acerto: 0,
-      pago: 0,
-      data: null,
-    }
-    if (d.tipo === 'simples') {
-      existente.acerto += d.valor_integral
-    } else {
-      for (const p of parcelasPorDivida.get(d.id) ?? []) {
-        existente.acerto += p.valor
-        if (p.pago) {
-          existente.pago += p.valor_pago ?? p.valor
-        } else if (!existente.data || p.vencimento < existente.data) {
-          existente.data = p.vencimento
-        }
-      }
-    }
-    porClube.set(d.clube_id, existente)
-  }
+export async function buscarInadimplencia(): Promise<InadimplenciaResultado> {
+  const porClube = await buscarSaldosPorClube()
+  const hoje = new Date()
+  const abertas = construirLinhas(porClube, true, hoje)
+  const todas = construirLinhas(porClube, false, hoje)
 
-  const clubIds = [...porClube.keys()]
+  const clubIds = [...new Set([...abertas, ...todas].map((l) => l.clubId))]
   const statusPorClube = await statusStoplossPorClube(clubIds)
+  for (const l of abertas) l.status = statusPorClube.get(l.clubId) ?? 'ativo'
+  for (const l of todas) l.status = statusPorClube.get(l.clubId) ?? 'ativo'
 
-  return [...porClube.entries()]
-    .map(([clubId, v]) => ({
-      clubId,
-      clubExternalId: v.clubExternalId,
-      clubName: v.clubName,
-      status: statusPorClube.get(clubId) ?? 'ativo',
-      data: v.data,
-      acerto: v.acerto,
-      pago: v.pago,
-      diferenca: Math.round((v.acerto - v.pago) * 100) / 100,
-    }))
-    .filter((l) => l.diferenca > 0.005)
-    .sort((a, b) => a.diferenca - b.diferenca)
+  const porPendente = (a: LinhaInadimplencia, b: LinhaInadimplencia) => a.totalPendente - b.totalPendente
+  return {
+    atrasados: abertas.filter((l) => l.semanasEmAtraso <= LIMITE_SEMANAS_ATRASADO).sort(porPendente),
+    inadimplentes: abertas.filter((l) => l.semanasEmAtraso > LIMITE_SEMANAS_ATRASADO).sort(porPendente),
+    historico: todas.sort((a, b) => b.data.localeCompare(a.data)),
+  }
 }
