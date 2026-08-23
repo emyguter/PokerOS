@@ -1,16 +1,18 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, CheckCircle2, AlertTriangle, Trash2 } from 'lucide-react'
+import { Plus, CheckCircle2, AlertTriangle, Trash2, Pencil, Split } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { errMsg } from '@/lib/errors'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import {
-  getDividas, getParcelas, criarDivida, marcarParcelaPaga, atualizarStatusDivida, excluirDivida, getFaixasMultaDoClube,
+  getDividas, getParcelas, criarDivida, atualizarDivida, podeEditarTermosDivida, interromperEcriarFilho,
+  marcarParcelaPaga, atualizarStatusDivida, excluirDivida, getFaixasMultaDoClube,
   atualizarDividaPagoComRake, atualizarParcelaPagoComRake,
   diasDeAtraso, valorComMulta, percentualMulta,
   type DividaRow, type DividaForm, type ParcelaRow, type FaixaMulta,
 } from '@/lib/dividas'
 import { DividaModal } from './DividaModal'
+import { InterromperAcordoModal } from './InterromperAcordoModal'
 
 interface ClubeOpcao { id: string; name: string }
 
@@ -18,8 +20,12 @@ function fmt(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-const STATUS_LABEL: Record<DividaRow['status'], string> = { ativo: 'Ativo', quitado: 'Quitado', cancelado: 'Cancelado' }
-const STATUS_COR: Record<DividaRow['status'], string> = { ativo: 'text-gold', quitado: 'text-success', cancelado: 'text-gray-500' }
+function fmtData(iso: string) {
+  return new Date(iso).toLocaleDateString('pt-BR')
+}
+
+const STATUS_LABEL: Record<DividaRow['status'], string> = { ativo: 'Ativo', quitado: 'Quitado', cancelado: 'Cancelado', interrompido: 'Interrompido' }
+const STATUS_COR: Record<DividaRow['status'], string> = { ativo: 'text-gold', quitado: 'text-success', cancelado: 'text-gray-500', interrompido: 'text-alert' }
 
 export function DividasView() {
   const [clubes, setClubes] = useState<ClubeOpcao[]>([])
@@ -28,8 +34,11 @@ export function DividasView() {
   const [selecionada, setSelecionada] = useState<DividaRow | null>(null)
   const [parcelas, setParcelas] = useState<ParcelaRow[]>([])
   const [faixasMulta, setFaixasMulta] = useState<FaixaMulta[]>([])
+  const [podeEditarTermos, setPodeEditarTermos] = useState(true)
   const [loadingDetalhe, setLoadingDetalhe] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  const [editando, setEditando] = useState<DividaRow | null>(null)
+  const [interromperAberto, setInterromperAberto] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [excluindo, setExcluindo] = useState<DividaRow | null>(null)
@@ -48,21 +57,44 @@ export function DividasView() {
   async function abrirDetalhe(d: DividaRow) {
     setSelecionada(d)
     setLoadingDetalhe(true)
-    const [ps, faixas] = await Promise.all([
+    const [ps, faixas, podeTermos] = await Promise.all([
       d.tipo === 'acordo' ? getParcelas(d.id) : Promise.resolve([]),
       getFaixasMultaDoClube(d.clube_id),
+      podeEditarTermosDivida(d.id),
     ])
     setParcelas(ps)
     setFaixasMulta(faixas)
+    setPodeEditarTermos(podeTermos)
     setLoadingDetalhe(false)
   }
 
   async function handleSave(form: DividaForm) {
     setSaving(true); setError(null)
     try {
-      await criarDivida(form)
+      if (editando) await atualizarDivida(editando.id, form)
+      else await criarDivida(form)
       await load()
       setModalOpen(false)
+      setEditando(null)
+      if (selecionada) {
+        const atualizada = (await getDividas()).find((d) => d.id === selecionada.id)
+        if (atualizada) await abrirDetalhe(atualizada)
+      }
+    } catch (err) {
+      setError(errMsg(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleInterromper(novoTermos: Omit<DividaForm, 'clube_id' | 'valor_integral' | 'tipo'>) {
+    if (!selecionada) return
+    setSaving(true); setError(null)
+    try {
+      await interromperEcriarFilho(selecionada.id, novoTermos)
+      await load()
+      setInterromperAberto(false)
+      setSelecionada(null)
     } catch (err) {
       setError(errMsg(err))
     } finally {
@@ -117,6 +149,15 @@ export function DividasView() {
     }
   }
 
+  // Modo Pagar com Rake sem cronograma: nasceu sem parcela nenhuma (quita
+  // tudo de uma vez no próximo Acerto — ver lib/dividas.ts).
+  const semCronograma = selecionada?.tipo === 'acordo' && selecionada.quantidade_parcelas == null
+  const saldoRestante = selecionada
+    ? (selecionada.tipo === 'simples' || semCronograma
+        ? selecionada.valor_integral
+        : parcelas.filter((p) => !p.pago).reduce((s, p) => s + p.valor, 0))
+    : 0
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -124,7 +165,7 @@ export function DividasView() {
           <h1 className="text-2xl font-semibold text-white">Dívidas e Acordos</h1>
           <p className="text-sm text-gray-400 mt-1">Clubes com dívida simples ou Acordo parcelado, com juros e multa por atraso</p>
         </div>
-        <button onClick={() => { setError(null); setModalOpen(true) }} className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors">
+        <button onClick={() => { setError(null); setEditando(null); setModalOpen(true) }} className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors">
           <Plus size={16} />Nova Dívida
         </button>
       </div>
@@ -176,9 +217,14 @@ export function DividasView() {
                 <div>
                   <p className="text-white font-medium">{selecionada.clube_nome}</p>
                   <p className="text-xs text-gray-500">{selecionada.descricao || '—'}</p>
+                  {selecionada.divida_pai_id && <p className="text-xs text-gray-600 mt-0.5">Acordo filho de uma renegociação</p>}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`text-sm font-medium ${STATUS_COR[selecionada.status]}`}>{STATUS_LABEL[selecionada.status]}</span>
+                  <button onClick={() => { setEditando(selecionada); setError(null); setModalOpen(true) }} title="Editar" className="p-1.5 rounded-lg text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors"><Pencil size={14} /></button>
+                  {selecionada.tipo === 'acordo' && selecionada.status === 'ativo' && (
+                    <button onClick={() => { setError(null); setInterromperAberto(true) }} title="Interromper e Renegociar" className="p-1.5 rounded-lg text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors"><Split size={14} /></button>
+                  )}
                   <button onClick={() => setExcluindo(selecionada)} title="Excluir" className="p-1.5 rounded-lg text-gray-400 hover:text-alert hover:bg-alert/10 transition-colors"><Trash2 size={14} /></button>
                 </div>
               </div>
@@ -196,6 +242,24 @@ export function DividasView() {
                       </button>
                     )}
                   </div>
+                  <label className="flex items-center gap-3 cursor-pointer w-fit">
+                    <div onClick={handleTogglePagoComRake} className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${selecionada.pago_com_rake ? 'bg-gold' : 'bg-white/10'}`}>
+                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${selecionada.pago_com_rake ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </div>
+                    <span className="text-xs text-gray-400">Pagar com Rake</span>
+                  </label>
+                </div>
+              ) : semCronograma ? (
+                <div className="rounded-lg border border-white/10 bg-surface2 p-4 space-y-3">
+                  <div>
+                    <p className="text-xs text-gray-500">Dívida Inicial</p>
+                    <p className="text-lg font-semibold text-white">{fmt(selecionada.valor_integral)}</p>
+                  </div>
+                  {selecionada.status === 'quitado' && selecionada.quitado_em ? (
+                    <p className="text-xs text-success flex items-center gap-1"><CheckCircle2 size={12} />Pago em {fmtData(selecionada.quitado_em)}: {fmt(selecionada.valor_integral)}</p>
+                  ) : (
+                    <p className="text-xs text-gray-500">Em aberto — {fmt(saldoRestante)} (quita de uma vez no próximo Acerto, sem multa)</p>
+                  )}
                   <label className="flex items-center gap-3 cursor-pointer w-fit">
                     <div onClick={handleTogglePagoComRake} className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${selecionada.pago_com_rake ? 'bg-gold' : 'bg-white/10'}`}>
                       <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${selecionada.pago_com_rake ? 'translate-x-4' : 'translate-x-0.5'}`} />
@@ -247,7 +311,25 @@ export function DividasView() {
         </div>
       </div>
 
-      <DividaModal open={modalOpen} clubes={clubes} onClose={() => setModalOpen(false)} onSave={handleSave} saving={saving} error={error} />
+      <DividaModal
+        open={modalOpen}
+        clubes={clubes}
+        editing={editando}
+        podeEditarTermos={podeEditarTermos}
+        onClose={() => { setModalOpen(false); setEditando(null) }}
+        onSave={handleSave}
+        saving={saving}
+        error={error}
+      />
+      <InterromperAcordoModal
+        open={interromperAberto}
+        divida={selecionada}
+        saldoRestante={saldoRestante}
+        onClose={() => setInterromperAberto(false)}
+        onSave={handleInterromper}
+        saving={saving}
+        error={error}
+      />
       <ConfirmDelete
         open={!!excluindo}
         name={excluindo?.clube_nome ?? ''}

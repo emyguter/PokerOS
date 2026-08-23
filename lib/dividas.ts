@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 
 export type TipoDivida = 'simples' | 'acordo'
-export type StatusDivida = 'ativo' | 'quitado' | 'cancelado'
+export type StatusDivida = 'ativo' | 'quitado' | 'cancelado' | 'interrompido'
 
 export interface ParcelaCalculada {
   numero: number
@@ -30,36 +30,42 @@ function arredonda(v: number): number {
   return Math.round(v * 100) / 100
 }
 
-// Juros (se ativo) incide uma vez sobre o valor integral, antes de dividir
-// pelas parcelas — não é juros composto por parcela. Pagamento Mínimo é o
-// piso: se valor÷parcelas der menos que o mínimo, usa o mínimo e recalcula
-// quantas parcelas são necessárias pra fechar o valor total (confirmado
-// pelo Cássio). A última parcela absorve a sobra de arredondamento pra
-// soma bater certinho com o valor com juros.
+// Juros (se ativo) incide POR PARCELA conforme o período — parcela N vale
+// parcelaBase × (1+juros%)^N, composto a cada semana que passa (confirmado
+// pelo Cássio com planilha de referência: base 1000, 1% a.s. → parcela 2 =
+// 1.020,10, parcela 6 = 1.061,52 etc). Não é um juros único aplicado sobre
+// o valor integral antes de dividir. Pagamento Mínimo é o piso aplicado
+// sobre a parcela BASE (sem juros): se valor÷parcelas der menos que o
+// mínimo, usa o mínimo como base e recalcula quantas parcelas fecham o
+// valor integral (confirmado pelo Cássio) — o juros por período continua
+// incidindo em cima disso.
 export function calcularAcordo(input: CalculoAcordoInput): CalculoAcordoResultado {
-  const valorComJuros = input.jurosAtivo && input.jurosPct
-    ? arredonda(input.valorIntegral * (1 + input.jurosPct / 100))
-    : input.valorIntegral
-
-  const parcelaBruta = valorComJuros / input.quantidadeParcelas
-  const usouPagamentoMinimo = !!input.pagamentoMinimo && input.pagamentoMinimo > 0 && parcelaBruta < input.pagamentoMinimo
-  const valorParcela = usouPagamentoMinimo ? (input.pagamentoMinimo as number) : arredonda(parcelaBruta)
+  const parcelaBaseBruta = input.valorIntegral / input.quantidadeParcelas
+  const usouPagamentoMinimo = !!input.pagamentoMinimo && input.pagamentoMinimo > 0 && parcelaBaseBruta < input.pagamentoMinimo
+  const parcelaBase = usouPagamentoMinimo ? (input.pagamentoMinimo as number) : arredonda(parcelaBaseBruta)
   const quantidadeParcelasFinal = usouPagamentoMinimo
-    ? Math.ceil(valorComJuros / (input.pagamentoMinimo as number))
+    ? Math.ceil(input.valorIntegral / (input.pagamentoMinimo as number))
     : input.quantidadeParcelas
 
   const parcelas: ParcelaCalculada[] = []
-  let somaAnterior = 0
+  let valorComJuros = 0
+  // Sem juros, a última parcela absorve a sobra de arredondamento pra soma
+  // bater certinho com o valor integral — com juros, não tem "sobra" pra
+  // absorver (cada parcela já é o que o período manda), a soma final é
+  // simplesmente maior que o valor integral (isso é o juros).
+  let somaSemJuros = 0
   for (let i = 1; i <= quantidadeParcelasFinal; i++) {
     const ultima = i === quantidadeParcelasFinal
-    const valor = ultima ? arredonda(valorComJuros - somaAnterior) : valorParcela
-    somaAnterior = arredonda(somaAnterior + valor)
+    const base = ultima && !input.jurosAtivo ? arredonda(input.valorIntegral - somaSemJuros) : parcelaBase
+    somaSemJuros = arredonda(somaSemJuros + base)
+    const valor = input.jurosAtivo && input.jurosPct ? arredonda(base * Math.pow(1 + input.jurosPct / 100, i)) : base
+    valorComJuros = arredonda(valorComJuros + valor)
     const vencimento = new Date(input.dataPrimeiraParcela + 'T00:00:00')
     vencimento.setDate(vencimento.getDate() + (i - 1) * 7)
     parcelas.push({ numero: i, valor, vencimento: vencimento.toISOString().slice(0, 10) })
   }
 
-  return { valorComJuros, valorParcela, quantidadeParcelasFinal, usouPagamentoMinimo, parcelas }
+  return { valorComJuros, valorParcela: parcelaBase, quantidadeParcelasFinal, usouPagamentoMinimo, parcelas }
 }
 
 export interface FaixaMulta {
@@ -108,10 +114,19 @@ export interface DividaRow {
   juros_ativo: boolean
   juros_pct: number | null
   data_primeira_parcela: string | null
-  // Só é lido de verdade pro tipo 'simples' (Acordo controla por parcela, ver
-  // ParcelaRow) — se o valor integral desconta do Rake toda semana até
-  // marcar quitada, ou se é cobrado por fora.
+  // Lido de verdade pro tipo 'simples' e pro Acordo SEM cronograma de
+  // parcelas (quantidade_parcelas null — ver getDividasAcertoDoClube): se o
+  // valor integral desconta do Rake de uma vez no próximo Acerto processado,
+  // ou se é cobrado por fora. Acordo COM cronograma controla por parcela
+  // (ver ParcelaRow.pago_com_rake).
   pago_com_rake: boolean
+  // Renegociação: aponta pro Acordo que foi interrompido pra dar origem a
+  // esse (ver interromperEcriarFilho) — null pra dívida que nasceu do zero.
+  divida_pai_id: string | null
+  // Setado por atualizarStatusDivida sempre que status vira 'quitado' —
+  // junto com valor_integral, monta o "Dívida Inicial / Pago em X / Em
+  // Aberto" do Acordo sem cronograma de parcelas.
+  quitado_em: string | null
   criado_em: string
 }
 
@@ -142,7 +157,7 @@ export interface ParcelaRow {
 export async function getDividas(): Promise<DividaRow[]> {
   const { data, error } = await supabase
     .from('dividas')
-    .select('id, clube_id, tipo, valor_integral, descricao, status, pagamento_minimo, quantidade_parcelas, juros_ativo, juros_pct, data_primeira_parcela, pago_com_rake, criado_em, clubs(name)')
+    .select('id, clube_id, tipo, valor_integral, descricao, status, pagamento_minimo, quantidade_parcelas, juros_ativo, juros_pct, data_primeira_parcela, pago_com_rake, divida_pai_id, quitado_em, criado_em, clubs(name)')
     .order('criado_em', { ascending: false })
   if (error) throw error
   return (data ?? []).map((d) => {
@@ -161,33 +176,102 @@ export async function getParcelas(dividaId: string): Promise<ParcelaRow[]> {
   return data ?? []
 }
 
+// Acordo com Pagar com Rake ligado E sem quantidade de parcelas/data
+// preenchidas vira um Acordo SEM cronograma — quita tudo de uma vez no
+// próximo Acerto processado (igual Dívida Simples), sem gerar
+// divida_parcelas nenhuma (confirmado pelo Cássio: "se for pagar com rake,
+// não haverá parcela"). Com quantidade+data preenchidas, gera o cronograma
+// normal (com ou sem Pagar com Rake).
+async function gerarEInserirParcelas(dividaId: string, form: DividaForm): Promise<void> {
+  if (form.tipo !== 'acordo' || !form.quantidade_parcelas || !form.data_primeira_parcela) return
+  const resultado = calcularAcordo({
+    valorIntegral: form.valor_integral,
+    jurosAtivo: form.juros_ativo,
+    jurosPct: form.juros_pct,
+    quantidadeParcelas: form.quantidade_parcelas,
+    pagamentoMinimo: form.pagamento_minimo,
+    dataPrimeiraParcela: form.data_primeira_parcela,
+  })
+  // Todas as parcelas nascem com o mesmo "Pagar com Rake?" escolhido na
+  // criação — dá pra ajustar parcela a parcela depois, na tela de Dívidas.
+  const { error: parcelasErr } = await supabase.from('divida_parcelas').insert(
+    resultado.parcelas.map((p) => ({ divida_id: dividaId, numero: p.numero, valor: p.valor, vencimento: p.vencimento, pago_com_rake: form.pago_com_rake }))
+  )
+  if (parcelasErr) throw parcelasErr
+}
+
 export async function criarDivida(form: DividaForm): Promise<string> {
   const { data: userData } = await supabase.auth.getUser()
   const { data: nova, error } = await supabase
     .from('dividas')
-    .insert({ ...form, criado_por: userData.user?.id ?? null })
+    .insert({
+      clube_id: form.clube_id, tipo: form.tipo, valor_integral: form.valor_integral, descricao: form.descricao,
+      pagamento_minimo: form.pagamento_minimo, quantidade_parcelas: form.quantidade_parcelas,
+      juros_ativo: form.juros_ativo, juros_pct: form.juros_pct, data_primeira_parcela: form.data_primeira_parcela,
+      pago_com_rake: form.pago_com_rake, criado_por: userData.user?.id ?? null,
+    })
     .select('id')
     .single()
   if (error) throw error
 
-  if (form.tipo === 'acordo' && form.quantidade_parcelas && form.data_primeira_parcela) {
-    const resultado = calcularAcordo({
-      valorIntegral: form.valor_integral,
-      jurosAtivo: form.juros_ativo,
-      jurosPct: form.juros_pct,
-      quantidadeParcelas: form.quantidade_parcelas,
-      pagamentoMinimo: form.pagamento_minimo,
-      dataPrimeiraParcela: form.data_primeira_parcela,
-    })
-    // Todas as parcelas nascem com o mesmo "Pagar com Rake?" escolhido na
-    // criação — dá pra ajustar parcela a parcela depois, na tela de Dívidas.
-    const { error: parcelasErr } = await supabase.from('divida_parcelas').insert(
-      resultado.parcelas.map((p) => ({ divida_id: nova.id, numero: p.numero, valor: p.valor, vencimento: p.vencimento, pago_com_rake: form.pago_com_rake }))
-    )
-    if (parcelasErr) throw parcelasErr
-  }
-
+  await gerarEInserirParcelas(nova.id, form)
   return nova.id
+}
+
+// Só dá pra editar Valor/Juros/Parcelas/Data enquanto NENHUMA parcela desse
+// Acordo tiver sido paga ainda — depois disso os termos travam, pra não
+// bagunçar o histórico de quem já pagou parte (confirmado pelo Cássio).
+// Descrição e Pagar com Rake continuam editáveis sempre.
+export async function podeEditarTermosDivida(dividaId: string): Promise<boolean> {
+  const { data } = await supabase.from('divida_parcelas').select('id').eq('divida_id', dividaId).eq('pago', true).limit(1)
+  return (data ?? []).length === 0
+}
+
+export async function atualizarDivida(dividaId: string, form: DividaForm): Promise<void> {
+  const podeTermos = await podeEditarTermosDivida(dividaId)
+  const patch: Record<string, unknown> = { descricao: form.descricao, pago_com_rake: form.pago_com_rake }
+  if (podeTermos) {
+    Object.assign(patch, {
+      valor_integral: form.valor_integral, pagamento_minimo: form.pagamento_minimo, quantidade_parcelas: form.quantidade_parcelas,
+      juros_ativo: form.juros_ativo, juros_pct: form.juros_pct, data_primeira_parcela: form.data_primeira_parcela,
+    })
+  }
+  const { error } = await supabase.from('dividas').update(patch).eq('id', dividaId)
+  if (error) throw error
+
+  if (podeTermos && form.tipo === 'acordo') {
+    const { error: delErr } = await supabase.from('divida_parcelas').delete().eq('divida_id', dividaId)
+    if (delErr) throw delErr
+    await gerarEInserirParcelas(dividaId, form)
+  }
+}
+
+// "Interromper o Acordo pra criar um Acordo filho": renegociação — encerra
+// o Acordo atual (status='interrompido', trava como estava) e abre um novo
+// Acordo já com o saldo que faltava como Valor Integral (divida_pai_id
+// aponta pro pai) — mesma dívida, termos novos (confirmado pelo Cássio).
+// Saldo: soma das parcelas ainda não pagas (cronograma normal) ou o
+// valor_integral inteiro (Acordo sem cronograma, ainda não processado —
+// só existe 'ativo' antes de quitar de uma vez).
+export async function interromperEcriarFilho(
+  dividaPaiId: string,
+  novoTermos: Omit<DividaForm, 'clube_id' | 'valor_integral' | 'tipo'>
+): Promise<string> {
+  const { data: pai, error: paiErr } = await supabase.from('dividas').select('id, clube_id, valor_integral').eq('id', dividaPaiId).single()
+  if (paiErr) throw paiErr
+
+  const { data: parcelasAbertas } = await supabase.from('divida_parcelas').select('valor').eq('divida_id', dividaPaiId).eq('pago', false)
+  const saldoRestante = (parcelasAbertas ?? []).length > 0
+    ? (parcelasAbertas as { valor: number }[]).reduce((s, p) => s + p.valor, 0)
+    : pai.valor_integral
+
+  const { error: interErr } = await supabase.from('dividas').update({ status: 'interrompido' }).eq('id', dividaPaiId)
+  if (interErr) throw interErr
+
+  const filhoId = await criarDivida({ ...novoTermos, clube_id: pai.clube_id, valor_integral: arredonda(saldoRestante), tipo: 'acordo' })
+  const { error: vinculoErr } = await supabase.from('dividas').update({ divida_pai_id: dividaPaiId }).eq('id', filhoId)
+  if (vinculoErr) throw vinculoErr
+  return filhoId
 }
 
 export async function marcarParcelaPaga(parcelaId: string, valorPago: number): Promise<void> {
@@ -204,7 +288,9 @@ export async function atualizarParcelaPagoComRake(parcelaId: string, pagoComRake
 }
 
 export async function atualizarStatusDivida(dividaId: string, status: StatusDivida): Promise<void> {
-  const { error } = await supabase.from('dividas').update({ status }).eq('id', dividaId)
+  const patch: Record<string, unknown> = { status }
+  if (status === 'quitado') patch.quitado_em = new Date().toISOString()
+  const { error } = await supabase.from('dividas').update(patch).eq('id', dividaId)
   if (error) throw error
 }
 
@@ -249,30 +335,42 @@ export interface ItemDividaAcerto {
   descricao: string
   valor: number
   // Pra marcar como paga sozinha quando o Acerto for processado (ver
-  // marcarDividasPagasComRake, chamado por processarAcertos) — 'simples'
-  // marca a Dívida (status quitado), 'parcela' marca a Parcela.
-  origem: { tipo: 'simples'; dividaId: string } | { tipo: 'parcela'; parcelaId: string }
+  // marcarDividasPagasComRake, chamado por processarAcertos) — 'simples' e
+  // 'acordo_rake' marcam a Dívida inteira (status quitado, de uma vez só),
+  // 'parcela' marca só aquela Parcela do cronograma.
+  origem: { tipo: 'simples'; dividaId: string } | { tipo: 'acordo_rake'; dividaId: string } | { tipo: 'parcela'; parcelaId: string }
 }
 
 // Dívida/Acordo desse clube que entra no card de Acerto — só quem estiver
 // marcado "Pagar com Rake" (pago_com_rake): Simples ativa (valor cheio, some
-// assim que marcada quitada) + parcelas de Acordo ainda não pagas com
-// vencimento até o fim do período (inclui atrasadas de períodos anteriores:
-// continuam entrando toda semana até serem marcadas como pagas — o que
-// marcarDividasPagasComRake faz sozinho ao processar o Acerto). Atraso
+// assim que marcada quitada) + Acordo SEM cronograma de parcelas
+// (quantidade_parcelas null — nasceu com Pagar com Rake ligado direto, sem
+// parcelamento) quita tudo de uma vez igual Simples, sem multa (não tem
+// vencimento nenhum pra calcular atraso) + parcelas de Acordo COM
+// cronograma ainda não pagas com vencimento até o fim do período (inclui
+// atrasadas de períodos anteriores: continuam entrando toda semana até
+// serem marcadas como pagas — o que marcarDividasPagasComRake faz sozinho
+// ao processar o Acerto), com multa se o clube tiver Regra de Multa
+// vinculada (confirmado pelo Cássio: se tiver multa cadastrada, ela entra —
+// sem regra vinculada, não tem multa nenhuma, igual sempre foi). Atraso
 // calculado em relação ao FIM DO PERÍODO, não "hoje" — um Acerto já fechado
 // não pode mudar de valor se reaberto numa data futura.
 export async function getDividasAcertoDoClube(clubeId: string, periodoFim: string): Promise<ItemDividaAcerto[]> {
   const [{ data: dividas }, faixas] = await Promise.all([
-    supabase.from('dividas').select('id, tipo, valor_integral, descricao, pago_com_rake').eq('clube_id', clubeId).eq('status', 'ativo'),
+    supabase.from('dividas').select('id, tipo, valor_integral, descricao, quantidade_parcelas, pago_com_rake').eq('clube_id', clubeId).eq('status', 'ativo'),
     getFaixasMultaDoClube(clubeId),
   ])
 
   const itens: ItemDividaAcerto[] = []
   const hoje = new Date(periodoFim + 'T00:00:00')
-  for (const d of (dividas ?? []) as { id: string; tipo: TipoDivida; valor_integral: number; descricao: string | null; pago_com_rake: boolean }[]) {
+  for (const d of (dividas ?? []) as { id: string; tipo: TipoDivida; valor_integral: number; descricao: string | null; quantidade_parcelas: number | null; pago_com_rake: boolean }[]) {
+    if (!d.pago_com_rake) continue
     if (d.tipo === 'simples') {
-      if (d.pago_com_rake) itens.push({ descricao: d.descricao || 'Dívida', valor: d.valor_integral, origem: { tipo: 'simples', dividaId: d.id } })
+      itens.push({ descricao: d.descricao || 'Dívida', valor: d.valor_integral, origem: { tipo: 'simples', dividaId: d.id } })
+      continue
+    }
+    if (!d.quantidade_parcelas) {
+      itens.push({ descricao: d.descricao || 'Acordo', valor: d.valor_integral, origem: { tipo: 'acordo_rake', dividaId: d.id } })
       continue
     }
     const { data: parcelas } = await supabase
@@ -297,7 +395,7 @@ export async function getDividasAcertoDoClube(clubeId: string, periodoFim: strin
 // delta (valor com multa − valor original da parcela) em vez do total.
 export async function getMultaAplicadaDoClube(clubeId: string, periodoFim: string): Promise<number> {
   const [{ data: dividas }, faixas] = await Promise.all([
-    supabase.from('dividas').select('id').eq('clube_id', clubeId).eq('status', 'ativo').eq('tipo', 'acordo'),
+    supabase.from('dividas').select('id').eq('clube_id', clubeId).eq('status', 'ativo').eq('tipo', 'acordo').not('quantidade_parcelas', 'is', null),
     getFaixasMultaDoClube(clubeId),
   ])
   const hoje = new Date(periodoFim + 'T00:00:00')

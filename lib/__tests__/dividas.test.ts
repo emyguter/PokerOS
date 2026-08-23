@@ -14,13 +14,26 @@ describe('calcularAcordo', () => {
     expect(r.parcelas.every((p) => p.valor === 250)).toBe(true)
   })
 
-  it('com juros, aplica uma vez sobre o valor integral antes de dividir', () => {
+  it('com juros, compõe por parcela conforme o período (parcela N = base × (1+juros)^N)', () => {
     const r = calcularAcordo({
       valorIntegral: 1000, jurosAtivo: true, jurosPct: 10,
       quantidadeParcelas: 2, pagamentoMinimo: null, dataPrimeiraParcela: '2026-08-17',
     })
-    expect(r.valorComJuros).toBe(1100)
-    expect(r.parcelas.reduce((s, p) => s + p.valor, 0)).toBe(1100)
+    expect(r.parcelas[0].valor).toBe(550) // 500 × 1.10^1
+    expect(r.parcelas[1].valor).toBe(605) // 500 × 1.10^2
+    expect(r.valorComJuros).toBe(1155)
+  })
+
+  it('planilha de referência: base 1000, 1% a.s., 6 parcelas', () => {
+    const r = calcularAcordo({
+      valorIntegral: 6000, jurosAtivo: true, jurosPct: 1,
+      quantidadeParcelas: 6, pagamentoMinimo: null, dataPrimeiraParcela: '2026-08-17',
+    })
+    expect(r.parcelas.map((p) => p.valor)).toEqual([1010, 1020.1, 1030.3, 1040.6, 1051.01, 1061.52])
+    // Planilha de referência soma as células sem arredondar (dá 6.213,54) —
+    // aqui cada parcela já é o valor real cobrado (arredondado pro centavo),
+    // então o total é a soma do que de fato é cobrável: 6.213,53.
+    expect(r.valorComJuros).toBe(6213.53)
   })
 
   it('parcela abaixo do pagamento mínimo usa o mínimo e ajusta a quantidade de parcelas', () => {

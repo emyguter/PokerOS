@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import { BuscaSelect } from '@/components/BuscaSelect'
-import { calcularAcordo, type DividaForm, type TipoDivida } from '@/lib/dividas'
+import { calcularAcordo, type DividaForm, type DividaRow, type TipoDivida } from '@/lib/dividas'
 
 interface ClubeOpcao { id: string; name: string }
 
@@ -13,6 +13,13 @@ interface Props {
   onSave: (form: DividaForm) => void
   saving: boolean
   error?: string | null
+  // Presente = modal em modo edição (título muda, clube travado). Ausente =
+  // criação normal.
+  editing?: DividaRow | null
+  // Só relevante em edição: false trava Valor/Juros/Parcelas/Data porque já
+  // tem parcela paga (ver podeEditarTermosDivida) — Descrição e Pagar com
+  // Rake continuam editáveis sempre.
+  podeEditarTermos?: boolean
 }
 
 function hoje() {
@@ -24,14 +31,15 @@ function fmt(v: number) {
 }
 
 const inputCls = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50'
+const inputLockedCls = 'w-full bg-surface/50 border border-white/5 rounded-lg px-3 py-2.5 text-gray-400 text-sm cursor-not-allowed'
 
-export function DividaModal({ open, clubes, onClose, onSave, saving, error }: Props) {
+export function DividaModal({ open, clubes, onClose, onSave, saving, error, editing, podeEditarTermos = true }: Props) {
   const [clubeId, setClubeId] = useState('')
   const [tipo, setTipo] = useState<TipoDivida>('simples')
   const [valorIntegral, setValorIntegral] = useState('')
   const [descricao, setDescricao] = useState('')
   const [pagamentoMinimo, setPagamentoMinimo] = useState('')
-  const [quantidadeParcelas, setQuantidadeParcelas] = useState('4')
+  const [quantidadeParcelas, setQuantidadeParcelas] = useState('0')
   const [jurosAtivo, setJurosAtivo] = useState(false)
   const [jurosPct, setJurosPct] = useState('')
   const [dataPrimeiraParcela, setDataPrimeiraParcela] = useState(hoje())
@@ -39,15 +47,31 @@ export function DividaModal({ open, clubes, onClose, onSave, saving, error }: Pr
 
   useEffect(() => {
     if (!open) return
-    setClubeId(''); setTipo('simples'); setValorIntegral(''); setDescricao('')
-    setPagamentoMinimo(''); setQuantidadeParcelas('4'); setJurosAtivo(false); setJurosPct('')
-    setDataPrimeiraParcela(hoje()); setPagoComRake(true)
-  }, [open])
+    if (editing) {
+      setClubeId(editing.clube_id); setTipo(editing.tipo); setValorIntegral(String(editing.valor_integral))
+      setDescricao(editing.descricao ?? '')
+      setPagamentoMinimo(editing.pagamento_minimo != null ? String(editing.pagamento_minimo) : '')
+      setQuantidadeParcelas(editing.quantidade_parcelas != null ? String(editing.quantidade_parcelas) : '0')
+      setJurosAtivo(editing.juros_ativo); setJurosPct(editing.juros_pct != null ? String(editing.juros_pct) : '')
+      setDataPrimeiraParcela(editing.data_primeira_parcela ?? hoje())
+      setPagoComRake(editing.pago_com_rake)
+    } else {
+      setClubeId(''); setTipo('simples'); setValorIntegral(''); setDescricao('')
+      setPagamentoMinimo(''); setQuantidadeParcelas('0'); setJurosAtivo(false); setJurosPct('')
+      setDataPrimeiraParcela(hoje()); setPagoComRake(true)
+    }
+  }, [open, editing])
+
+  // Pagar com Rake ligado num Acordo = quita tudo de uma vez no próximo
+  // Acerto, sem cronograma de parcelas — os campos de parcelamento somem
+  // (confirmado pelo Cássio: "se for pagar com rake, não haverá parcela").
+  const semCronograma = tipo === 'acordo' && pagoComRake
+  const travado = tipo === 'acordo' && !podeEditarTermos
 
   const preview = useMemo(() => {
     const valor = Number(valorIntegral.replace(',', '.'))
     const parcelas = Number(quantidadeParcelas)
-    if (tipo !== 'acordo' || !valor || !parcelas || parcelas < 1) return null
+    if (tipo !== 'acordo' || semCronograma || !valor || !parcelas || parcelas < 1) return null
     return calcularAcordo({
       valorIntegral: valor,
       jurosAtivo,
@@ -56,11 +80,12 @@ export function DividaModal({ open, clubes, onClose, onSave, saving, error }: Pr
       pagamentoMinimo: pagamentoMinimo ? Number(pagamentoMinimo.replace(',', '.')) : null,
       dataPrimeiraParcela,
     })
-  }, [tipo, valorIntegral, quantidadeParcelas, jurosAtivo, jurosPct, pagamentoMinimo, dataPrimeiraParcela])
+  }, [tipo, semCronograma, valorIntegral, quantidadeParcelas, jurosAtivo, jurosPct, pagamentoMinimo, dataPrimeiraParcela])
 
   if (!open) return null
 
-  const podeSalvar = !!clubeId && !!Number(valorIntegral.replace(',', '.')) && (tipo === 'simples' || (!!Number(quantidadeParcelas) && !!dataPrimeiraParcela))
+  const podeSalvar = !!clubeId && !!Number(valorIntegral.replace(',', '.'))
+    && (tipo === 'simples' || semCronograma || (!!Number(quantidadeParcelas) && !!dataPrimeiraParcela))
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -70,11 +95,11 @@ export function DividaModal({ open, clubes, onClose, onSave, saving, error }: Pr
       tipo,
       valor_integral: Number(valorIntegral.replace(',', '.')),
       descricao: descricao || null,
-      pagamento_minimo: tipo === 'acordo' && pagamentoMinimo ? Number(pagamentoMinimo.replace(',', '.')) : null,
-      quantidade_parcelas: tipo === 'acordo' ? Number(quantidadeParcelas) : null,
-      juros_ativo: tipo === 'acordo' && jurosAtivo,
-      juros_pct: tipo === 'acordo' && jurosAtivo && jurosPct ? Number(jurosPct.replace(',', '.')) : null,
-      data_primeira_parcela: tipo === 'acordo' ? dataPrimeiraParcela : null,
+      pagamento_minimo: tipo === 'acordo' && !semCronograma && pagamentoMinimo ? Number(pagamentoMinimo.replace(',', '.')) : null,
+      quantidade_parcelas: tipo === 'acordo' && !semCronograma ? Number(quantidadeParcelas) : null,
+      juros_ativo: tipo === 'acordo' && !semCronograma && jurosAtivo,
+      juros_pct: tipo === 'acordo' && !semCronograma && jurosAtivo && jurosPct ? Number(jurosPct.replace(',', '.')) : null,
+      data_primeira_parcela: tipo === 'acordo' && !semCronograma ? dataPrimeiraParcela : null,
       pago_com_rake: pagoComRake,
     })
   }
@@ -84,30 +109,39 @@ export function DividaModal({ open, clubes, onClose, onSave, saving, error }: Pr
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
-          <h2 className="text-lg font-semibold text-white">Nova Dívida</h2>
+          <h2 className="text-lg font-semibold text-white">{editing ? 'Editar Dívida' : 'Nova Dívida'}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1.5">Clube<span className="text-gray-500 ml-1">*</span></label>
-              <BuscaSelect value={clubeId} onChange={setClubeId} opcoes={clubes.map((c) => ({ id: c.id, nome: c.name }))} placeholder="— Selecione —" />
+              {editing ? (
+                <input type="text" value={editing.clube_nome} disabled className={inputLockedCls} />
+              ) : (
+                <BuscaSelect value={clubeId} onChange={setClubeId} opcoes={clubes.map((c) => ({ id: c.id, nome: c.name }))} placeholder="— Selecione —" />
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setTipo('simples')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipo === 'simples' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
+              <button type="button" disabled={!!editing} onClick={() => setTipo('simples')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed ${tipo === 'simples' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
                 Dívida Simples
                 <p className="text-xs font-normal text-gray-500 mt-0.5">Só um valor, sem parcelamento</p>
               </button>
-              <button type="button" onClick={() => setTipo('acordo')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left ${tipo === 'acordo' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
+              <button type="button" disabled={!!editing} onClick={() => setTipo('acordo')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed ${tipo === 'acordo' ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
                 Acordo
-                <p className="text-xs font-normal text-gray-500 mt-0.5">Parcelado, com juros opcional</p>
+                <p className="text-xs font-normal text-gray-500 mt-0.5">Parcelado, com juros opcional, ou pago com Rake de uma vez</p>
               </button>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1.5">Valor Integral<span className="text-gray-500 ml-1">*</span></label>
-              <input type="text" inputMode="decimal" value={valorIntegral} onChange={(e) => setValorIntegral(e.target.value)} placeholder="Ex: 1000" className={inputCls} />
+              {travado ? (
+                <input type="text" value={fmt(Number(valorIntegral.replace(',', '.')) || 0)} disabled className={inputLockedCls} />
+              ) : (
+                <input type="text" inputMode="decimal" value={valorIntegral} onChange={(e) => setValorIntegral(e.target.value)} placeholder="Ex: 1000" className={inputCls} />
+              )}
+              {travado && <p className="text-xs text-gray-600 mt-1">Já tem parcela paga — termos travados. Pra mudar, interrompa e crie um Acordo filho.</p>}
             </div>
 
             <div>
@@ -124,47 +158,64 @@ export function DividaModal({ open, clubes, onClose, onSave, saving, error }: Pr
               </label>
               <p className="text-xs text-gray-500">
                 {tipo === 'acordo'
-                  ? 'Vale como padrão pras parcelas geradas agora — dá pra ajustar parcela a parcela depois, na tela de Dívidas.'
+                  ? 'Ligado, quita tudo de uma vez no próximo Acerto processado, sem cronograma de parcelas. Desligado, define um cronograma parcelado abaixo (dá pra ligar Pagar com Rake parcela a parcela depois, na tela de Dívidas).'
                   : 'Ligado, desconta automático do Acerto toda semana até quitar. Desligado, o clube paga por fora e alguém marca como quitada na mão.'}
               </p>
             </div>
 
-            {tipo === 'acordo' && (
+            {tipo === 'acordo' && !semCronograma && (
               <>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1.5">Quantidade de Parcelas<span className="text-gray-500 ml-1">*</span></label>
-                    <input type="number" min="1" step="1" value={quantidadeParcelas} onChange={(e) => setQuantidadeParcelas(e.target.value)} className={inputCls} />
+                    {travado ? (
+                      <input type="text" value={quantidadeParcelas} disabled className={inputLockedCls} />
+                    ) : (
+                      <input type="number" min="1" step="1" value={quantidadeParcelas} onChange={(e) => setQuantidadeParcelas(e.target.value)} className={inputCls} />
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1.5">Pagamento Mínimo (opcional)</label>
-                    <input type="text" inputMode="decimal" value={pagamentoMinimo} onChange={(e) => setPagamentoMinimo(e.target.value)} placeholder="Piso da parcela" className={inputCls} />
+                    {travado ? (
+                      <input type="text" value={pagamentoMinimo} disabled className={inputLockedCls} />
+                    ) : (
+                      <input type="text" inputMode="decimal" value={pagamentoMinimo} onChange={(e) => setPagamentoMinimo(e.target.value)} placeholder="Piso da parcela" className={inputCls} />
+                    )}
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1.5">Data da 1ª Parcela<span className="text-gray-500 ml-1">*</span></label>
-                  <input type="date" value={dataPrimeiraParcela} onChange={(e) => setDataPrimeiraParcela(e.target.value)} className={inputCls} />
+                  {travado ? (
+                    <input type="text" value={dataPrimeiraParcela} disabled className={inputLockedCls} />
+                  ) : (
+                    <input type="date" value={dataPrimeiraParcela} onChange={(e) => setDataPrimeiraParcela(e.target.value)} className={inputCls} />
+                  )}
                   <p className="text-xs text-gray-500 mt-1.5">As próximas vencem semanalmente a partir dessa data.</p>
                 </div>
 
                 <div className="space-y-2">
                   <label className="flex items-center gap-3 cursor-pointer w-fit">
-                    <div onClick={() => setJurosAtivo(!jurosAtivo)} className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${jurosAtivo ? 'bg-gold' : 'bg-white/10'}`}>
+                    <div onClick={() => !travado && setJurosAtivo(!jurosAtivo)} className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${jurosAtivo ? 'bg-gold' : 'bg-white/10'} ${travado ? 'opacity-50 cursor-not-allowed' : ''}`}>
                       <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${jurosAtivo ? 'translate-x-5' : 'translate-x-1'}`} />
                     </div>
                     <span className="text-sm text-gray-300">Juros</span>
                   </label>
                   {jurosAtivo && (
-                    <input type="text" inputMode="decimal" value={jurosPct} onChange={(e) => setJurosPct(e.target.value)} placeholder="% sobre o valor integral" className={inputCls} />
+                    travado ? (
+                      <input type="text" value={jurosPct} disabled className={inputLockedCls} />
+                    ) : (
+                      <input type="text" inputMode="decimal" value={jurosPct} onChange={(e) => setJurosPct(e.target.value)} placeholder="% por parcela, composto" className={inputCls} />
+                    )
                   )}
+                  {jurosAtivo && <p className="text-xs text-gray-500">Incide por parcela conforme o período: parcela N = base × (1+juros%)^N — cresce a cada semana, não é um valor único somado no início.</p>}
                 </div>
 
                 {preview && (
                   <div className="rounded-lg border border-white/10 bg-surface2 p-3 space-y-2">
                     <p className="text-xs text-gray-400">
                       Valor {jurosAtivo ? 'com juros' : 'total'}: <span className="text-white font-medium">{fmt(preview.valorComJuros)}</span>
-                      {' · '}Parcela: <span className="text-white font-medium">{fmt(preview.valorParcela)}</span>
+                      {' · '}Parcela base: <span className="text-white font-medium">{fmt(preview.valorParcela)}</span>
                       {' · '}{preview.quantidadeParcelasFinal}x
                       {preview.usouPagamentoMinimo && <span className="text-gold"> (ajustado pelo Pagamento Mínimo)</span>}
                     </p>

@@ -684,6 +684,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   corrigir antes. Corte 50% ganha status reversível: `clubs.corte_50_ativo` liga ao aplicar e desliga
   com o novo botão "Reverter status" no Resumo de Stoploss — o valor já cortado continua permanente,
   só o status muda
+- [x] Acordo (Dívidas e Acordos) ganha: **Editar** (Valor/Juros/Parcelas/Data travam depois da
+  primeira parcela paga, Descrição e Pagar com Rake continuam editáveis sempre); **Juros compondo por
+  parcela** conforme o período (parcela N = base × (1+juros%)^N — antes era um juros único somado no
+  início, vide planilha de referência do Cássio); **Pagar com Rake sem cronograma** (quita tudo de uma
+  vez no próximo Acerto processado, igual Dívida Simples, sem gerar parcela nenhuma — mostra Dívida
+  Inicial / Pago em X / Em Aberto); **Interromper e Renegociar** — encerra o Acordo atual
+  (`status='interrompido'`) e abre um Acordo filho (`divida_pai_id`) já com o saldo que faltava como
+  Valor Integral, com termos novos. Multa continua só pra quem tiver Regra de Multa vinculada, igual
+  sempre foi — sem mudança aí
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
