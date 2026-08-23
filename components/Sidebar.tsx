@@ -54,6 +54,7 @@ const RELATORIOS_SUB: SubNavItem[] = [
   { key: 'acertos', labelKey: 'relatorios.aba_acertos', href: '/relatorios?tab=acertos', chave: ['relatorios', 'relatorios.acertos'] },
   { key: 'lancamentos', labelKey: 'relatorios.aba_lancamentos', href: '/relatorios?tab=lancamentos', chave: ['relatorios', 'relatorios.lancamentos'] },
   { key: 'taxas', labelKey: 'relatorios.aba_taxas', href: '/relatorios?tab=taxas', chave: 'relatorios.taxas' },
+  { key: 'resumo_acertos', labelKey: 'relatorios.aba_resumo_acertos', href: '/relatorios?tab=resumo_acertos', chave: 'relatorios.resumo_acertos' },
 ]
 const VIP_SUB: SubNavItem[] = [
   { key: 'lancamento', labelKey: 'vip.aba_lancamento', href: '/vip?tab=lancamento', chave: 'vip' },
@@ -105,7 +106,7 @@ const NAV = [
   { href: '/stoploss', labelKey: 'nav.stoploss', icon: Gauge, chaves: ['stoploss'], subItems: STOPLOSS_SUB },
   { href: '/vip', labelKey: 'nav.vip', icon: Crown, chaves: ['vip', 'vip.relatorio', 'vip.limites'], subItems: VIP_SUB },
   { href: '/dividas', labelKey: 'nav.dividas', icon: Banknote, chaves: ['dividas'] },
-  { href: '/relatorios', labelKey: 'nav.relatorios', icon: FileText, chaves: ['relatorios', 'relatorios.acertos', 'relatorios.lancamentos', 'relatorios.taxas'], subItems: RELATORIOS_SUB },
+  { href: '/relatorios', labelKey: 'nav.relatorios', icon: FileText, chaves: ['relatorios', 'relatorios.acertos', 'relatorios.lancamentos', 'relatorios.taxas', 'relatorios.resumo_acertos'], subItems: RELATORIOS_SUB },
   { href: '/admin/regras', labelKey: 'nav.regras', icon: ListChecks, chaves: ['regras'] },
 ]
 

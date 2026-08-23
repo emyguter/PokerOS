@@ -237,9 +237,10 @@ export const pt = {
     padrao_aplicado: 'Aplicado com sucesso',
   },
   relatorios: {
-    aba_acertos: 'Acertos', aba_lancamentos: 'Lançamentos', aba_taxas: 'Resumo de Taxas',
+    aba_acertos: 'Acertos', aba_lancamentos: 'Lançamentos', aba_taxas: 'Resumo de Taxas', aba_resumo_acertos: 'Resumo de Acertos',
     titulo_lancamentos: 'Relatório de Lançamentos', subtitulo_lancamentos: 'Consulta lançamentos de todos os clubes, sem precisar escolher um por vez',
     titulo_taxas: 'Resumo de Taxas', subtitulo_taxas: 'Visão executiva das taxas cadastradas em todos os clubes ativos',
+    titulo_resumo_acertos: 'Resumo de Acertos', subtitulo_resumo_acertos: 'Visão executiva de todos os clubes, todas as Ligas, numa semana só',
     todos_clubes: 'Todos os clubes', natureza: 'Natureza', origem: 'Origem', status: 'Status',
     limite_500: 'Mostrando os 500 mais recentes — estreite o filtro pra ver tudo.',
   },

@@ -618,6 +618,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   mas ainda mostravam a barra de abas redundante por cima. Cada view visível continua decidindo
   sozinha se aquela aba é permitida pra quem está logado (mesma regra de permissão de antes, só sem
   o botão de trocar de aba dentro da tela)
+- [x] Novo relatório "Resumo de Acertos" (`/relatorios`, aba própria) — visão executiva de 1 linha por
+  clube, cruzando todas as Ligas de uma semana só, a partir de uma planilha de referência do Cássio
+  (`Settlement Summary`, que ele montava manualmente toda semana cruzando várias abas). Filtro de
+  Projeto e de Semana. Colunas: Rake, Fee (com % efetivo reconstituído e Peso — fatia desse clube
+  sobre o Fee total da semana), Operacional, Ganhos/Perdas, Bilhetes, Segurança, Extras (lançamentos
+  do período), Multas (só a parte de multa das parcelas atrasadas — `getMultaAplicadaDoClube`,
+  isolando o delta de `valorComMulta`), SpinUp PnL e Indicação — tudo já calculado nas outras telas de
+  Acerto, só lado a lado. Permissão própria (`relatorios.resumo_acertos`), não herda de `relatorios`
+  genérico (mesmo padrão de `relatorios.taxas`: dado sensível cross-clube/cross-liga)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

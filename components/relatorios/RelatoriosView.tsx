@@ -6,11 +6,12 @@ import { usePermissions } from '@/lib/permissions'
 import AcertosView from '@/components/acertos/AcertosView'
 import { RelatorioLancamentos } from './RelatorioLancamentos'
 import { RelatorioTaxas } from './RelatorioTaxas'
+import { RelatorioResumoAcertos } from './RelatorioResumoAcertos'
 
-type Tab = 'acertos' | 'lancamentos' | 'taxas'
+type Tab = 'acertos' | 'lancamentos' | 'taxas' | 'resumo_acertos'
 
 function tabDaUrl(valor: string | null): Tab | null {
-  return valor === 'acertos' || valor === 'lancamentos' || valor === 'taxas' ? valor : null
+  return valor === 'acertos' || valor === 'lancamentos' || valor === 'taxas' || valor === 'resumo_acertos' ? valor : null
 }
 
 export function RelatoriosView() {
@@ -28,8 +29,11 @@ export function RelatoriosView() {
   // visão executiva cross-clube de dado sensível, só abre pra quem for
   // liberado explicitamente na chave própria (tela de Permissões).
   const podeTaxas = hasPermission('relatorios.taxas')
-  const primeiraPermitida: Tab | null = podeAcertos ? 'acertos' : podeLancamentos ? 'lancamentos' : podeTaxas ? 'taxas' : null
-  const ehPermitida = (aba: Tab) => aba === 'acertos' ? podeAcertos : aba === 'lancamentos' ? podeLancamentos : podeTaxas
+  // Mesma regra de relatorios.taxas — visão executiva cross-clube (todas as
+  // Ligas de uma vez), só abre pra quem for liberado explicitamente.
+  const podeResumoAcertos = hasPermission('relatorios.resumo_acertos')
+  const primeiraPermitida: Tab | null = podeAcertos ? 'acertos' : podeLancamentos ? 'lancamentos' : podeTaxas ? 'taxas' : podeResumoAcertos ? 'resumo_acertos' : null
+  const ehPermitida = (aba: Tab) => aba === 'acertos' ? podeAcertos : aba === 'lancamentos' ? podeLancamentos : aba === 'taxas' ? podeTaxas : podeResumoAcertos
 
   const [tab, setTab] = useState<Tab | null>(null)
 
@@ -63,6 +67,15 @@ export function RelatoriosView() {
             <p className="text-sm text-gray-400 mt-1">{t('relatorios.subtitulo_taxas')}</p>
           </div>
           <RelatorioTaxas />
+        </div>
+      )}
+      {abaAtiva === 'resumo_acertos' && (
+        <div style={{ background: '#0C0E0B', minHeight: '100vh' }} className="space-y-6 p-4 md:p-10">
+          <div>
+            <h1 className="text-2xl font-semibold text-white">{t('relatorios.titulo_resumo_acertos')}</h1>
+            <p className="text-sm text-gray-400 mt-1">{t('relatorios.subtitulo_resumo_acertos')}</p>
+          </div>
+          <RelatorioResumoAcertos />
         </div>
       )}
     </div>

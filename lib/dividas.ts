@@ -291,6 +291,33 @@ export async function getDividasAcertoDoClube(clubeId: string, periodoFim: strin
   return itens
 }
 
+// Só a parte de multa (sem o principal) das parcelas atrasadas desse
+// período — usado no Resumo de Acertos ("Fines" da planilha do Cássio).
+// Mesma regra de atraso/faixas de getDividasAcertoDoClube, isolando o
+// delta (valor com multa − valor original da parcela) em vez do total.
+export async function getMultaAplicadaDoClube(clubeId: string, periodoFim: string): Promise<number> {
+  const [{ data: dividas }, faixas] = await Promise.all([
+    supabase.from('dividas').select('id').eq('clube_id', clubeId).eq('status', 'ativo').eq('tipo', 'acordo'),
+    getFaixasMultaDoClube(clubeId),
+  ])
+  const hoje = new Date(periodoFim + 'T00:00:00')
+  let total = 0
+  for (const d of (dividas ?? []) as { id: string }[]) {
+    const { data: parcelas } = await supabase
+      .from('divida_parcelas')
+      .select('valor, vencimento')
+      .eq('divida_id', d.id)
+      .eq('pago', false)
+      .eq('pago_com_rake', true)
+      .lte('vencimento', periodoFim)
+    for (const p of (parcelas ?? []) as { valor: number; vencimento: string }[]) {
+      const atraso = diasDeAtraso(p.vencimento, hoje)
+      if (atraso > 0) total += valorComMulta(p.valor, atraso, faixas) - p.valor
+    }
+  }
+  return total
+}
+
 // Roda junto com processarAcertos, depois que o Acerto de cada clube desse
 // import já foi criado — a Dívida/parcela marcada "Pagar com Rake" acabou de
 // ter seu valor descontado (calcularTotalAcerto soma esses itens), então

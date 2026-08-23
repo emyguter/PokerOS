@@ -239,9 +239,10 @@ export const en: typeof pt = {
     padrao_aplicado: 'Applied successfully',
   },
   relatorios: {
-    aba_acertos: 'Settlements', aba_lancamentos: 'Entries', aba_taxas: 'Fee Summary',
+    aba_acertos: 'Settlements', aba_lancamentos: 'Entries', aba_taxas: 'Fee Summary', aba_resumo_acertos: 'Settlement Summary',
     titulo_lancamentos: 'Entries Report', subtitulo_lancamentos: 'Query entries across every club, without picking one at a time',
     titulo_taxas: 'Fee Summary', subtitulo_taxas: 'Executive view of the fees registered across every active club',
+    titulo_resumo_acertos: 'Settlement Summary', subtitulo_resumo_acertos: 'Executive view of every club, every League, for one week',
     todos_clubes: 'All clubs', natureza: 'Nature', origem: 'Origin', status: 'Status',
     limite_500: 'Showing the 500 most recent — narrow the filter to see everything.',
   },
