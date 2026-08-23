@@ -8,7 +8,7 @@ import { RegrasAplicadas } from './RegrasAplicadas'
 import { StepModal, type ModalStep } from './StepModal'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { getStoplossAtual } from '@/lib/stoploss'
-import { getIndicacoes, addIndicacao, removeIndicacao, type IndicacaoRow } from '@/lib/cadastro-api'
+import { getIndicacoes, addIndicacao, removeIndicacao, type IndicacaoRow, getVinculosAcerto, addVinculoAcerto, removeVinculoAcerto, type VinculoAcertoRow } from '@/lib/cadastro-api'
 
 interface Props {
   open: boolean
@@ -82,6 +82,15 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   const [buscandoIndClub, setBuscandoIndClub] = useState(false)
   const indClubTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const [vinculos, setVinculos] = useState<VinculoAcertoRow[]>([])
+  const [salvandoVinculo, setSalvandoVinculo] = useState(false)
+  const [erroVinculo, setErroVinculo] = useState<string | null>(null)
+  const [vinculoClub, setVinculoClub] = useState<{ id: string; nome: string } | null>(null)
+  const [buscaVinculoClub, setBuscaVinculoClub] = useState('')
+  const [resultadosVinculoClub, setResultadosVinculoClub] = useState<{ id: string; name: string; external_id: string | null; plataformaNome: string | null }[]>([])
+  const [buscandoVinculoClub, setBuscandoVinculoClub] = useState(false)
+  const vinculoClubTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const [clubeLocked, setClubeLocked] = useState(false)
   const [searchingClube, setSearchingClube] = useState(false)
   const [clubeNaoEncontrado, setClubeNaoEncontrado] = useState(false)
@@ -97,11 +106,17 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     setIndClub(null)
     setBuscaIndClub('')
     setResultadosIndClub([])
+    setVinculos([])
+    setErroVinculo(null)
+    setVinculoClub(null)
+    setBuscaVinculoClub('')
+    setResultadosVinculoClub([])
     setClubeLocked(!!editing?.name && !!editing?.external_id)
     setStoplossAtual(null)
     if (editing) {
       getStoplossAtual(editing.id).then(setStoplossAtual)
       getIndicacoes(editing.id).then(setIndicacoes).catch(e => setErroIndicacao(e instanceof Error ? e.message : String(e)))
+      getVinculosAcerto(editing.id).then(setVinculos).catch(e => setErroVinculo(e instanceof Error ? e.message : String(e)))
     }
   }, [editing, open])
 
@@ -154,6 +169,56 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       }
     }, 400)
   }, [buscaIndClub, editing])
+
+  async function adicionarVinculo() {
+    if (!editing || !vinculoClub) return
+    setSalvandoVinculo(true); setErroVinculo(null)
+    try {
+      await addVinculoAcerto(editing.id, vinculoClub.id)
+      setVinculos(await getVinculosAcerto(editing.id))
+      setVinculoClub(null); setBuscaVinculoClub('')
+    } catch (e) {
+      setErroVinculo(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSalvandoVinculo(false)
+    }
+  }
+
+  async function removerVinculoSalvo(clubeId: string) {
+    if (!editing) return
+    setSalvandoVinculo(true); setErroVinculo(null)
+    try {
+      await removeVinculoAcerto(clubeId)
+      setVinculos(await getVinculosAcerto(editing.id))
+    } catch (e) {
+      setErroVinculo(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSalvandoVinculo(false)
+    }
+  }
+
+  useEffect(() => {
+    if (vinculoClubTimer.current) clearTimeout(vinculoClubTimer.current)
+    if (!buscaVinculoClub.trim()) { setResultadosVinculoClub([]); return }
+    vinculoClubTimer.current = setTimeout(async () => {
+      setBuscandoVinculoClub(true)
+      try {
+        const q = buscaVinculoClub.trim()
+        let query = supabase
+          .from('clubs')
+          .select('id, name, external_id, plataformas(nome)')
+          .or(`name.ilike.%${q}%,external_id.ilike.%${q}%`)
+          .limit(6)
+        if (editing) query = query.neq('id', editing.id)
+        const { data } = await query
+        setResultadosVinculoClub((data ?? []).map((c: any) => ({
+          id: c.id, name: c.name, external_id: c.external_id, plataformaNome: c.plataformas?.nome ?? null,
+        })))
+      } finally {
+        setBuscandoVinculoClub(false)
+      }
+    }, 400)
+  }, [buscaVinculoClub, editing])
 
   if (!open) return null
 
@@ -240,6 +305,63 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
             </div>
             <span className="text-sm text-gray-300">Clube Elite</span>
           </label>
+        </div>
+      )}
+
+      {step === 'identificacao' && (
+        <div className="space-y-3 mt-4">
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">Clube Vinculado</h3>
+          <p className="text-xs text-gray-500">
+            Mesmo clube em mais de uma plataforma (ex: ClubGG + Sul HG) — quem estiver vinculado aqui vira 1 conta só no Resumo de Acertos, com os valores somados.
+          </p>
+          {!editing ? (
+            <p className="text-xs text-gray-500 italic">Salve o cadastro primeiro pra poder vincular outro clube.</p>
+          ) : (
+            <>
+              {erroVinculo && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroVinculo}</div>}
+              {vinculoClub ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 flex items-center justify-between px-3 py-2 bg-surface2 border border-gold/30 rounded-lg text-sm">
+                    <span className="text-white">{vinculoClub.nome}</span>
+                    <button type="button" onClick={() => setVinculoClub(null)} className="text-gray-500 hover:text-alert"><Trash2 size={13} /></button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={adicionarVinculo}
+                    disabled={salvandoVinculo}
+                    className="px-3 py-2 bg-surface2 border border-white/10 rounded-lg text-gold hover:border-gold/50 disabled:opacity-40 transition-colors"
+                  ><Plus size={16} /></button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <input
+                    type="text" value={buscaVinculoClub} onChange={e => setBuscaVinculoClub(e.target.value)}
+                    placeholder="Buscar clube por ID ou nome..." className={inputCls}
+                  />
+                  {buscandoVinculoClub && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
+                  {resultadosVinculoClub.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-surface2 border border-white/10 rounded-lg overflow-hidden shadow-xl">
+                      {resultadosVinculoClub.map(c => (
+                        <button
+                          key={c.id} type="button"
+                          onClick={() => { setVinculoClub({ id: c.id, nome: c.name }); setBuscaVinculoClub(''); setResultadosVinculoClub([]) }}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-white/5 transition-colors"
+                        >
+                          {c.name} <span className="text-gray-500">(ID: {c.external_id ?? '—'}{c.plataformaNome ? ` · ${c.plataformaNome}` : ''})</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {vinculos.map(v => (
+                <div key={v.id} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-white/10 text-sm">
+                  <span className="text-gray-300">{v.nome}</span>
+                  <button type="button" onClick={() => removerVinculoSalvo(v.id)} disabled={salvandoVinculo} className="text-gray-500 hover:text-alert disabled:opacity-40"><Trash2 size={13} /></button>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
 

@@ -658,6 +658,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   perguntar nada. Ao salvar a Cotação do primeiro clube da fila, pergunta se quer replicar o mesmo
   valor pros demais; se sim, confirma mais uma vez que nenhum deles tem uma cotação diferente antes de
   aplicar em lote
+- [x] Clube Vinculado (Editar Clube → Identificação): liga o mesmo clube quando ele existe em mais de
+  uma plataforma (ex: ClubGG + Sul HG) — grupo aberto (`clubs.vinculo_acerto_grupo_id`, mesmo padrão
+  de âncora auto-referenciada), busca-e-adiciona igual Indicações. Só afeta o Resumo de Acertos: clubes
+  vinculados aparecem numa linha só, com os valores somados e o detalhe de cada plataforma listado
+  embaixo do nome. Acertos e Controle de Pagamentos continuam mostrando cada clube separado
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

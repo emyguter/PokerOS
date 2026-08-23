@@ -50,7 +50,7 @@ export function RelatorioResumoAcertos() {
     const q = busca.trim().toLowerCase()
     return linhas
       .filter((l) => !projetoFiltro || l.projeto === projetoFiltro)
-      .filter((l) => !q || l.clubName.toLowerCase().includes(q) || l.clubExternalId.includes(q))
+      .filter((l) => !q || l.clubName.toLowerCase().includes(q) || l.membros.some((m) => m.externalId.includes(q)))
   }, [linhas, projetoFiltro, busca])
 
   // Peso = fatia desse clube sobre o total de Fee cobrado na semana (só
@@ -78,7 +78,7 @@ export function RelatorioResumoAcertos() {
   return (
     <div className="space-y-4">
       <p className="text-xs text-gray-500">
-        Uma linha por clube, cruzando todas as Ligas da semana escolhida — mesmos valores que já aparecem em Acertos, só lado a lado. Peso é a fatia desse clube sobre o Fee total cobrado na semana.
+        Uma linha por clube, cruzando todas as Ligas da semana escolhida — mesmos valores que já aparecem em Acertos, só lado a lado. Peso é a fatia desse clube sobre o Fee total cobrado na semana. Clube com Vínculo de Acerto (cadastro do clube) some numa linha só, com os valores de todas as plataformas vinculadas somados.
       </p>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -147,7 +147,13 @@ export function RelatorioResumoAcertos() {
                     <td className="px-4 py-3 text-gray-400">{l.projeto ?? '—'}</td>
                     <td className="px-4 py-3 text-white">
                       {l.clubName}
-                      <span className="block text-gray-600 text-xs">{l.clubExternalId}</span>
+                      {l.membros.length > 1 ? (
+                        l.membros.map((m) => (
+                          <span key={m.externalId} className="block text-gray-600 text-xs">{m.nome} · {m.externalId}</span>
+                        ))
+                      ) : (
+                        <span className="block text-gray-600 text-xs">{l.clubExternalId}</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-gray-400">{l.ligaNome ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-400">{LABEL_SETTLEMENT[l.settlementType] ?? l.settlementType}</td>

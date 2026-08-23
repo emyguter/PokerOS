@@ -202,6 +202,72 @@ export async function removeIndicacao(id: string): Promise<void> {
   if (error) throw error
 }
 
+// ─── VÍNCULO DE ACERTO (mesmo clube em mais de uma plataforma — ex: ClubGG
+// + Sul HG — precisa somar num Acerto só no Resumo de Acertos, ver
+// lib/relatorio-resumo-acertos.ts). Grupo aberto: cada clube aponta pro id
+// de outro clube do mesmo grupo em clubs.vinculo_acerto_grupo_id (a
+// "âncora"); null = ainda não vinculado a ninguém (âncora do próprio grupo
+// de 1) ──
+
+export interface VinculoAcertoRow {
+  id: string
+  nome: string
+}
+
+async function buscarAncora(clubeId: string): Promise<{ id: string; vinculo_acerto_grupo_id: string | null }> {
+  const { data, error } = await supabase.from('clubs').select('id, vinculo_acerto_grupo_id').eq('id', clubeId).single()
+  if (error) throw error
+  return data
+}
+
+export async function getVinculosAcerto(clubeId: string): Promise<VinculoAcertoRow[]> {
+  const clube = await buscarAncora(clubeId)
+  const ancora = clube.vinculo_acerto_grupo_id ?? clube.id
+  const { data, error } = await supabase
+    .from('clubs')
+    .select('id, name')
+    .or(`id.eq.${ancora},vinculo_acerto_grupo_id.eq.${ancora}`)
+    .neq('id', clubeId)
+  if (error) throw error
+  return (data ?? []).map((c) => ({ id: c.id, nome: c.name }))
+}
+
+export async function addVinculoAcerto(clubeId: string, outroClubeId: string): Promise<void> {
+  const [a, b] = await Promise.all([buscarAncora(clubeId), buscarAncora(outroClubeId)])
+  const ancoraA = a.vinculo_acerto_grupo_id ?? a.id
+  const ancoraB = b.vinculo_acerto_grupo_id ?? b.id
+  if (ancoraA === ancoraB) return
+  const { error } = await supabase
+    .from('clubs')
+    .update({ vinculo_acerto_grupo_id: ancoraA })
+    .or(`id.eq.${ancoraB},vinculo_acerto_grupo_id.eq.${ancoraB}`)
+  if (error) throw error
+}
+
+export async function removeVinculoAcerto(clubeIdParaRemover: string): Promise<void> {
+  const clube = await buscarAncora(clubeIdParaRemover)
+  if (clube.vinculo_acerto_grupo_id != null) {
+    const { error } = await supabase.from('clubs').update({ vinculo_acerto_grupo_id: null }).eq('id', clubeIdParaRemover)
+    if (error) throw error
+    return
+  }
+  // Esse clube é a âncora do grupo — promove outro membro antes de soltar,
+  // senão o resto do grupo perde o vínculo entre si.
+  const { data: membros, error: membrosErr } = await supabase
+    .from('clubs')
+    .select('id')
+    .eq('vinculo_acerto_grupo_id', clube.id)
+  if (membrosErr) throw membrosErr
+  const [novaAncora, ...resto] = (membros ?? []).map((m) => m.id)
+  if (!novaAncora) return
+  const { error: err1 } = await supabase.from('clubs').update({ vinculo_acerto_grupo_id: null }).eq('id', novaAncora)
+  if (err1) throw err1
+  if (resto.length > 0) {
+    const { error: err2 } = await supabase.from('clubs').update({ vinculo_acerto_grupo_id: novaAncora }).in('id', resto)
+    if (err2) throw err2
+  }
+}
+
 // Primeira vez que o Stoploss Inicial é definido (cadastro trava depois
 // disso — ver ClubModal): abre a primeira linha do histórico, pra sempre dar
 // pra ver de onde o clube partiu (Stoploss Atual é calculado ao vivo a
