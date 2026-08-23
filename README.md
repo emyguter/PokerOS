@@ -610,6 +610,14 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Regra" pergunta primeiro o que criar (Cálculo completo ou Multa Avulsa, essa sim solta, com
   vínculo próprio). A tela de Regras (`/admin/regras`) volta a mostrar uma lista só (sem submenu por
   tipo) — Layout/Multa anexados não aparecem como linha própria
+- [x] Todas as abas dentro do conteúdo de uma tela viraram submenu da Sidebar (mesmo padrão que já
+  existia em Lançamento/Financeiro/Segurança): Relatórios (Acertos/Lançamentos/Resumo de Taxas), VIP
+  (Lançamento/Relatório/Configurar Limites), Stoploss (Relatório/Resumo/Extrato/Fila de Aprovação) e
+  Permissões (Papéis/Usuários) ganharam submenu na Sidebar com `?tab=X`, e a barra de abas dentro da
+  própria tela foi removida — inclusive de Lançamento/Financeiro/Segurança, que já tinham o submenu
+  mas ainda mostravam a barra de abas redundante por cima. Cada view visível continua decidindo
+  sozinha se aquela aba é permitida pra quem está logado (mesma regra de permissão de antes, só sem
+  o botão de trocar de aba dentro da tela)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

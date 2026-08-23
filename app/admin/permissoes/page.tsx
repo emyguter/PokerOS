@@ -1,4 +1,5 @@
 'use client'
+import { Suspense } from 'react'
 import { Lock } from 'lucide-react'
 import { usePermissions } from '@/lib/permissions'
 import { PermissoesView } from '@/components/permissoes/PermissoesView'
@@ -16,5 +17,5 @@ export default function Page() {
       </div>
     )
   }
-  return <PermissoesView />
+  return <Suspense fallback={null}><PermissoesView /></Suspense>
 }

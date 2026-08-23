@@ -10,7 +10,7 @@ import { useI18n } from '@/lib/i18n'
 const CADASTRO_CHAVES = ['cadastro.mega_ligas', 'cadastro.superligas', 'cadastro.ligas', 'cadastro.clubes', 'cadastro.super_agentes', 'cadastro.agentes', 'cadastro.jogadores']
 const COLLAPSED_KEY = 'pokeros_sidebar_collapsed'
 
-interface SubNavItem { key: string; labelKey: string; href: string; chave?: string }
+interface SubNavItem { key: string; labelKey: string; href: string; chave?: string | string[] }
 
 // Mesmas 8 telas do menu interno de Cadastros (app/admin/cadastro/layout.tsx)
 // — aqui só pra dar atalho direto pela sidebar, o menu interno continua igual.
@@ -47,6 +47,31 @@ const SEGURANCA_SUB: SubNavItem[] = [
   { key: 'lancar', labelKey: 'lancamento.aba_lancar', href: '/seguranca?tab=lancar' },
   { key: 'extrato', labelKey: 'lancamento.aba_extrato', href: '/seguranca?tab=extrato' },
 ]
+// "relatorios" genérico dá acesso a Acertos/Lançamentos (compatibilidade —
+// mesma regra de RelatoriosView); Resumo de Taxas não herda dele de
+// propósito, só abre com a chave própria.
+const RELATORIOS_SUB: SubNavItem[] = [
+  { key: 'acertos', labelKey: 'relatorios.aba_acertos', href: '/relatorios?tab=acertos', chave: ['relatorios', 'relatorios.acertos'] },
+  { key: 'lancamentos', labelKey: 'relatorios.aba_lancamentos', href: '/relatorios?tab=lancamentos', chave: ['relatorios', 'relatorios.lancamentos'] },
+  { key: 'taxas', labelKey: 'relatorios.aba_taxas', href: '/relatorios?tab=taxas', chave: 'relatorios.taxas' },
+]
+const VIP_SUB: SubNavItem[] = [
+  { key: 'lancamento', labelKey: 'vip.aba_lancamento', href: '/vip?tab=lancamento', chave: 'vip' },
+  { key: 'relatorio', labelKey: 'vip.aba_relatorio', href: '/vip?tab=relatorio', chave: 'vip.relatorio' },
+  { key: 'limites', labelKey: 'vip.aba_limites', href: '/vip?tab=limites', chave: 'vip.limites' },
+]
+const STOPLOSS_SUB: SubNavItem[] = [
+  { key: 'relatorio', labelKey: 'stoploss.aba_relatorio', href: '/stoploss?tab=relatorio' },
+  { key: 'resumo', labelKey: 'stoploss.aba_resumo', href: '/stoploss?tab=resumo' },
+  { key: 'extrato', labelKey: 'stoploss.aba_extrato', href: '/stoploss?tab=extrato' },
+  { key: 'fila', labelKey: 'stoploss.aba_fila', href: '/stoploss?tab=fila', chave: 'stoploss.aprovar' },
+]
+// Permissões não vive em NAV (acesso é por isSuperAdmin, não por chave de
+// permissão) — item à parte, renderizado com o mesmo `renderNavItems`.
+const PERMISSOES_SUB: SubNavItem[] = [
+  { key: 'papeis', labelKey: 'permissoes.aba_papeis', href: '/admin/permissoes?tab=papeis' },
+  { key: 'usuarios', labelKey: 'permissoes.aba_usuarios', href: '/admin/permissoes?tab=usuarios' },
+]
 
 // Sub-item ativo: mesma rota (path) e, se o link usa ?tab= (Lançamento/
 // Financeiro/Segurança — várias abas, uma rota só), a mesma aba. Sem aba na
@@ -77,12 +102,25 @@ const NAV = [
   { href: '/lancamento', labelKey: 'nav.lancamento', icon: Wallet, chaves: ['lancamento'], subItems: LANCAMENTO_SUB },
   { href: '/financeiro', labelKey: 'nav.financeiro', icon: Landmark, chaves: ['lancamento.genia'], subItems: FINANCEIRO_SUB },
   { href: '/seguranca', labelKey: 'nav.seguranca', icon: ShieldAlert, chaves: ['seguranca'], subItems: SEGURANCA_SUB },
-  { href: '/stoploss', labelKey: 'nav.stoploss', icon: Gauge, chaves: ['stoploss'] },
-  { href: '/vip', labelKey: 'nav.vip', icon: Crown, chaves: ['vip', 'vip.relatorio', 'vip.limites'] },
+  { href: '/stoploss', labelKey: 'nav.stoploss', icon: Gauge, chaves: ['stoploss'], subItems: STOPLOSS_SUB },
+  { href: '/vip', labelKey: 'nav.vip', icon: Crown, chaves: ['vip', 'vip.relatorio', 'vip.limites'], subItems: VIP_SUB },
   { href: '/dividas', labelKey: 'nav.dividas', icon: Banknote, chaves: ['dividas'] },
-  { href: '/relatorios', labelKey: 'nav.relatorios', icon: FileText, chaves: ['relatorios', 'relatorios.acertos', 'relatorios.lancamentos', 'relatorios.taxas'] },
+  { href: '/relatorios', labelKey: 'nav.relatorios', icon: FileText, chaves: ['relatorios', 'relatorios.acertos', 'relatorios.lancamentos', 'relatorios.taxas'], subItems: RELATORIOS_SUB },
   { href: '/admin/regras', labelKey: 'nav.regras', icon: ListChecks, chaves: ['regras'] },
 ]
+
+// Só o item Permissões — acesso é por isSuperAdmin, não por chave de
+// permissão comum, então não entra em NAV/nav (renderizado à parte, mas
+// pelo mesmo renderNavItems, pra ganhar submenu igual aos outros).
+const PERMISSOES_ITEM = [{ href: '/admin/permissoes', labelKey: 'nav.permissoes', icon: ShieldCheck, subItems: PERMISSOES_SUB }]
+// Usado só pra saber quais submenus abrir sozinhos conforme a rota atual —
+// Permissões entra aqui mesmo não estando em NAV/nav (ver comentário acima).
+const TODOS_OS_ITENS = [...NAV, ...PERMISSOES_ITEM]
+
+function temPermissaoSub(chave: string | string[] | undefined, hasPermission: (c: string) => boolean): boolean {
+  if (!chave) return true
+  return Array.isArray(chave) ? chave.some(hasPermission) : hasPermission(chave)
+}
 
 export default function Sidebar() {
   const path = usePathname()
@@ -96,14 +134,14 @@ export default function Sidebar() {
   // Submenu abre sozinho quando a seção correspondente está ativa; depois
   // disso fica na mão do usuário (clicar na seta abre/fecha) — não fecha
   // sozinho ao navegar pra outro item, só acumula o que já foi aberto.
-  const [expandedSubmenus, setExpandedSubmenus] = useState<Set<string>>(() => new Set(NAV.filter((i) => i.subItems && path.startsWith(i.href)).map((i) => i.href)))
+  const [expandedSubmenus, setExpandedSubmenus] = useState<Set<string>>(() => new Set(TODOS_OS_ITENS.filter((i) => i.subItems && path.startsWith(i.href)).map((i) => i.href)))
 
   useEffect(() => {
     if (localStorage.getItem(COLLAPSED_KEY) === '1') setCollapsed(true)
   }, [])
 
   useEffect(() => {
-    const ativo = NAV.find((i) => i.subItems && path.startsWith(i.href))
+    const ativo = TODOS_OS_ITENS.find((i) => i.subItems && path.startsWith(i.href))
     if (ativo) setExpandedSubmenus((prev) => (prev.has(ativo.href) ? prev : new Set(prev).add(ativo.href)))
   }, [path])
 
@@ -137,11 +175,11 @@ export default function Sidebar() {
 
   const nav = NAV.filter(item => loading || item.chaves.some(c => hasPermission(c)))
 
-  function renderNavItems(tabAtivo: string | null) {
-    return nav.map(({ href, labelKey, icon: Icon, subItems }) => {
+  function renderNavItems(tabAtivo: string | null, items: { href: string; labelKey: string; icon: typeof BookOpen; subItems?: SubNavItem[] }[] = nav) {
+    return items.map(({ href, labelKey, icon: Icon, subItems }) => {
       const active = path.startsWith(href)
       const expanded = expandedSubmenus.has(href)
-      const subVisiveis = subItems?.filter((sub) => !sub.chave || loading || hasPermission(sub.chave)) ?? []
+      const subVisiveis = subItems?.filter((sub) => loading || temPermissaoSub(sub.chave, hasPermission)) ?? []
       return (
         <div key={href}>
           <div
@@ -227,21 +265,9 @@ export default function Sidebar() {
           </Link>
         ) : (
           <>
-            <Suspense fallback={renderNavItems(null)}>
-              <ComTabAtivo>{(tabAtivo) => renderNavItems(tabAtivo)}</ComTabAtivo>
+            <Suspense fallback={<>{renderNavItems(null)}{isSuperAdmin && renderNavItems(null, PERMISSOES_ITEM)}</>}>
+              <ComTabAtivo>{(tabAtivo) => <>{renderNavItems(tabAtivo)}{isSuperAdmin && renderNavItems(tabAtivo, PERMISSOES_ITEM)}</>}</ComTabAtivo>
             </Suspense>
-            {isSuperAdmin && (
-              <Link
-                href="/admin/permissoes"
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  path.startsWith('/admin/permissoes') ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
-                }`}
-              >
-                <ShieldCheck size={16} />
-                {t('nav.permissoes')}
-              </Link>
-            )}
           </>
         )}
       </nav>

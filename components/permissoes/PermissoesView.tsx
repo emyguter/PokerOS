@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, ShieldCheck, Users as UsersIcon } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { useI18n } from '@/lib/i18n'
@@ -15,10 +16,25 @@ export interface ClubeOpcao { id: string; name: string }
 export interface AgenteOpcao { id: string; name: string }
 export interface UserRow { id: string; email: string | null; nome: string | null; is_super_admin: boolean; clube_id: string | null; agente_id: string | null; roleIds: string[]; roleNomes: string[] }
 
+type Tab = 'papeis' | 'usuarios'
+
+function tabDaUrl(valor: string | null): Tab | null {
+  return valor === 'papeis' || valor === 'usuarios' ? valor : null
+}
+
 export function PermissoesView() {
   const { refresh: refreshMinhasPermissoes } = usePermissions()
   const { t } = useI18n()
-  const [tab, setTab] = useState<'papeis' | 'usuarios'>('papeis')
+  const searchParams = useSearchParams()
+  const [tab, setTab] = useState<Tab>('papeis')
+
+  // Submenu da sidebar linka pra cá com ?tab=X — mesmo mecanismo de
+  // Lançamento/Financeiro/Segurança (ver comentário lá e em Sidebar.tsx).
+  useEffect(() => {
+    const daUrl = tabDaUrl(searchParams.get('tab'))
+    if (daUrl) setTab(daUrl)
+  }, [searchParams])
+
   const [permissoes, setPermissoes] = useState<Permissao[]>([])
   const [roles, setRoles] = useState<RoleRow[]>([])
   const [users, setUsers] = useState<UserRow[]>([])
@@ -84,21 +100,6 @@ export function PermissoesView() {
       <div>
         <h1 className="text-2xl font-semibold text-white">{t('permissoes.titulo')}</h1>
         <p className="text-sm text-gray-400 mt-1">{t('permissoes.subtitulo')}</p>
-      </div>
-
-      <div className="flex gap-2 border-b border-white/10">
-        <button
-          onClick={() => setTab('papeis')}
-          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === 'papeis' ? 'border-gold text-gold' : 'border-transparent text-gray-400 hover:text-white'}`}
-        >
-          <ShieldCheck size={14} />{t('permissoes.aba_papeis')}
-        </button>
-        <button
-          onClick={() => setTab('usuarios')}
-          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === 'usuarios' ? 'border-gold text-gold' : 'border-transparent text-gray-400 hover:text-white'}`}
-        >
-          <UsersIcon size={14} />{t('permissoes.aba_usuarios')}
-        </button>
       </div>
 
       {tab === 'papeis' && (

@@ -1,6 +1,6 @@
 'use client'
-import { useState, useMemo } from 'react'
-import { Crown, BarChart3, Settings } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 import { usePermissions } from '@/lib/permissions'
 import { VipLancamentoView } from './VipLancamentoView'
@@ -9,9 +9,14 @@ import { VipLimitesView } from './VipLimitesView'
 
 type Tab = 'lancamento' | 'relatorio' | 'limites'
 
+function tabDaUrl(valor: string | null): Tab | null {
+  return valor === 'lancamento' || valor === 'relatorio' || valor === 'limites' ? valor : null
+}
+
 export function VipView() {
   const { t } = useI18n()
   const { hasPermission } = usePermissions()
+  const searchParams = useSearchParams()
 
   // vip.relatorio e vip.limites não herdam de "vip" de propósito — mesmo
   // padrão de relatorios.taxas: dado cross-clube/administrativo sensível,
@@ -19,15 +24,19 @@ export function VipView() {
   const podeLancamento = hasPermission('vip')
   const podeRelatorio = hasPermission('vip.relatorio')
   const podeLimites = hasPermission('vip.limites')
-
-  const abas = useMemo(() => [
-    ...(podeLancamento ? [{ key: 'lancamento' as Tab, labelKey: 'vip.aba_lancamento', icon: Crown }] : []),
-    ...(podeRelatorio ? [{ key: 'relatorio' as Tab, labelKey: 'vip.aba_relatorio', icon: BarChart3 }] : []),
-    ...(podeLimites ? [{ key: 'limites' as Tab, labelKey: 'vip.aba_limites', icon: Settings }] : []),
-  ], [podeLancamento, podeRelatorio, podeLimites])
+  const primeiraPermitida: Tab | null = podeLancamento ? 'lancamento' : podeRelatorio ? 'relatorio' : podeLimites ? 'limites' : null
+  const ehPermitida = (aba: Tab) => aba === 'lancamento' ? podeLancamento : aba === 'relatorio' ? podeRelatorio : podeLimites
 
   const [tab, setTab] = useState<Tab | null>(null)
-  const abaAtiva = tab && abas.some((a) => a.key === tab) ? tab : (abas[0]?.key ?? null)
+
+  // Submenu da sidebar linka pra cá com ?tab=X — mesmo mecanismo de
+  // Lançamento/Financeiro/Segurança (ver comentário lá e em Sidebar.tsx).
+  useEffect(() => {
+    const daUrl = tabDaUrl(searchParams.get('tab'))
+    if (daUrl) setTab(daUrl)
+  }, [searchParams])
+
+  const abaAtiva = tab && ehPermitida(tab) ? tab : primeiraPermitida
 
   if (!abaAtiva) return null
 
@@ -39,20 +48,6 @@ export function VipView() {
           {abaAtiva === 'relatorio' ? t('vip.relatorio_subtitulo') : abaAtiva === 'limites' ? t('vip.limites_subtitulo') : t('vip.subtitulo')}
         </p>
       </div>
-
-      {abas.length > 1 && (
-        <div className="flex gap-2 border-b border-white/10 overflow-x-auto">
-          {abas.map(({ key, labelKey, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${abaAtiva === key ? 'border-gold text-gold' : 'border-transparent text-gray-400 hover:text-white'}`}
-            >
-              <Icon size={14} />{t(labelKey)}
-            </button>
-          ))}
-        </div>
-      )}
 
       {abaAtiva === 'lancamento' && <VipLancamentoView />}
       {abaAtiva === 'relatorio' && <VipRelatorioView />}
