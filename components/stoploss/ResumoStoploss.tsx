@@ -6,11 +6,11 @@ import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
 import { usePermissions } from '@/lib/permissions'
 import { BuscaSelect } from '@/components/BuscaSelect'
-import { getStoplossAtual, aplicarMargemMonitoria, retirarMargemMonitoria, aplicarAjusteBugPpp, margemMonitoriaAtivaEstaSemana } from '@/lib/stoploss'
+import { getStoplossAtual, aplicarMargemMonitoria, retirarMargemMonitoria, aplicarAjusteBugPpp, margemMonitoriaAtivaEstaSemana, aplicarCorte50, setClubeBloqueado } from '@/lib/stoploss'
 import type { StoplossAjuste } from '@/lib/types'
 
 interface ClubeOpcao { id: string; name: string }
-interface ClubeResumo { name: string; stoploss_inicial: number | null; caucao_atual: number | null; ratio_caucao_stoploss: number | null }
+interface ClubeResumo { name: string; stoploss_inicial: number | null; caucao_atual: number | null; ratio_caucao_stoploss: number | null; bloqueado: boolean }
 
 function formatMoeda(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -44,6 +44,11 @@ export function ResumoStoploss() {
   const [loading, setLoading] = useState(false)
   const [processandoMargem, setProcessandoMargem] = useState(false)
   const [erroMargem, setErroMargem] = useState<string | null>(null)
+  const [processandoCorte, setProcessandoCorte] = useState(false)
+  const [erroCorte, setErroCorte] = useState<string | null>(null)
+  const [sucessoCorte, setSucessoCorte] = useState(false)
+  const [processandoBloqueio, setProcessandoBloqueio] = useState(false)
+  const [erroBloqueio, setErroBloqueio] = useState<string | null>(null)
 
   const [aberto, setAberto] = useState(false)
   const [natureza, setNatureza] = useState<'credito' | 'debito'>('debito')
@@ -71,7 +76,7 @@ export function ResumoStoploss() {
     if (!clubeId) { setClube(null); setStoplossAtual(null); setMargemAtiva(false); setAjustes([]); return }
     setLoading(true)
     const [{ data: c }, atual, ativa, { data: a }] = await Promise.all([
-      supabase.from('clubs').select('name, stoploss_inicial, caucao_atual, ratio_caucao_stoploss').eq('id', clubeId).single(),
+      supabase.from('clubs').select('name, stoploss_inicial, caucao_atual, ratio_caucao_stoploss, bloqueado').eq('id', clubeId).single(),
       getStoplossAtual(clubeId),
       margemMonitoriaAtivaEstaSemana(clubeId),
       supabase.from('stoploss_ajustes').select('*').eq('clube_id', clubeId).order('criado_em', { ascending: false }).limit(20),
@@ -97,6 +102,21 @@ export function ResumoStoploss() {
     try { await retirarMargemMonitoria(clubeId); await load() }
     catch (err) { setErroMargem(errMsg(err)) }
     finally { setProcessandoMargem(false) }
+  }
+
+  async function handleAplicarCorte50() {
+    if (!confirm(t('stoploss.corte_50_confirmar'))) return
+    setProcessandoCorte(true); setErroCorte(null); setSucessoCorte(false)
+    try { await aplicarCorte50(clubeId); setSucessoCorte(true); await load() }
+    catch (err) { setErroCorte(errMsg(err)) }
+    finally { setProcessandoCorte(false) }
+  }
+
+  async function handleToggleBloqueado() {
+    setProcessandoBloqueio(true); setErroBloqueio(null)
+    try { await setClubeBloqueado(clubeId, !clube?.bloqueado); await load() }
+    catch (err) { setErroBloqueio(errMsg(err)) }
+    finally { setProcessandoBloqueio(false) }
   }
 
   async function enviarSolicitacao(e: React.FormEvent) {
@@ -185,25 +205,59 @@ export function ResumoStoploss() {
           </p>
 
           {erroMargem && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroMargem}</div>}
+          {erroCorte && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroCorte}</div>}
+          {erroBloqueio && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroBloqueio}</div>}
 
-          {margemAtiva ? (
-            <div className="flex items-center justify-between p-3 rounded-lg border border-gold/30 bg-gold/5">
-              <p className="text-xs text-gray-300 flex items-center gap-2"><ShieldAlert size={14} className="text-gold" />{t('stoploss.margem_ativa')}</p>
-              {hasPermission('stoploss.aprovar') && (
-                <button type="button" onClick={handleRetirarMargem} disabled={processandoMargem} className="text-xs text-gold hover:underline disabled:opacity-50">
-                  {t('stoploss.margem_retirar')}
-                </button>
-              )}
-            </div>
-          ) : hasPermission('stoploss.margem_monitoria') && (
+          <div className="flex flex-wrap items-center gap-3">
+            {margemAtiva ? (
+              <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-gold/30 bg-gold/5">
+                <p className="text-xs text-gray-300 flex items-center gap-2"><ShieldAlert size={14} className="text-gold" />{t('stoploss.margem_ativa')}</p>
+                {hasPermission('stoploss.aprovar') && (
+                  <button type="button" onClick={handleRetirarMargem} disabled={processandoMargem} className="text-xs text-gold hover:underline disabled:opacity-50">
+                    {t('stoploss.margem_retirar')}
+                  </button>
+                )}
+              </div>
+            ) : hasPermission('stoploss.margem_monitoria') && (
+              <button
+                type="button"
+                onClick={handleAplicarMargem}
+                disabled={processandoMargem}
+                className="flex items-center gap-2 px-4 py-2 border border-gold/30 text-gold rounded-lg text-sm font-medium hover:bg-gold/10 disabled:opacity-50 transition-colors w-fit"
+              >
+                {processandoMargem ? <Loader2 size={14} className="animate-spin" /> : <ShieldAlert size={14} />}{t('stoploss.margem_aplicar')}
+              </button>
+            )}
+
+            {hasPermission('stoploss.aprovar') && (
+              <button
+                type="button"
+                onClick={handleAplicarCorte50}
+                disabled={processandoCorte}
+                className="flex items-center gap-2 px-4 py-2 border border-alert/30 text-alert rounded-lg text-sm font-medium hover:bg-alert/10 disabled:opacity-50 transition-colors w-fit"
+              >
+                {processandoCorte ? <Loader2 size={14} className="animate-spin" /> : <ShieldAlert size={14} />}{t('stoploss.corte_50_aplicar')}
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={handleAplicarMargem}
-              disabled={processandoMargem}
-              className="flex items-center gap-2 px-4 py-2 border border-gold/30 text-gold rounded-lg text-sm font-medium hover:bg-gold/10 disabled:opacity-50 transition-colors w-fit"
+              onClick={handleToggleBloqueado}
+              disabled={processandoBloqueio}
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium disabled:opacity-50 transition-colors w-fit ${clube?.bloqueado ? 'border-alert/50 bg-alert/10 text-alert hover:bg-alert/20' : 'border-alert/30 text-alert hover:bg-alert/10'}`}
             >
-              {processandoMargem ? <Loader2 size={14} className="animate-spin" /> : <ShieldAlert size={14} />}{t('stoploss.margem_aplicar')}
+              {processandoBloqueio ? <Loader2 size={14} className="animate-spin" /> : <ShieldAlert size={14} />}
+              {clube?.bloqueado ? t('stoploss.bloquear_desbloquear') : t('stoploss.bloquear_aplicar')}
             </button>
+          </div>
+
+          {sucessoCorte && <p className="text-xs text-success">{t('stoploss.corte_50_aplicado')}</p>}
+
+          {clube?.bloqueado && (
+            <div className="flex items-center gap-2 p-3 rounded-lg border border-alert/30 bg-alert/5">
+              <ShieldAlert size={14} className="text-alert shrink-0" />
+              <p className="text-xs text-gray-300">{t('stoploss.bloquear_ativo')}</p>
+            </div>
           )}
 
           <div className="rounded-xl border border-white/10 bg-surface2/50 p-5 space-y-4">

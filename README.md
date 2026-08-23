@@ -647,6 +647,12 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   de Stoploss) ganham campo de Data do Lançamento — decide em que semana o valor conta; lançar com
   data de uma semana já virada soma lá, não na semana atual (`criado_em` do registro vira a data
   escolhida, não mais sempre "agora")
+- [x] Resumo de Stoploss ganha 2 ações novas pra "Acerto pendente": **Corte 50%** (corta o Stoploss
+  Atual do clube pela metade na hora — ajuste permanente, precisa de um Ajuste manual pra reverter,
+  igual Bug PPPoker; pede confirmação antes) e **Bloquear** (toggle Bloquear/Desbloquear —
+  `clubs.bloqueado`, só sinaliza o clube pro time, não trava nada tecnicamente no sistema). Corte 50%
+  fica atrás da mesma permissão de aprovar ajuste (`stoploss.aprovar`); Bloquear fica aberto pra quem
+  já acessa a tela
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

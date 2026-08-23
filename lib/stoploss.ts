@@ -5,7 +5,7 @@ import type { StoplossAjuste, StoplossEscopo } from './types'
 // 'inicial' e 'caucao' ficam de fora de propósito: 'inicial' já é a base
 // (clubs.stoploss_inicial) e 'caucao' virou recálculo ao vivo (caucao_atual
 // × ratio), não soma incremental por evento.
-const TIPOS_QUE_SOMAM = ['antecipacao', 'ajuste_suporte', 'margem_monitoria', 'bug_ppp'] as const
+const TIPOS_QUE_SOMAM = ['antecipacao', 'ajuste_suporte', 'margem_monitoria', 'bug_ppp', 'corte_50'] as const
 
 export interface ClubeBaseStoploss {
   id: string
@@ -281,6 +281,35 @@ export async function retirarMargemMonitoria(clubeId: string): Promise<void> {
 
   const { error: clubErr } = await supabase.from('clubs').update({ margem_monitoria_ativa: false }).eq('id', clubeId)
   if (clubErr) throw clubErr
+}
+
+// "Acerto pendente — Corte 50%": corta o Stoploss Atual pela metade —
+// ajuste permanente (não some sozinho na virada, diferente de Pre Payment/
+// Bug PPP/Margem), fica cortado até alguém reverter na mão (Solicitar
+// Ajuste, se for o caso). Igual Bug PPP, aplica direto, sem fila de aprovação.
+export async function aplicarCorte50(clubeId: string): Promise<void> {
+  const stoplossAtual = await getStoplossAtual(clubeId)
+  const delta = -(Math.round(stoplossAtual * 0.5 * 100) / 100)
+  const { data: userData } = await supabase.auth.getUser()
+
+  const { error: histErr } = await supabase.from('stoploss_historico').insert({
+    clube_id: clubeId,
+    tipo: 'corte_50',
+    escopo: 'permanente',
+    valor_delta: delta,
+    valor_resultante: stoplossAtual + delta,
+    motivo: 'Acerto pendente: corte de 50% no Stoploss',
+    criado_por: userData.user?.id ?? null,
+  })
+  if (histErr) throw histErr
+}
+
+// "Acerto pendente — Bloquear": só sinaliza o clube (clubs.bloqueado) —
+// não trava nada tecnicamente no sistema, é aviso pro time. Mesma função
+// bloqueia/desbloqueia (toggle).
+export async function setClubeBloqueado(clubeId: string, bloqueado: boolean): Promise<void> {
+  const { error } = await supabase.from('clubs').update({ bloqueado }).eq('id', clubeId)
+  if (error) throw error
 }
 
 // Aprovação de ajuste de gerência/comitê (fila normal) — quem aprova
