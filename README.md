@@ -728,6 +728,10 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Multa Avulsa, então clube de Taxa Fixa (sem faixa SE/ENTÃO, não precisa de Cálculo) não tinha como
   configurar um layout próprio e caía sempre no `LAYOUT_PADRAO` (com colunas de Fee MTT/Cash que nem
   se aplicam a ele). Vincula direto ao clube pela mesma tela de Vínculos de sempre
+- [x] Reorganiza campos entre as etapas Identificação/Plataforma do Cadastro de Clube (pedido do
+  Cássio): **ID do Clube** e **Nome do Clube** saem de Plataforma e vão pra Identificação; **Moeda** e
+  **Cotação** saem de Identificação e vão pra Plataforma. Comportamento de cada campo não muda, só a
+  etapa onde aparece
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

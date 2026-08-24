@@ -284,13 +284,24 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     >
       {step === 'identificacao' && (
         <div className="grid grid-cols-2 gap-4">
-          <Fld label="Moeda">
-            <select value={form.moeda ?? 'BRL'} onChange={e => set('moeda', e.target.value)} className={inputCls}>
-              {MOEDAS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-            </select>
+          <Fld label="ID do Clube" required>
+            <div className="relative">
+              <input type="text" value={form.external_id ?? ''} onChange={e => handleClubeIdChange(e.target.value)} placeholder="Ex: 1548056" className={inputCls} />
+              {searchingClube && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
+            </div>
           </Fld>
-          <Fld label="Cotação (opcional)">
-            <NumInput value={form.cotacao} onChange={v => set('cotacao', v)} placeholder="Ex: 5.20" />
+          <Fld label="Nome do Clube" required>
+            <input
+              type="text"
+              value={form.name}
+              onChange={e => { set('name', e.target.value); setClubeLocked(false) }}
+              placeholder="Preenchido automaticamente"
+              disabled={clubeLocked}
+              className={clubeLocked ? inputLockedCls : inputCls}
+            />
+            {clubeNaoEncontrado && !clubeLocked && (
+              <p className="text-xs text-gold/80 mt-1.5">⚠ Clube não encontrado. Preencha o nome para cadastrá-lo.</p>
+            )}
           </Fld>
           <Fld label="Liga (opcional)">
             <BuscaSelect
@@ -305,11 +316,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
             <input type="text" value={form.projeto ?? ''} onChange={e => set('projeto', e.target.value || null)} placeholder="Ex: Sul HG — só se esse clube não herdar de nenhuma liga" className={inputCls} />
           </Fld>
         </div>
-      )}
-      {step === 'identificacao' && (
-        <p className="text-xs text-gray-500 -mt-2">
-          Cotação: valor de conversão da Moeda desse clube pra moeda de acerto, quando forem diferentes. É o único lugar do sistema onde esse valor é definido — atualize aqui sempre que precisar trocar.
-        </p>
       )}
 
       {step === 'identificacao' && (
@@ -378,27 +384,19 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               {plataformas.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </Fld>
-          <div className="grid grid-cols-2 gap-3">
-            <Fld label="ID do Clube" required>
-              <div className="relative">
-                <input type="text" value={form.external_id ?? ''} onChange={e => handleClubeIdChange(e.target.value)} placeholder="Ex: 1548056" className={inputCls} />
-                {searchingClube && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
-              </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Fld label="Moeda">
+              <select value={form.moeda ?? 'BRL'} onChange={e => set('moeda', e.target.value)} className={inputCls}>
+                {MOEDAS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
             </Fld>
-            <Fld label="Nome do Clube" required>
-              <input
-                type="text"
-                value={form.name}
-                onChange={e => { set('name', e.target.value); setClubeLocked(false) }}
-                placeholder="Preenchido automaticamente"
-                disabled={clubeLocked}
-                className={clubeLocked ? inputLockedCls : inputCls}
-              />
-              {clubeNaoEncontrado && !clubeLocked && (
-                <p className="text-xs text-gold/80 mt-1.5">⚠ Clube não encontrado. Preencha o nome para cadastrá-lo.</p>
-              )}
+            <Fld label="Cotação (opcional)">
+              <NumInput value={form.cotacao} onChange={v => set('cotacao', v)} placeholder="Ex: 5.20" />
             </Fld>
           </div>
+          <p className="text-xs text-gray-500 -mt-2">
+            Cotação: valor de conversão da Moeda desse clube pra moeda de acerto, quando forem diferentes. É o único lugar do sistema onde esse valor é definido — atualize aqui sempre que precisar trocar.
+          </p>
         </>
       )}
 
