@@ -113,6 +113,7 @@ export function ResumoStoploss() {
   }
 
   async function handleReverterCorte50() {
+    if (!confirm(t('stoploss.corte_50_reverter_confirmar'))) return
     setProcessandoCorte(true); setErroCorte(null)
     try { await reverterCorte50(clubeId); await load() }
     catch (err) { setErroCorte(errMsg(err)) }

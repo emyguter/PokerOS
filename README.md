@@ -700,6 +700,9 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   sem passar pela fila do Financeiro. Lança um Envio (quita a Diferença) + um débito de Caução, e
   atualiza `clubs.caucao_atual` na hora — Stoploss Atual cai sozinho no próximo cálculo, já que é
   sempre recalculado ao vivo a partir da Caução
+- [x] Corte 50% agora reverte de verdade: "Reverter status" credita de volta no Stoploss Atual o
+  mesmo valor que o corte debitou (antes só desligava o status, o corte ficava permanente). Débito
+  e crédito ficam os dois registrados no Extrato de Stoploss como lançamentos tipo Corte 50%
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
