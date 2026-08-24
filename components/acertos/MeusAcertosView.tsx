@@ -39,13 +39,20 @@ export function MeusAcertosView() {
 
   useEffect(() => {
     if (!periodoFiltro) return
+    let cancelado = false
     setLoading(true); setError(null)
     resolverClubesVisiveis(profile)
       .then((clubeIds) => buscarMeusAcertos(periodoFiltro, clubeIds))
-      .then(setLinhas)
-      .catch((e) => setError(errMsg(e)))
-      .finally(() => setLoading(false))
-  }, [periodoFiltro, profile])
+      .then((dados) => { if (!cancelado) setLinhas(dados) })
+      .catch((e) => { if (!cancelado) setError(errMsg(e)) })
+      .finally(() => { if (!cancelado) setLoading(false) })
+    return () => { cancelado = true }
+    // `load()` em lib/permissions.tsx recria o objeto `profile` a cada
+    // recarga (inclusive silenciosa, ex: aba voltando ao foco) — depender do
+    // objeto inteiro reiniciava essa busca sem parar, deixando "Carregando…"
+    // preso pra sempre. Só os campos que realmente mudam o resultado importam.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodoFiltro, profile?.clube_id, profile?.liga_id, profile?.super_league_id, profile?.mega_liga_id])
 
   const filtradas = useMemo(() => {
     const q = busca.trim().toLowerCase()

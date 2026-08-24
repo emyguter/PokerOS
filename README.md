@@ -774,6 +774,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   (`taxa_tipo` é campo do Cadastro de Clube, não do Acerto calculado — nunca foi copiado pra lá, e
   o card não usava esse valor em lugar nenhum). Removida a coluna da consulta e do tipo `AcertoCard`
   — a tela volta a listar os Acertos calculados normalmente
+- [x] Corrigido "Carregando…" preso pra sempre na tela de Acertos: o efeito que busca os Acertos
+  dependia do objeto inteiro `profile` (`usePermissions()`), que ganha uma referência nova a cada
+  recarga — inclusive a recarga silenciosa que já acontece sempre que a aba volta a ficar em foco
+  (ver comentário em `lib/permissions.tsx`). Cada recarga reiniciava a busca do zero, então o
+  "Carregando…" nunca tinha chance de terminar. Trocado pra depender só dos campos que realmente
+  importam (`clube_id`/`liga_id`/`super_league_id`/`mega_liga_id`), com uma guarda de cancelamento
+  pra não deixar uma resposta antiga sobrescrever uma mais nova
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
