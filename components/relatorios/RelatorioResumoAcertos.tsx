@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Search } from 'lucide-react'
 import { buscarResumoAcertos, buscarPeriodosAcerto, type LinhaResumoAcerto, type PeriodoAcerto } from '@/lib/relatorio-resumo-acertos'
 import { LABEL_SETTLEMENT } from '@/lib/types'
+import { errMsg } from '@/lib/errors'
 
 function formatPeriodo(p: PeriodoAcerto): string {
   const fmtD = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
@@ -40,7 +41,7 @@ export function RelatorioResumoAcertos() {
     setLoading(true); setError(null)
     buscarResumoAcertos(periodoFiltro)
       .then(setLinhas)
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .catch((e) => setError(errMsg(e)))
       .finally(() => setLoading(false))
   }, [periodoFiltro])
 

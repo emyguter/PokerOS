@@ -755,6 +755,12 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   número, em vez de deixar preencher um valor que nunca seria usado (a Regra sempre manda pro campo
   dela). Cadastro de Liga ganha o mesmo aviso como placeholder no campo Taxa da Liga quando vazio e
   tem Regra vinculada — aqui não trava (cadastro manda quando preenchido, ver item acima)
+- [x] Corrigido erro `[object Object]` que aparecia em telas de Acertos/Relatórios/Cadastro/
+  Permissões quando uma consulta ao Supabase falhava: o `catch` usava
+  `e instanceof Error ? e.message : String(e)`, que não funciona porque erros do Supabase são
+  objetos simples, não `Error` de verdade — `String()` neles vira literalmente `"[object Object]"`.
+  Trocado pelo helper já existente `errMsg()` (`lib/errors.ts`) em todos os 12 arquivos que tinham
+  esse mesmo padrão, pra sempre mostrar a mensagem de erro real
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

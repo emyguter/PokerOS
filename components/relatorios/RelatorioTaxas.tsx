@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { buscarResumoTaxas, type ResumoTaxaClube, type TaxaCampoResumo } from '@/lib/relatorio-taxas'
 import { LABEL_SETTLEMENT } from '@/lib/types'
+import { errMsg } from '@/lib/errors'
 
 function Celula({ campo }: { campo: TaxaCampoResumo | null }) {
   if (!campo) return <span className="text-gray-700">—</span>
@@ -24,7 +25,7 @@ export function RelatorioTaxas() {
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try { setLinhas(await buscarResumoTaxas()) }
-    catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    catch (e) { setError(errMsg(e)) }
     finally { setLoading(false) }
   }, [])
 

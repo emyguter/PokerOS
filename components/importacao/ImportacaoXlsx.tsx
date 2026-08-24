@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
+import { errMsg } from "@/lib/errors";
 import { MapeamentoColunasModal } from "./MapeamentoColunasModal";
 
 // Mesmo rótulo em todo lugar que mostra harmonization_status — card ao vivo e
@@ -520,7 +521,7 @@ function parseGenerico(
 
 function formatError(err: unknown): ImportError {
   if (err && typeof err === "object" && "titulo" in err) return err as ImportError;
-  const msg = err instanceof Error ? err.message : String(err);
+  const msg = errMsg(err);
   return { titulo: "Erro inesperado", detalhe: msg, acao: "Se o problema persistir, contate o suporte." };
 }
 

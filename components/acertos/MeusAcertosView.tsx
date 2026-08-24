@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Search } from 'lucide-react'
 import { usePermissions } from '@/lib/permissions'
 import { useI18n } from '@/lib/i18n'
+import { errMsg } from '@/lib/errors'
 import { buscarPeriodosAcerto, type PeriodoAcerto } from '@/lib/relatorio-resumo-acertos'
 import { resolverClubesVisiveis } from '@/lib/acesso-hierarquia'
 import { buscarMeusAcertos, type LinhaMeuAcerto } from '@/lib/meus-acertos'
@@ -42,7 +43,7 @@ export function MeusAcertosView() {
     resolverClubesVisiveis(profile)
       .then((clubeIds) => buscarMeusAcertos(periodoFiltro, clubeIds))
       .then(setLinhas)
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .catch((e) => setError(errMsg(e)))
       .finally(() => setLoading(false))
   }, [periodoFiltro, profile])
 

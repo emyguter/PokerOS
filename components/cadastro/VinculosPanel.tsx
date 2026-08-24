@@ -4,6 +4,7 @@ import { X, Trash2, ArrowRight, Pencil, AlertTriangle } from 'lucide-react'
 import type { Regra, RegraVinculo, EntidadeTipo, CampoClube } from '@/lib/types'
 import { CAMPOS_POR_SETTLEMENT, LABEL_SETTLEMENT, settlementsQueAceitam, campoAplicavelAoTipo } from '@/lib/types'
 import { getVinculos, addVinculo, updateVinculo, removeVinculo, buscarEntidades, buscarSettlementTypesClubes } from '@/lib/cadastro-api'
+import { errMsg } from '@/lib/errors'
 
 interface Props {
   open: boolean
@@ -173,7 +174,7 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
     if (!regra) return
     setLoading(true)
     try { setVinculos(await getVinculos(regra.id)) }
-    catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    catch (e) { setError(errMsg(e)) }
     finally { setLoading(false) }
   }, [regra])
 
@@ -256,7 +257,7 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
       }
       resetForm()
       await load()
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    } catch (e) { setError(errMsg(e)) }
     finally { setSaving(false) }
   }
 
@@ -266,7 +267,7 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
       await removeVinculo(vinculoId)
       if (editando?.id === vinculoId) resetForm()
       await load()
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    } catch (e) { setError(errMsg(e)) }
     finally { setSaving(false) }
   }
 

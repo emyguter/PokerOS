@@ -7,6 +7,7 @@ import { useI18n } from '@/lib/i18n'
 import { useConciliacao } from '@/components/lancamento/useConciliacao'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { buscarHistoricoAcertosPendentes, type LinhaInadimplencia, type StatusStoploss } from '@/lib/acertos-pendentes'
+import { errMsg } from '@/lib/errors'
 import { TabelaInadimplencia } from './AcertosPendentesShared'
 
 interface ClubeOpcao { id: string; name: string; projeto: string | null }
@@ -47,7 +48,7 @@ export function RelatorioHistoricoAcertosPendentes() {
       })
       setLinhas(dados)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errMsg(e))
     } finally {
       setLoading(false)
     }

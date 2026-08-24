@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getRegras, createRegra, updateRegra, deleteRegra } from '@/lib/cadastro-api'
 import { supabase } from '@/lib/supabase'
+import { errMsg } from '@/lib/errors'
 import { formatIndicadorNome } from '@/lib/indicadores'
 import { resolverLayout, LABEL_CAMPO as LABEL_CAMPO_ACERTO } from '@/lib/relatorio-acerto'
 import type { CampoClube, Regra } from '@/lib/types'
@@ -66,7 +67,7 @@ export default function RegrasPage() {
       setItems(regras)
       setIndicadores(new Map((ind ?? []).map(i => [i.id as string, { nome: i.nome as string, descricao: i.descricao as string | null }])))
     }
-    catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    catch (e) { setError(errMsg(e)) }
     finally { setLoading(false) }
   }, [])
 
@@ -117,7 +118,7 @@ export default function RegrasPage() {
         if (primeira) setVinculosRegra(primeira)
       }
       setModalOpen(false); setEditing(null)
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    } catch (e) { setError(errMsg(e)) }
     finally { setSaving(false) }
   }
 
@@ -142,14 +143,14 @@ export default function RegrasPage() {
         await createRegra({ nome, tipo: regra.tipo, campo: regra.campo, condicoes: regra.condicoes, faixasMulta: regra.faixasMulta, layoutCampos: regra.layoutCampos })
       }
       await load()
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    } catch (e) { setError(errMsg(e)) }
   }
 
   async function handleDelete() {
     if (!deleteTarget) return
     setSaving(true)
     try { await deleteRegra(deleteTarget.id); await load(); setDeleteTarget(null) }
-    catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    catch (e) { setError(errMsg(e)) }
     finally { setSaving(false) }
   }
 

@@ -9,6 +9,7 @@ import { StepModal, type ModalStep } from './StepModal'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { getStoplossAtual } from '@/lib/stoploss'
 import { getIndicacoes, addIndicacao, atualizarPercentualIndicacao, removeIndicacao, type IndicacaoRow, getVinculosAcerto, addVinculoAcerto, removeVinculoAcerto, type VinculoAcertoRow, getRegrasDaEntidade } from '@/lib/cadastro-api'
+import { errMsg } from '@/lib/errors'
 
 interface Props {
   open: boolean
@@ -128,8 +129,8 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     setCamposComRegra(new Set())
     if (editing) {
       getStoplossAtual(editing.id).then(setStoplossAtual)
-      getIndicacoes(editing.id).then(setIndicacoes).catch(e => setErroIndicacao(e instanceof Error ? e.message : String(e)))
-      getVinculosAcerto(editing.id).then(setVinculos).catch(e => setErroVinculo(e instanceof Error ? e.message : String(e)))
+      getIndicacoes(editing.id).then(setIndicacoes).catch(e => setErroIndicacao(errMsg(e)))
+      getVinculosAcerto(editing.id).then(setVinculos).catch(e => setErroVinculo(errMsg(e)))
       getRegrasDaEntidade('clube', editing.id).then((regras) => {
         setCamposComRegra(new Set(regras.map((r) => r.campo).filter((c): c is CampoClube => !!c)))
       }).catch(() => setCamposComRegra(new Set()))
@@ -146,7 +147,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       setIndicacoes(await getIndicacoes(editing.id))
       setIndClub(null); setIndPercentual(''); setBuscaIndClub('')
     } catch (e) {
-      setErroIndicacao(e instanceof Error ? e.message : String(e))
+      setErroIndicacao(errMsg(e))
     } finally {
       setSalvandoIndicacao(false)
     }
@@ -161,7 +162,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       await atualizarPercentualIndicacao(id, pct)
       setIndicacoes(await getIndicacoes(editing.id))
     } catch (e) {
-      setErroIndicacao(e instanceof Error ? e.message : String(e))
+      setErroIndicacao(errMsg(e))
     } finally {
       setSalvandoIndicacao(false)
     }
@@ -174,7 +175,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       await removeIndicacao(id)
       setIndicacoes(await getIndicacoes(editing.id))
     } catch (e) {
-      setErroIndicacao(e instanceof Error ? e.message : String(e))
+      setErroIndicacao(errMsg(e))
     } finally {
       setSalvandoIndicacao(false)
     }
@@ -211,7 +212,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       setVinculos(await getVinculosAcerto(editing.id))
       setVinculoClub(null); setBuscaVinculoClub('')
     } catch (e) {
-      setErroVinculo(e instanceof Error ? e.message : String(e))
+      setErroVinculo(errMsg(e))
     } finally {
       setSalvandoVinculo(false)
     }
@@ -224,7 +225,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       await removeVinculoAcerto(clubeId)
       setVinculos(await getVinculosAcerto(editing.id))
     } catch (e) {
-      setErroVinculo(e instanceof Error ? e.message : String(e))
+      setErroVinculo(errMsg(e))
     } finally {
       setSalvandoVinculo(false)
     }

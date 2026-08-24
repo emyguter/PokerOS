@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { X, Loader2, Dices, Copy, Check } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
+import { errMsg } from '@/lib/errors'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import type { AgenteOpcao, ClubeOpcao, LigaOpcao, RoleRow } from './PermissoesView'
 
@@ -97,7 +98,7 @@ export function NewUserModal({ open, roles, clubes, agentes, ligas, superLigas, 
       if (!data?.ok) throw new Error(data?.error ?? 'Erro ao criar usuário.')
       onSaved()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(errMsg(err))
     } finally {
       setSaving(false)
     }

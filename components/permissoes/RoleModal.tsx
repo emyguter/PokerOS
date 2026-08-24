@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
+import { errMsg } from '@/lib/errors'
 import type { Permissao } from './PermissoesView'
 
 interface Props {
@@ -76,7 +77,7 @@ export function RoleModal({ open, editing, permissoes, onClose, onSaved }: Props
 
       onSaved()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(errMsg(err))
     } finally {
       setSaving(false)
     }

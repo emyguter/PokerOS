@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { AlertTriangle } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
+import { errMsg } from '@/lib/errors'
 import { useConciliacao } from '@/components/lancamento/useConciliacao'
 import {
   buscarAcertosPendentesDaSemana, buscarInadimplencia,
@@ -26,7 +27,7 @@ export function RelatorioAcertosPendentes() {
     setLoading(true); setError(null)
     Promise.all([buscarAcertosPendentesDaSemana(), buscarInadimplencia()])
       .then(([s, i]) => { setSemana(s); setInadimplencia(i) })
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .catch((e) => setError(errMsg(e)))
       .finally(() => setLoading(false))
   }, [conciliacaoZerada])
 

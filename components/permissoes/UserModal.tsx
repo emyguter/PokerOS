@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
+import { errMsg } from '@/lib/errors'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import type { AgenteOpcao, ClubeOpcao, LigaOpcao, Permissao, RoleRow, UserRow } from './PermissoesView'
 
@@ -122,7 +123,7 @@ export function UserModal({ open, user, roles, permissoes, clubes, agentes, liga
 
       onSaved()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(errMsg(err))
     } finally {
       setSaving(false)
     }
