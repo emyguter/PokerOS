@@ -761,6 +761,14 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   objetos simples, não `Error` de verdade — `String()` neles vira literalmente `"[object Object]"`.
   Trocado pelo helper já existente `errMsg()` (`lib/errors.ts`) em todos os 12 arquivos que tinham
   esse mesmo padrão, pra sempre mostrar a mensagem de erro real
+- [x] Corrigido erro de FK ao excluir/editar Regras: `regra_condicoes`, `regra_condicao_termos`
+  (indicadores compostos) e `regra_entidades` (vínculos) não tinham `on delete cascade` no banco, e
+  `deleteRegra`/`updateRegra` não limpavam essas tabelas antes de apagar — excluir uma Regra já
+  vinculada, ou editar uma condição com mais de 1 indicador, falhava com violação de chave
+  estrangeira (o que aparecia como `[object Object]`, item acima). Corrigido em
+  `lib/cadastro-api.ts` limpando as tabelas filhas na ordem certa antes do delete. Acertos já
+  calculados não são afetados — guardam os valores finais prontos, não recalculam nada a partir da
+  Regra
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

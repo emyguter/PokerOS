@@ -571,11 +571,26 @@ export async function createRegra(form: RegraForm, regraPaiId?: string | null): 
   return nova.id
 }
 
+// regra_condicao_termos (indicadores compostos) referencia regra_condicoes
+// sem "on delete cascade" — precisa ser limpo antes, senão o delete abaixo
+// falha com erro de FK (violação de chave estrangeira do Postgres) sempre
+// que a condição usar mais de 1 indicador.
+async function limparCondicoes(regraId: string): Promise<void> {
+  const { data: condicoes, error: selErr } = await supabase.from('regra_condicoes').select('id').eq('regra_id', regraId)
+  if (selErr) throw selErr
+  const condIds = (condicoes ?? []).map((c) => c.id as string)
+  if (condIds.length > 0) {
+    const { error: termosErr } = await supabase.from('regra_condicao_termos').delete().in('regra_condicao_id', condIds)
+    if (termosErr) throw termosErr
+  }
+  const { error: delErr } = await supabase.from('regra_condicoes').delete().eq('regra_id', regraId)
+  if (delErr) throw delErr
+}
+
 export async function updateRegra(id: string, form: RegraForm): Promise<void> {
   const { error } = await supabase.from('regras').update({ nome: form.nome, tipo: form.tipo, campo: form.tipo === 'faixa' ? form.campo : null }).eq('id', id)
   if (error) throw error
-  const { error: delErr } = await supabase.from('regra_condicoes').delete().eq('regra_id', id)
-  if (delErr) throw delErr
+  await limparCondicoes(id)
   const { error: delMultaErr } = await supabase.from('regra_multa_faixas').delete().eq('regra_id', id)
   if (delMultaErr) throw delMultaErr
   const { error: delLayoutErr } = await supabase.from('regra_layout_campos').delete().eq('regra_id', id)
@@ -585,7 +600,15 @@ export async function updateRegra(id: string, form: RegraForm): Promise<void> {
   else await salvarLayoutCampos(id, form.layoutCampos)
 }
 
+// regra_entidades (vínculos) também referencia regras sem cascade — sem
+// limpar antes, excluir uma Regra que já foi vinculada a algum Clube/Liga/
+// Agente falha com erro de FK em vez de excluir de verdade. Os Acertos já
+// calculados não são afetados: guardam os valores finais (valor_acerto,
+// fee_*_valor etc.) prontos, não recalculam nada a partir da Regra.
 export async function deleteRegra(id: string): Promise<void> {
+  await limparCondicoes(id)
+  const { error: vincErr } = await supabase.from('regra_entidades').delete().eq('regra_id', id)
+  if (vincErr) throw vincErr
   const { error } = await supabase.from('regras').delete().eq('id', id)
   if (error) throw error
 }
