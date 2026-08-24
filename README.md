@@ -117,15 +117,19 @@ pagar, azul = liga vai receber) — mesmo número, framing oposto, confirmado co
 de pagamento antigos (antes dessa migration) ficam com `acerto_id` nulo e não aparecem
 retroativamente nessas telas, só os lançados daqui pra frente.
 
-**Bônus de Indicação (`clubs.elite`, `acertos.indicacao_valor`):** confirmado com o Cássio —
-quando um clube indica outro (etapa Regras do Cadastro, "Indicações"), ele ganha um bônus
-automático sobre o **próprio** rake (não o do clube indicado): 10% até R$1.000 se for **Elite**,
-senão 5% até R$300. "Elite" é uma classificação do próprio clube (etapa Identificação do Cadastro),
-não da indicação. Nada é editável — `calcularIndicacao` (`lib/acertos-engine.ts`) recalcula sozinho
-toda vez que o Acerto roda, só pra clubes com pelo menos uma indicação registrada. Aparece como uma
-linha própria "Indicação" no card de Acerto, sem mexer na Taxa A-A Home Game (linha separada,
-continua manual). O campo `club_indicacoes.taxa_indicacao_pct` (digitado à mão) saiu de uso — a
-coluna continua existindo no banco, só não é mais lida nem exibida.
+**Bônus de Indicação (`club_indicacoes.taxa_indicacao_pct`, `acertos.indicacao_valor`):**
+quando um clube indica outro (etapa Garantias & Limites do Cadastro, "Indicações"), ele ganha um
+bônus automático sobre o **próprio** rake (não o do clube indicado) igual à % digitada naquele
+vínculo, sem teto. Com mais de uma indicação, os percentuais somam antes de aplicar sobre o rake.
+`calcularIndicacao` (`lib/acertos-engine.ts`) recalcula sozinho toda vez que o Acerto roda. Aparece
+como uma linha própria "Indicação (X%)" no card de Acerto — o % mostrado é reconstruído a partir do
+valor já gravado (`indicacao_valor / rake_total`), não lido de novo do cadastro, então sempre bate
+com o que realmente entrou naquele Acerto mesmo que o % do clube mude depois. Sem mexer na Taxa A-A
+Home Game (linha separada, continua manual). **Histórico:** esse já foi o modelo original
+(`taxa_indicacao_pct`), depois virou um bônus fixo por `clubs.elite` (10%/5%, teto R$1.000/R$300) —
+confirmado com o Cássio que aquilo era do programa VIP (fora do MVP) e a Indicação devia ter ficado
+simples o tempo todo; voltou a ser a % digitada por vínculo. `clubs.elite` ficou na base sem uso
+(dado histórico) — o toggle "Clube Elite" saiu do Cadastro.
 
 **Sinal na tela de Acertos (`components/acertos/AcertosView.tsx`):** "Taxa" (fee cobrado do clube
 pelo serviço de liga) sempre aparece negativo. O antigo "Result. Jogador" virou **"Ganhos"**. Pro
@@ -712,6 +716,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   mesmo layout de tabela de antes. `buscarHistoricoAcertosPendentes` (novo, `lib/acertos-pendentes.ts`)
   aceita o recorte de período direto na consulta em vez do lookback fixo de 52 semanas; Atrasados e
   Inadimplentes continuam na tela combinada, sem filtro, olhando só quem deve hoje
+- [x] Filtro por nome na lista de Clubes (Cadastros), ao lado do filtro de Liga que já existia
+- [x] **Bônus de Indicação** volta a ser a % digitada por vínculo (`club_indicacoes.taxa_indicacao_pct`
+  — coluna antiga, tinha saído de uso), sem teto de valor — em vez do bônus fixo por `clubs.elite`
+  (10%/5%, teto R$1.000/R$300), que era do programa VIP misturado ali por engano (VIP não entra no
+  MVP, confirmado com o Cássio). Toggle "Clube Elite" saiu do Cadastro. Card de Acerto agora mostra
+  "Indicação (X%)" com o % de fato aplicado naquele Acerto (reconstruído do valor já gravado, não
+  lido de novo do cadastro — não muda se o % do clube mudar depois)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

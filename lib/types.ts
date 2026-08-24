@@ -110,7 +110,6 @@ export type Club = {
   rebate_ativo: boolean
   ativo: boolean
   wtr4_semanas_manual: number | null
-  elite: boolean
   // Texto livre (não calculado) — condição de taxa negociada fora do padrão
   // pra esse clube. Aparece direto na coluna Termos Especiais do Resumo de
   // Taxas. null/vazio = sem termos especiais.
@@ -150,7 +149,6 @@ export type ClubForm = {
   operador_nickname: string | null
   rebate_ativo: boolean
   wtr4_semanas_manual: number | null
-  elite: boolean
   termos_especiais: string | null
 }
 

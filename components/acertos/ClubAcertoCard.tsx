@@ -242,8 +242,16 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         return <Linha key={campo} label="Segurança" value={security} />
       case 'rebate':
         return <Linha key={campo} label="Rebate" value={rebateDisplay} />
-      case 'indicacao':
-        return acerto.indicacao_valor !== 0 ? <Linha key={campo} label="Indicação" value={acerto.indicacao_valor} /> : null
+      case 'indicacao': {
+        if (acerto.indicacao_valor === 0) return null
+        // % aplicado não vem salvo à parte — é o mesmo % usado no cálculo,
+        // reconstruído aqui a partir do valor já gravado (indicacao_valor =
+        // rake_total × pct/100, ver calcularIndicacao) pra sempre bater com
+        // o que realmente foi somado no Acerto, mesmo que o % cadastrado no
+        // clube mude depois.
+        const pct = acerto.rake_total > 0 ? (acerto.indicacao_valor / acerto.rake_total) * 100 : 0
+        return <Linha key={campo} label={`Indicação (${fmtPct(pct)}%)`} value={acerto.indicacao_valor} />
+      }
       case 'lancamentos_periodo':
         return lancamentos.length > 0 ? (
           <div key={campo} className="py-1">

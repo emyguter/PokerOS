@@ -8,7 +8,7 @@ import { RegrasAplicadas } from './RegrasAplicadas'
 import { StepModal, type ModalStep } from './StepModal'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { getStoplossAtual } from '@/lib/stoploss'
-import { getIndicacoes, addIndicacao, removeIndicacao, type IndicacaoRow, getVinculosAcerto, addVinculoAcerto, removeVinculoAcerto, type VinculoAcertoRow } from '@/lib/cadastro-api'
+import { getIndicacoes, addIndicacao, atualizarPercentualIndicacao, removeIndicacao, type IndicacaoRow, getVinculosAcerto, addVinculoAcerto, removeVinculoAcerto, type VinculoAcertoRow } from '@/lib/cadastro-api'
 
 interface Props {
   open: boolean
@@ -29,7 +29,7 @@ const EMPTY: ClubForm = {
   caucao_atual: null, stoploss_inicial: null, ratio_caucao_stoploss: null, projeto: null,
   hora_virada_semana: 2,
   plataforma_id: null, operador_ext_id: null, operador_nickname: null, rebate_ativo: false,
-  wtr4_semanas_manual: null, elite: false, termos_especiais: null,
+  wtr4_semanas_manual: null, termos_especiais: null,
 }
 
 const STEPS: ModalStep[] = [
@@ -58,7 +58,6 @@ function toForm(c: Club): ClubForm {
     operador_nickname: c.operador_nickname ?? null,
     rebate_ativo: c.rebate_ativo ?? false,
     wtr4_semanas_manual: c.wtr4_semanas_manual ?? null,
-    elite: c.elite ?? false,
     termos_especiais: c.termos_especiais ?? null,
   }
 }
@@ -77,6 +76,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   const [salvandoIndicacao, setSalvandoIndicacao] = useState(false)
   const [erroIndicacao, setErroIndicacao] = useState<string | null>(null)
   const [indClub, setIndClub] = useState<{ id: string; nome: string } | null>(null)
+  const [indPercentual, setIndPercentual] = useState('')
   const [buscaIndClub, setBuscaIndClub] = useState('')
   const [resultadosIndClub, setResultadosIndClub] = useState<{ id: string; name: string; external_id: string | null; plataformaNome: string | null }[]>([])
   const [buscandoIndClub, setBuscandoIndClub] = useState(false)
@@ -104,6 +104,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     setIndicacoes([])
     setErroIndicacao(null)
     setIndClub(null)
+    setIndPercentual('')
     setBuscaIndClub('')
     setResultadosIndClub([])
     setVinculos([])
@@ -122,11 +123,28 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
 
   async function adicionarIndicacao() {
     if (!editing || !indClub) return
+    const pct = Number(indPercentual.replace(',', '.'))
+    if (!indPercentual || Number.isNaN(pct) || pct < 0) return
     setSalvandoIndicacao(true); setErroIndicacao(null)
     try {
-      await addIndicacao(editing.id, indClub.id)
+      await addIndicacao(editing.id, indClub.id, pct)
       setIndicacoes(await getIndicacoes(editing.id))
-      setIndClub(null); setBuscaIndClub('')
+      setIndClub(null); setIndPercentual(''); setBuscaIndClub('')
+    } catch (e) {
+      setErroIndicacao(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSalvandoIndicacao(false)
+    }
+  }
+
+  async function atualizarPercentualIndicacaoSalva(id: string, valor: string) {
+    if (!editing) return
+    const pct = Number(valor.replace(',', '.'))
+    if (Number.isNaN(pct) || pct < 0) return
+    setSalvandoIndicacao(true); setErroIndicacao(null)
+    try {
+      await atualizarPercentualIndicacao(id, pct)
+      setIndicacoes(await getIndicacoes(editing.id))
     } catch (e) {
       setErroIndicacao(e instanceof Error ? e.message : String(e))
     } finally {
@@ -292,20 +310,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
         <p className="text-xs text-gray-500 -mt-2">
           Cotação: valor de conversão da Moeda desse clube pra moeda de acerto, quando forem diferentes. É o único lugar do sistema onde esse valor é definido — atualize aqui sempre que precisar trocar.
         </p>
-      )}
-
-      {step === 'identificacao' && (
-        <div className="mt-4">
-          <label className="flex items-center gap-3 cursor-pointer w-fit">
-            <div
-              onClick={() => set('elite', !form.elite)}
-              className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${form.elite ? 'bg-gold' : 'bg-white/10'}`}
-            >
-              <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${form.elite ? 'translate-x-5' : 'translate-x-1'}`} />
-            </div>
-            <span className="text-sm text-gray-300">Clube Elite</span>
-          </label>
-        </div>
       )}
 
       {step === 'identificacao' && (
@@ -514,7 +518,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
           <div className="space-y-3 mt-4">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">Indicações</h3>
             <p className="text-xs text-gray-500">
-              Quem esse clube indicou — o bônus (10% Elite / 5% não-Elite do próprio rake, até R$ 1.000/R$ 300) sai sozinho no Acerto enquanto tiver pelo menos uma indicação aqui. Nada pra digitar, só o vínculo.
+              Clube que esse clube indicou, com a % do rake dele que vira bônus — sai sozinho no Acerto, sobre o próprio rake de quem indicou.
             </p>
             {!editing ? (
               <p className="text-xs text-gray-500 italic">Salve o cadastro primeiro pra poder indicar outro clube.</p>
@@ -525,12 +529,19 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                   <div className="flex items-center gap-2">
                     <div className="flex-1 flex items-center justify-between px-3 py-2 bg-surface2 border border-gold/30 rounded-lg text-sm">
                       <span className="text-white">{indClub.nome}</span>
-                      <button type="button" onClick={() => setIndClub(null)} className="text-gray-500 hover:text-alert"><Trash2 size={13} /></button>
+                      <button type="button" onClick={() => { setIndClub(null); setIndPercentual('') }} className="text-gray-500 hover:text-alert"><Trash2 size={13} /></button>
+                    </div>
+                    <div className="relative w-20">
+                      <input
+                        type="text" inputMode="decimal" value={indPercentual} onChange={e => setIndPercentual(e.target.value)}
+                        placeholder="%" className="w-full bg-surface border border-white/10 rounded-lg pl-3 pr-6 py-2 text-white text-sm text-right placeholder-gray-600 focus:outline-none focus:border-gold/50"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs">%</span>
                     </div>
                     <button
                       type="button"
                       onClick={adicionarIndicacao}
-                      disabled={salvandoIndicacao}
+                      disabled={salvandoIndicacao || !indPercentual}
                       className="px-3 py-2 bg-surface2 border border-white/10 rounded-lg text-gold hover:border-gold/50 disabled:opacity-40 transition-colors"
                     ><Plus size={16} /></button>
                   </div>
@@ -557,8 +568,17 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                   </div>
                 )}
                 {indicacoes.map(ind => (
-                  <div key={ind.id} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-white/10 text-sm">
-                    <span className="text-gray-300">{ind.nome}</span>
+                  <div key={ind.id} className="flex items-center justify-between gap-2 p-2 bg-surface rounded-lg border border-white/10 text-sm">
+                    <span className="text-gray-300 flex-1">{ind.nome}</span>
+                    <div className="relative w-16">
+                      <input
+                        type="text" inputMode="decimal" defaultValue={ind.taxaIndicacaoPct}
+                        onBlur={e => atualizarPercentualIndicacaoSalva(ind.id, e.target.value)}
+                        disabled={salvandoIndicacao}
+                        className="w-full bg-surface2 border border-white/10 rounded-lg pl-2 pr-5 py-1 text-white text-xs text-right focus:outline-none focus:border-gold/50 disabled:opacity-40"
+                      />
+                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500 text-[10px]">%</span>
+                    </div>
                     <button type="button" onClick={() => removerIndicacaoSalva(ind.id)} disabled={salvandoIndicacao} className="text-gray-500 hover:text-alert disabled:opacity-40"><Trash2 size={13} /></button>
                   </div>
                 ))}

@@ -16,7 +16,6 @@ export interface ClubSettings {
   rakeback_pct: number;
   spinup_pct: number;
   wtr4_semanas_manual: number | null;
-  elite: boolean;
   league_id: string | null;
 }
 
@@ -153,14 +152,13 @@ export function avaliarCondicoes(condicoes: CondicaoAvaliavel[], row: ImportRow,
 }
 
 // Bônus de Indicação: confirmado com o Cássio — quem indica outro clube
-// ganha um bônus sobre o PRÓPRIO rake (não o do clube indicado), só se tiver
-// pelo menos uma indicação registrada (club_indicacoes). Elite = 10% do rake
-// (até R$1.000); não-Elite = 5% (até R$300). Nada aqui é editável — sai
-// sozinho toda vez que o Acerto é calculado.
-export function calcularIndicacao(elite: boolean, rakeTotalProprio: number): number {
-  const pct = elite ? 0.1 : 0.05;
-  const teto = elite ? 1000 : 300;
-  return Math.round(Math.min(rakeTotalProprio * pct, teto) * 100) / 100;
+// ganha um bônus sobre o PRÓPRIO rake (não o do clube indicado), igual à %
+// digitada no vínculo (club_indicacoes.percentual), sem teto. Se o clube
+// tiver mais de uma indicação, os percentuais somam antes de aplicar sobre o
+// rake — `percentualTotal` já vem somado de quem chama. Sai sozinho toda vez
+// que o Acerto é calculado.
+export function calcularIndicacao(percentualTotal: number, rakeTotalProprio: number): number {
+  return Math.round(rakeTotalProprio * (percentualTotal / 100) * 100) / 100;
 }
 
 export function calcularAcerto(
@@ -441,7 +439,7 @@ export async function processarAcertos(importId: string): Promise<{
 
     const { data: clubs, error: clubsError } = await supabase
       .from("clubs")
-      .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual, elite, league_id");
+      .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual, league_id");
 
     if (clubsError) throw new Error(clubsError.message);
 
@@ -516,7 +514,7 @@ export async function processarAcertos(importId: string): Promise<{
                   fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: null, taxa_op_ativo: false, spinup_pct: null,
                   caucao_atual: null, stoploss_inicial: null,
                 })
-                .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual, elite, league_id")
+                .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual, league_id")
                 .single()
             ).data
           : null;
@@ -567,24 +565,25 @@ export async function processarAcertos(importId: string): Promise<{
       importInfo?.period_end ?? ""
     );
 
-    // Bônus de Indicação (ver calcularIndicacao acima): só entra pra quem
-    // indicou pelo menos um outro clube — club_indicacoes.club_id é quem
-    // ganha o bônus, sobre o próprio rake, não o do clube indicado.
+    // Bônus de Indicação (ver calcularIndicacao acima): club_indicacoes.club_id
+    // é quem ganha o bônus, sobre o próprio rake, não o do clube indicado —
+    // soma o percentual de todas as indicações desse clube antes de aplicar.
     const { data: indicacoesData } = await supabase
       .from("club_indicacoes")
-      .select("club_id")
+      .select("club_id, taxa_indicacao_pct")
       .in("club_id", clubIdsResolvidos);
-    const clubesIndicadores = new Set((indicacoesData ?? []).map((i) => i.club_id as string));
-    const eliteByClubId = new Map<string, boolean>((clubs ?? []).map((c) => [c.id, !!c.elite]));
+    const percentualIndicacaoPorClube = new Map<string, number>();
+    for (const i of (indicacoesData ?? []) as { club_id: string; taxa_indicacao_pct: number }[]) {
+      percentualIndicacaoPorClube.set(i.club_id, (percentualIndicacaoPorClube.get(i.club_id) ?? 0) + (i.taxa_indicacao_pct ?? 0));
+    }
 
     const acertosComExtras = acertos.map((a) => ({
       ...a,
       bilhetes: bilhetesPorClube.get(a.club_external_id) ?? 0,
       pendencias_antecipacao: a.club_id ? pendenciasPorClube.get(a.club_id) ?? 0 : 0,
-      indicacao_valor:
-        a.club_id && clubesIndicadores.has(a.club_id)
-          ? calcularIndicacao(eliteByClubId.get(a.club_id) ?? false, a.rake_total)
-          : 0,
+      indicacao_valor: a.club_id
+        ? calcularIndicacao(percentualIndicacaoPorClube.get(a.club_id) ?? 0, a.rake_total)
+        : 0,
     }));
 
     const { error: insertError } = await supabase.from("acertos").insert(acertosComExtras);

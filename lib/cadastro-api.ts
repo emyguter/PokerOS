@@ -160,21 +160,25 @@ export async function reativarClub(id: string): Promise<void> {
 }
 
 // ─── INDICAÇÕES (um clube indica outro; o vínculo em si não tem taxa — quem
-// indicou ganha um bônus automático sobre o PRÓPRIO rake sempre que tiver ao
-// menos uma indicação: 10% (até R$1.000) se for Elite, senão 5% (até R$300)
-// — ver clubs.elite e o cálculo em lib/acertos-engine.ts. Confirmado com o
-// Cássio: nada aqui é editável, só o vínculo de quem indicou quem) ──
+// indicou ganha um bônus sobre o PRÓPRIO rake, sempre que tiver pelo menos
+// uma indicação: % digitado por vínculo (club_indicacoes.taxa_indicacao_pct
+// — coluna antiga, tinha saído de uso quando a Indicação virou o bônus fixo
+// por Elite; agora volta a ser lida), sem teto — ver o cálculo em
+// lib/acertos-engine.ts. Se o clube tiver mais de uma indicação, os
+// percentuais somam. Confirmado com o Cássio: nada de programa VIP/Elite
+// aqui — é só o vínculo + a % combinada) ──
 
 export interface IndicacaoRow {
   id: string
   club_indicado_id: string
   nome: string
+  taxaIndicacaoPct: number
 }
 
 export async function getIndicacoes(clubeId: string): Promise<IndicacaoRow[]> {
   const { data, error } = await supabase
     .from('club_indicacoes')
-    .select('id, club_indicado_id')
+    .select('id, club_indicado_id, taxa_indicacao_pct')
     .eq('club_id', clubeId)
   if (error) throw error
   const linhas = data ?? []
@@ -187,13 +191,19 @@ export async function getIndicacoes(clubeId: string): Promise<IndicacaoRow[]> {
     id: l.id,
     club_indicado_id: l.club_indicado_id,
     nome: nomePorId.get(l.club_indicado_id) ?? '—',
+    taxaIndicacaoPct: l.taxa_indicacao_pct ?? 0,
   }))
 }
 
-export async function addIndicacao(clubeId: string, clubeIndicadoId: string): Promise<void> {
+export async function addIndicacao(clubeId: string, clubeIndicadoId: string, taxaIndicacaoPct: number): Promise<void> {
   const { error } = await supabase.from('club_indicacoes').insert({
-    club_id: clubeId, club_indicado_id: clubeIndicadoId,
+    club_id: clubeId, club_indicado_id: clubeIndicadoId, taxa_indicacao_pct: taxaIndicacaoPct,
   })
+  if (error) throw error
+}
+
+export async function atualizarPercentualIndicacao(id: string, taxaIndicacaoPct: number): Promise<void> {
+  const { error } = await supabase.from('club_indicacoes').update({ taxa_indicacao_pct: taxaIndicacaoPct }).eq('id', id)
   if (error) throw error
 }
 

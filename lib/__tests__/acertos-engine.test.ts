@@ -26,7 +26,6 @@ function club(overrides: Partial<ClubSettings> = {}): ClubSettings {
     rakeback_pct: 0,
     spinup_pct: 3,
     wtr4_semanas_manual: null,
-    elite: false,
     league_id: null,
     ...overrides,
   }
@@ -146,19 +145,19 @@ describe('avaliarCondicoes', () => {
 })
 
 describe('calcularIndicacao', () => {
-  it('não-Elite: 5% do próprio rake, sem estourar o teto de R$300', () => {
-    expect(calcularIndicacao(false, 1000)).toBe(50) // 5% de 1000 = 50
-    expect(calcularIndicacao(false, 10000)).toBe(300) // 5% de 10000 = 500, mas teto é 300
+  it('aplica o percentual digitado direto sobre o próprio rake, sem teto', () => {
+    expect(calcularIndicacao(5, 1000)).toBe(50) // 5% de 1000 = 50
+    expect(calcularIndicacao(5, 10000)).toBe(500) // 5% de 10000 = 500, sem teto
+    expect(calcularIndicacao(10, 50000)).toBe(5000) // 10% de 50000 = 5000, sem teto
   })
 
-  it('Elite: 10% do próprio rake, sem estourar o teto de R$1.000', () => {
-    expect(calcularIndicacao(true, 5000)).toBe(500) // 10% de 5000 = 500
-    expect(calcularIndicacao(true, 50000)).toBe(1000) // 10% de 50000 = 5000, mas teto é 1000
+  it('soma de percentuais de mais de uma indicação (já somados por quem chama)', () => {
+    expect(calcularIndicacao(8, 1000)).toBe(80) // 3% + 5% de duas indicações = 8%
   })
 
-  it('rake zero dá bônus zero', () => {
-    expect(calcularIndicacao(true, 0)).toBe(0)
-    expect(calcularIndicacao(false, 0)).toBe(0)
+  it('rake zero ou percentual zero dá bônus zero', () => {
+    expect(calcularIndicacao(10, 0)).toBe(0)
+    expect(calcularIndicacao(0, 1000)).toBe(0)
   })
 })
 
