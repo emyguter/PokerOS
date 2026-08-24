@@ -313,12 +313,20 @@ describe('calcularAcerto — Taxa da Liga', () => {
     expect(resultado.valor_acerto).toBe(1000 - 110) // rake_total + ganhos(0) - fee(0) - taxa_liga
   })
 
-  it('Regra de Faixa vinculada à Liga substitui o % fixo do cadastro', () => {
+  it('% fixo do cadastro manda mesmo com Regra de Faixa vinculada à Liga', () => {
     const r = row({ rake_total: 1000, rake_mtt: 0, rake_cash: 0, rake_spinup: 0, player_result: 0 })
     const c = club({ settlement_type: 'taxa_dinamica', fee_mtt_pct: 0, fee_cash_pct: 0, taxa_op_ativo: false, spinup_pct: 0 })
     const condicoesTaxaLiga = [condicao({ operador: '>', valor: 0, resultado_pct: 5 })]
     const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null, { pctFixo: 10, condicoes: condicoesTaxaLiga })
-    expect(resultado.taxa_liga_valor).toBe(50) // 1000 * 5%, não os 10% fixos
+    expect(resultado.taxa_liga_valor).toBe(100) // 1000 * 10% (cadastro), não os 5% da Regra
+  })
+
+  it('Regra de Faixa vinculada à Liga só entra quando o cadastro está sem % fixo', () => {
+    const r = row({ rake_total: 1000, rake_mtt: 0, rake_cash: 0, rake_spinup: 0, player_result: 0 })
+    const c = club({ settlement_type: 'taxa_dinamica', fee_mtt_pct: 0, fee_cash_pct: 0, taxa_op_ativo: false, spinup_pct: 0 })
+    const condicoesTaxaLiga = [condicao({ operador: '>', valor: 0, resultado_pct: 5 })]
+    const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null, { pctFixo: null, condicoes: condicoesTaxaLiga })
+    expect(resultado.taxa_liga_valor).toBe(50) // 1000 * 5%, cadastro vazio cai pra Regra
   })
 
   it('tipo de cobrança desconhecido: não aplica Taxa da Liga (fallback já zera tudo)', () => {

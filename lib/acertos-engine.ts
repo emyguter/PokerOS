@@ -262,16 +262,21 @@ export function calcularAcerto(
 
   // Taxa da Liga: incide sobre TODO o rake do período (Rake Total + SpinUp
   // Rake, os 3 tipos de jogo somados) — layer por cima do resto, em cima de
-  // qualquer tipo de cobrança do clube (confirmado com o Cássio). % fixo
-  // vem do cadastro da Liga; Regra vinculada à Liga (campo taxa_liga) manda
-  // se tiver. Não se aplica quando o clube nem tem tipo de cobrança
-  // reconhecido (fallback "sem_regra" — nada mais é cobrado ali também).
+  // qualquer tipo de cobrança do clube (confirmado com o Cássio). % fixo do
+  // cadastro da Liga manda sempre que estiver preenchido; a Regra vinculada
+  // à Liga (campo taxa_liga) só entra como fallback quando o cadastro está
+  // vazio (confirmado com o Cássio — mudou de "Regra manda" pra "cadastro
+  // manda, Regra é o reserva"). Não se aplica quando o clube nem tem tipo de
+  // cobrança reconhecido (fallback "sem_regra" — nada mais é cobrado ali
+  // também).
   if (tipoReconhecido) {
     const baseTaxaLiga = rake_total + rake_spinup;
-    const condTaxaLiga = taxaLiga.condicoes.length > 0
+    const pctTaxaLiga = taxaLiga.pctFixo != null
+      ? taxaLiga.pctFixo
+      : taxaLiga.condicoes.length > 0
       ? avaliarCondicoes(taxaLiga.condicoes, row, wtr4Semanas)
       : null;
-    taxa_liga_valor = baseTaxaLiga * ((condTaxaLiga ?? taxaLiga.pctFixo ?? 0) / 100);
+    taxa_liga_valor = baseTaxaLiga * ((pctTaxaLiga ?? 0) / 100);
     valor_acerto -= taxa_liga_valor;
   }
 

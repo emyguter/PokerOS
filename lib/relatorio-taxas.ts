@@ -35,6 +35,21 @@ export function formatCampo(fixo: number | null, faixa: { min: number; max: numb
   return { valor: `${fixo}%`, variavel: false }
 }
 
+function faixaTexto(faixa: { min: number; max: number }): string {
+  return faixa.min === faixa.max ? `${faixa.min}%` : `${faixa.min}% – ${faixa.max}%`
+}
+
+// Taxa da Liga tem prioridade invertida em relação aos outros campos: o %
+// fixo do cadastro da Liga manda sempre que estiver preenchido, a Regra de
+// Faixa vinculada só entra como fallback quando o cadastro está vazio
+// (confirmado com o Cássio, mesma regra usada em lib/acertos-engine.ts —
+// tem que bater com o que o Acerto realmente calcula).
+function formatTaxaLiga(fixo: number | null, faixa: { min: number; max: number } | undefined): TaxaCampoResumo {
+  if (fixo != null) return { valor: `${fixo}%`, variavel: false }
+  if (faixa) return { valor: faixaTexto(faixa), variavel: true }
+  return { valor: '—', variavel: false }
+}
+
 // Faixa (min/max de resultado_pct) da Regra vinculada em cada campo, por
 // clube — mesma fonte que o motor de cálculo usa (regra_entidades.campo +
 // regra_condicoes), só que aqui é resumida em min–max pra exibição, não
@@ -127,7 +142,7 @@ export async function buscarResumoTaxas(): Promise<ResumoTaxaClube[]> {
       feeCash: campo('fee_cash', c.fee_cash_pct),
       taxaOperacional,
       spinup: campo('spinup', c.spinup_pct),
-      taxaLiga: c.league_id ? formatCampo(c.leagues?.taxa_app_pct ?? null, faixasLiga.get(c.league_id as string)) : null,
+      taxaLiga: c.league_id ? formatTaxaLiga(c.leagues?.taxa_app_pct ?? null, faixasLiga.get(c.league_id as string)) : null,
       rebatePct: c.settlement_type === 'weekly_usd' && c.rebate_ativo ? (c.rebate_pct as number | null) : null,
       cryptoRebatePct: c.settlement_type === 'weekly_usd' ? (c.crypto_rebate_pct as number | null) : null,
       rakebackPct: c.settlement_type === 'rakeback' ? (c.rakeback_pct as number | null) : null,

@@ -743,6 +743,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   VIP Cashback (aparecia na planilha de referência) fica de fora — programa VIP não entra no MVP,
   confirmado com o Cássio antes. Resumo de Acertos volta a mostrar cada plataforma na sua própria
   linha, sem juntar
+- [x] **Taxa da Liga inverte prioridade**: cadastro da Liga (% fixo) manda sempre que estiver
+  preenchido; a Regra de Faixa vinculada só entra como fallback quando o cadastro está vazio (era o
+  contrário — Regra sempre mandava quando existia). Mudou no motor de cálculo real
+  (`calcularAcerto`, único lugar que gera `acertos.taxa_liga_valor` — Acertos, Acerto Geral,
+  Controle de Pagamentos etc. todos leem esse valor já calculado, não recalculam) e no Resumo de
+  Taxas (preview do que vale pra cada clube). Só Taxa da Liga — Fee MTT/Cash/Operacional/SpinUp
+  continuam com Regra mandando quando vinculada, sem mudança aí
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
