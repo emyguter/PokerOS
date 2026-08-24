@@ -90,7 +90,7 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
   const [incluirMulta, setIncluirMulta] = useState(false)
   // Só vale criando regra nova (editing null) — "Nova Regra" abre perguntando
   // o que criar antes de mostrar o formulário.
-  const [tipoCriacao, setTipoCriacao] = useState<'completo' | 'multa' | null>(null)
+  const [tipoCriacao, setTipoCriacao] = useState<'completo' | 'multa' | 'layout' | null>(null)
 
   useEffect(() => {
     if (open) supabase.from('indicadores').select('*').order('nome').then(({ data }) => { if (data) setIndicadores(data) })
@@ -166,12 +166,13 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
   const step0 = !editing && tipoCriacao === null
   const criandoCompleto = !editing && tipoCriacao === 'completo'
   const criandoSoMulta = !editing && tipoCriacao === 'multa'
+  const criandoLayoutAvulso = !editing && tipoCriacao === 'layout'
   const editandoCalculo = editing?.tipo === 'faixa'
   const editandoMultaAvulsa = editing?.tipo === 'multa_atraso'
   const editandoLayoutAvulso = editing?.tipo === 'layout_acerto'
 
   const mostrarCalculo = editandoCalculo || criandoCompleto
-  const mostrarLayout = editandoCalculo || editandoLayoutAvulso || criandoCompleto
+  const mostrarLayout = editandoCalculo || editandoLayoutAvulso || criandoCompleto || criandoLayoutAvulso
   const mostrarMultaComCheckbox = editandoCalculo || criandoCompleto
   const mostrarMultaFixa = editandoMultaAvulsa || criandoSoMulta
   const mostrarMulta = mostrarMultaFixa || (mostrarMultaComCheckbox && incluirMulta)
@@ -229,7 +230,7 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
       <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
           <h2 className="text-lg font-semibold text-white">
-            {editing ? `Editar ${LABEL_TIPO[editing.tipo]}` : step0 ? 'Nova Regra' : criandoSoMulta ? 'Nova Multa Avulsa' : 'Novo Cálculo de Acerto'}
+            {editing ? `Editar ${LABEL_TIPO[editing.tipo]}` : step0 ? 'Nova Regra' : criandoSoMulta ? 'Nova Multa Avulsa' : criandoLayoutAvulso ? 'Novo Layout do Acerto' : 'Novo Cálculo de Acerto'}
           </h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><X size={18} /></button>
         </div>
@@ -245,6 +246,10 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
                 <p className="text-sm font-medium text-white">Multa Avulsa</p>
                 <p className="text-xs text-gray-500 mt-1">Só a % de multa por atraso, sem Cálculo — raro, use só se o Cálculo já existir em outro lugar</p>
               </button>
+              <button type="button" onClick={() => setTipoCriacao('layout')} className="w-full text-left p-4 rounded-lg border border-white/10 hover:border-gold/50 transition-colors">
+                <p className="text-sm font-medium text-white">Layout do Acerto Avulso</p>
+                <p className="text-xs text-gray-500 mt-1">Só a ordem/visibilidade dos campos do card, sem Cálculo — pra clube de Taxa Fixa (sem faixa SE/ENTÃO) que precisa de um layout próprio</p>
+              </button>
             </div>
             <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
               <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
@@ -258,6 +263,8 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
                 <p className="text-xs text-gray-500">
                   {criandoCompleto
                     ? 'Cálculo e Layout do Acerto nascem juntos — Multa é opcional, marque só se essa regra tiver.'
+                    : criandoLayoutAvulso
+                    ? 'Layout avulso — sem Cálculo/Multa, precisa do próprio vínculo depois.'
                     : 'Multa avulsa — sem Cálculo/Layout, precisa do próprio vínculo depois.'}
                 </p>
                 <button type="button" onClick={() => setTipoCriacao(null)} className="text-xs text-gray-500 hover:text-gold shrink-0 ml-2">← voltar</button>

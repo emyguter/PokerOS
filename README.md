@@ -723,6 +723,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   MVP, confirmado com o Cássio). Toggle "Clube Elite" saiu do Cadastro. Card de Acerto agora mostra
   "Indicação (X%)" com o % de fato aplicado naquele Acerto (reconstruído do valor já gravado, não
   lido de novo do cadastro — não muda se o % do clube mudar depois)
+- [x] **Layout do Acerto Avulso**: nova opção em "Nova Regra" (`/admin/regras`) pra criar um Layout do
+  Acerto sem precisar criar um Cálculo de Acerto junto — antes só existia Cálculo+Layout juntos ou
+  Multa Avulsa, então clube de Taxa Fixa (sem faixa SE/ENTÃO, não precisa de Cálculo) não tinha como
+  configurar um layout próprio e caía sempre no `LAYOUT_PADRAO` (com colunas de Fee MTT/Cash que nem
+  se aplicam a ele). Vincula direto ao clube pela mesma tela de Vínculos de sempre
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
