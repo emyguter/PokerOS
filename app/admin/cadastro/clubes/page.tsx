@@ -6,7 +6,7 @@ import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { ClubModal } from '@/components/cadastro/ClubModal'
 import { BuscaSelect } from '@/components/BuscaSelect'
-import { Plus, Filter } from 'lucide-react'
+import { Plus, Filter, Search } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 
 function clean(form: ClubForm): ClubForm {
@@ -25,6 +25,7 @@ export default function ClubesPage() {
   const [leagues, setLeagues] = useState<League[]>([])
   const [plataformas, setPlataformas] = useState<Plataforma[]>([])
   const [filter, setFilter] = useState('')
+  const [nomeFiltro, setNomeFiltro] = useState('')
   const [mostrarInativos, setMostrarInativos] = useState(false)
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -43,6 +44,10 @@ export default function ClubesPage() {
   }, [filter, mostrarInativos])
 
   useEffect(() => { load() }, [load])
+
+  const itemsFiltrados = nomeFiltro.trim()
+    ? items.filter(i => i.name.toLowerCase().includes(nomeFiltro.trim().toLowerCase()))
+    : items
 
   const handleSave = async (form: ClubForm) => {
     setSaving(true); setError(null)
@@ -97,7 +102,17 @@ export default function ClubesPage() {
             className="bg-surface2 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50 w-full"
           />
         </div>
-        <span className="text-sm text-gray-500">{items.length} clube{items.length !== 1 ? 's' : ''}</span>
+        <div className="relative w-56">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <input
+            type="text"
+            value={nomeFiltro}
+            onChange={e => setNomeFiltro(e.target.value)}
+            placeholder="Buscar por nome..."
+            className="w-full bg-surface2 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gold/50"
+          />
+        </div>
+        <span className="text-sm text-gray-500">{itemsFiltrados.length} clube{itemsFiltrados.length !== 1 ? 's' : ''}</span>
         <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer ml-auto">
           <input type="checkbox" checked={mostrarInativos} onChange={e => setMostrarInativos(e.target.checked)} className="accent-gold" />
           Mostrar inativos
@@ -119,7 +134,7 @@ export default function ClubesPage() {
           { key: 'moeda', label: 'Moeda' },
           { key: 'rebate_ativo', label: 'Rebate', render: (v: boolean, row: Club) => v ? `${row.rebate_pct ?? 0}%` : '—' },
         ]}
-        data={items}
+        data={itemsFiltrados}
         loading={loading}
         onEdit={item => { setEditing(item); setModalOpen(true) }}
         onDelete={handleDeleteClick}
