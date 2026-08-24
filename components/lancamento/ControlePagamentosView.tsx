@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, PiggyBank } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { buscarImportsComAcerto, buscarPagamentosPorImport, descontarDaCaucao, corDiferenca, type ImportResumo, type AcertoPagamento } from '@/lib/pagamentos'
 
 function fmt(v: number) {
@@ -34,6 +35,7 @@ export function ControlePagamentosView() {
   const [loading, setLoading] = useState(false)
   const [descontando, setDescontando] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [confirmarDesconto, setConfirmarDesconto] = useState<AcertoPagamento | null>(null)
 
   useEffect(() => {
     buscarImportsComAcerto().then((lista) => {
@@ -63,13 +65,14 @@ export function ControlePagamentosView() {
 
   useEffect(() => { load(importId) }, [importId, load])
 
-  async function handleDescontarCaucao(l: AcertoPagamento) {
-    if (!l.club_id) return
+  async function handleDescontarCaucao() {
+    const l = confirmarDesconto
+    if (!l || !l.club_id) return
     const valor = Math.abs(l.diferenca)
-    if (!confirm(`Descontar ${fmt(valor)} da Caução de ${l.club_name}? Isso quita a Diferença do Acerto e reduz o Stoploss Atual do clube na hora.`)) return
     setDescontando(l.acerto_id); setError(null)
     try {
       await descontarDaCaucao(l.acerto_id, l.club_id, valor)
+      setConfirmarDesconto(null)
       await load(importId)
     } catch (err) {
       setError(errMsg(err))
@@ -162,7 +165,7 @@ export function ControlePagamentosView() {
                     {l.diferenca < -0.005 && l.club_id && (
                       <button
                         type="button"
-                        onClick={() => handleDescontarCaucao(l)}
+                        onClick={() => setConfirmarDesconto(l)}
                         disabled={descontando === l.acerto_id}
                         title="Descontar a Diferença da Caução do clube — quita o Acerto e reduz o Stoploss Atual na hora."
                         className="flex items-center gap-1.5 px-2.5 py-1.5 border border-gold/30 text-gold rounded-lg text-xs font-medium hover:bg-gold/10 disabled:opacity-50 transition-colors ml-auto"
@@ -177,6 +180,18 @@ export function ControlePagamentosView() {
           </table>
         </div>
       )}
+
+      <ConfirmModal
+        open={!!confirmarDesconto}
+        title="Descontar da Caução"
+        description={confirmarDesconto && `Descontar ${fmt(Math.abs(confirmarDesconto.diferenca))} da Caução de ${confirmarDesconto.club_name}? Isso quita a Diferença do Acerto e reduz o Stoploss Atual do clube na hora.`}
+        tone="gold"
+        icon={PiggyBank}
+        saving={!!descontando}
+        confirmLabel="Descontar"
+        onConfirm={handleDescontarCaucao}
+        onCancel={() => setConfirmarDesconto(null)}
+      />
     </div>
   )
 }

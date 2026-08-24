@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Inbox } from "lucide-react";
+import { Inbox, Copy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { processarAcertos, processarAcertosAgentes } from "@/lib/acertos-engine";
 import { calcularTotalAcerto, buscarSecurityEDividasPorClube } from "@/lib/relatorio-acerto";
 import * as XLSX from "xlsx";
@@ -101,6 +102,7 @@ export default function AcertosView() {
   const [calculating, setCalculating] = useState(false);
   const [confirmRecalcular, setConfirmRecalcular] = useState(false);
   const [filaCotacao, setFilaCotacao] = useState<{ id: string; name: string }[]>([]);
+  const [confirmReplicar, setConfirmReplicar] = useState<{ valor: number; resto: { id: string; name: string }[]; passo: 1 | 2 } | null>(null);
   const [filterType, setFilterType] = useState("todos");
   const [search, setSearch] = useState("");
   const [ordenacaoImports, setOrdenacaoImports] = useState<"importacao" | "periodo" | "nome">("importacao");
@@ -293,24 +295,42 @@ export default function AcertosView() {
   async function handleSalvarCotacao(valor: number) {
     const atual = filaCotacao[0];
     if (!atual) return;
-    const resto = filaCotacao.slice(1);
     setCalculating(true);
     try {
       await supabase.from("clubs").update({ cotacao: valor }).eq("id", atual.id);
-      if (
-        resto.length > 0 &&
-        confirm(`Usar essa mesma cotação (${valor}) para os outros ${resto.length} clube${resto.length > 1 ? "s" : ""} dessa fila?`) &&
-        confirm("Tem certeza que nenhum desses clubes tem uma cotação diferente?")
-      ) {
-        await supabase.from("clubs").update({ cotacao: valor }).in("id", resto.map((c) => c.id));
-        setFilaCotacao([]);
-        if (selected) await executarCalculo(selected.id);
-        return;
-      }
     } finally {
       setCalculating(false);
     }
+    const resto = filaCotacao.slice(1);
+    if (resto.length > 0) {
+      setConfirmReplicar({ valor, resto, passo: 1 });
+      return;
+    }
     await avancarFilaCotacao();
+  }
+
+  async function handleConfirmarReplicarPasso1() {
+    setConfirmReplicar((prev) => (prev ? { ...prev, passo: 2 } : prev));
+  }
+
+  async function handleCancelarReplicar() {
+    if (!confirmReplicar) return;
+    setConfirmReplicar(null);
+    setFilaCotacao(confirmReplicar.resto);
+    if (confirmReplicar.resto.length === 0 && selected) await executarCalculo(selected.id);
+  }
+
+  async function handleConfirmarReplicarPasso2() {
+    if (!confirmReplicar) return;
+    setCalculating(true);
+    try {
+      await supabase.from("clubs").update({ cotacao: confirmReplicar.valor }).in("id", confirmReplicar.resto.map((c) => c.id));
+      setConfirmReplicar(null);
+      setFilaCotacao([]);
+      if (selected) await executarCalculo(selected.id);
+    } finally {
+      setCalculating(false);
+    }
   }
 
   function handleExport() {
@@ -612,13 +632,37 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
         />
       )}
 
-      {filaCotacao.length > 0 && (
+      {filaCotacao.length > 0 && !confirmReplicar && (
         <ConfirmCotacaoModal
           clube={filaCotacao[0]}
           saving={calculating}
           onSalvar={handleSalvarCotacao}
         />
       )}
+
+      <ConfirmModal
+        open={confirmReplicar?.passo === 1}
+        title="Replicar cotação"
+        description={confirmReplicar && `Usar essa mesma cotação (${confirmReplicar.valor}) para os outros ${confirmReplicar.resto.length} clube${confirmReplicar.resto.length > 1 ? "s" : ""} dessa fila?`}
+        tone="gold"
+        icon={Copy}
+        confirmLabel="Sim, usar pra todos"
+        cancelLabel="Não, um por um"
+        onConfirm={handleConfirmarReplicarPasso1}
+        onCancel={handleCancelarReplicar}
+      />
+      <ConfirmModal
+        open={confirmReplicar?.passo === 2}
+        title="Confirmar replicação"
+        description="Tem certeza que nenhum desses clubes tem uma cotação diferente?"
+        tone="alert"
+        icon={Copy}
+        saving={calculating}
+        confirmLabel="Tenho certeza"
+        cancelLabel="Voltar"
+        onConfirm={handleConfirmarReplicarPasso2}
+        onCancel={handleCancelarReplicar}
+      />
     </div>
   );
 }

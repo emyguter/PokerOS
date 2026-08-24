@@ -6,6 +6,7 @@ import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
 import { usePermissions } from '@/lib/permissions'
 import { BuscaSelect } from '@/components/BuscaSelect'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { getStoplossAtual, aplicarMargemMonitoria, retirarMargemMonitoria, aplicarAjusteBugPpp, margemMonitoriaAtivaEstaSemana, aplicarCorte50, reverterCorte50, setClubeBloqueado } from '@/lib/stoploss'
 import type { StoplossAjuste } from '@/lib/types'
 
@@ -47,6 +48,7 @@ export function ResumoStoploss() {
   const [processandoCorte, setProcessandoCorte] = useState(false)
   const [erroCorte, setErroCorte] = useState<string | null>(null)
   const [sucessoCorte, setSucessoCorte] = useState(false)
+  const [confirmCorte, setConfirmCorte] = useState<'aplicar' | 'reverter' | null>(null)
   const [processandoBloqueio, setProcessandoBloqueio] = useState(false)
   const [erroBloqueio, setErroBloqueio] = useState<string | null>(null)
 
@@ -105,17 +107,15 @@ export function ResumoStoploss() {
   }
 
   async function handleAplicarCorte50() {
-    if (!confirm(t('stoploss.corte_50_confirmar'))) return
     setProcessandoCorte(true); setErroCorte(null); setSucessoCorte(false)
-    try { await aplicarCorte50(clubeId); setSucessoCorte(true); await load() }
+    try { await aplicarCorte50(clubeId); setSucessoCorte(true); setConfirmCorte(null); await load() }
     catch (err) { setErroCorte(errMsg(err)) }
     finally { setProcessandoCorte(false) }
   }
 
   async function handleReverterCorte50() {
-    if (!confirm(t('stoploss.corte_50_reverter_confirmar'))) return
     setProcessandoCorte(true); setErroCorte(null)
-    try { await reverterCorte50(clubeId); await load() }
+    try { await reverterCorte50(clubeId); setConfirmCorte(null); await load() }
     catch (err) { setErroCorte(errMsg(err)) }
     finally { setProcessandoCorte(false) }
   }
@@ -241,14 +241,14 @@ export function ResumoStoploss() {
               clube?.corte_50_ativo ? (
                 <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
                   <p className="text-xs text-gray-300 flex items-center gap-2"><ShieldAlert size={14} className="text-amber-500" />{t('stoploss.corte_50_ativo')}</p>
-                  <button type="button" onClick={handleReverterCorte50} disabled={processandoCorte} className="text-xs text-amber-500 hover:underline disabled:opacity-50">
+                  <button type="button" onClick={() => setConfirmCorte('reverter')} disabled={processandoCorte} className="text-xs text-amber-500 hover:underline disabled:opacity-50">
                     {t('stoploss.corte_50_reverter')}
                   </button>
                 </div>
               ) : (
                 <button
                   type="button"
-                  onClick={handleAplicarCorte50}
+                  onClick={() => setConfirmCorte('aplicar')}
                   disabled={processandoCorte}
                   className="flex items-center gap-2 px-4 py-2 border border-amber-500/30 text-amber-500 rounded-lg text-sm font-medium hover:bg-amber-500/10 disabled:opacity-50 transition-colors w-fit"
                 >
@@ -374,6 +374,29 @@ export function ResumoStoploss() {
           )}
         </>
       )}
+
+      <ConfirmModal
+        open={confirmCorte === 'aplicar'}
+        title={t('stoploss.corte_50_aplicar')}
+        description={t('stoploss.corte_50_confirmar')}
+        tone="amber"
+        icon={ShieldAlert}
+        saving={processandoCorte}
+        confirmLabel={t('stoploss.corte_50_aplicar')}
+        onConfirm={handleAplicarCorte50}
+        onCancel={() => setConfirmCorte(null)}
+      />
+      <ConfirmModal
+        open={confirmCorte === 'reverter'}
+        title={t('stoploss.corte_50_reverter')}
+        description={t('stoploss.corte_50_reverter_confirmar')}
+        tone="amber"
+        icon={ShieldAlert}
+        saving={processandoCorte}
+        confirmLabel={t('stoploss.corte_50_reverter')}
+        onConfirm={handleReverterCorte50}
+        onCancel={() => setConfirmCorte(null)}
+      />
     </div>
   )
 }

@@ -703,6 +703,10 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
 - [x] Corte 50% agora reverte de verdade: "Reverter status" credita de volta no Stoploss Atual o
   mesmo valor que o corte debitou (antes só desligava o status, o corte ficava permanente). Débito
   e crédito ficam os dois registrados no Extrato de Stoploss como lançamentos tipo Corte 50%
+- [x] `window.confirm()` nativo trocado por modal próprio (`components/ConfirmModal.tsx`, na paleta do
+  sistema) em todo lugar que ainda usava — Corte 50% (aplicar/reverter), Descontar da Caução, e o
+  fluxo de replicar Cotação pro resto da fila (Acertos). O confirm nativo mostra a URL do app
+  ("poker-os.vercel.app diz...") e não seguia o visual do resto da tela
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
