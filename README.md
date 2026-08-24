@@ -707,6 +707,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   sistema) em todo lugar que ainda usava — Corte 50% (aplicar/reverter), Descontar da Caução, e o
   fluxo de replicar Cotação pro resto da fila (Acertos). O confirm nativo mostra a URL do app
   ("poker-os.vercel.app diz...") e não seguia o visual do resto da tela
+- [x] **Histórico de Acertos Pendentes** virou submenu próprio em Relatórios (antes era só mais uma
+  tabela dentro de Acertos Pendentes), com filtro de Clube, Projeto, Status e Período (Data de/até) —
+  mesmo layout de tabela de antes. `buscarHistoricoAcertosPendentes` (novo, `lib/acertos-pendentes.ts`)
+  aceita o recorte de período direto na consulta em vez do lookback fixo de 52 semanas; Atrasados e
+  Inadimplentes continuam na tela combinada, sem filtro, olhando só quem deve hoje
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

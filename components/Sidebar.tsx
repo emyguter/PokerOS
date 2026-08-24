@@ -56,6 +56,7 @@ const RELATORIOS_SUB: SubNavItem[] = [
   { key: 'taxas', labelKey: 'relatorios.aba_taxas', href: '/relatorios?tab=taxas', chave: 'relatorios.taxas' },
   { key: 'resumo_acertos', labelKey: 'relatorios.aba_resumo_acertos', href: '/relatorios?tab=resumo_acertos', chave: 'relatorios.resumo_acertos' },
   { key: 'acertos_pendentes', labelKey: 'relatorios.aba_acertos_pendentes', href: '/relatorios?tab=acertos_pendentes', chave: 'relatorios.acertos_pendentes' },
+  { key: 'historico_acertos_pendentes', labelKey: 'relatorios.aba_historico_acertos_pendentes', href: '/relatorios?tab=historico_acertos_pendentes', chave: 'relatorios.acertos_pendentes' },
 ]
 const VIP_SUB: SubNavItem[] = [
   { key: 'lancamento', labelKey: 'vip.aba_lancamento', href: '/vip?tab=lancamento', chave: 'vip' },

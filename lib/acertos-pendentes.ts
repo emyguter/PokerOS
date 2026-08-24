@@ -66,6 +66,7 @@ export interface LinhaInadimplencia {
   clubId: string
   clubExternalId: string
   clubName: string
+  projeto: string | null
   status: StatusStoploss
   data: string
   divida: number
@@ -77,14 +78,15 @@ export interface LinhaInadimplencia {
 export interface InadimplenciaResultado {
   atrasados: LinhaInadimplencia[]
   inadimplentes: LinhaInadimplencia[]
-  historico: LinhaInadimplencia[]
 }
 
 // "Acerto não pago (inadimplência)" — sem multa, sem acordo, nada (isso é
 // Dívidas/Acordos, coisa separada): só o Acerto semanal que o clube não
 // pagou (ou pagou só parte), somado semana a semana. Atrasados = até 8
 // semanas desde a semana mais antiga ainda em aberto; Inadimplentes = mais
-// de 8 semanas; Histórico = todo mundo que já deveu nesse período, pago ou
+// de 8 semanas — os dois só quem ainda deve hoje (buscarInadimplencia).
+// Histórico de Acertos Pendentes é tela própria (buscarHistoricoAcertosPendentes,
+// submenu separado): todo mundo que já deveu no período filtrado, pago ou
 // não, pra calcular a Taxa de Pagamento (Total Pago / Dívida).
 const LIMITE_SEMANAS_ATRASADO = 8
 // ~1 ano de histórico — cobre Atrasados/Inadimplentes com folga; mais velho
@@ -97,7 +99,14 @@ function semanasEntre(dataMaisAntiga: string, hoje: Date): number {
 }
 
 interface Semana { periodEnd: string; valorCompleto: number; envios: number }
-interface AcumClube { clubExternalId: string; clubName: string; semanas: Semana[] }
+interface AcumClube { clubExternalId: string; clubName: string; projeto: string | null; semanas: Semana[] }
+
+export interface RangeDatas {
+  // Filtra pelo period_end do Acerto — sem informar, cai no lookback padrão
+  // (SEMANAS_LOOKBACK) até hoje.
+  dataInicio?: string
+  dataFim?: string
+}
 
 interface AcertoSaldoRow {
   id: string
@@ -117,16 +126,22 @@ interface AcertoSaldoRow {
 // consultas por semana num relatório que já olha ~1 ano pra trás. Rake,
 // Bilhetes, Pendências/Antecipação, Indicação e Segurança (fixo por clube)
 // entram, iguais em toda semana.
-async function buscarSaldosPorClube(): Promise<Map<string, AcumClube>> {
-  const cutoff = new Date()
-  cutoff.setDate(cutoff.getDate() - SEMANAS_LOOKBACK * 7)
-  const cutoffStr = cutoff.toISOString().slice(0, 10)
+// `range`: sem informar, cai no lookback padrão (SEMANAS_LOOKBACK) até hoje
+// — usado pelo Atrasados/Inadimplentes. Com `dataInicio`/`dataFim`, filtra
+// period_end nesse intervalo — usado pelo Histórico de Acertos Pendentes,
+// que tem filtro de período próprio.
+async function buscarSaldosPorClube(range: RangeDatas = {}): Promise<Map<string, AcumClube>> {
+  const cutoffPadrao = new Date()
+  cutoffPadrao.setDate(cutoffPadrao.getDate() - SEMANAS_LOOKBACK * 7)
+  const dataInicio = range.dataInicio ?? cutoffPadrao.toISOString().slice(0, 10)
 
-  const { data: importsData } = await supabase
+  let query = supabase
     .from('imports')
     .select('id, period_end')
     .in('status', ['acertos_calculados', 'parcial'])
-    .gte('period_end', cutoffStr)
+    .gte('period_end', dataInicio)
+  if (range.dataFim) query = query.lte('period_end', range.dataFim)
+  const { data: importsData } = await query
   const periodEndPorImport = new Map(((importsData ?? []) as { id: string; period_end: string }[]).map((i) => [i.id, i.period_end]))
   const importIds = [...periodEndPorImport.keys()]
   const porClube = new Map<string, AcumClube>()
@@ -144,22 +159,23 @@ async function buscarSaldosPorClube(): Promise<Map<string, AcumClube>> {
 
   const [{ data: enviosData }, { data: clubesData }] = await Promise.all([
     supabase.from('lancamentos').select('acerto_id, natureza, valor').in('acerto_id', acertoIds).in('tipo', ['pagamento', 'antecipacao']),
-    clubIds.length > 0 ? supabase.from('clubs').select('id, security').in('id', clubIds) : Promise.resolve({ data: [] as { id: string; security: number | null }[] }),
+    clubIds.length > 0 ? supabase.from('clubs').select('id, security, projeto').in('id', clubIds) : Promise.resolve({ data: [] as { id: string; security: number | null; projeto: string | null }[] }),
   ])
   const enviosPorAcerto = new Map<string, number>()
   for (const e of (enviosData ?? []) as { acerto_id: string; natureza: 'credito' | 'debito'; valor: number }[]) {
     enviosPorAcerto.set(e.acerto_id, (enviosPorAcerto.get(e.acerto_id) ?? 0) + (e.natureza === 'credito' ? e.valor : -e.valor))
   }
-  const securityPorClube = new Map(((clubesData ?? []) as { id: string; security: number | null }[]).map((c) => [c.id, c.security ?? 0]))
+  const infoPorClube = new Map(((clubesData ?? []) as { id: string; security: number | null; projeto: string | null }[]).map((c) => [c.id, { security: c.security ?? 0, projeto: c.projeto ?? null }]))
 
   for (const a of acertos) {
     if (!a.club_id) continue
     const periodEnd = periodEndPorImport.get(a.import_id)
     if (!periodEnd) continue
-    const valorCompleto = a.valor_acerto + a.bilhetes + a.pendencias_antecipacao + a.indicacao_valor + (securityPorClube.get(a.club_id) ?? 0)
+    const info = infoPorClube.get(a.club_id)
+    const valorCompleto = a.valor_acerto + a.bilhetes + a.pendencias_antecipacao + a.indicacao_valor + (info?.security ?? 0)
     if (valorCompleto >= -0.005) continue // clube não devia nessa semana
     const envios = enviosPorAcerto.get(a.id) ?? 0
-    const existente = porClube.get(a.club_id) ?? { clubExternalId: a.club_external_id, clubName: a.club_name, semanas: [] }
+    const existente = porClube.get(a.club_id) ?? { clubExternalId: a.club_external_id, clubName: a.club_name, projeto: info?.projeto ?? null, semanas: [] }
     existente.semanas.push({ periodEnd, valorCompleto, envios })
     porClube.set(a.club_id, existente)
   }
@@ -177,7 +193,7 @@ function construirLinhas(porClube: Map<string, AcumClube>, apenasEmAberto: boole
     if (apenasEmAberto && totalPendente <= 0.005) continue
     const data = semanas.reduce((min, w) => (w.periodEnd < min ? w.periodEnd : min), semanas[0].periodEnd)
     linhas.push({
-      clubId, clubExternalId: v.clubExternalId, clubName: v.clubName,
+      clubId, clubExternalId: v.clubExternalId, clubName: v.clubName, projeto: v.projeto,
       status: 'ativo', data, divida, totalPago, totalPendente,
       semanasEmAtraso: semanasEntre(data, hoje),
     })
@@ -189,17 +205,36 @@ export async function buscarInadimplencia(): Promise<InadimplenciaResultado> {
   const porClube = await buscarSaldosPorClube()
   const hoje = new Date()
   const abertas = construirLinhas(porClube, true, hoje)
-  const todas = construirLinhas(porClube, false, hoje)
 
-  const clubIds = [...new Set([...abertas, ...todas].map((l) => l.clubId))]
-  const statusPorClube = await statusStoplossPorClube(clubIds)
+  const statusPorClube = await statusStoplossPorClube(abertas.map((l) => l.clubId))
   for (const l of abertas) l.status = statusPorClube.get(l.clubId) ?? 'ativo'
-  for (const l of todas) l.status = statusPorClube.get(l.clubId) ?? 'ativo'
 
   const porPendente = (a: LinhaInadimplencia, b: LinhaInadimplencia) => a.totalPendente - b.totalPendente
   return {
     atrasados: abertas.filter((l) => l.semanasEmAtraso <= LIMITE_SEMANAS_ATRASADO).sort(porPendente),
     inadimplentes: abertas.filter((l) => l.semanasEmAtraso > LIMITE_SEMANAS_ATRASADO).sort(porPendente),
-    historico: todas.sort((a, b) => b.data.localeCompare(a.data)),
   }
+}
+
+export interface FiltroHistorico extends RangeDatas {
+  clubeId?: string
+  projeto?: string
+}
+
+// "Histórico de Acertos Pendentes" — tela própria (submenu separado), com
+// filtro de Clube/Projeto/Período: todo mundo que já deveu o Acerto
+// semanal nesse recorte, pago ou não (pra calcular a Taxa de Pagamento),
+// diferente de Atrasados/Inadimplentes que só mostram quem ainda deve hoje.
+export async function buscarHistoricoAcertosPendentes(filtro: FiltroHistorico = {}): Promise<LinhaInadimplencia[]> {
+  const porClube = await buscarSaldosPorClube({ dataInicio: filtro.dataInicio, dataFim: filtro.dataFim })
+  for (const [clubId, v] of porClube) {
+    if (filtro.clubeId && clubId !== filtro.clubeId) porClube.delete(clubId)
+    else if (filtro.projeto && v.projeto !== filtro.projeto) porClube.delete(clubId)
+  }
+
+  const linhas = construirLinhas(porClube, false, new Date())
+  const statusPorClube = await statusStoplossPorClube(linhas.map((l) => l.clubId))
+  for (const l of linhas) l.status = statusPorClube.get(l.clubId) ?? 'ativo'
+
+  return linhas.sort((a, b) => b.data.localeCompare(a.data))
 }
