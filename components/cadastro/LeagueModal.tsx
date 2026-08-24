@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import type { League, LeagueForm, SuperLeague, Plataforma } from '@/lib/types'
 import { MOEDAS } from '@/lib/moedas'
+import { supabase } from '@/lib/supabase'
 import { RegrasAplicadas } from './RegrasAplicadas'
 import { BuscaSelect } from '@/components/BuscaSelect'
 
@@ -48,6 +49,10 @@ function Fld({ label, required, children }: { label: string; required?: boolean;
 
 export function LeagueModal({ open, editing, superLeagues, plataformas, onClose, onSave, saving, error }: Props) {
   const [form, setForm] = useState<LeagueForm>(EMPTY)
+  // Só pra decidir o placeholder do campo abaixo — não trava o input (ao
+  // contrário do Cadastro de Clube): aqui o cadastro manda sempre que
+  // preenchido, a Regra vinculada só entra se deixar em branco.
+  const [temRegraTaxaLiga, setTemRegraTaxaLiga] = useState(false)
 
   useEffect(() => {
     if (editing) {
@@ -61,8 +66,12 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
         operador_nickname: editing.operador_nickname ?? null,
         projeto: editing.projeto ?? null,
       })
+      supabase.from('regra_entidades').select('id', { count: 'exact', head: true })
+        .eq('entidade_tipo', 'liga').eq('entidade_id', editing.id).eq('campo', 'taxa_liga')
+        .then(({ count }) => setTemRegraTaxaLiga((count ?? 0) > 0))
     } else {
       setForm(EMPTY)
+      setTemRegraTaxaLiga(false)
     }
   }, [editing, open])
 
@@ -143,11 +152,11 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
                 <input
                   type="number" step="any" value={form.taxa_app_pct ?? ''}
                   onChange={e => set('taxa_app_pct', e.target.value === '' ? null : Number(e.target.value))}
-                  placeholder="Ex: 2" className={inputCls}
+                  placeholder={temRegraTaxaLiga ? 'Campo seguindo regra vinculada' : 'Ex: 2'} className={inputCls}
                 />
               </Fld>
               <p className="text-xs text-gray-500">
-                Incide sobre Rake Total + SpinUp Rake do clube (todo o rake do período, os 3 tipos de jogo somados) — desconta do Valor do Acerto, em cima de qualquer taxa que o clube já tenha. Vale fixo aqui, a menos que tenha uma Regra de Faixa vinculada (abaixo).
+                Incide sobre Rake Total + SpinUp Rake do clube (todo o rake do período, os 3 tipos de jogo somados) — desconta do Valor do Acerto, em cima de qualquer taxa que o clube já tenha. Esse % fixo manda sempre que preenchido; deixando em branco, a Regra de Faixa vinculada (abaixo) decide, se tiver uma.
               </p>
               <RegrasAplicadas entidadeTipo="liga" entidadeId={editing?.id ?? null} />
             </Sec>

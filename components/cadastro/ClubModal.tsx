@@ -1,14 +1,14 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { Plus, Trash2, Search } from 'lucide-react'
-import type { Club, ClubForm, League, Plataforma } from '@/lib/types'
+import type { Club, ClubForm, League, Plataforma, CampoClube } from '@/lib/types'
 import { MOEDAS } from '@/lib/moedas'
 import { supabase } from '@/lib/supabase'
 import { RegrasAplicadas } from './RegrasAplicadas'
 import { StepModal, type ModalStep } from './StepModal'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { getStoplossAtual } from '@/lib/stoploss'
-import { getIndicacoes, addIndicacao, atualizarPercentualIndicacao, removeIndicacao, type IndicacaoRow, getVinculosAcerto, addVinculoAcerto, removeVinculoAcerto, type VinculoAcertoRow } from '@/lib/cadastro-api'
+import { getIndicacoes, addIndicacao, atualizarPercentualIndicacao, removeIndicacao, type IndicacaoRow, getVinculosAcerto, addVinculoAcerto, removeVinculoAcerto, type VinculoAcertoRow, getRegrasDaEntidade } from '@/lib/cadastro-api'
 
 interface Props {
   open: boolean
@@ -68,6 +68,13 @@ function Fld({ label, required, children }: { label: string; required?: boolean;
 function NumInput({ value, onChange, placeholder }: { value: number | null; onChange: (v: number | null) => void; placeholder?: string }) {
   return <input type="number" step="any" value={value ?? ''} onChange={e => onChange(e.target.value === '' ? null : Number(e.target.value))} placeholder={placeholder} className={inputCls} />
 }
+// Substitui o input numérico quando esse campo específico (Fee MTT/Cash/
+// Taxa Operacional/SpinUp) já tem uma Regra de Cálculo vinculada — o valor
+// digitado aqui nunca seria usado nesse caso (a Regra sempre manda pro
+// campo dela), então mostra travado em vez de deixar preencher à toa.
+function CampoSeguindoRegra() {
+  return <div className={`${inputLockedCls} italic`}>Campo seguindo regra vinculada</div>
+}
 
 export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave, saving, error }: Props) {
   const [form, setForm] = useState<ClubForm>(EMPTY)
@@ -97,6 +104,10 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
 
   const clubeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [stoplossAtual, setStoplossAtual] = useState<number | null>(null)
+  // Campos (Fee MTT/Cash/Taxa Operacional/SpinUp) com Regra de Cálculo
+  // vinculada — o % digitado na etapa Taxas não é usado nesses, a Regra
+  // sempre manda. Trava o input correspondente em vez de deixar preencher.
+  const [camposComRegra, setCamposComRegra] = useState<Set<CampoClube>>(new Set())
 
   useEffect(() => {
     setForm(editing ? toForm(editing) : EMPTY)
@@ -114,10 +125,14 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     setResultadosVinculoClub([])
     setClubeLocked(!!editing?.name && !!editing?.external_id)
     setStoplossAtual(null)
+    setCamposComRegra(new Set())
     if (editing) {
       getStoplossAtual(editing.id).then(setStoplossAtual)
       getIndicacoes(editing.id).then(setIndicacoes).catch(e => setErroIndicacao(e instanceof Error ? e.message : String(e)))
       getVinculosAcerto(editing.id).then(setVinculos).catch(e => setErroVinculo(e instanceof Error ? e.message : String(e)))
+      getRegrasDaEntidade('clube', editing.id).then((regras) => {
+        setCamposComRegra(new Set(regras.map((r) => r.campo).filter((c): c is CampoClube => !!c)))
+      }).catch(() => setCamposComRegra(new Set()))
     }
   }, [editing, open])
 
@@ -404,8 +419,18 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
         <>
           {!isRkb && (
             <div className="grid grid-cols-2 gap-4">
-              <Fld label={isDin ? 'Fee MTT (%)' : 'Taxa da Liga (%)'}><NumInput value={form.fee_mtt_pct} onChange={v => set('fee_mtt_pct', v)} placeholder="Ex: 8.5" /></Fld>
-              {isDin && <Fld label="Fee Cash (%)"><NumInput value={form.fee_cash_pct} onChange={v => set('fee_cash_pct', v)} placeholder="Ex: 8.5" /></Fld>}
+              <Fld label={isDin ? 'Fee MTT (%)' : 'Taxa da Liga (%)'}>
+                {camposComRegra.has(isDin ? 'fee_mtt' : 'rake_total')
+                  ? <CampoSeguindoRegra />
+                  : <NumInput value={form.fee_mtt_pct} onChange={v => set('fee_mtt_pct', v)} placeholder="Ex: 8.5" />}
+              </Fld>
+              {isDin && (
+                <Fld label="Fee Cash (%)">
+                  {camposComRegra.has('fee_cash')
+                    ? <CampoSeguindoRegra />
+                    : <NumInput value={form.fee_cash_pct} onChange={v => set('fee_cash_pct', v)} placeholder="Ex: 8.5" />}
+                </Fld>
+              )}
             </div>
           )}
           {isRkb && <Fld label="Rakeback (%)"><NumInput value={form.rakeback_pct} onChange={v => set('rakeback_pct', v)} placeholder="Ex: 72" /></Fld>}
@@ -426,14 +451,22 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                   valor (fee_operacional_valor fica 0), então religar depois
                   volta com o mesmo número, sem precisar digitar de novo. */}
               {form.taxa_op_ativo && (
-                <NumInput value={form.taxa_op_pct} onChange={v => set('taxa_op_pct', v)} placeholder="Ex: 9" />
+                camposComRegra.has('taxa_op')
+                  ? <CampoSeguindoRegra />
+                  : <NumInput value={form.taxa_op_pct} onChange={v => set('taxa_op_pct', v)} placeholder="Ex: 9" />
               )}
             </div>
-            {isDin && <Fld label="SpinUp (%)"><NumInput value={form.spinup_pct} onChange={v => set('spinup_pct', v)} placeholder="Ex: 3" /></Fld>}
+            {isDin && (
+              <Fld label="SpinUp (%)">
+                {camposComRegra.has('spinup')
+                  ? <CampoSeguindoRegra />
+                  : <NumInput value={form.spinup_pct} onChange={v => set('spinup_pct', v)} placeholder="Ex: 3" />}
+              </Fld>
+            )}
           </div>
           {!isRkb && isDin && (
             <p className="text-xs text-gray-500">
-              Fee MTT, Fee Cash, Taxa Operacional (quando ligada) e SpinUp acima só valem pro campo que <strong>não</strong> tiver regra variável vinculada — se tiver, a faixa SE/ENTÃO da regra manda pra aquele campo específico. Confira na etapa "Regras".
+              Fee MTT, Fee Cash, Taxa Operacional (quando ligada) e SpinUp acima só valem pro campo que <strong>não</strong> tiver regra variável vinculada — campo com regra vinculada aparece travado, mostrando “Campo seguindo regra vinculada” no lugar do número. Confira/altere o vínculo na etapa “Regras”.
             </p>
           )}
 

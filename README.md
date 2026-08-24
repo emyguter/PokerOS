@@ -750,6 +750,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Controle de Pagamentos etc. todos leem esse valor já calculado, não recalculam) e no Resumo de
   Taxas (preview do que vale pra cada clube). Só Taxa da Liga — Fee MTT/Cash/Operacional/SpinUp
   continuam com Regra mandando quando vinculada, sem mudança aí
+- [x] Cadastro de Clube trava o campo (Fee MTT/Cash/Taxa Operacional/SpinUp) que já tiver Regra de
+  Cálculo vinculada naquele campo específico — mostra "Campo seguindo regra vinculada" no lugar do
+  número, em vez de deixar preencher um valor que nunca seria usado (a Regra sempre manda pro campo
+  dela). Cadastro de Liga ganha o mesmo aviso como placeholder no campo Taxa da Liga quando vazio e
+  tem Regra vinculada — aqui não trava (cadastro manda quando preenchido, ver item acima)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
