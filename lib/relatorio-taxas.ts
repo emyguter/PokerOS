@@ -115,7 +115,7 @@ export async function buscarResumoTaxas(): Promise<ResumoTaxaClube[]> {
     const taxaOperacional: TaxaCampoResumo | null = !taxaOpAplicavel
       ? null
       : !c.taxa_op_ativo
-      ? { valor: 'desligada', variavel: false }
+      ? { valor: '—', variavel: false }
       : formatCampo(c.taxa_op_pct, faixaClube.taxa_op)
 
     return {
