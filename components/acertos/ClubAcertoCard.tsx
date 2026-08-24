@@ -12,7 +12,6 @@ export interface AcertoCard {
   club_name: string
   club_external_id: string
   settlement_type: string
-  taxa_tipo?: string
   valor_acerto: number
   rake_mtt: number
   rake_cash: number

@@ -769,6 +769,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   `lib/cadastro-api.ts` limpando as tabelas filhas na ordem certa antes do delete. Acertos já
   calculados não são afetados — guardam os valores finais prontos, não recalculam nada a partir da
   Regra
+- [x] Corrigido erro real por trás do `[object Object]` na tela de Acertos: a consulta
+  (`lib/meus-acertos.ts`) pedia a coluna `acertos.taxa_tipo`, que nunca existiu nessa tabela
+  (`taxa_tipo` é campo do Cadastro de Clube, não do Acerto calculado — nunca foi copiado pra lá, e
+  o card não usava esse valor em lugar nenhum). Removida a coluna da consulta e do tipo `AcertoCard`
+  — a tela volta a listar os Acertos calculados normalmente
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
