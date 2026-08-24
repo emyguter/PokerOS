@@ -732,6 +732,17 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Cássio): **ID do Clube** e **Nome do Clube** saem de Plataforma e vão pra Identificação; **Moeda** e
   **Cotação** saem de Identificação e vão pra Plataforma. Comportamento de cada campo não muda, só a
   etapa onde aparece
+- [x] **Clube Vinculado muda de lugar**: tirado do Resumo de Acertos, passa a somar no card "Acerto
+  Geral" (Common Settlement) — pedido do Cássio, com print de referência da planilha antiga (clube
+  "PIXGAME" somando ClubGG + Sul HG num card só). Abrindo o Acerto Geral de um clube vinculado que
+  também tem Acerto na mesma semana: todas as linhas (Rake, Ganhos, Taxas, Bilhetes, Pendências,
+  Segurança, Indicação, Lançamentos do período, Dívidas/Acordos) somam os dois clubes, o nome vira
+  "Clube A + Clube B", e uma quebra nova "Acerto por clube vinculado" mostra o Acerto R$ de cada
+  plataforma separado logo acima do Total (que é a soma dos dois — bate exatamente). % das taxas
+  (Taxa MTT, Cash etc.) mostradas usam a config do clube que foi clicado, não uma média combinada.
+  VIP Cashback (aparecia na planilha de referência) fica de fora — programa VIP não entra no MVP,
+  confirmado com o Cássio antes. Resumo de Acertos volta a mostrar cada plataforma na sua própria
+  linha, sem juntar
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

@@ -96,20 +96,15 @@ export async function buscarResumoAcertos(periodoFim: string): Promise<LinhaResu
   if (linhasBase.length === 0) return []
 
   const clubIds = [...new Set(linhasBase.map((a) => a.club_id).filter((id): id is string => !!id))]
-  const [extrasPorClube, multaPares, { data: vinculosData }] = await Promise.all([
+  const [extrasPorClube, multaPares] = await Promise.all([
     buscarSecurityEDividasPorClube(clubIds, periodoFim),
     Promise.all(clubIds.map(async (id) => [id, await getMultaAplicadaDoClube(id, periodoFim)] as const)),
-    supabase.from('clubs').select('id, vinculo_acerto_grupo_id').in('id', clubIds),
   ])
   const multaPorClube = new Map(multaPares)
   // Clube com Vínculo de Acerto (mesmo clube em outra plataforma, ex:
-  // ClubGG + Sul HG) vira 1 linha só — a "âncora" do grupo é o id que os
-  // outros clubes apontam (ver lib/cadastro-api.ts: getVinculosAcerto).
-  const ancoraPorClube = new Map<string, string>()
-  for (const c of (vinculosData ?? []) as { id: string; vinculo_acerto_grupo_id: string | null }[]) {
-    ancoraPorClube.set(c.id, c.vinculo_acerto_grupo_id ?? c.id)
-  }
-  const grupoDoClube = (clubId: string) => ancoraPorClube.get(clubId) ?? clubId
+  // ClubGG + Sul HG) NÃO junta aqui — o Cássio pediu pra tirar do Resumo e
+  // somar só no card "Acerto Geral" (ver components/acertos/ClubAcertoCard.tsx),
+  // cada plataforma continua sua própria linha nesse relatório.
 
   // Extras (bônus/promoção/outro) lançados na tela de Lançamento — mesma
   // exclusão de Caução/Antecipação que AcertosView usa (Antecipação já
@@ -130,7 +125,7 @@ export async function buscarResumoAcertos(periodoFim: string): Promise<LinhaResu
   const porGrupo = new Map<string, LinhaResumoAcerto>()
   for (const a of linhasBase) {
     const clubId = a.club_id
-    const key = clubId ? grupoDoClube(clubId) : a.club_external_id
+    const key = clubId ?? a.club_external_id
     const existente = porGrupo.get(key)
     const rakeTotal = (existente?.rakeTotal ?? 0) + (a.rake_total ?? 0)
     const unionFee = (existente?.unionFee ?? 0) - Math.abs(a.fee_calculado ?? 0)
@@ -169,7 +164,7 @@ export async function buscarResumoAcertos(periodoFim: string): Promise<LinhaResu
   // Acerto) — soma por fora, uma vez por clube distinto do grupo, pra não
   // duplicar quando o mesmo clube aparece em mais de 1 import da semana.
   for (const clubId of clubIds) {
-    const linha = porGrupo.get(grupoDoClube(clubId))
+    const linha = porGrupo.get(clubId)
     if (!linha) continue
     linha.security += extrasPorClube.get(clubId)?.security ?? 0
     linha.extras += extrasLancPorClube.get(clubId) ?? 0
