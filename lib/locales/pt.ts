@@ -246,7 +246,7 @@ export const pt = {
     corte_50_reverter_confirmar: 'Reverter o corte de 50%? Isso credita de volta no Stoploss Atual o mesmo valor que foi debitado, registrado no Extrato de Stoploss.',
     bloquear_aplicar: 'Acerto pendente — Bloquear',
     bloquear_desbloquear: 'Desbloquear',
-    bloquear_ativo: 'Clube bloqueado (Acerto pendente) — isso é só um aviso pro time, não trava nada automaticamente no sistema.',
+    bloquear_ativo: 'Clube bloqueado (Acerto pendente)',
     fila_vazia: 'Nada aguardando aprovação.',
     aprovar: 'Aprovar', rejeitar: 'Rejeitar',
     status: { pendente: 'Pendente', aprovado: 'Aprovado', rejeitado: 'Rejeitado' },

@@ -248,7 +248,7 @@ export const en: typeof pt = {
     corte_50_reverter_confirmar: 'Revert the 50% cut? This credits the current Stoploss back with the same amount that was debited, logged in the Stoploss Statement.',
     bloquear_aplicar: 'Pending settlement — Block',
     bloquear_desbloquear: 'Unblock',
-    bloquear_ativo: "Club blocked (pending settlement) — this is just a heads-up for the team, it doesn't automatically lock anything in the system.",
+    bloquear_ativo: "Club blocked (pending settlement)",
     fila_vazia: 'Nothing awaiting approval.',
     aprovar: 'Approve', rejeitar: 'Reject',
     status: { pendente: 'Pending', aprovado: 'Approved', rejeitado: 'Rejected' },
