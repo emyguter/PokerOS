@@ -4,7 +4,7 @@ import { X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getLayoutDoClube, resolverLayout, calcularTotalAcerto, type CampoAcerto, type CampoResolvido } from '@/lib/relatorio-acerto'
 import { getDividasAcertoDoClube, type ItemDividaAcerto } from '@/lib/dividas'
-import { getVinculosAcerto } from '@/lib/cadastro-api'
+import { getVinculosAcerto, getIndicacoes } from '@/lib/cadastro-api'
 
 export interface AcertoCard {
   id: string
@@ -156,6 +156,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const [outrosMembros, setOutrosMembros] = useState<{ id: string; nome: string }[]>([])
   const [acertosGrupo, setAcertosGrupo] = useState<AcertoGrupoRow[]>([])
   const [extrasPorClube, setExtrasPorClube] = useState<Map<string, ExtrasClube>>(new Map())
+  const [indicacaoPct, setIndicacaoPct] = useState(0)
 
   useEffect(() => {
     if (acerto.club_id) {
@@ -232,6 +233,19 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   useEffect(() => {
     if (!acerto.club_id) { setOutrosMembros([]); return }
     getVinculosAcerto(acerto.club_id).then(setOutrosMembros).catch(() => setOutrosMembros([]))
+  }, [acerto.club_id])
+
+  useEffect(() => {
+    // % pra exibir na linha "Indicação (X%)" — o valor em R$ (indicacaoValor)
+    // é calculado sobre o rake do clube indicado, não desse clube, então não
+    // dá pra reconstruir a % dividindo pelo rake daqui. Busca direto o(s)
+    // vínculo(s) cadastrados hoje e soma — mesma simplificação já usada nos
+    // outros % do card (Taxa MTT/Cash etc.): mostra a config atual, não a
+    // histórica de quando o Acerto foi calculado.
+    if (!acerto.club_id) { setIndicacaoPct(0); return }
+    getIndicacoes(acerto.club_id)
+      .then((linhas) => setIndicacaoPct(linhas.reduce((s, l) => s + l.taxaIndicacaoPct, 0)))
+      .catch(() => setIndicacaoPct(0))
   }, [acerto.club_id])
 
   const idsGrupo = acerto.club_id && outrosMembros.length > 0 ? [acerto.club_id, ...outrosMembros.map((m) => m.id)] : []
@@ -391,13 +405,12 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         return <Linha key={campo} label="Rebate" value={rebateDisplay} />
       case 'indicacao': {
         if (indicacaoValor === 0) return null
-        // % aplicado não vem salvo à parte — é o mesmo % usado no cálculo,
-        // reconstruído aqui a partir do valor já gravado (indicacao_valor =
-        // rake_total × pct/100, ver calcularIndicacao) pra sempre bater com
-        // o que realmente foi somado no Acerto, mesmo que o % cadastrado no
-        // clube mude depois.
-        const pct = rakeTotal > 0 ? (indicacaoValor / rakeTotal) * 100 : 0
-        return <Linha key={campo} label={`Indicação (${fmtPct(pct)}%)`} value={indicacaoValor} />
+        // O valor em R$ vem pronto do Acerto (soma de cada indicação × rake
+        // do respectivo clube indicado, ver calcularIndicacao) — o % exibido
+        // é o cadastrado hoje nos vínculos desse clube (indicacaoPct),
+        // buscado à parte, já que não dá mais pra reconstruir a % dividindo
+        // o valor pelo rake daqui (a base agora é o rake do indicado).
+        return <Linha key={campo} label={`Indicação (${fmtPct(indicacaoPct)}%)`} value={indicacaoValor} />
       }
       case 'lancamentos_periodo':
         return lancamentosDisplay.length > 0 ? (

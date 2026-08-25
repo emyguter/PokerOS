@@ -119,13 +119,16 @@ retroativamente nessas telas, só os lançados daqui pra frente.
 
 **Bônus de Indicação (`club_indicacoes.taxa_indicacao_pct`, `acertos.indicacao_valor`):**
 quando um clube indica outro (etapa Garantias & Limites do Cadastro, "Indicações"), ele ganha um
-bônus automático sobre o **próprio** rake (não o do clube indicado) igual à % digitada naquele
-vínculo, sem teto. Com mais de uma indicação, os percentuais somam antes de aplicar sobre o rake.
-`calcularIndicacao` (`lib/acertos-engine.ts`) recalcula sozinho toda vez que o Acerto roda. Aparece
-como uma linha própria "Indicação (X%)" no card de Acerto — o % mostrado é reconstruído a partir do
-valor já gravado (`indicacao_valor / rake_total`), não lido de novo do cadastro, então sempre bate
-com o que realmente entrou naquele Acerto mesmo que o % do clube mude depois. Sem mexer na Taxa A-A
-Home Game (linha separada, continua manual). **Histórico:** esse já foi o modelo original
+bônus automático sobre o rake **do clube indicado** (não o próprio) igual à % digitada naquele
+vínculo, sem teto. Com mais de uma indicação, cada uma usa o rake do seu próprio indicado e os
+valores em R$ somam (não dá pra somar os percentuais antes — cada indicação pode ter uma base de
+rake diferente). `calcularIndicacao` (`lib/acertos-engine.ts`) recalcula sozinho toda vez que o
+Acerto roda. Aparece como uma linha própria "Indicação (X%)" no card de Acerto — como o valor não é
+mais uma simples fração do próprio rake do clube, o % mostrado é buscado direto dos vínculos
+cadastrados hoje (soma de `taxa_indicacao_pct`), mesma simplificação já usada nos outros % do card
+(Taxa MTT/Cash etc: mostra a config atual, não a histórica de quando o Acerto foi calculado — só o
+valor em R$ é o gravado). Sem mexer na Taxa A-A Home Game (linha separada, continua manual).
+**Histórico:** esse já foi o modelo original
 (`taxa_indicacao_pct`), depois virou um bônus fixo por `clubs.elite` (10%/5%, teto R$1.000/R$300) —
 confirmado com o Cássio que aquilo era do programa VIP (fora do MVP) e a Indicação devia ter ficado
 simples o tempo todo; voltou a ser a % digitada por vínculo. `clubs.elite` ficou na base sem uso
@@ -781,6 +784,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   "Carregando…" nunca tinha chance de terminar. Trocado pra depender só dos campos que realmente
   importam (`clube_id`/`liga_id`/`super_league_id`/`mega_liga_id`), com uma guarda de cancelamento
   pra não deixar uma resposta antiga sobrescrever uma mais nova
+- [x] **Bônus de Indicação corrigido**: passa a incidir sobre o rake do **clube indicado**, não mais
+  sobre o próprio rake de quem indicou (confirmado com o Cássio — inverte o que tinha sido
+  confirmado antes). Com mais de uma indicação, cada uma usa o rake do seu próprio indicado e os
+  valores em R$ somam. Card de Acerto: como o valor não é mais uma fração simples do próprio rake do
+  clube, o "Indicação (X%)" mostrado busca direto os vínculos cadastrados hoje em vez de reconstruir
+  a partir do valor gravado — mesma simplificação já usada nos outros % do card (mostra a config
+  atual, só o R$ é o histórico)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

@@ -145,14 +145,15 @@ describe('avaliarCondicoes', () => {
 })
 
 describe('calcularIndicacao', () => {
-  it('aplica o percentual digitado direto sobre o próprio rake, sem teto', () => {
-    expect(calcularIndicacao(5, 1000)).toBe(50) // 5% de 1000 = 50
+  it('aplica o percentual digitado sobre o rake do clube indicado, sem teto', () => {
+    expect(calcularIndicacao(5, 1000)).toBe(50) // 5% de 1000 (rake do indicado) = 50
     expect(calcularIndicacao(5, 10000)).toBe(500) // 5% de 10000 = 500, sem teto
     expect(calcularIndicacao(10, 50000)).toBe(5000) // 10% de 50000 = 5000, sem teto
   })
 
-  it('soma de percentuais de mais de uma indicação (já somados por quem chama)', () => {
-    expect(calcularIndicacao(8, 1000)).toBe(80) // 3% + 5% de duas indicações = 8%
+  it('mais de uma indicação: cada uma usa o rake do seu próprio indicado, soma em R$', () => {
+    // 3% de 1000 (indicado A) + 5% de 2000 (indicado B) = 30 + 100 = 130
+    expect(calcularIndicacao(3, 1000) + calcularIndicacao(5, 2000)).toBe(130)
   })
 
   it('rake zero ou percentual zero dá bônus zero', () => {

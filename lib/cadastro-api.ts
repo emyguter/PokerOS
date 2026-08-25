@@ -160,12 +160,13 @@ export async function reativarClub(id: string): Promise<void> {
 }
 
 // ─── INDICAÇÕES (um clube indica outro; o vínculo em si não tem taxa — quem
-// indicou ganha um bônus sobre o PRÓPRIO rake, sempre que tiver pelo menos
-// uma indicação: % digitado por vínculo (club_indicacoes.taxa_indicacao_pct
-// — coluna antiga, tinha saído de uso quando a Indicação virou o bônus fixo
-// por Elite; agora volta a ser lida), sem teto — ver o cálculo em
-// lib/acertos-engine.ts. Se o clube tiver mais de uma indicação, os
-// percentuais somam. Confirmado com o Cássio: nada de programa VIP/Elite
+// indicou ganha um bônus sobre o rake do CLUBE INDICADO, sempre que tiver
+// pelo menos uma indicação: % digitado por vínculo
+// (club_indicacoes.taxa_indicacao_pct — coluna antiga, tinha saído de uso
+// quando a Indicação virou o bônus fixo por Elite; agora volta a ser lida),
+// sem teto — ver o cálculo em lib/acertos-engine.ts. Se o clube tiver mais de
+// uma indicação, os valores em R$ de cada uma somam (cada uma usa o rake do
+// seu próprio indicado). Confirmado com o Cássio: nada de programa VIP/Elite
 // aqui — é só o vínculo + a % combinada) ──
 
 export interface IndicacaoRow {
