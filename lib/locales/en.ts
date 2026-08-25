@@ -272,7 +272,7 @@ export const en: typeof pt = {
     limite_titulo: 'Monthly limit reached',
     limite_desc: 'This club has already reached the maximum VIPs for the month. Send anyway?',
     aba_lancamento: 'Log', aba_relatorio: 'Report', aba_limites: 'Configure Limits',
-    menu_suporte_lancamento: 'VIP Cards - Log', menu_suporte_limites: 'VIP Cards - Configure Limits', menu_relatorios: 'VIP Cards Report',
+    menu_suporte_grupo: 'VIP Cards', menu_relatorios: 'VIP Cards Report',
     relatorio_subtitulo: 'How many VIPs each club has requested this month, by type — with how much room is left before the limit',
     limites_subtitulo: 'Monthly VIP max per club and per type — blank means no limit configured',
     faltam: '{n} left', excedeu: 'limit exceeded',

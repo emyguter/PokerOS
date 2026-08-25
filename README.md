@@ -941,6 +941,10 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   inteiros). Agora o teto (nos botões Total/Parcial) é sempre o menor entre a Diferença e a Caução
   Atual disponível, com o valor disponível mostrado no popup de confirmação
   (`descontarDaCaucao`/`lib/pagamentos.ts`, `ControlePagamentosView.tsx`)
+- [x] **Sidebar ganha um 3º nível de menu (sub-subitens)**: "VIP" dentro de Suporte deixa de ser 2
+  itens soltos (Lançar/Configurar Limites) e vira uma pasta "VIP Cards" que abre/fecha, com as duas
+  abas dentro dela — `SubNavItem` agora aceita `subItems` aninhado, e `renderNavItems` renderiza
+  esse nível extra recursivamente (`Sidebar.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

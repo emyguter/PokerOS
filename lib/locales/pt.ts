@@ -270,7 +270,7 @@ export const pt = {
     limite_titulo: 'Limite do mês atingido',
     limite_desc: 'Este clube já atingiu o máximo de VIPs para o mês. Enviar assim mesmo?',
     aba_lancamento: 'Lançar', aba_relatorio: 'Relatório', aba_limites: 'Configurar Limites',
-    menu_suporte_lancamento: 'VIP Cards - Lançar', menu_suporte_limites: 'VIP Cards - Configurar Limites', menu_relatorios: 'Relatório de VIP Cards',
+    menu_suporte_grupo: 'VIP Cards', menu_relatorios: 'Relatório de VIP Cards',
     relatorio_subtitulo: 'Quantos VIPs cada clube já solicitou no mês, por tipo — com o quanto ainda falta pro limite',
     limites_subtitulo: 'Máximo mensal de VIP por clube e por tipo — em branco, sem limite configurado',
     faltam: 'faltam {n}', excedeu: 'excedeu o limite',

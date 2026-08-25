@@ -10,7 +10,7 @@ import { useI18n } from '@/lib/i18n'
 const CADASTRO_CHAVES = ['cadastro.mega_ligas', 'cadastro.superligas', 'cadastro.ligas', 'cadastro.clubes', 'cadastro.super_agentes', 'cadastro.agentes', 'cadastro.jogadores']
 const COLLAPSED_KEY = 'pokeros_sidebar_collapsed'
 
-interface SubNavItem { key: string; labelKey: string; href: string; chave?: string | string[] }
+interface SubNavItem { key: string; labelKey: string; href: string; chave?: string | string[]; subItems?: SubNavItem[] }
 
 // Mesmas 8 telas do menu interno de Cadastros (app/admin/cadastro/layout.tsx)
 // — aqui só pra dar atalho direto pela sidebar, o menu interno continua igual.
@@ -29,17 +29,23 @@ const CADASTRO_SUB: SubNavItem[] = [
 // useSearchParams (ver useEffect em cada arquivo), não aqui na Sidebar: ela
 // renderiza em toda página (via app/layout.tsx), então usar o hook aqui
 // forçaria TODA página do app pra fora da renderização estática.
-// VIP Cards (Lançar/Configurar Limites) e Acertos Pendentes entraram aqui
-// dentro da reorganização de menus — extrato saiu daqui e foi pra dentro de
-// Relatórios (ver RELATORIOS_SUB), junto com o Relatório de VIP Cards.
+// VIP Cards (subitem com sub-subitens Lançar/Configurar Limites) e Acertos
+// Pendentes entraram aqui dentro da reorganização de menus — extrato saiu
+// daqui e foi pra dentro de Relatórios (ver RELATORIOS_SUB), junto com o
+// Relatório de VIP Cards.
 const LANCAMENTO_SUB: SubNavItem[] = [
   { key: 'lancar', labelKey: 'lancamento.aba_lancar', href: '/lancamento?tab=lancar' },
   { key: 'pendencias', labelKey: 'lancamento.aba_pendencias', href: '/lancamento?tab=pendencias' },
   { key: 'pagamentos', labelKey: 'lancamento.aba_pagamentos', href: '/lancamento?tab=pagamentos' },
   { key: 'extra', labelKey: 'lancamento.aba_extra', href: '/lancamento?tab=extra' },
   { key: 'conferencia', labelKey: 'lancamento.aba_conferencia', href: '/lancamento?tab=conferencia' },
-  { key: 'vip_lancamento', labelKey: 'vip.menu_suporte_lancamento', href: '/vip?tab=lancamento', chave: 'vip' },
-  { key: 'vip_limites', labelKey: 'vip.menu_suporte_limites', href: '/vip?tab=limites', chave: 'vip.limites' },
+  {
+    key: 'vip', labelKey: 'vip.menu_suporte_grupo', href: '/vip?tab=lancamento', chave: ['vip', 'vip.limites'],
+    subItems: [
+      { key: 'lancamento', labelKey: 'vip.aba_lancamento', href: '/vip?tab=lancamento', chave: 'vip' },
+      { key: 'limites', labelKey: 'vip.aba_limites', href: '/vip?tab=limites', chave: 'vip.limites' },
+    ],
+  },
   { key: 'acertos_pendentes', labelKey: 'relatorios.aba_acertos_pendentes', href: '/relatorios?tab=acertos_pendentes', chave: 'relatorios.acertos_pendentes' },
 ]
 const FINANCEIRO_SUB: SubNavItem[] = [
@@ -120,7 +126,21 @@ const NAV = [
 const PERMISSOES_ITEM = [{ href: '/admin/permissoes', labelKey: 'nav.permissoes', icon: ShieldCheck, subItems: PERMISSOES_SUB }]
 // Usado só pra saber quais submenus abrir sozinhos conforme a rota atual —
 // Permissões entra aqui mesmo não estando em NAV/nav (ver comentário acima).
+// Desce recursivamente pra pegar também sub-subitens com subItems próprio
+// (ex: VIP dentro de Suporte) — mesma regra de auto-expandir vale pra
+// qualquer nível.
+function todosExpansiveis(itens: { href: string; subItems?: SubNavItem[] }[]): { href: string; subItems?: SubNavItem[] }[] {
+  const resultado: { href: string; subItems?: SubNavItem[] }[] = []
+  for (const item of itens) {
+    if (item.subItems) {
+      resultado.push(item)
+      resultado.push(...todosExpansiveis(item.subItems))
+    }
+  }
+  return resultado
+}
 const TODOS_OS_ITENS = [...NAV, ...PERMISSOES_ITEM]
+const TODOS_EXPANSIVEIS = todosExpansiveis(TODOS_OS_ITENS)
 
 function temPermissaoSub(chave: string | string[] | undefined, hasPermission: (c: string) => boolean): boolean {
   if (!chave) return true
@@ -139,15 +159,22 @@ export default function Sidebar() {
   // Submenu abre sozinho quando a seção correspondente está ativa; depois
   // disso fica na mão do usuário (clicar na seta abre/fecha) — não fecha
   // sozinho ao navegar pra outro item, só acumula o que já foi aberto.
-  const [expandedSubmenus, setExpandedSubmenus] = useState<Set<string>>(() => new Set(TODOS_OS_ITENS.filter((i) => i.subItems && path.startsWith(i.href)).map((i) => i.href)))
+  const [expandedSubmenus, setExpandedSubmenus] = useState<Set<string>>(() => new Set(TODOS_EXPANSIVEIS.filter((i) => path.startsWith(i.href.split('?')[0])).map((i) => i.href)))
 
   useEffect(() => {
     if (localStorage.getItem(COLLAPSED_KEY) === '1') setCollapsed(true)
   }, [])
 
   useEffect(() => {
-    const ativo = TODOS_OS_ITENS.find((i) => i.subItems && path.startsWith(i.href))
-    if (ativo) setExpandedSubmenus((prev) => (prev.has(ativo.href) ? prev : new Set(prev).add(ativo.href)))
+    const ativos = TODOS_EXPANSIVEIS.filter((i) => path.startsWith(i.href.split('?')[0]))
+    if (ativos.length === 0) return
+    setExpandedSubmenus((prev) => {
+      const faltando = ativos.filter((a) => !prev.has(a.href))
+      if (faltando.length === 0) return prev
+      const next = new Set(prev)
+      for (const a of faltando) next.add(a.href)
+      return next
+    })
   }, [path])
 
   function toggleSubmenu(href: string) {
@@ -216,18 +243,49 @@ export default function Sidebar() {
           </div>
           {subVisiveis.length > 0 && expanded && (
             <div className="ml-4 mt-0.5 mb-1 space-y-0.5 border-l border-white/10 pl-3">
-              {subVisiveis.map((sub) => (
-                <Link
-                  key={sub.key}
-                  href={sub.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={`block px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    subItemAtivo(sub, path, tabAtivo, subVisiveis) ? 'bg-gold/10 text-gold' : 'text-gray-500 hover:text-white hover:bg-white/[0.06]'
-                  }`}
-                >
-                  {t(sub.labelKey)}
-                </Link>
-              ))}
+              {subVisiveis.map((sub) => {
+                const subSubVisiveis = sub.subItems?.filter((ss) => loading || temPermissaoSub(ss.chave, hasPermission)) ?? []
+                const subExpanded = expandedSubmenus.has(sub.href)
+                return (
+                  <div key={sub.key}>
+                    <div
+                      className={`flex items-center rounded-md text-xs font-medium transition-all ${
+                        subItemAtivo(sub, path, tabAtivo, subVisiveis) ? 'bg-gold/10 text-gold' : 'text-gray-500 hover:text-white hover:bg-white/[0.06]'
+                      }`}
+                    >
+                      <Link href={sub.href} onClick={() => setMobileOpen(false)} className="flex-1 px-3 py-1.5 min-w-0 truncate">
+                        {t(sub.labelKey)}
+                      </Link>
+                      {subSubVisiveis.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => toggleSubmenu(sub.href)}
+                          aria-label={subExpanded ? t('nav.esconder_submenu') : t('nav.mostrar_submenu')}
+                          className="pl-1 pr-2 py-1.5 shrink-0"
+                        >
+                          <ChevronDown size={12} className={`transition-transform ${subExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                      )}
+                    </div>
+                    {subSubVisiveis.length > 0 && subExpanded && (
+                      <div className="ml-3 mt-0.5 mb-1 space-y-0.5 border-l border-white/10 pl-3">
+                        {subSubVisiveis.map((ss) => (
+                          <Link
+                            key={ss.key}
+                            href={ss.href}
+                            onClick={() => setMobileOpen(false)}
+                            className={`block px-3 py-1 rounded-md text-[11px] font-medium transition-all ${
+                              subItemAtivo(ss, path, tabAtivo, subSubVisiveis) ? 'bg-gold/10 text-gold' : 'text-gray-600 hover:text-white hover:bg-white/[0.06]'
+                            }`}
+                          >
+                            {t(ss.labelKey)}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
