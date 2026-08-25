@@ -818,6 +818,16 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   clube selecionado, então continuava aparecendo mesmo depois de revertido (ou olhando outro
   clube que nunca teve corte nenhum). Resetada em `handleReverterCorte50` e na troca de clube. Card
   "Stoploss Atual" agora mostra "—" quando o clube está Bloqueado
+- [x] **Novo campo "Taxa" no card de Acerto** (`taxa_propria`, opcional na Regra de Layout): clubes
+  `taxa_fixa_variavel`/`weekly_usd` (sem separar MTT/Cash) não tinham NENHUMA linha própria
+  mostrando a taxa cobrada — Taxa MTT/Cash só existem de verdade em `taxa_dinamica`. O valor
+  (`fee_calculado`, via Regra de Faixa vinculada ao campo Rake ou % fixo do cadastro) já era
+  descontado do Total, só não aparecia em lugar nenhum — o que gerou confusão com a Taxa da Liga
+  (camada completamente separada, da Liga, não do clube). Adicionado ao `LAYOUT_PADRAO`; como
+  `resolverLayout` já completa automaticamente com campos novos que não existiam quando o Layout
+  customizado de um clube foi salvo, aparece sozinho sem precisar reconfigurar nada. Some em
+  `taxa_dinamica` (já vem itemizado em Taxa MTT/Cash/Operacional/SpinUp, mostrar de novo seria
+  redundante)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

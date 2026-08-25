@@ -17,6 +17,7 @@ export interface AcertoCard {
   rake_cash: number
   rake_total: number
   player_result: number
+  fee_calculado: number
   fee_mtt_valor: number
   fee_cash_valor: number
   fee_operacional_valor: number
@@ -64,6 +65,7 @@ interface AcertoGrupoRow {
   rake_cash: number
   rake_total: number
   player_result: number
+  fee_calculado: number
   fee_mtt_valor: number
   fee_cash_valor: number
   fee_operacional_valor: number
@@ -260,7 +262,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       if (importIds.length === 0) { if (!cancelado) { setAcertosGrupo([]); setExtrasPorClube(new Map()) }; return }
       const { data } = await supabase
         .from('acertos')
-        .select('club_id, club_name, rake_mtt, rake_cash, rake_total, player_result, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, bilhetes, pendencias_antecipacao, indicacao_valor, rebate_calculado, valor_acerto')
+        .select('club_id, club_name, rake_mtt, rake_cash, rake_total, player_result, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, bilhetes, pendencias_antecipacao, indicacao_valor, rebate_calculado, valor_acerto')
         .in('club_id', idsGrupo)
         .in('import_id', importIds)
       const linhas = (data ?? []) as AcertoGrupoRow[]
@@ -284,6 +286,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const rakeCash = agrupado ? somaGrupo('rake_cash') : acerto.rake_cash
   const rakeTotal = agrupado ? somaGrupo('rake_total') : acerto.rake_total
   const ganhos = agrupado ? somaGrupo('player_result') : acerto.player_result
+  const feeCalculadoValor = agrupado ? somaGrupo('fee_calculado') : acerto.fee_calculado
   const feeMttValor = agrupado ? somaGrupo('fee_mtt_valor') : acerto.fee_mtt_valor
   const feeCashValor = agrupado ? somaGrupo('fee_cash_valor') : acerto.fee_cash_valor
   const feeOperacionalValor = agrupado ? somaGrupo('fee_operacional_valor') : acerto.fee_operacional_valor
@@ -381,6 +384,16 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         )
       case 'taxa_cash':
         return <Linha key={campo} label={`Taxa Cash (${fmtPct(acerto.taxa_cash_pct_aplicada)}%)`} value={-feeCashValor} />
+      case 'taxa_propria': {
+        // fee_calculado é a taxa própria do clube — em taxa_dinamica já é a
+        // soma de Taxa MTT/Cash/Operacional/SpinUp (linhas próprias, mostrar
+        // aqui também seria redundante); só tem valor como linha própria pra
+        // taxa_fixa_variavel/weekly_usd, que não tinham NENHUMA taxa visível
+        // no card antes disso.
+        if (acerto.settlement_type === 'taxa_dinamica' || feeCalculadoValor === 0) return null
+        const pct = rakeTotal > 0 ? (feeCalculadoValor / rakeTotal) * 100 : 0
+        return <Linha key={campo} label={`Taxa (${fmtPct(pct)}%)`} value={-feeCalculadoValor} />
+      }
       case 'rake_total':
         return <Linha key={campo} label="Rake Total" value={rakeTotal} />
       case 'rake_mtt':
