@@ -336,59 +336,132 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       )}
 
       {step === 'identificacao' && (
-        <div className="space-y-3 mt-4">
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">Clube Vinculado</h3>
-          <p className="text-xs text-gray-500">
-            Mesmo clube em mais de uma plataforma (ex: ClubGG + Sul HG) — quem estiver vinculado aqui vira 1 conta só no Resumo de Acertos, com os valores somados.
-          </p>
-          {!editing ? (
-            <p className="text-xs text-gray-500 italic">Salve o cadastro primeiro pra poder vincular outro clube.</p>
-          ) : (
-            <>
-              {erroVinculo && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroVinculo}</div>}
-              {vinculoClub ? (
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 flex items-center justify-between px-3 py-2 bg-surface2 border border-gold/30 rounded-lg text-sm">
-                    <span className="text-white">{vinculoClub.nome}</span>
-                    <button type="button" onClick={() => setVinculoClub(null)} className="text-gray-500 hover:text-alert"><Trash2 size={13} /></button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={adicionarVinculo}
-                    disabled={salvandoVinculo}
-                    className="px-3 py-2 bg-surface2 border border-white/10 rounded-lg text-gold hover:border-gold/50 disabled:opacity-40 transition-colors"
-                  ><Plus size={16} /></button>
-                </div>
-              ) : (
-                <div className="relative">
-                  <input
-                    type="text" value={buscaVinculoClub} onChange={e => setBuscaVinculoClub(e.target.value)}
-                    placeholder="Buscar clube por ID ou nome..." className={inputCls}
-                  />
-                  {buscandoVinculoClub && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
-                  {resultadosVinculoClub.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-surface2 border border-white/10 rounded-lg overflow-hidden shadow-xl">
-                      {resultadosVinculoClub.map(c => (
-                        <button
-                          key={c.id} type="button"
-                          onClick={() => { setVinculoClub({ id: c.id, nome: c.name }); setBuscaVinculoClub(''); setResultadosVinculoClub([]) }}
-                          className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-white/5 transition-colors"
-                        >
-                          {c.name} <span className="text-gray-500">(ID: {c.external_id ?? '—'}{c.plataformaNome ? ` · ${c.plataformaNome}` : ''})</span>
-                        </button>
-                      ))}
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">Clube Vinculado</h3>
+            <p className="text-xs text-gray-500">
+              Mesmo clube em mais de uma plataforma (ex: ClubGG + Sul HG) — quem estiver vinculado aqui vira 1 conta só no Resumo de Acertos, com os valores somados.
+            </p>
+            {!editing ? (
+              <p className="text-xs text-gray-500 italic">Salve o cadastro primeiro pra poder vincular outro clube.</p>
+            ) : (
+              <>
+                {erroVinculo && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroVinculo}</div>}
+                {vinculoClub ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center justify-between px-3 py-2 bg-surface2 border border-gold/30 rounded-lg text-sm">
+                      <span className="text-white">{vinculoClub.nome}</span>
+                      <button type="button" onClick={() => setVinculoClub(null)} className="text-gray-500 hover:text-alert"><Trash2 size={13} /></button>
                     </div>
-                  )}
-                </div>
-              )}
-              {vinculos.map(v => (
-                <div key={v.id} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-white/10 text-sm">
-                  <span className="text-gray-300">{v.nome}</span>
-                  <button type="button" onClick={() => removerVinculoSalvo(v.id)} disabled={salvandoVinculo} className="text-gray-500 hover:text-alert disabled:opacity-40"><Trash2 size={13} /></button>
-                </div>
-              ))}
-            </>
-          )}
+                    <button
+                      type="button"
+                      onClick={adicionarVinculo}
+                      disabled={salvandoVinculo}
+                      className="px-3 py-2 bg-surface2 border border-white/10 rounded-lg text-gold hover:border-gold/50 disabled:opacity-40 transition-colors"
+                    ><Plus size={16} /></button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="text" value={buscaVinculoClub} onChange={e => setBuscaVinculoClub(e.target.value)}
+                      placeholder="Buscar clube por ID ou nome..." className={inputCls}
+                    />
+                    {buscandoVinculoClub && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
+                    {resultadosVinculoClub.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-surface2 border border-white/10 rounded-lg overflow-hidden shadow-xl">
+                        {resultadosVinculoClub.map(c => (
+                          <button
+                            key={c.id} type="button"
+                            onClick={() => { setVinculoClub({ id: c.id, nome: c.name }); setBuscaVinculoClub(''); setResultadosVinculoClub([]) }}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-white/5 transition-colors"
+                          >
+                            {c.name} <span className="text-gray-500">(ID: {c.external_id ?? '—'}{c.plataformaNome ? ` · ${c.plataformaNome}` : ''})</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {vinculos.map(v => (
+                  <div key={v.id} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-white/10 text-sm">
+                    <span className="text-gray-300">{v.nome}</span>
+                    <button type="button" onClick={() => removerVinculoSalvo(v.id)} disabled={salvandoVinculo} className="text-gray-500 hover:text-alert disabled:opacity-40"><Trash2 size={13} /></button>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">Indicações</h3>
+            <p className="text-xs text-gray-500">
+              Clube que esse clube indicou, com a % do rake dele que vira bônus — sai sozinho no Acerto, sobre o próprio rake de quem indicou.
+            </p>
+            {!editing ? (
+              <p className="text-xs text-gray-500 italic">Salve o cadastro primeiro pra poder indicar outro clube.</p>
+            ) : (
+              <>
+                {erroIndicacao && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroIndicacao}</div>}
+                {indClub ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center justify-between px-3 py-2 bg-surface2 border border-gold/30 rounded-lg text-sm">
+                      <span className="text-white">{indClub.nome}</span>
+                      <button type="button" onClick={() => { setIndClub(null); setIndPercentual('') }} className="text-gray-500 hover:text-alert"><Trash2 size={13} /></button>
+                    </div>
+                    <div className="relative w-20">
+                      <input
+                        type="text" inputMode="decimal" value={indPercentual} onChange={e => setIndPercentual(e.target.value)}
+                        placeholder="%" className="w-full bg-surface border border-white/10 rounded-lg pl-3 pr-6 py-2 text-white text-sm text-right placeholder-gray-600 focus:outline-none focus:border-gold/50"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs">%</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={adicionarIndicacao}
+                      disabled={salvandoIndicacao || !indPercentual}
+                      className="px-3 py-2 bg-surface2 border border-white/10 rounded-lg text-gold hover:border-gold/50 disabled:opacity-40 transition-colors"
+                    ><Plus size={16} /></button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="text" value={buscaIndClub} onChange={e => setBuscaIndClub(e.target.value)}
+                      placeholder="Buscar clube por ID ou nome..." className={inputCls}
+                    />
+                    {buscandoIndClub && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
+                    {resultadosIndClub.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-surface2 border border-white/10 rounded-lg overflow-hidden shadow-xl">
+                        {resultadosIndClub.map(c => (
+                          <button
+                            key={c.id} type="button"
+                            onClick={() => { setIndClub({ id: c.id, nome: c.name }); setBuscaIndClub(''); setResultadosIndClub([]) }}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-white/5 transition-colors"
+                          >
+                            {c.name} <span className="text-gray-500">(ID: {c.external_id ?? '—'}{c.plataformaNome ? ` · ${c.plataformaNome}` : ''})</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {indicacoes.map(ind => (
+                  <div key={ind.id} className="flex items-center justify-between gap-2 p-2 bg-surface rounded-lg border border-white/10 text-sm">
+                    <span className="text-gray-300 flex-1">{ind.nome}</span>
+                    <div className="relative w-16">
+                      <input
+                        type="text" inputMode="decimal" defaultValue={ind.taxaIndicacaoPct}
+                        onBlur={e => atualizarPercentualIndicacaoSalva(ind.id, e.target.value)}
+                        disabled={salvandoIndicacao}
+                        className="w-full bg-surface2 border border-white/10 rounded-lg pl-2 pr-5 py-1 text-white text-xs text-right focus:outline-none focus:border-gold/50 disabled:opacity-40"
+                      />
+                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500 text-[10px]">%</span>
+                    </div>
+                    <button type="button" onClick={() => removerIndicacaoSalva(ind.id)} disabled={salvandoIndicacao} className="text-gray-500 hover:text-alert disabled:opacity-40"><Trash2 size={13} /></button>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -558,77 +631,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               </select>
               <p className="text-xs text-gray-500 mt-1.5">Horário de Brasília em que a semana desse clube vira segunda-feira — define até quando um ajuste “Só essa semana” continua contando no Stoploss. Padrão: 02:00.</p>
             </Fld>
-          </div>
-
-          <div className="space-y-3 mt-4">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">Indicações</h3>
-            <p className="text-xs text-gray-500">
-              Clube que esse clube indicou, com a % do rake dele que vira bônus — sai sozinho no Acerto, sobre o próprio rake de quem indicou.
-            </p>
-            {!editing ? (
-              <p className="text-xs text-gray-500 italic">Salve o cadastro primeiro pra poder indicar outro clube.</p>
-            ) : (
-              <>
-                {erroIndicacao && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroIndicacao}</div>}
-                {indClub ? (
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 flex items-center justify-between px-3 py-2 bg-surface2 border border-gold/30 rounded-lg text-sm">
-                      <span className="text-white">{indClub.nome}</span>
-                      <button type="button" onClick={() => { setIndClub(null); setIndPercentual('') }} className="text-gray-500 hover:text-alert"><Trash2 size={13} /></button>
-                    </div>
-                    <div className="relative w-20">
-                      <input
-                        type="text" inputMode="decimal" value={indPercentual} onChange={e => setIndPercentual(e.target.value)}
-                        placeholder="%" className="w-full bg-surface border border-white/10 rounded-lg pl-3 pr-6 py-2 text-white text-sm text-right placeholder-gray-600 focus:outline-none focus:border-gold/50"
-                      />
-                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs">%</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={adicionarIndicacao}
-                      disabled={salvandoIndicacao || !indPercentual}
-                      className="px-3 py-2 bg-surface2 border border-white/10 rounded-lg text-gold hover:border-gold/50 disabled:opacity-40 transition-colors"
-                    ><Plus size={16} /></button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <input
-                      type="text" value={buscaIndClub} onChange={e => setBuscaIndClub(e.target.value)}
-                      placeholder="Buscar clube por ID ou nome..." className={inputCls}
-                    />
-                    {buscandoIndClub && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
-                    {resultadosIndClub.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-surface2 border border-white/10 rounded-lg overflow-hidden shadow-xl">
-                        {resultadosIndClub.map(c => (
-                          <button
-                            key={c.id} type="button"
-                            onClick={() => { setIndClub({ id: c.id, nome: c.name }); setBuscaIndClub(''); setResultadosIndClub([]) }}
-                            className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-white/5 transition-colors"
-                          >
-                            {c.name} <span className="text-gray-500">(ID: {c.external_id ?? '—'}{c.plataformaNome ? ` · ${c.plataformaNome}` : ''})</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {indicacoes.map(ind => (
-                  <div key={ind.id} className="flex items-center justify-between gap-2 p-2 bg-surface rounded-lg border border-white/10 text-sm">
-                    <span className="text-gray-300 flex-1">{ind.nome}</span>
-                    <div className="relative w-16">
-                      <input
-                        type="text" inputMode="decimal" defaultValue={ind.taxaIndicacaoPct}
-                        onBlur={e => atualizarPercentualIndicacaoSalva(ind.id, e.target.value)}
-                        disabled={salvandoIndicacao}
-                        className="w-full bg-surface2 border border-white/10 rounded-lg pl-2 pr-5 py-1 text-white text-xs text-right focus:outline-none focus:border-gold/50 disabled:opacity-40"
-                      />
-                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500 text-[10px]">%</span>
-                    </div>
-                    <button type="button" onClick={() => removerIndicacaoSalva(ind.id)} disabled={salvandoIndicacao} className="text-gray-500 hover:text-alert disabled:opacity-40"><Trash2 size={13} /></button>
-                  </div>
-                ))}
-              </>
-            )}
           </div>
         </>
       )}

@@ -892,6 +892,10 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   não dá mais pra esconder). Tirado o texto explicativo embaixo de Taxa Operacional no cadastro de
   clubes Taxa Fixa/Variável (`ClubModal.tsx`) — deixou de fazer sentido depois que Taxa Operacional
   passou a valer de verdade pra esse tipo (item acima)
+- [x] **Clube Vinculado e Indicações lado a lado no cadastro do Clube**: a seção "Indicações"
+  (Clube que esse clube indicou + %) saiu da aba "Garantias & Limites" e foi pra aba
+  "Identificação", ao lado de "Clube Vinculado" (grid de 2 colunas) — as duas telas de vínculo
+  ficam juntas, ao invés de espalhadas em abas diferentes
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
