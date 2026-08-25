@@ -868,8 +868,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Valor já com o desconto aplicado, e o lançamento fica marcado (`lancamentos.pago_crypto`) — no
   Controle de Pagamentos, o Envio correspondente ganha um ₿ do lado do valor. Requer migration
   manual (`crypto_rebate_ativo` em `clubs`, `pago_crypto` em `lancamentos`)
-
-### Próximas fases
+- [x] **Descontar da Caução exige saldo e pergunta Total ou Parcial**: botão só fica habilitado
+  quando o clube ainda tem Caução Atual disponível (antes descontava sempre, mesmo sem saldo).
+  Clicar abre um popup perguntando Total (a Diferença inteira) ou Parcial (digita o valor, até o
+  limite da Diferença) antes de confirmar. `ConfirmModal` ganha a prop `confirmDisabled` pra isso.
+  Descrição dos lançamentos gerados não fala mais em "rollover" (some do Extrato)
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
 - [ ] Relatórios adicionais do escopo original (rake líquido da liga, PnL)
 - [ ] Contestação de lançamento pelo clube

@@ -209,14 +209,14 @@ export async function descontarDaCaucao(acertoId: string, clubeId: string, valor
 
   const { error: pagamentoErr } = await supabase.from('lancamentos').insert({
     clube_id: clubeId, acerto_id: acertoId, tipo: 'pagamento', natureza: 'credito', valor,
-    descricao: 'Descontado da Caução (rollover do Acerto)', data_lancamento: hoje,
+    descricao: 'Descontado da Caução', data_lancamento: hoje,
     origem: 'suporte', status: null, criado_por,
   })
   if (pagamentoErr) throw pagamentoErr
 
   const { error: caucaoErr } = await supabase.from('lancamentos').insert({
     clube_id: clubeId, tipo: 'caucao', natureza: 'debito', valor,
-    descricao: 'Rollover de Acerto não pago', data_lancamento: hoje,
+    descricao: 'Acerto não pago', data_lancamento: hoje,
     origem: 'suporte', status: 'pago', criado_por,
   })
   if (caucaoErr) throw caucaoErr

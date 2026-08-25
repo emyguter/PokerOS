@@ -9,6 +9,7 @@ interface Props {
   onConfirm: () => void
   onCancel: () => void
   saving?: boolean
+  confirmDisabled?: boolean
   confirmLabel?: string
   cancelLabel?: string
   tone?: 'gold' | 'alert' | 'amber'
@@ -25,7 +26,7 @@ const TONE_CLS: Record<NonNullable<Props['tone']>, { badge: string; btn: string 
 // Modal de confirmação padrão da paleta (bg-surface, borda branca 10%,
 // blur) — substitui window.confirm() nativo, que mostra a URL do app
 // ("poker-os.vercel.app diz") e não segue o visual do resto do sistema.
-export function ConfirmModal({ open, title, description, onConfirm, onCancel, saving, confirmLabel, cancelLabel, tone = 'gold', icon: Icon, error }: Props) {
+export function ConfirmModal({ open, title, description, onConfirm, onCancel, saving, confirmDisabled, confirmLabel, cancelLabel, tone = 'gold', icon: Icon, error }: Props) {
   if (!open) return null
   const cls = TONE_CLS[tone]
   return (
@@ -40,7 +41,7 @@ export function ConfirmModal({ open, title, description, onConfirm, onCancel, sa
         {error && <div className="mb-4 p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
         <div className="flex items-center justify-end gap-3">
           <button onClick={onCancel} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">{cancelLabel ?? 'Cancelar'}</button>
-          <button onClick={onConfirm} disabled={saving} className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors ${cls.btn}`}>
+          <button onClick={onConfirm} disabled={saving || confirmDisabled} className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors ${cls.btn}`}>
             {saving && <Loader2 size={14} className="animate-spin" />}{confirmLabel ?? 'Confirmar'}
           </button>
         </div>

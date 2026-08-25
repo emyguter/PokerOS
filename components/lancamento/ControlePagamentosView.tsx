@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Loader2, PiggyBank } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
+import { supabase } from '@/lib/supabase'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { buscarPeriodosComAcerto, buscarPagamentosPorPeriodo, descontarDaCaucao, corDiferenca, type PeriodoPagamento, type AcertoPagamento } from '@/lib/pagamentos'
 
@@ -36,6 +37,9 @@ export function ControlePagamentosView() {
   const [descontando, setDescontando] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmarDesconto, setConfirmarDesconto] = useState<AcertoPagamento | null>(null)
+  const [tipoDesconto, setTipoDesconto] = useState<'total' | 'parcial'>('total')
+  const [valorParcial, setValorParcial] = useState('')
+  const [caucaoAtualPorClube, setCaucaoAtualPorClube] = useState<Map<string, number>>(new Map())
 
   useEffect(() => {
     buscarPeriodosComAcerto().then((lista) => {
@@ -55,13 +59,29 @@ export function ControlePagamentosView() {
 
   useEffect(() => { load(periodoSelecionado) }, [periodoSelecionado, load])
 
+  // Caução ATUAL de cada clube (saldo de verdade, não a lançada no período —
+  // ver comentário da coluna "Caução") — só pra saber se ainda dá pra
+  // descontar (botão desabilita quando não tem mais nada).
+  useEffect(() => {
+    const clubIds = [...new Set(linhas.map((l) => l.club_id).filter((id): id is string => !!id))]
+    const query = clubIds.length > 0
+      ? supabase.from('clubs').select('id, caucao_atual').in('id', clubIds)
+      : Promise.resolve({ data: [] as { id: string; caucao_atual: number | null }[] })
+    query.then(({ data }) => {
+      setCaucaoAtualPorClube(new Map((data ?? []).map((c) => [c.id as string, (c.caucao_atual as number | null) ?? 0])))
+    })
+  }, [linhas])
+
+  const maximoDescontavel = confirmarDesconto ? Math.abs(confirmarDesconto.diferenca) : 0
+  const valorDesconto = tipoDesconto === 'total' ? maximoDescontavel : Number(valorParcial.replace(',', '.'))
+  const valorDescontoValido = tipoDesconto === 'total' || (valorDesconto > 0 && valorDesconto <= maximoDescontavel + 0.005)
+
   async function handleDescontarCaucao() {
     const l = confirmarDesconto
-    if (!l || !l.club_id) return
-    const valor = Math.abs(l.diferenca)
+    if (!l || !l.club_id || !valorDescontoValido) return
     setDescontando(l.acerto_id); setError(null)
     try {
-      await descontarDaCaucao(l.acerto_id, l.club_id, valor)
+      await descontarDaCaucao(l.acerto_id, l.club_id, valorDesconto)
       setConfirmarDesconto(null)
       await load(periodoSelecionado)
     } catch (err) {
@@ -150,17 +170,20 @@ export function ControlePagamentosView() {
                   <td className="px-3 py-2 text-right text-gray-300 whitespace-nowrap">{fmt(l.valor_acerto)}</td>
                   <td className="px-3 py-2 text-right text-gray-300 whitespace-nowrap">{fmt(l.valor_pago)}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
-                    {l.diferenca < -0.005 && l.club_id && (
-                      <button
-                        type="button"
-                        onClick={() => setConfirmarDesconto(l)}
-                        disabled={descontando === l.acerto_id}
-                        title="Descontar a Diferença da Caução do clube — quita o Acerto e reduz o Stoploss Atual na hora."
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 border border-gold/30 text-gold rounded-lg text-xs font-medium hover:bg-gold/10 disabled:opacity-50 transition-colors ml-auto"
-                      >
-                        {descontando === l.acerto_id && <Loader2 size={12} className="animate-spin" />}Descontar da Caução
-                      </button>
-                    )}
+                    {l.diferenca < -0.005 && l.club_id && (() => {
+                      const temCaucao = (caucaoAtualPorClube.get(l.club_id) ?? 0) > 0.005
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => { setConfirmarDesconto(l); setTipoDesconto('total'); setValorParcial('') }}
+                          disabled={descontando === l.acerto_id || !temCaucao}
+                          title={temCaucao ? 'Descontar a Diferença (total ou parcial) da Caução do clube — quita o Acerto e reduz o Stoploss Atual na hora.' : 'Esse clube não tem mais Caução disponível.'}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 border border-gold/30 text-gold rounded-lg text-xs font-medium hover:bg-gold/10 disabled:opacity-50 disabled:hover:bg-transparent transition-colors ml-auto"
+                        >
+                          {descontando === l.acerto_id && <Loader2 size={12} className="animate-spin" />}Descontar da Caução
+                        </button>
+                      )
+                    })()}
                   </td>
                   <td className="px-3 py-2 text-right text-gray-500 whitespace-nowrap">{l.caucao === 0 ? '—' : fmt(l.caucao)}</td>
                   {Array.from({ length: maxEnvios }).map((_, i) => (
@@ -183,10 +206,45 @@ export function ControlePagamentosView() {
       <ConfirmModal
         open={!!confirmarDesconto}
         title="Descontar da Caução"
-        description={confirmarDesconto && `Descontar ${fmt(Math.abs(confirmarDesconto.diferenca))} da Caução de ${confirmarDesconto.club_name}? Isso quita a Diferença do Acerto e reduz o Stoploss Atual do clube na hora.`}
+        description={confirmarDesconto && (
+          <div className="space-y-3">
+            <p>Descontar da Caução de {confirmarDesconto.club_name}? Isso quita (total ou parcialmente) a Diferença do Acerto e reduz o Stoploss Atual do clube na hora.</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setTipoDesconto('total')}
+                className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${tipoDesconto === 'total' ? 'border-gold/50 bg-gold/10 text-gold' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+              >
+                Total ({fmt(maximoDescontavel)})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipoDesconto('parcial')}
+                className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${tipoDesconto === 'parcial' ? 'border-gold/50 bg-gold/10 text-gold' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
+              >
+                Parcial
+              </button>
+            </div>
+            {tipoDesconto === 'parcial' && (
+              <div>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  autoFocus
+                  value={valorParcial}
+                  onChange={(e) => setValorParcial(e.target.value)}
+                  placeholder="0,00"
+                  className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50"
+                />
+                <p className="text-xs text-gray-500 mt-1.5">Máximo {fmt(maximoDescontavel)} (valor da Diferença).</p>
+              </div>
+            )}
+          </div>
+        )}
         tone="gold"
         icon={PiggyBank}
         saving={!!descontando}
+        confirmDisabled={!valorDescontoValido}
         confirmLabel="Descontar"
         onConfirm={handleDescontarCaucao}
         onCancel={() => setConfirmarDesconto(null)}
