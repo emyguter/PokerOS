@@ -15,12 +15,16 @@ export interface LinhaResumoAcerto {
   settlementType: string
   rakeTotal: number
   // Fee cobrado do clube — negativo, mesma convenção de sinal do resto do
-  // app (ver feeDisplay em AcertosView).
+  // app (ver feeDisplay em AcertosView). É sempre a taxa da REGRA sendo
+  // aplicada, sem misturar com Operacional/SpinUp (que já têm coluna
+  // própria): taxa_dinamica (separada em Fee MTT + Fee Cash) soma só esses
+  // dois; qualquer outro tipo (taxa fixa/variável sobre o rake combinado,
+  // weekly_usd, rakeback) usa a Taxa da Liga — com o mesmo fallback do
+  // ClubAcertoCard pro fee_calculado do clube quando a Liga não tem nada
+  // configurado (taxa_liga_valor === 0).
   unionFee: number
   // % efetivo = |unionFee| / rakeTotal — reconstituído a partir do valor já
-  // calculado, não de um % fixo salvo (taxa_dinamica mistura MTT/Cash/
-  // Operacional/SpinUp com % possivelmente diferentes entre si; isso aqui é
-  // a média ponderada resultante, não um dos percentuais individuais).
+  // calculado, não de um % fixo salvo.
   pctUnion: number
   operacional: number
   winnings: number
@@ -59,8 +63,11 @@ interface AcertoRow {
   settlement_type: string
   rake_total: number
   fee_calculado: number
+  fee_mtt_valor: number
+  fee_cash_valor: number
   fee_operacional_valor: number
   fee_spinup_valor: number
+  taxa_liga_valor: number
   player_result: number
   bilhetes: number
   indicacao_valor: number
@@ -72,6 +79,23 @@ interface AcertoRow {
       super_leagues: { projeto: string | null; mega_ligas: { projeto: string | null } | null } | null
     } | null
   } | null
+}
+
+// Fee da linha = a taxa da REGRA sendo aplicada, sem misturar com
+// Operacional/SpinUp (colunas próprias no Resumo). Taxa dinâmica é separada
+// em Fee MTT + Fee Cash — soma só os dois. Qualquer outro tipo cobra sobre o
+// rake combinado via Taxa da Liga — mesmo fallback do ClubAcertoCard pro
+// fee_calculado do clube quando a Liga não tem nada configurado
+// (taxa_liga_valor === 0).
+export function calcularFeeRegra(a: {
+  settlement_type: string
+  fee_mtt_valor: number
+  fee_cash_valor: number
+  taxa_liga_valor: number
+  fee_calculado: number
+}): number {
+  if (a.settlement_type === 'taxa_dinamica') return (a.fee_mtt_valor ?? 0) + (a.fee_cash_valor ?? 0)
+  return (a.taxa_liga_valor ?? 0) !== 0 ? a.taxa_liga_valor : (a.fee_calculado ?? 0)
 }
 
 // Visão executiva "1 linha por clube" pra uma semana inteira, cruzando
@@ -89,7 +113,7 @@ export async function buscarResumoAcertos(periodoFim: string): Promise<LinhaResu
 
   const { data: acertosData, error } = await supabase
     .from('acertos')
-    .select('club_id, club_name, club_external_id, settlement_type, rake_total, fee_calculado, fee_operacional_valor, fee_spinup_valor, player_result, bilhetes, indicacao_valor, clubs(projeto, leagues(name, projeto, super_leagues(projeto, mega_ligas(projeto))))')
+    .select('club_id, club_name, club_external_id, settlement_type, rake_total, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, player_result, bilhetes, indicacao_valor, clubs(projeto, leagues(name, projeto, super_leagues(projeto, mega_ligas(projeto))))')
     .in('import_id', importIds)
   if (error) throw error
   const linhasBase = (acertosData ?? []) as unknown as AcertoRow[]
@@ -128,7 +152,7 @@ export async function buscarResumoAcertos(periodoFim: string): Promise<LinhaResu
     const key = clubId ?? a.club_external_id
     const existente = porGrupo.get(key)
     const rakeTotal = (existente?.rakeTotal ?? 0) + (a.rake_total ?? 0)
-    const unionFee = (existente?.unionFee ?? 0) - Math.abs(a.fee_calculado ?? 0)
+    const unionFee = (existente?.unionFee ?? 0) - Math.abs(calcularFeeRegra(a))
     const projeto = a.clubs?.projeto
       ?? a.clubs?.leagues?.projeto
       ?? a.clubs?.leagues?.super_leagues?.projeto

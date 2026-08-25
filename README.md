@@ -896,6 +896,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   (Clube que esse clube indicou + %) saiu da aba "Garantias & Limites" e foi pra aba
   "Identificação", ao lado de "Clube Vinculado" (grid de 2 colunas) — as duas telas de vínculo
   ficam juntas, ao invés de espalhadas em abas diferentes
+- [x] **Fee/%Fee do Resumo de Acertos passa a refletir a regra sendo aplicada**: antes usava
+  `fee_calculado` puro, que em Taxa Dinâmica já vinha misturado com Operacional/SpinUp — dobrando
+  a conta, já que essas duas têm coluna própria na tela. Agora: Taxa Dinâmica soma só Fee MTT + Fee
+  Cash (o que é cobrado separado por rake); qualquer outro tipo (Taxa Fixa/Variável, Weekly USD,
+  Rakeback) usa o valor da Taxa da Liga — com o mesmo fallback do card de Acerto pro fee_calculado
+  do clube quando a Liga não tem nada configurado (`calcularFeeRegra`,
+  `lib/relatorio-resumo-acertos.ts`, com testes)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
