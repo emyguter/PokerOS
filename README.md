@@ -813,6 +813,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   pra insert que não passe o campo). Ligas já existentes com `taxa_app_pct = 0` **e** Regra vinculada
   em Taxa da Liga precisam de um UPDATE pontual pra virar `null` — não incluído aqui de propósito
   (mudança de dado, não de schema), passado à parte
+- [x] Controle de Stoploss: mensagem verde "Stoploss cortado pela metade" ficava presa na tela pra
+  sempre depois de aplicar um Corte 50% — nunca era resetada ao reverter o corte nem ao trocar de
+  clube selecionado, então continuava aparecendo mesmo depois de revertido (ou olhando outro
+  clube que nunca teve corte nenhum). Resetada em `handleReverterCorte50` e na troca de clube. Card
+  "Stoploss Atual" agora mostra "—" quando o clube está Bloqueado
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

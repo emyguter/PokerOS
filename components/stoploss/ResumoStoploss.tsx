@@ -115,7 +115,7 @@ export function ResumoStoploss() {
 
   async function handleReverterCorte50() {
     setProcessandoCorte(true); setErroCorte(null)
-    try { await reverterCorte50(clubeId); setConfirmCorte(null); await load() }
+    try { await reverterCorte50(clubeId); setConfirmCorte(null); setSucessoCorte(false); await load() }
     catch (err) { setErroCorte(errMsg(err)) }
     finally { setProcessandoCorte(false) }
   }
@@ -182,7 +182,7 @@ export function ResumoStoploss() {
         <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.clube')}</label>
         <BuscaSelect
           value={clubeId}
-          onChange={v => { setClubeId(v); setSucesso(false) }}
+          onChange={v => { setClubeId(v); setSucesso(false); setSucessoCorte(false); setSucessoBug(false) }}
           opcoes={clubes.map(c => ({ id: c.id, nome: c.name }))}
           placeholder={t('common.selecione')}
         />
@@ -201,7 +201,7 @@ export function ResumoStoploss() {
             </div>
             <div className="rounded-xl border border-gold/30 bg-gold/5 p-4">
               <p className="text-xs text-gray-500">{t('stoploss.stoploss_atual')}</p>
-              <p className="text-lg font-semibold text-gold">{stoplossAtual != null ? formatMoeda(stoplossAtual) : '—'}</p>
+              <p className="text-lg font-semibold text-gold">{clube?.bloqueado ? '—' : stoplossAtual != null ? formatMoeda(stoplossAtual) : '—'}</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-surface2 p-4">
               <p className="text-xs text-gray-500">{t('stoploss.caucao_atual')}</p>
