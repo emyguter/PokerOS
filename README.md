@@ -803,6 +803,16 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   aqui — ver item "Taxa da Liga inverte prioridade"). Isso levava a configurar o campo errado
   achando que tinha preenchido a Taxa da Liga, e ela ficava 0% no Acerto. Renomeado pra "Taxa sobre
   Rake Total (%)", com nota explicando a diferença — sem mudança de cálculo, só de rótulo
+- [x] **Bug real de Taxa da Liga zerada mesmo com Regra vinculada**: `leagues.taxa_app_pct` tinha
+  `default 0` no banco desde antes de existir tela/cálculo pra esse campo (coluna reaproveitada). A
+  prioridade da Taxa da Liga (cadastro manda sempre que `!= null`, Regra só é fallback quando
+  `null`, ver item "Taxa da Liga inverte prioridade") tratava esse 0 "de fábrica" como "cadastro
+  preenchido com 0%", ignorando qualquer Regra vinculada de verdade. Migration
+  `20260825010000_taxa_liga_default_null.sql` tira o default da coluna — novas Ligas nascem sem
+  taxa nenhuma definida (o front já mandava `null` explícito no create, isso só tira a armadilha
+  pra insert que não passe o campo). Ligas já existentes com `taxa_app_pct = 0` **e** Regra vinculada
+  em Taxa da Liga precisam de um UPDATE pontual pra virar `null` — não incluído aqui de propósito
+  (mudança de dado, não de schema), passado à parte
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

@@ -1,0 +1,13 @@
+-- Bug real encontrado: leagues.taxa_app_pct tinha "default 0" desde antes de
+-- existir tela/cálculo pra esse campo (coluna reaproveitada, ver comentário
+-- em 20260818040000_taxa_liga.sql). Toda Liga que nunca teve esse campo
+-- preenchido manualmente ficou com taxa_app_pct = 0 (zero de verdade, não
+-- vazio) — e a regra de prioridade da Taxa da Liga (cadastro manda sempre
+-- que != null, Regra só entra como fallback quando null) tratava esse 0
+-- "de fábrica" como "cadastro preenchido com 0%", ignorando qualquer Regra
+-- vinculada e zerando a Taxa da Liga mesmo quando tinha Regra configurada.
+--
+-- Daqui pra frente: novas Ligas nascem com taxa_app_pct null (o front já
+-- manda null explicitamente no create, mas tira a armadilha pra qualquer
+-- insert que não passe o campo).
+alter table leagues alter column taxa_app_pct drop default;
