@@ -303,21 +303,27 @@ export default function AcertosView() {
   }
 
   async function handleCalcular() {
-    if (!selected) return;
+    if (!selected || calculating) return;
     if (acertos.length > 0) {
       setConfirmRecalcular(true);
       return;
     }
+    // `calculating` trava o botão já aqui, antes da consulta de cotação
+    // (assíncrona) — sem isso, um clique duplo rápido passava os dois pela
+    // checagem `acertos.length > 0` (ainda 0 nos dois) e disparava
+    // processarAcertos duas vezes, duplicando toda linha do import.
+    setCalculating(true);
     const fila = await buscarClubesCotacaoDoImport(selected.id);
-    if (fila.length > 0) { setFilaCotacao(fila); return; }
+    if (fila.length > 0) { setFilaCotacao(fila); setCalculating(false); return; }
     await executarCalculo(selected.id);
   }
 
   async function handleConfirmarRecalculo() {
     setConfirmRecalcular(false);
-    if (!selected) return;
+    if (!selected || calculating) return;
+    setCalculating(true);
     const fila = await buscarClubesCotacaoDoImport(selected.id);
-    if (fila.length > 0) { setFilaCotacao(fila); return; }
+    if (fila.length > 0) { setFilaCotacao(fila); setCalculating(false); return; }
     await executarCalculo(selected.id);
   }
 

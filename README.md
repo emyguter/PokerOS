@@ -916,6 +916,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   duplicar); se já tiver Pagamento vinculado a algum Acerto antigo, aborta com aviso em vez de
   duplicar por cima (`ImportacaoXlsx.tsx`). Duplicidades que já existiam no banco: consulta de
   diagnóstico (só leitura) entregue à parte, pra revisar antes de decidir o que apagar
+- [x] **Corrige race condition que duplicava Acertos ao Calcular**: o botão "Calcular Acertos" só
+  travava (`disabled`) depois de uma consulta assíncrona de cotação — nesse intervalo, um clique
+  duplo rápido (ou tela lenta) passava os dois cliques pela checagem `acertos.length > 0` (ainda 0
+  nos dois) e disparava `processarAcertos` duas vezes, duplicando TODA linha do import (achado
+  investigando as duplicidades relatadas na Cobrança — o import em si não tinha nada de errado,
+  cada clube tinha só 1 linha em `import_rows`, a duplicação era só em `acertos`). Agora o botão
+  trava assim que clicado, antes da consulta de cotação (`AcertosView.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
