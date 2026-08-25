@@ -836,6 +836,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   card de Acerto (`ClubAcertoCard.tsx`, só exibição) — os dois tinham que ficar iguais, senão o
   número mostrado no card não bateria com o que decidiu a taxa aplicada. 3 novos testes cobrindo a
   fórmula (inclusive o exemplo exato da planilha)
+- [x] **Bônus/Promoção/Outro não passam mais por Conciliação**: `useConciliacao` só excluía Caução
+  da consulta — Bônus/Promoção/Outro (que já tinham o próprio fluxo, "Liberar para Acerto", ver
+  `TIPOS_LIBERAVEIS` em `lib/lancamentos.ts`) entravam junto na tela de Conciliação, tentando casar
+  com o lado da Genia igual Caução/Pagamento/Antecipação (que sim usam Conciliação de propósito).
+  Bloqueio/Reembolso da Segurança já ficavam de fora sozinhos (usam `origem: 'seguranca'`, fora do
+  par Suporte/Genia que a Conciliação casa). Extrato do clube já escondia esses tipos até serem
+  liberados — não precisou mudar nada ali
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

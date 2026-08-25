@@ -96,6 +96,14 @@ export function useConciliacao() {
         .from('lancamentos')
         .select('id, tipo, natureza, valor, descricao, data_lancamento, origem, status, clube_id, conciliado_com, clubs(name)')
         .neq('tipo', 'caucao')
+        // Bônus/Promoção/Outro não passam por Conciliação — vão direto pro
+        // fluxo "Liberar para Acerto" (ver TIPOS_LIBERAVEIS em
+        // lib/lancamentos.ts) e só aparecem no Extrato do clube depois de
+        // liberados. Sem esses filtros, entravam aqui igual Caução/Pagamento/
+        // Antecipação (que sim usam Conciliação de propósito).
+        .neq('tipo', 'bonus')
+        .neq('tipo', 'promocao')
+        .neq('tipo', 'outro')
         .gte('data_lancamento', dataInicio)
         .order('data_lancamento', { ascending: true })
       if (dataFim) query = query.lte('data_lancamento', dataFim)
