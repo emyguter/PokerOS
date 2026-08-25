@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { Inbox, Copy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ConfirmModal } from "@/components/ConfirmModal";
-import { processarAcertos, processarAcertosAgentes } from "@/lib/acertos-engine";
+import { processarAcertos, processarAcertosAgentes, type ClubeNovo } from "@/lib/acertos-engine";
 import { calcularTotalAcerto, corrigirValorCrypto, buscarSecurityEDividasPorClube } from "@/lib/relatorio-acerto";
 import * as XLSX from "xlsx";
 import { ClubAcertoCard } from "./ClubAcertoCard";
@@ -110,6 +111,13 @@ export default function AcertosView() {
   const [statusImports, setStatusImports] = useState<"todos" | "calculado" | "parcial" | "aguardando" | "erro">("todos");
   const [cardAberto, setCardAberto] = useState<Acerto | null>(null);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
+  // Clubes pré-cadastrados automaticamente nesse cálculo (apareceram na
+  // planilha sem estar em Clubes ainda) — settlement_type deles cai no
+  // default 'taxa_dinamica' da tabela, mas com fee/taxa em branco vira tudo
+  // 0% sem nenhum aviso de "sem_regra" (esse só existe pra linha malformada
+  // sem ID externo). Sem avisar aqui, o clube fica com Acerto "calculado" ✓
+  // só que zerado, sem ninguém notar que falta configurar o cadastro dele.
+  const [clubesNovos, setClubesNovos] = useState<ClubeNovo[]>([]);
 
   const importsOrdenados = useMemo(() => {
     const buscaLower = buscaImports.trim().toLowerCase();
@@ -185,6 +193,7 @@ export default function AcertosView() {
     setSelected(imp);
     setFilterType("todos");
     setSearch("");
+    setClubesNovos([]);
     await loadAcertos(imp.id);
   }
 
@@ -272,6 +281,7 @@ export default function AcertosView() {
     const clubExtAberto = cardAberto?.club_external_id ?? null;
     const result = await processarAcertos(importId);
     if (result.success) {
+      setClubesNovos(result.clubesNovos);
       const resultAgentes = await processarAcertosAgentes(importId);
       if (!resultAgentes.success) alert("Acertos por clube ok, mas erro no acerto de agentes: " + resultAgentes.error);
       const linhasAtualizadas = await loadAcertos(importId);
@@ -542,6 +552,18 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                   {acertos.length > 0 && <button className="btn-ghost" onClick={handleExport}>↓ Exportar xlsx</button>}
                 </div>
               </div>
+
+              {clubesNovos.length > 0 && (
+                <div style={{ background: "#1a150a", border: "1px solid #E07070", borderRadius: 8, padding: "10px 14px", marginBottom: 16 }}>
+                  <p style={{ color: "#E07070", fontSize: 13, margin: "0 0 4px" }}>
+                    ⚠ {clubesNovos.length} clube{clubesNovos.length > 1 ? "s" : ""} novo{clubesNovos.length > 1 ? "s" : ""} nesse import, cadastrado{clubesNovos.length > 1 ? "s" : ""} automático sem taxa/regra — acerto {clubesNovos.length > 1 ? "deles saiu" : "dele saiu"} zerado até alguém completar o cadastro:
+                  </p>
+                  <p style={{ color: "#C9A84C", fontSize: 13, margin: "0 0 4px" }}>
+                    {clubesNovos.map((c) => `${c.name} (${c.external_id})`).join(", ")}
+                  </p>
+                  <Link href="/admin/cadastro/clubes" style={{ color: "#E07070", fontSize: 12, textDecoration: "underline" }}>Arrumar cadastro em Clubes →</Link>
+                </div>
+              )}
 
               {semRegra > 0 && (
                 <div style={{ background: "#1a150a", border: "1px solid #5a3a0a", borderRadius: 8, padding: "10px 14px", marginBottom: 16 }}>

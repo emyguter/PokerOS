@@ -479,10 +479,23 @@ async function buscarRolloverPendente(clubIds: string[], importId: string): Prom
   return { porClube, ids };
 }
 
+export interface ClubeNovo {
+  id: string;
+  name: string;
+  external_id: string;
+}
+
 export async function processarAcertos(importId: string): Promise<{
   success: boolean;
   count: number;
   error?: string;
+  // Clubes que apareceram na planilha mas ainda não estavam cadastrados —
+  // pré-cadastrados aqui do zero (nome, ID externo, liga), com taxas/regras
+  // em branco (settlement_type cai no default 'taxa_dinamica' da tabela,
+  // mas com fee_*_pct null vira tudo 0%, sem nenhum aviso de "sem_regra").
+  // O chamador (AcertosView) mostra um aviso pedindo pra completar o
+  // cadastro em Clubes antes de confiar no valor calculado dele.
+  clubesNovos: ClubeNovo[];
 }> {
   try {
     const { data: rows, error: rowsError } = await supabase
@@ -492,7 +505,7 @@ export async function processarAcertos(importId: string): Promise<{
 
     if (rowsError) throw new Error(rowsError.message);
     if (!rows || rows.length === 0)
-      return { success: false, count: 0, error: "Nenhuma linha encontrada." };
+      return { success: false, count: 0, error: "Nenhuma linha encontrada.", clubesNovos: [] };
 
     const { data: clubs, error: clubsError } = await supabase
       .from("clubs")
@@ -536,9 +549,9 @@ export async function processarAcertos(importId: string): Promise<{
         ? { pctFixo: taxaAppPctPorLiga.get(c.league_id) ?? null, condicoes: condicoesTaxaLigaPorLiga.get(c.league_id) ?? [] }
         : TAXA_LIGA_VAZIA;
 
-    await supabase.from("acertos").delete().eq("import_id", importId);
-
     const acertos: AcertoCalculado[] = [];
+
+    const clubesNovos: ClubeNovo[] = [];
 
     for (const row of rows as ImportRow[]) {
       let club =
@@ -597,6 +610,7 @@ export async function processarAcertos(importId: string): Promise<{
         club = novoClube as ClubSettings;
         clubByExtId.set(String(club.external_id), club);
         clubByName.set(club.name.toLowerCase().trim(), club);
+        clubesNovos.push({ id: club.id, name: club.name, external_id: club.external_id });
       }
       // O WtR 4 Semanas manual (cadastro > Regras) só é usado como tapa-buraco
       // enquanto o clube não tem 4 semanas seguidas de histórico no banco
@@ -648,8 +662,50 @@ export async function processarAcertos(importId: string): Promise<{
       indicacao_valor: a.club_id ? indicacaoValorPorClube.get(a.club_id) ?? 0 : 0,
     }));
 
-    const { error: insertError } = await supabase.from("acertos").insert(acertosComExtras);
-    if (insertError) throw new Error(insertError.message);
+    // Recalcular precisa ser UPDATE por clube, não "apaga tudo e insere de
+    // novo": um delete em massa (.delete().eq("import_id", importId)) quebra
+    // silenciosamente quando QUALQUER Acerto desse import já tem Pagamento/
+    // Envio vinculado (lancamentos.acerto_id é FK) — o erro não era checado,
+    // então o código seguia pro insert do mesmo jeito, empilhando Acertos
+    // novos em cima dos antigos a cada clique em Recalcular (achado
+    // investigando o PIXGAME, reportado pelo Cássio). Atualiza em cima da
+    // mesma linha (mesmo id) quando o clube já tinha Acerto nesse import —
+    // preserva o vínculo de Pagamento — e só insere linha nova pra clube
+    // que ainda não tinha.
+    const { data: acertosExistentes } = await supabase
+      .from("acertos")
+      .select("id, club_external_id")
+      .eq("import_id", importId);
+    const idExistentePorClube = new Map(
+      ((acertosExistentes ?? []) as { id: string; club_external_id: string }[]).map((a) => [a.club_external_id, a.id])
+    );
+
+    const paraAtualizar = acertosComExtras.filter((a) => idExistentePorClube.has(a.club_external_id));
+    const paraInserir = acertosComExtras.filter((a) => !idExistentePorClube.has(a.club_external_id));
+
+    const resultadosUpdate = await Promise.all(
+      paraAtualizar.map((a) =>
+        supabase.from("acertos").update(a).eq("id", idExistentePorClube.get(a.club_external_id) as string)
+      )
+    );
+    const updateErr = resultadosUpdate.find((r) => r.error)?.error;
+    if (updateErr) throw new Error(updateErr.message);
+
+    if (paraInserir.length > 0) {
+      const { error: insertError } = await supabase.from("acertos").insert(paraInserir);
+      if (insertError) throw new Error(insertError.message);
+    }
+
+    // Clube que tinha Acerto nesse import e sumiu da planilha recalculada
+    // (raro — reimport com menos clubes) — apaga só a linha órfã dele, sem
+    // mexer nas dos outros clubes.
+    const clubesExternosAtuais = new Set(acertosComExtras.map((a) => a.club_external_id));
+    const idsOrfaos = [...idExistentePorClube.entries()]
+      .filter(([clubeExt]) => !clubesExternosAtuais.has(clubeExt))
+      .map(([, id]) => id);
+    if (idsOrfaos.length > 0) {
+      await supabase.from("acertos").delete().in("id", idsOrfaos);
+    }
 
     // Marca os Rollovers aplicados nesse import — não entram de novo num
     // import diferente (Recalcular o MESMO import continua pegando, o filtro
@@ -674,9 +730,9 @@ export async function processarAcertos(importId: string): Promise<{
       .update({ status: semRegra > 0 ? "parcial" : "acertos_calculados" })
       .eq("id", importId);
 
-    return { success: true, count: acertos.length };
+    return { success: true, count: acertos.length, clubesNovos };
   } catch (err) {
-    return { success: false, count: 0, error: err instanceof Error ? err.message : "Erro" };
+    return { success: false, count: 0, error: err instanceof Error ? err.message : "Erro", clubesNovos: [] };
   }
 }
 
