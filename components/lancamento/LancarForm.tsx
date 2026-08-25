@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
 import { desvincularConciliacao } from '@/lib/lancamentos'
+import { corrigirValorCrypto } from '@/lib/relatorio-acerto'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { TIPOS, ehTipoSeguranca } from './ExtratoView'
@@ -75,6 +76,8 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
 
   const [acertosClube, setAcertosClube] = useState<AcertoOpcao[]>([])
   const [acertoId, setAcertoId] = useState('')
+  const [clubeCryptoPct, setClubeCryptoPct] = useState(0)
+  const [pagoCrypto, setPagoCrypto] = useState(false)
 
   useEffect(() => {
     supabase.from('clubs').select('id, name').order('name').then(({ data }) => setClubes(data ?? []))
@@ -85,9 +88,17 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
   // lib/pagamentos.ts, buscarPagamentosPorImport busca pelos dois tipos com
   // acerto_id, sem filtrar por origem). Antecipação é só outro jeito de
   // registrar um pagamento do clube — mesmo tratamento de Pagamento daqui pra
-  // frente, exceto o nome.
+  // frente, exceto o nome. Aproveita a troca de clube pra já buscar o % de
+  // Crypto Rebate junto (usado só pelo botão "Pagar com Crypto", Tipo
+  // Pagamento) — corrige o Valor pra já vir descontado, mesma fórmula do
+  // "Total Crypto Rebate" em Acertos (valor ÷ (1 + %)).
   const ehPagamentoComAcerto = tipo === 'pagamento' || tipo === 'antecipacao'
   useEffect(() => {
+    if (!clubeId) { setClubeCryptoPct(0) }
+    else {
+      supabase.from('clubs').select('crypto_rebate_pct').eq('id', clubeId).single()
+        .then(({ data }) => setClubeCryptoPct(data?.crypto_rebate_pct ?? 0))
+    }
     if (!ehPagamentoComAcerto || !clubeId) { setAcertosClube([]); setAcertoId(''); return }
     supabase
       .from('acertos')
@@ -116,6 +127,18 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
   }, [origem])
 
   useEffect(() => { loadRecentes() }, [loadRecentes])
+
+  // Botão "Pagar com Crypto" (só Tipo Pagamento) — preenche o Valor já
+  // corrigido pelo % de Crypto Rebate cadastrado no clube (ver
+  // corrigirValorCrypto, mesma fórmula do "Total Crypto Rebate" em Acertos).
+  // O usuário ainda confere e clica em Lançar normalmente.
+  function handlePagarCrypto() {
+    const acerto = acertosClube.find((a) => a.id === acertoId)
+    if (!acerto) return
+    const corrigido = corrigirValorCrypto(Math.abs(acerto.valor_acerto), clubeCryptoPct)
+    setValor(corrigido.toFixed(2).replace('.', ','))
+    setPagoCrypto(true)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -163,6 +186,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
         origem,
         status,
         acerto_id: ehPagamentoComAcerto ? acertoId : null,
+        pago_crypto: tipo === 'pagamento' && pagoCrypto,
       })
       if (insErr) throw insErr
       setValor('')
@@ -170,6 +194,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
       setData(hoje())
       setConfirmandoDuplicata(false)
       setAcertoId('')
+      setPagoCrypto(false)
       await loadRecentes()
       onCreated?.()
     } catch (err) {
@@ -218,16 +243,29 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.tipo')}</label>
-            <select value={tipo} onChange={(e) => { setTipo(e.target.value); setConfirmandoDuplicata(false) }} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
-              {TIPOS_FORM.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
-            </select>
+            <div className="flex gap-2">
+              <select value={tipo} onChange={(e) => { setTipo(e.target.value); setConfirmandoDuplicata(false); setPagoCrypto(false) }} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
+                {TIPOS_FORM.map((tp) => <option key={tp.value} value={tp.value}>{t(tp.labelKey)}</option>)}
+              </select>
+              {tipo === 'pagamento' && clubeCryptoPct > 0 && (
+                <button
+                  type="button"
+                  onClick={handlePagarCrypto}
+                  disabled={!acertoId}
+                  title={acertoId ? t('lancamento.pagar_crypto_titulo', { pct: String(clubeCryptoPct) }) : t('pagamentos.qual_acerto_obrigatorio')}
+                  className="shrink-0 px-3 py-2.5 rounded-lg border border-gold bg-gold text-surface text-sm font-semibold hover:bg-gold/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                >
+                  {t('lancamento.pagar_crypto')}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {ehPagamentoComAcerto && clubeId && (
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">{t('pagamentos.qual_acerto')}</label>
-            <select value={acertoId} onChange={(e) => setAcertoId(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
+            <select value={acertoId} onChange={(e) => { setAcertoId(e.target.value); setPagoCrypto(false) }} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
               <option value="">{t('pagamentos.selecione_acerto')}</option>
               {acertosClube.map((a) => <option key={a.id} value={a.id}>{formatPeriodoAcerto(a)}</option>)}
             </select>
@@ -257,7 +295,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.valor')}</label>
-            <input type="text" inputMode="decimal" value={valor} onChange={(e) => { setValor(e.target.value); setConfirmandoDuplicata(false) }} placeholder="0,00" className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
+            <input type="text" inputMode="decimal" value={valor} onChange={(e) => { setValor(e.target.value); setConfirmandoDuplicata(false); setPagoCrypto(false) }} placeholder="0,00" className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">{t('lancamento.data')}</label>

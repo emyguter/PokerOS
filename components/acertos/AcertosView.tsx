@@ -5,7 +5,7 @@ import { Inbox, Copy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { processarAcertos, processarAcertosAgentes } from "@/lib/acertos-engine";
-import { calcularTotalAcerto, buscarSecurityEDividasPorClube } from "@/lib/relatorio-acerto";
+import { calcularTotalAcerto, corrigirValorCrypto, buscarSecurityEDividasPorClube } from "@/lib/relatorio-acerto";
 import * as XLSX from "xlsx";
 import { ClubAcertoCard } from "./ClubAcertoCard";
 import { AgentesAcertosView } from "./AgentesAcertosView";
@@ -171,6 +171,16 @@ export default function AcertosView() {
     setExtrasPorClube(await buscarSecurityEDividasPorClube(clubIds, periodEnd));
   }, []);
 
+  // % de Crypto Rebate cadastrado por clube — só pro "Total Crypto Rebate"
+  // do resumo (abaixo do Valor Acerto). Desligado no cadastro = pct null =
+  // 0 aqui, o clube entra sem desconto nenhum, igual o Valor Acerto normal.
+  const [cryptoPctPorClube, setCryptoPctPorClube] = useState<Map<string, number>>(new Map());
+  const loadCryptoPct = useCallback(async (clubIds: string[]) => {
+    if (clubIds.length === 0) { setCryptoPctPorClube(new Map()); return; }
+    const { data } = await supabase.from("clubs").select("id, crypto_rebate_pct").in("id", clubIds);
+    setCryptoPctPorClube(new Map((data ?? []).map((c) => [c.id as string, (c.crypto_rebate_pct as number | null) ?? 0])));
+  }, []);
+
   async function handleSelect(imp: Import) {
     setSelected(imp);
     setFilterType("todos");
@@ -197,11 +207,12 @@ export default function AcertosView() {
   useEffect(() => { loadImports(); }, []);
 
   useEffect(() => {
-    if (!selected || acertos.length === 0) { setLancamentos([]); setExtrasPorClube(new Map()); return; }
+    if (!selected || acertos.length === 0) { setLancamentos([]); setExtrasPorClube(new Map()); setCryptoPctPorClube(new Map()); return; }
     const clubIds = [...new Set(acertos.map((a) => a.club_id).filter((id): id is string => !!id))];
     loadLancamentos(clubIds, selected.period_start, selected.period_end);
     loadExtras(clubIds, selected.period_end || selected.period_start);
-  }, [acertos, selected, loadLancamentos, loadExtras]);
+    loadCryptoPct(clubIds);
+  }, [acertos, selected, loadLancamentos, loadExtras, loadCryptoPct]);
 
   // Líquido de lançamentos (créditos − débitos) por clube, no período do import selecionado.
   const lancamentosPorClube = useMemo(() => {
@@ -239,6 +250,14 @@ export default function AcertosView() {
       });
     },
     [lancamentosDoClube, extrasPorClube]
+  );
+
+  // Total Crypto Rebate — ver corrigirValorCrypto (lib/relatorio-acerto.ts).
+  // Clube sem Crypto Rebate ligado entra com pct 0, ou seja sem desconto
+  // nenhum (o valor bate igual ao Valor Acerto normal).
+  const totalCrypto = useCallback(
+    (a: Acerto) => corrigirValorCrypto(totalFinal(a), a.club_id ? cryptoPctPorClube.get(a.club_id) ?? 0 : 0),
+    [totalFinal, cryptoPctPorClube]
   );
 
   async function executarCalculo(importId: string) {
@@ -395,8 +414,9 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
       rebate:        acc.rebate        + a.rebate_calculado,
       lancamentos:   acc.lancamentos   + lancamentosDoClube(a.club_id),
       valor_acerto:  acc.valor_acerto  + totalFinal(a),
+      total_crypto:  acc.total_crypto  + totalCrypto(a),
     }),
-    { rake_total: 0, fee_calculado: 0, rebate: 0, lancamentos: 0, valor_acerto: 0 }
+    { rake_total: 0, fee_calculado: 0, rebate: 0, lancamentos: 0, valor_acerto: 0, total_crypto: 0 }
   );
 
   const semRegra = acertos.filter((a) => a.status === "sem_regra").length;
@@ -535,6 +555,12 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                     <div key={s.label} className="stat">
                       <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".08em", color: "#5a5a52", margin: "0 0 4px" }}>{s.label}</p>
                       <p style={{ fontSize: 20, fontWeight: 600, color: s.color, margin: 0 }}>{fmt(s.value)}</p>
+                      {/* Total Crypto Rebate = Valor Acerto ÷ (1 + % Crypto Rebate) por
+                          clube, somado — só aparece embaixo do Valor Acerto quando algum
+                          clube tem Crypto Rebate ligado (senão bate igual, redundante). */}
+                      {s.label === "Valor Acerto" && Math.abs(totais.total_crypto - totais.valor_acerto) >= 0.005 && (
+                        <p style={{ fontSize: 12, color: "#C9A84C", margin: "4px 0 0" }}>Total Crypto Rebate: {fmt(totais.total_crypto)}</p>
+                      )}
                     </div>
                   ))}
                 </div>

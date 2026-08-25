@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { resolverLayout, ehObrigatorio, LAYOUT_PADRAO, CAMPOS_OBRIGATORIOS } from '../relatorio-acerto'
+import { resolverLayout, ehObrigatorio, corrigirValorCrypto, LAYOUT_PADRAO, CAMPOS_OBRIGATORIOS } from '../relatorio-acerto'
+
+describe('corrigirValorCrypto', () => {
+  it('exemplo exato da planilha do Cássio: -7.911,43 com 3% dá -7.681,00', () => {
+    expect(corrigirValorCrypto(-7911.43, 3)).toBeCloseTo(-7681, 2)
+  })
+  it('pct 0 (clube sem Crypto Rebate) devolve o valor sem alteração', () => {
+    expect(corrigirValorCrypto(-7911.43, 0)).toBe(-7911.43)
+  })
+})
 
 describe('ehObrigatorio', () => {
   it('reconhece os 8 campos que sempre aparecem', () => {

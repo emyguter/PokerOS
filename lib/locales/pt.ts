@@ -136,6 +136,8 @@ export const pt = {
     descricao: 'Descrição (opcional)', descricao_placeholder: 'Ex: bônus de boas-vindas',
     credito: 'Crédito', debito: 'Débito', lancar: 'Lançar',
     ultimos_lancamentos: 'Últimos lançamentos', nenhum_lancamento: 'Nenhum lançamento ainda.',
+    pagar_crypto: 'Pagar com Crypto',
+    pagar_crypto_titulo: 'Preenche o Valor já com o desconto de {pct}% de Crypto Rebate do clube.',
     tipos: { bonus: 'Bônus', promocao: 'Promoção', caucao: 'Caução', pagamento: 'Pagamento', antecipacao: 'Antecipação', outro: 'Outro', seguranca_bloqueio: 'Bloqueio da Segurança', seguranca_reembolso: 'Reembolso da Segurança' },
     status: { em_validacao: 'Em validação', pago: 'Confirmado' },
     caucao_duplicata_titulo: 'Já existe um lançamento de caução com esse valor nessa data',

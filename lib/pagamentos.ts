@@ -5,6 +5,7 @@ export interface EnvioPagamento {
   id: string
   valor_assinado: number
   data_lancamento: string
+  pago_crypto: boolean
 }
 
 export interface AcertoPagamento {
@@ -48,6 +49,7 @@ interface PagamentoRow {
   natureza: 'credito' | 'debito'
   valor: number
   data_lancamento: string
+  pago_crypto: boolean
 }
 
 // Junta os Acertos de um import com os lançamentos tipo "pagamento" vinculados
@@ -65,6 +67,7 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
       id: p.id,
       valor_assinado: p.natureza === 'credito' ? p.valor : -p.valor,
       data_lancamento: p.data_lancamento,
+      pago_crypto: p.pago_crypto,
     })
     enviosPorAcerto.set(p.acerto_id, lista)
   }
@@ -165,7 +168,7 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
   const [{ data: pagamentos }, valorCompletoPorId, caucaoPorId, { data: clubesData }] = await Promise.all([
     supabase
       .from('lancamentos')
-      .select('id, acerto_id, natureza, valor, data_lancamento')
+      .select('id, acerto_id, natureza, valor, data_lancamento, pago_crypto')
       .in('acerto_id', lista.map((a) => a.id))
       .in('tipo', ['pagamento', 'antecipacao'])
       .order('data_lancamento', { ascending: true }),
@@ -324,7 +327,7 @@ export async function buscarPagamentosPorPeriodo(periodoInicio: string, periodoF
   const [{ data: pagamentos }, valorCompletoPorId, caucaoPorId, { data: clubesData }] = await Promise.all([
     supabase
       .from('lancamentos')
-      .select('id, acerto_id, natureza, valor, data_lancamento')
+      .select('id, acerto_id, natureza, valor, data_lancamento, pago_crypto')
       .in('acerto_id', lista.map((a) => a.id))
       .in('tipo', ['pagamento', 'antecipacao'])
       .order('data_lancamento', { ascending: true }),

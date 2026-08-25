@@ -138,6 +138,8 @@ export const en: typeof pt = {
     descricao: 'Description (optional)', descricao_placeholder: 'E.g.: welcome bonus',
     credito: 'Credit', debito: 'Debit', lancar: 'Add Entry',
     ultimos_lancamentos: 'Latest entries', nenhum_lancamento: 'No entries yet.',
+    pagar_crypto: 'Pay with Crypto',
+    pagar_crypto_titulo: "Fills the Amount already discounted by the club's {pct}% Crypto Rebate.",
     tipos: { bonus: 'Bonus', promocao: 'Promotion', caucao: 'Deposit', pagamento: 'Payment', antecipacao: 'Advance', outro: 'Other', seguranca_bloqueio: 'Security Block', seguranca_reembolso: 'Security Refund' },
     status: { em_validacao: 'Pending validation', pago: 'Confirmed' },
     caucao_duplicata_titulo: 'A deposit entry with this amount and date already exists',

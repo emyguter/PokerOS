@@ -18,8 +18,8 @@ describe('agregarPagamentos', () => {
 
   it('crédito soma, débito subtrai no valor pago — mesma regra do resto do app', () => {
     const pagamentos = [
-      { id: 'p1', acerto_id: 'acerto-1', natureza: 'credito' as const, valor: 400, data_lancamento: '2026-08-10' },
-      { id: 'p2', acerto_id: 'acerto-1', natureza: 'debito' as const, valor: 100, data_lancamento: '2026-08-11' },
+      { id: 'p1', acerto_id: 'acerto-1', natureza: 'credito' as const, valor: 400, data_lancamento: '2026-08-10', pago_crypto: false },
+      { id: 'p2', acerto_id: 'acerto-1', natureza: 'debito' as const, valor: 100, data_lancamento: '2026-08-11', pago_crypto: false },
     ]
     const [r] = agregarPagamentos([acerto()], pagamentos)
     expect(r.valor_pago).toBe(300) // 400 - 100
@@ -28,13 +28,13 @@ describe('agregarPagamentos', () => {
   })
 
   it('Acerto quitado (Envio cobre o Valor do Acerto) dá diferença 0', () => {
-    const pagamentos = [{ id: 'p1', acerto_id: 'acerto-1', natureza: 'credito' as const, valor: 1000, data_lancamento: '2026-08-10' }]
+    const pagamentos = [{ id: 'p1', acerto_id: 'acerto-1', natureza: 'credito' as const, valor: 1000, data_lancamento: '2026-08-10', pago_crypto: false }]
     const [r] = agregarPagamentos([acerto()], pagamentos)
     expect(r.diferenca).toBe(0)
   })
 
   it('pagamento de outro acerto não entra na lista desse clube', () => {
-    const pagamentos = [{ id: 'p1', acerto_id: 'acerto-outro', natureza: 'credito' as const, valor: 999, data_lancamento: '2026-08-10' }]
+    const pagamentos = [{ id: 'p1', acerto_id: 'acerto-outro', natureza: 'credito' as const, valor: 999, data_lancamento: '2026-08-10', pago_crypto: false }]
     const [r] = agregarPagamentos([acerto()], pagamentos)
     expect(r.valor_pago).toBe(0)
     expect(r.envios).toEqual([])
@@ -43,8 +43,8 @@ describe('agregarPagamentos', () => {
   it('múltiplos clubes ficam separados corretamente', () => {
     const acertos = [acerto({ id: 'a1', club_name: 'Clube A' }), acerto({ id: 'a2', club_name: 'Clube B', valor_acerto: -500 })]
     const pagamentos = [
-      { id: 'p1', acerto_id: 'a1', natureza: 'credito' as const, valor: 200, data_lancamento: '2026-08-10' },
-      { id: 'p2', acerto_id: 'a2', natureza: 'credito' as const, valor: 500, data_lancamento: '2026-08-10' },
+      { id: 'p1', acerto_id: 'a1', natureza: 'credito' as const, valor: 200, data_lancamento: '2026-08-10', pago_crypto: false },
+      { id: 'p2', acerto_id: 'a2', natureza: 'credito' as const, valor: 500, data_lancamento: '2026-08-10', pago_crypto: false },
     ]
     const resultado = agregarPagamentos(acertos, pagamentos)
     expect(resultado.find((r) => r.acerto_id === 'a1')?.diferenca).toBe(-800)

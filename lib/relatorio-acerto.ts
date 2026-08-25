@@ -147,6 +147,16 @@ export function calcularTotalAcerto(valorAcertoBase: number, extras: ExtrasAcert
   )
 }
 
+// Corrige um valor pelo % de Crypto Rebate do clube — mesma fórmula da
+// planilha do Cássio (=ARRED(Total/(1+%);2)): pagando em crypto, o valor
+// enviado já sai menor, porque o % de rebate é somado de volta em cima dele
+// até bater no total original. Clube sem Crypto Rebate (pct 0) devolve o
+// valor sem alteração. Usado no "Total Crypto Rebate" de Acertos e no botão
+// "Pagar com Crypto" do Lançamento.
+export function corrigirValorCrypto(valor: number, pct: number): number {
+  return Math.round((valor / (1 + pct / 100)) * 100) / 100
+}
+
 // Segurança (cadastro do clube) + total de Dívidas/Acordos em aberto (já com
 // multa se atrasada) de um lote de clubes — as duas peças que faltam pra
 // completar calcularTotalAcerto e que cada tela buscava (ou não buscava)

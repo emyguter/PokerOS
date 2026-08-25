@@ -29,7 +29,7 @@ const EMPTY: ClubForm = {
   taxa_variavel_nome: null, taxa_variavel_indicador: null, taxa_variavel_regra: null,
   caucao_atual: null, stoploss_inicial: null, ratio_caucao_stoploss: null, projeto: null,
   hora_virada_semana: 2,
-  plataforma_id: null, operador_ext_id: null, operador_nickname: null, rebate_ativo: false,
+  plataforma_id: null, operador_ext_id: null, operador_nickname: null, rebate_ativo: false, crypto_rebate_ativo: false,
   wtr4_semanas_manual: null, termos_especiais: null,
 }
 
@@ -58,6 +58,7 @@ function toForm(c: Club): ClubForm {
     operador_ext_id: c.operador_ext_id ?? null,
     operador_nickname: c.operador_nickname ?? null,
     rebate_ativo: c.rebate_ativo ?? false,
+    crypto_rebate_ativo: c.crypto_rebate_ativo ?? false,
     wtr4_semanas_manual: c.wtr4_semanas_manual ?? null,
     termos_especiais: c.termos_especiais ?? null,
   }
@@ -495,7 +496,20 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
           </div>
 
           {!isRkb && isUSD && (
-            <Fld label="Crypto Rebate (%)"><NumInput value={form.crypto_rebate_pct} onChange={v => set('crypto_rebate_pct', v)} placeholder="Ex: 5" /></Fld>
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 cursor-pointer w-fit">
+                <div
+                  onClick={() => { const novo = !form.crypto_rebate_ativo; set('crypto_rebate_ativo', novo); if (!novo) set('crypto_rebate_pct', null) }}
+                  className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${form.crypto_rebate_ativo ? 'bg-gold' : 'bg-white/10'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${form.crypto_rebate_ativo ? 'translate-x-5' : 'translate-x-1'}`} />
+                </div>
+                <span className="text-sm text-gray-300">Crypto Rebate</span>
+              </label>
+              {form.crypto_rebate_ativo && (
+                <Fld label="Crypto Rebate (%)"><NumInput value={form.crypto_rebate_pct} onChange={v => set('crypto_rebate_pct', v)} placeholder="Ex: 5" /></Fld>
+              )}
+            </div>
           )}
 
           <div className="space-y-2 pt-2 border-t border-white/10">

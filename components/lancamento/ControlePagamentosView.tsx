@@ -164,7 +164,14 @@ export function ControlePagamentosView() {
                   </td>
                   <td className="px-3 py-2 text-right text-gray-500 whitespace-nowrap">{l.caucao === 0 ? '—' : fmt(l.caucao)}</td>
                   {Array.from({ length: maxEnvios }).map((_, i) => (
-                    <td key={i} className="px-3 py-2 text-right text-gray-300 whitespace-nowrap">{l.envios[i] ? fmt(l.envios[i].valor_assinado) : '—'}</td>
+                    <td key={i} className="px-3 py-2 text-right text-gray-300 whitespace-nowrap">
+                      {l.envios[i] ? (
+                        <>
+                          {l.envios[i].pago_crypto && <span title="Pago em crypto" className="text-gold mr-1">₿</span>}
+                          {fmt(l.envios[i].valor_assinado)}
+                        </>
+                      ) : '—'}
+                    </td>
                   ))}
                 </tr>
               ))}

@@ -858,6 +858,16 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   com a Genia — mas o ajuste anterior (Bônus/Promoção/Outro fora da Conciliação, ver item acima)
   tornou essa condição impossível de cumprir, escondendo tudo pra sempre. Removida a exigência —
   a aba Extra volta a listar Bônus/Promoção/Outro normalmente, liberação pro Acerto continua igual
+- [x] **Crypto Rebate ganha ON/OFF, Total Crypto Rebate em Acertos e botão "Pagar com Crypto"**:
+  Crypto Rebate (%) do clube (Cadastro → Clube → Taxas, só weekly_usd) agora tem toggle igual o
+  Rebate normal — desligar zera o %. Resumo de Acertos ganha uma linha "Total Crypto Rebate"
+  embaixo do Valor Acerto: valor ÷ (1 + % Crypto Rebate), mesma fórmula da planilha do Cássio
+  (`corrigirValorCrypto`, `lib/relatorio-acerto.ts`) — só aparece quando algum clube do import tem
+  Crypto Rebate ligado. No Lançamento (Suporte/Genia), Tipo "Pagamento" ganha um botão amarelo
+  "Pagar com Crypto" ao lado do seletor de Tipo (só quando o clube tem % cadastrado): preenche o
+  Valor já com o desconto aplicado, e o lançamento fica marcado (`lancamentos.pago_crypto`) — no
+  Controle de Pagamentos, o Envio correspondente ganha um ₿ do lado do valor. Requer migration
+  manual (`crypto_rebate_ativo` em `clubs`, `pago_crypto` em `lancamentos`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

@@ -108,6 +108,7 @@ export type Club = {
   operador_ext_id: string | null
   operador_nickname: string | null
   rebate_ativo: boolean
+  crypto_rebate_ativo: boolean
   ativo: boolean
   wtr4_semanas_manual: number | null
   // Texto livre (não calculado) — condição de taxa negociada fora do padrão
@@ -148,6 +149,7 @@ export type ClubForm = {
   operador_ext_id: string | null
   operador_nickname: string | null
   rebate_ativo: boolean
+  crypto_rebate_ativo: boolean
   wtr4_semanas_manual: number | null
   termos_especiais: string | null
 }
