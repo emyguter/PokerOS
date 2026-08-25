@@ -118,18 +118,51 @@ export default function AcertosView() {
   // sem ID externo). Sem avisar aqui, o clube fica com Acerto "calculado" ✓
   // só que zerado, sem ninguém notar que falta configurar o cadastro dele.
   const [clubesNovos, setClubesNovos] = useState<ClubeNovo[]>([]);
+  // Imports achados pela busca por NOME DE CLUBE (não só os 30 mais
+  // recentes já carregados em `imports`) — ver buscarImportsPorClube.
+  const [importsPorClube, setImportsPorClube] = useState<Import[]>([]);
+
+  // Busca por clube roda em TODO o histórico (import_rows tem o club_name
+  // de toda linha já importada, calculada ou não), não só nos 30 imports
+  // mais recentes que já estão carregados — é o "traz todos os arquivos
+  // que tem aquele clube" pedido pelo Cássio. Com menos de 2 letras não
+  // busca (evita disparar pra cada tecla digitada).
+  async function buscarImportsPorClube(termo: string) {
+    if (termo.trim().length < 2) { setImportsPorClube([]); return; }
+    const { data: rows } = await supabase.from("import_rows").select("import_id").ilike("club_name", `%${termo.trim()}%`);
+    const idsEncontrados = [...new Set((rows ?? []).map((r) => r.import_id as string))];
+    const idsJaCarregados = new Set(imports.map((i) => i.id));
+    const idsFaltando = idsEncontrados.filter((id) => !idsJaCarregados.has(id));
+    if (idsFaltando.length === 0) { setImportsPorClube([]); return; }
+    const { data: importsData } = await supabase.from("imports").select("*, leagues(name)").in("id", idsFaltando);
+    setImportsPorClube((importsData as Import[]) ?? []);
+  }
+
+  // Debounce de 300ms — só dispara a busca por clube depois que o usuário
+  // parar de digitar, não a cada tecla.
+  useEffect(() => {
+    const termo = buscaImports;
+    const timer = setTimeout(() => { buscarImportsPorClube(termo); }, 300);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buscaImports]);
 
   const importsOrdenados = useMemo(() => {
     const buscaLower = buscaImports.trim().toLowerCase();
-    const lista = imports.filter((imp) => {
-      const bateBusca = !buscaLower || imp.file_name.toLowerCase().includes(buscaLower) || (imp.leagues?.name ?? "").toLowerCase().includes(buscaLower);
+    const idsPorClube = new Set(importsPorClube.map((i) => i.id));
+    const todosOsImports = [...imports, ...importsPorClube.filter((i) => !imports.some((j) => j.id === i.id))];
+    const lista = todosOsImports.filter((imp) => {
+      // Achado pela busca de clube (server-side, todo o histórico) entra
+      // direto — já sabemos que bate, o filtro de texto abaixo só olha
+      // file_name/liga, não club_name.
+      const bateBusca = !buscaLower || idsPorClube.has(imp.id) || imp.file_name.toLowerCase().includes(buscaLower) || (imp.leagues?.name ?? "").toLowerCase().includes(buscaLower);
       const bateStatus = statusImports === "todos" || categoriaStatus(imp.status) === statusImports;
       return bateBusca && bateStatus;
     });
     if (ordenacaoImports === "nome") return lista.sort((a, b) => a.file_name.localeCompare(b.file_name));
     if (ordenacaoImports === "periodo") return lista.sort((a, b) => (b.period_start ?? "").localeCompare(a.period_start ?? ""));
     return lista.sort((a, b) => b.created_at.localeCompare(a.created_at));
-  }, [imports, ordenacaoImports, buscaImports, statusImports]);
+  }, [imports, importsPorClube, ordenacaoImports, buscaImports, statusImports]);
 
   const loadAcertos = useCallback(async (importId: string) => {
     setLoading(true);
@@ -504,7 +537,7 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
               type="text"
               value={buscaImports}
               onChange={(e) => setBuscaImports(e.target.value)}
-              placeholder="Buscar por arquivo ou liga..."
+              placeholder="Buscar por arquivo, liga ou clube..."
               style={{ background: "#111410", color: "#F0EDE4", border: "1px solid #2a2c20", borderRadius: 6, padding: "5px 8px", fontFamily: "'DM Sans',sans-serif", fontSize: 12, outline: "none", width: "100%", boxSizing: "border-box" }}
             />
             <select
