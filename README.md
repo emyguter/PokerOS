@@ -945,6 +945,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   itens soltos (Lançar/Configurar Limites) e vira uma pasta "VIP Cards" que abre/fecha, com as duas
   abas dentro dela — `SubNavItem` agora aceita `subItems` aninhado, e `renderNavItems` renderiza
   esse nível extra recursivamente (`Sidebar.tsx`)
+- [x] **Corrige regressão: tela do Recalcular tinha sumido**: descoberto que `/acertos`
+  (`app/acertos/page.tsx`) sempre renderizou `MeusAcertosView` pra TODO mundo — nunca teve o
+  branch por tipo de login que a gente pensava que já existia. A tela de Recalcular
+  (`AcertosView`) só era alcançável pela aba "Acertos" dentro de Relatórios, que a reorganização de
+  menus removeu por parecer redundante (achava que as duas rotas já mostravam o mesmo componente).
+  Corrigido: `/acertos` agora mostra `AcertosView` (Recalcular) pra Suporte/Admin e continua
+  mostrando `MeusAcertosView` pra login de Clube/Liga/SuperLiga/MegaLiga (`app/acertos/page.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

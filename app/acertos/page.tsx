@@ -3,6 +3,7 @@ import { Lock } from 'lucide-react'
 import { usePermissions } from '@/lib/permissions'
 import { useI18n } from '@/lib/i18n'
 import { MeusAcertosView } from '@/components/acertos/MeusAcertosView'
+import AcertosView from '@/components/acertos/AcertosView'
 
 export default function Page() {
   const { loading, profile, hasPermission } = usePermissions()
@@ -21,5 +22,8 @@ export default function Page() {
     )
   }
 
-  return <MeusAcertosView />
+  // Login de Clube/Liga/SuperLiga/MegaLiga (visão isolada, sem Recalcular —
+  // ver ehEntidadeRestrita em Sidebar.tsx) vê o resumo simples dos próprios
+  // Acertos. Suporte/Admin vê a tela de cálculo de verdade (Recalcular).
+  return temEntidade ? <MeusAcertosView /> : <AcertosView />
 }
