@@ -434,6 +434,37 @@ async function buscarPendenciasAntecipacao(clubIds: string[], periodStart: strin
   return mapa;
 }
 
+// Rollover (ver rolloverAcerto em lib/pagamentos.ts): Diferença não paga que
+// o Suporte decidiu "rolar" pra próxima semana em vez de descontar da Caução
+// ou virar Dívida/Acordo (sem multa, sem juros). Fica esperando — sem data
+// nenhuma, diferente da Antecipação normal (essa é por período) — até o
+// PRÓXIMO Acerto desse clube ser calculado, quando entra somado em
+// Pendências/Antecipação (mesma linha, mesmo lugar que o Cássio pediu) e
+// marca `rollover_consumido_import_id` pra não entrar de novo num import
+// diferente depois. Recalcular o MESMO import continua pegando (import_id
+// bate ou ainda tá null).
+async function buscarRolloverPendente(clubIds: string[], importId: string): Promise<{ porClube: Map<string, number>; ids: string[] }> {
+  const porClube = new Map<string, number>();
+  const ids: string[] = [];
+  if (clubIds.length === 0) return { porClube, ids };
+
+  const { data } = await supabase
+    .from("lancamentos")
+    .select("id, clube_id, natureza, valor, rollover_consumido_import_id")
+    .in("clube_id", clubIds)
+    .eq("tipo", "antecipacao")
+    .eq("origem", "suporte")
+    .eq("descricao", "Rollover")
+    .or(`rollover_consumido_import_id.is.null,rollover_consumido_import_id.eq.${importId}`);
+
+  for (const row of (data ?? []) as { id: string; clube_id: string; natureza: "credito" | "debito"; valor: number }[]) {
+    const delta = row.natureza === "credito" ? row.valor : -row.valor;
+    porClube.set(row.clube_id, (porClube.get(row.clube_id) ?? 0) + delta);
+    ids.push(row.id);
+  }
+  return { porClube, ids };
+}
+
 export async function processarAcertos(importId: string): Promise<{
   success: boolean;
   count: number;
@@ -576,6 +607,7 @@ export async function processarAcertos(importId: string): Promise<{
       importInfo?.period_start ?? "",
       importInfo?.period_end ?? ""
     );
+    const { porClube: rolloverPorClube, ids: rolloverIdsAplicados } = await buscarRolloverPendente(clubIdsResolvidos, importId);
 
     // Bônus de Indicação (ver calcularIndicacao acima): club_indicacoes.club_id
     // é quem ganha o bônus, mas a base é o rake do club_indicado_id — cada
@@ -598,12 +630,20 @@ export async function processarAcertos(importId: string): Promise<{
     const acertosComExtras = acertos.map((a) => ({
       ...a,
       bilhetes: bilhetesPorClube.get(a.club_external_id) ?? 0,
-      pendencias_antecipacao: a.club_id ? pendenciasPorClube.get(a.club_id) ?? 0 : 0,
+      pendencias_antecipacao: (a.club_id ? pendenciasPorClube.get(a.club_id) ?? 0 : 0) + (a.club_id ? rolloverPorClube.get(a.club_id) ?? 0 : 0),
       indicacao_valor: a.club_id ? indicacaoValorPorClube.get(a.club_id) ?? 0 : 0,
     }));
 
     const { error: insertError } = await supabase.from("acertos").insert(acertosComExtras);
     if (insertError) throw new Error(insertError.message);
+
+    // Marca os Rollovers aplicados nesse import — não entram de novo num
+    // import diferente (Recalcular o MESMO import continua pegando, o filtro
+    // de buscarRolloverPendente já aceita rollover_consumido_import_id ===
+    // importId também).
+    if (rolloverIdsAplicados.length > 0) {
+      await supabase.from("lancamentos").update({ rollover_consumido_import_id: importId }).in("id", rolloverIdsAplicados);
+    }
 
     // Dívida/parcela marcada "Pagar com Rake" acabou de ter seu valor
     // descontado deste período (calcularTotalAcerto, chamado por quem exibe

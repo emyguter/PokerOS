@@ -4,6 +4,7 @@ import { buscarImportsComAcerto, buscarPagamentosPorImport } from './pagamentos'
 export type StatusStoploss = 'ativo' | '50%' | 'bloqueado'
 
 export interface LinhaAcertoPendenteSemana {
+  acertoId: string
   clubId: string
   clubExternalId: string
   clubName: string
@@ -50,6 +51,7 @@ export async function buscarAcertosPendentesDaSemana(): Promise<LinhaAcertoPende
     .map((p) => {
       const clubId = clubIdPorAcertoId.get(p.acerto_id) ?? null
       return {
+        acertoId: p.acerto_id,
         clubId: clubId ?? '',
         clubExternalId: p.club_external_id,
         clubName: p.club_name,

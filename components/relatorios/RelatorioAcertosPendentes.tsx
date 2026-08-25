@@ -1,10 +1,12 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Loader2, RotateCcw } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
 import { useConciliacao } from '@/components/lancamento/useConciliacao'
+import { ConfirmModal } from '@/components/ConfirmModal'
+import { rolloverAcerto } from '@/lib/pagamentos'
 import {
   buscarAcertosPendentesDaSemana, buscarInadimplencia,
   type LinhaAcertoPendenteSemana, type InadimplenciaResultado,
@@ -18,18 +20,40 @@ export function RelatorioAcertosPendentes() {
   const [inadimplencia, setInadimplencia] = useState<InadimplenciaResultado>({ atrasados: [], inadimplentes: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [fazendoRollover, setFazendoRollover] = useState<string | null>(null)
+  const [confirmarRollover, setConfirmarRollover] = useState<LinhaAcertoPendenteSemana | null>(null)
+  const [erroRollover, setErroRollover] = useState<string | null>(null)
 
   const totalPendencias = pendGenia.length + pendSuporte.length
   const conciliacaoZerada = !loadingConciliacao && totalPendencias === 0
 
-  useEffect(() => {
-    if (!conciliacaoZerada) return
+  const carregar = useCallback(() => {
     setLoading(true); setError(null)
-    Promise.all([buscarAcertosPendentesDaSemana(), buscarInadimplencia()])
+    return Promise.all([buscarAcertosPendentesDaSemana(), buscarInadimplencia()])
       .then(([s, i]) => { setSemana(s); setInadimplencia(i) })
       .catch((e) => setError(errMsg(e)))
       .finally(() => setLoading(false))
-  }, [conciliacaoZerada])
+  }, [])
+
+  useEffect(() => {
+    if (!conciliacaoZerada) return
+    carregar()
+  }, [conciliacaoZerada, carregar])
+
+  async function handleRollover() {
+    const l = confirmarRollover
+    if (!l || !l.clubId) return
+    setFazendoRollover(l.acertoId); setErroRollover(null)
+    try {
+      await rolloverAcerto(l.acertoId, l.clubId, l.diferenca)
+      setConfirmarRollover(null)
+      await carregar()
+    } catch (err) {
+      setErroRollover(errMsg(err))
+    } finally {
+      setFazendoRollover(null)
+    }
+  }
 
   if (loadingConciliacao) {
     return <div className="p-8 text-center text-gray-500 text-sm">{t('common.carregando')}</div>
@@ -68,11 +92,12 @@ export function RelatorioAcertosPendentes() {
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('acertos_pendentes.col_acerto')}</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('acertos_pendentes.col_pago')}</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('acertos_pendentes.col_diferenca')}</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider"></th>
                 </tr>
               </thead>
               <tbody>
                 {semana.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500 text-sm">{t('acertos_pendentes.nenhum_pendente_semana')}</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500 text-sm">{t('acertos_pendentes.nenhum_pendente_semana')}</td></tr>
                 ) : (
                   semana.map((l) => (
                     <tr key={l.clubId || l.clubExternalId} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
@@ -82,6 +107,19 @@ export function RelatorioAcertosPendentes() {
                       <td className="px-4 py-3 text-right text-gray-300">{fmt(l.acerto)}</td>
                       <td className="px-4 py-3 text-right text-gray-300">{fmt(l.pago)}</td>
                       <td className="px-4 py-3 text-right text-alert font-medium">{fmt(l.diferenca)}</td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        {l.clubId && (
+                          <button
+                            type="button"
+                            onClick={() => { setConfirmarRollover(l); setErroRollover(null) }}
+                            disabled={fazendoRollover === l.acertoId}
+                            title="Rollover — sai das Pendências e aparece de novo como Pendência/Antecipação no próximo Acerto desse clube. Sem cobrar, sem multa, sem mexer na Caução."
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 border border-gold/30 text-gold rounded-lg text-xs font-medium hover:bg-gold/10 disabled:opacity-50 transition-colors ml-auto"
+                          >
+                            {fazendoRollover === l.acertoId ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}Rollover
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -93,6 +131,7 @@ export function RelatorioAcertosPendentes() {
                     <td className="px-4 py-3 text-right text-gray-300 font-semibold">{fmt(totalSemana.acerto)}</td>
                     <td className="px-4 py-3 text-right text-gray-300 font-semibold">{fmt(totalSemana.pago)}</td>
                     <td className="px-4 py-3 text-right text-alert font-semibold">{fmt(totalSemana.diferenca)}</td>
+                    <td className="px-4 py-3"></td>
                   </tr>
                 </tfoot>
               )}
@@ -103,6 +142,19 @@ export function RelatorioAcertosPendentes() {
 
       <TabelaInadimplencia titulo={t('acertos_pendentes.atrasados_titulo')} linhas={inadimplencia.atrasados} vazio={t('acertos_pendentes.nenhum_atrasado')} />
       <TabelaInadimplencia titulo={t('acertos_pendentes.inadimplentes_titulo')} linhas={inadimplencia.inadimplentes} vazio={t('acertos_pendentes.nenhum_inadimplente')} />
+
+      <ConfirmModal
+        open={!!confirmarRollover}
+        title="Rollover"
+        description={confirmarRollover && `Rolar ${fmt(confirmarRollover.diferenca)} de ${confirmarRollover.clubName} pra próxima semana? Some das Pendências agora e volta como Pendência/Antecipação no próximo Acerto desse clube — sem cobrar, sem multa, sem mexer na Caução.`}
+        tone="gold"
+        icon={RotateCcw}
+        saving={!!fazendoRollover}
+        confirmLabel="Rollover"
+        error={erroRollover}
+        onConfirm={handleRollover}
+        onCancel={() => setConfirmarRollover(null)}
+      />
     </div>
   )
 }

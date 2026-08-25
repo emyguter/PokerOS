@@ -873,6 +873,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Clicar abre um popup perguntando Total (a Diferença inteira) ou Parcial (digita o valor, até o
   limite da Diferença) antes de confirmar. `ConfirmModal` ganha a prop `confirmDisabled` pra isso.
   Descrição dos lançamentos gerados não fala mais em "rollover" (some do Extrato)
+- [x] **Botão Rollover em Acertos Pendentes**: clube que não pagou o Acerto da semana pode "rolar"
+  a Diferença pra próxima semana em vez de descontar da Caução ou virar Dívida/Acordo — sem cobrar
+  juros, sem multa, sem mexer na Caução. Some das Pendências (lançamento tipo "pagamento" quita a
+  Diferença dessa semana, igual um Envio) e reaparece sozinho como Pendência/Antecipação no
+  PRÓXIMO Acerto calculado desse clube (lançamento tipo "antecipacao" sem `acerto_id`, consumido só
+  uma vez por `processarAcertos` — `buscarRolloverPendente`, `lib/acertos-engine.ts`). Requer
+  migration manual (`lancamentos.rollover_consumido_import_id`)
+
+### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
 - [ ] Relatórios adicionais do escopo original (rake líquido da liga, PnL)
 - [ ] Contestação de lançamento pelo clube

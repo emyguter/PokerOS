@@ -227,6 +227,35 @@ export async function descontarDaCaucao(acertoId: string, clubeId: string, valor
   if (updErr) throw updErr
 }
 
+// "Rollover": a Diferença não paga da semana sai das Pendências sem passar
+// pela Caução nem virar Dívida/Acordo (sem multa, sem juros) — só "rola" pra
+// aparecer de novo como Pendência/Antecipação no PRÓXIMO Acerto desse clube
+// (ver buscarRolloverPendente em lib/acertos-engine.ts, consumido só uma
+// vez). Dois efeitos, os dois na hora:
+//  1. Lançamento tipo "pagamento" (Envio) vinculado a ESSE Acerto — quita a
+//     Diferença agora, igual um Envio de verdade teria feito.
+//  2. Lançamento tipo "antecipacao" SEM acerto_id (natureza "debito", pesa
+//     contra o clube) — fica esperando o motor pegar no próximo cálculo.
+export async function rolloverAcerto(acertoId: string, clubeId: string, valor: number): Promise<void> {
+  const { data: userData } = await supabase.auth.getUser()
+  const hoje = new Date().toISOString().slice(0, 10)
+  const criado_por = userData.user?.id ?? null
+
+  const { error: pagamentoErr } = await supabase.from('lancamentos').insert({
+    clube_id: clubeId, acerto_id: acertoId, tipo: 'pagamento', natureza: 'credito', valor,
+    descricao: 'Rollover', data_lancamento: hoje,
+    origem: 'suporte', status: null, criado_por,
+  })
+  if (pagamentoErr) throw pagamentoErr
+
+  const { error: rolloverErr } = await supabase.from('lancamentos').insert({
+    clube_id: clubeId, tipo: 'antecipacao', natureza: 'debito', valor,
+    descricao: 'Rollover', data_lancamento: hoje,
+    origem: 'suporte', status: null, criado_por,
+  })
+  if (rolloverErr) throw rolloverErr
+}
+
 // `AcertoPagamento.diferenca` (valor_acerto + valor_pago) é sempre guardado
 // do ponto de vista do CLUBE — mesmo sinal usado em todo o resto do app
 // (totais.valor_acerto em AcertosView etc): positivo = o clube vai receber,

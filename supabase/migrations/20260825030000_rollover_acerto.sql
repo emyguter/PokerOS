@@ -1,0 +1,12 @@
+-- Rollover: clube que não pagou o Acerto da semana pode ter a Diferença
+-- "rolada" pra semana seguinte, sem cobrar juros/multa nem descontar da
+-- Caução — diferente de Dívidas/Acordos (que sim geram multa/parcelamento).
+-- Some das Pendências e reaparece automaticamente como Pendência/Antecipação
+-- no próximo Acerto calculado desse clube.
+--
+-- `rollover_consumido_import_id` marca em qual import o rollover já foi
+-- aplicado (somado em pendencias_antecipacao) — null = ainda não aplicado,
+-- fica esperando o próximo Acerto do clube ser calculado. Recalcular o
+-- MESMO import de novo continua incluindo o rollover (import_id bate); um
+-- import DIFERENTE não pega de novo (já foi consumido antes).
+alter table lancamentos add column if not exists rollover_consumido_import_id uuid references imports(id);
