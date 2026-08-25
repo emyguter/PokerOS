@@ -279,9 +279,14 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsGrupoChave, periodStart, periodEnd])
 
-  // Card só "agrupa" de verdade quando o clube vinculado também tem Acerto
-  // NESSE período — sem isso, comporta-se exatamente como sempre (1 clube só).
-  const agrupado = acertosGrupo.length > 1
+  // Card "agrupa" sempre que o clube TEM vínculo cadastrado — mesmo que o
+  // outro membro não tenha Acerto nessa semana (não jogou), ele ainda
+  // aparece na quebra "Acerto por clube vinculado" com R$0, em vez de sumir
+  // da tela (pedido do Cássio, achado no caso PIXGAME/Liga Particular +
+  // PIXGAME/Orion). Os somatórios (rakeMtt, feeCalculadoValor etc. abaixo)
+  // continuam corretos: somam só as linhas que de fato existem em
+  // acertosGrupo, então um membro sem Acerto simplesmente não soma nada.
+  const agrupado = outrosMembros.length > 0
 
   const somaGrupo = (campo: keyof Omit<AcertoGrupoRow, 'club_id' | 'club_name'>) =>
     acertosGrupo.reduce((s, r) => s + (r[campo] ?? 0), 0)
@@ -320,8 +325,13 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   // teria) — mostrado como quebra logo acima do Total combinado, pedido do
   // Cássio (mesmo formato da planilha de referência: "Acerto R$ ClubGG" /
   // "Acerto R$ Sul HG"). A soma dos dois bate exatamente com o Total do card.
+  // Sempre lista TODOS os membros do vínculo (o clube do card + outrosMembros),
+  // não só os que têm linha em acertosGrupo — membro sem Acerto nessa semana
+  // entra com total R$0 em vez de sumir da quebra.
   const totaisPorMembro = agrupado
-    ? acertosGrupo.map((r) => {
+    ? [{ id: acerto.club_id as string, nomeCadastro: acerto.club_name }, ...outrosMembros.map((m) => ({ id: m.id, nomeCadastro: m.nome }))].map(({ id, nomeCadastro }) => {
+        const r = acertosGrupo.find((row) => row.club_id === id)
+        if (!r) return { nome: nomeCadastro, total: 0 }
         const extras = extrasPorClube.get(r.club_id)
         const lancLiquido = (extras?.lancamentos ?? []).reduce((s, l) => s + (l.natureza === 'credito' ? l.valor : -l.valor), 0)
         const dividasT = (extras?.dividasItens ?? []).reduce((s, d) => s + d.valor, 0)

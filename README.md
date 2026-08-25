@@ -989,6 +989,12 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   carregados, busca em TODO o histórico (`import_rows.club_name`) e traz todos os arquivos que já
   tiveram aquele clube, mesmo que não estejam entre os mais recentes. Busca com debounce de 300ms,
   a partir de 2 letras (`AcertosView.tsx`)
+- [x] **Clube vinculado sem Acerto na semana sumia do card "Acerto Geral"**: o card só mostrava a
+  quebra "Acerto por clube vinculado" quando os DOIS clubes do vínculo tinham Acerto na mesma
+  semana — se um deles não jogou (sem import essa semana), ele desaparecia inteiro da tela em vez
+  de aparecer com R$0 (achado no caso PIXGAME/Liga Particular + PIXGAME/Orion). Agora a quebra
+  aparece sempre que o clube TEM vínculo cadastrado, e cada membro sem Acerto entra com total R$0
+  (`ClubAcertoCard.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
