@@ -903,6 +903,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Rakeback) usa o valor da Taxa da Liga — com o mesmo fallback do card de Acerto pro fee_calculado
   do clube quando a Liga não tem nada configurado (`calcularFeeRegra`,
   `lib/relatorio-resumo-acertos.ts`, com testes)
+- [x] **Cobrança: coluna Valor do Acerto também invertida pra visão da liga**: só a Diferença
+  já vinha invertida (visão do Financeiro/liga) — Valor do Acerto continuava mostrando o número
+  cru do clube, incoerente com a Diferença ao lado. Agora as duas seguem a mesma convenção:
+  positivo = a liga vai receber, negativo = a liga precisa pagar (`diferencaDaLiga`,
+  `CobrancaView.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
