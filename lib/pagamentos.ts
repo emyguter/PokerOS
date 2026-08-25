@@ -198,11 +198,17 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
 // Suporte, já apurada, sem passar pela fila do Financeiro (diferente de um
 // lançamento de Caução normal). Dois efeitos, os dois na hora:
 //  1. Lançamento tipo "pagamento" (Envio) vinculado ao Acerto — quita a
-//     Diferença igual um Envio de verdade teria feito.
+//     Diferença igual um Envio de verdade teria feito, datado de hoje (é
+//     quando a ação foi tomada de verdade).
 //  2. Lançamento tipo "caucao" (débito) + caucao_atual do clube reduzido —
 //     Stoploss Atual cai sozinho no próximo cálculo (é sempre recalculado
 //     ao vivo a partir de caucao_atual, não precisa mexer em mais nada).
-export async function descontarDaCaucao(acertoId: string, clubeId: string, valor: number): Promise<void> {
+//     Esse datado do fim do período do Acerto (não hoje) — é o valor que
+//     conta pra semana sendo quitada, mesma regra de "que semana o valor
+//     conta" já usada no resto do Stoploss; sem isso a coluna Caução do
+//     Controle de Pagamentos/Cobrança fica sempre "—" pra semanas passadas
+//     (o lançamento cai fora do período filtrado).
+export async function descontarDaCaucao(acertoId: string, clubeId: string, valor: number, dataPeriodo: string): Promise<void> {
   const { data: userData } = await supabase.auth.getUser()
   const hoje = new Date().toISOString().slice(0, 10)
   const criado_por = userData.user?.id ?? null
@@ -216,7 +222,7 @@ export async function descontarDaCaucao(acertoId: string, clubeId: string, valor
 
   const { error: caucaoErr } = await supabase.from('lancamentos').insert({
     clube_id: clubeId, tipo: 'caucao', natureza: 'debito', valor,
-    descricao: 'Acerto não pago', data_lancamento: hoje,
+    descricao: 'Acerto não pago', data_lancamento: dataPeriodo,
     origem: 'suporte', status: 'pago', criado_por,
   })
   if (caucaoErr) throw caucaoErr

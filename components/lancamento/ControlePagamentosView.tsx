@@ -72,16 +72,20 @@ export function ControlePagamentosView() {
     })
   }, [linhas])
 
-  const maximoDescontavel = confirmarDesconto ? Math.abs(confirmarDesconto.diferenca) : 0
+  // Não dá pra descontar mais Caução do que o clube realmente tem — o teto é
+  // o menor entre a Diferença (o que falta quitar) e a Caução Atual
+  // disponível (`caucao_atual`, saldo de verdade, não a lançada no período).
+  const caucaoDisponivel = confirmarDesconto?.club_id ? caucaoAtualPorClube.get(confirmarDesconto.club_id) ?? 0 : 0
+  const maximoDescontavel = confirmarDesconto ? Math.min(Math.abs(confirmarDesconto.diferenca), caucaoDisponivel) : 0
   const valorDesconto = tipoDesconto === 'total' ? maximoDescontavel : Number(valorParcial.replace(',', '.'))
   const valorDescontoValido = tipoDesconto === 'total' || (valorDesconto > 0 && valorDesconto <= maximoDescontavel + 0.005)
 
   async function handleDescontarCaucao() {
     const l = confirmarDesconto
-    if (!l || !l.club_id || !valorDescontoValido) return
+    if (!l || !l.club_id || !valorDescontoValido || !periodoSelecionado) return
     setDescontando(l.acerto_id); setError(null)
     try {
-      await descontarDaCaucao(l.acerto_id, l.club_id, valorDesconto)
+      await descontarDaCaucao(l.acerto_id, l.club_id, valorDesconto, periodoSelecionado.fim)
       setConfirmarDesconto(null)
       await load(periodoSelecionado)
     } catch (err) {
@@ -209,6 +213,7 @@ export function ControlePagamentosView() {
         description={confirmarDesconto && (
           <div className="space-y-3">
             <p>Descontar da Caução de {confirmarDesconto.club_name}? Isso quita (total ou parcialmente) a Diferença do Acerto e reduz o Stoploss Atual do clube na hora.</p>
+            <p className="text-xs text-gray-500">Caução disponível: <span className="text-gray-300 font-medium">{fmt(caucaoDisponivel)}</span></p>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -236,7 +241,7 @@ export function ControlePagamentosView() {
                   placeholder="0,00"
                   className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50"
                 />
-                <p className="text-xs text-gray-500 mt-1.5">Máximo {fmt(maximoDescontavel)} (valor da Diferença).</p>
+                <p className="text-xs text-gray-500 mt-1.5">Máximo {fmt(maximoDescontavel)} (o menor entre a Diferença e a Caução disponível).</p>
               </div>
             )}
           </div>

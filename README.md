@@ -932,6 +932,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Relatórios) foi removido por ser redundante — "Resumo de Acertos" (a visão semanal) continua no
   lugar dele. Controle de Stoploss: aba "Resumo" renomeada pra "Alteração" (`Sidebar.tsx`,
   `RelatoriosView.tsx`)
+- [x] **Descontar da Caução: coluna Caução ficava sempre "—" e não travava no saldo do clube**: o
+  lançamento de débito de Caução gerado por "Descontar da Caução" era datado de hoje, não da semana
+  do Acerto sendo quitado — como a coluna "Caução" do Controle de Pagamentos/Cobrança filtra por
+  período, o desconto nunca aparecia ali pra semanas passadas. Agora é datado do fim do período do
+  Acerto. Também não existia trava: dava pra tentar descontar mais do que o clube tinha de Caução
+  Atual disponível (ex: clube com 400 de Caução, Diferença de 500 — deixava tentar descontar os 500
+  inteiros). Agora o teto (nos botões Total/Parcial) é sempre o menor entre a Diferença e a Caução
+  Atual disponível, com o valor disponível mostrado no popup de confirmação
+  (`descontarDaCaucao`/`lib/pagamentos.ts`, `ControlePagamentosView.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
