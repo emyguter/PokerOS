@@ -273,10 +273,19 @@ describe('calcularAcerto — taxa_dinamica (regra SE/ENTÃO variável)', () => {
 describe('calcularAcerto — outros tipos de cobrança', () => {
   it('taxa_fixa_variavel: fee fixo sobre o rake total', () => {
     const r = row({ rake_total: 1000, player_result: -100 })
-    const c = club({ settlement_type: 'taxa_fixa_variavel', fee_mtt_pct: 10 })
+    const c = club({ settlement_type: 'taxa_fixa_variavel', fee_mtt_pct: 10, taxa_op_ativo: false })
     const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
     expect(resultado.fee_calculado).toBe(100)
     expect(resultado.valor_acerto).toBe(1000 - 100 - 100) // 800
+  })
+
+  it('taxa_fixa_variavel: Taxa Operacional (quando ligada) soma ADICIONAL sobre o Rake Total', () => {
+    const r = row({ rake_total: 1000, player_result: -100 })
+    const c = club({ settlement_type: 'taxa_fixa_variavel', fee_mtt_pct: 10, taxa_op_ativo: true, taxa_op_pct: 9 })
+    const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
+    expect(resultado.fee_operacional_valor).toBe(90) // 1000 * 9%
+    expect(resultado.fee_calculado).toBe(190) // 100 (taxa fixa) + 90 (operacional)
+    expect(resultado.valor_acerto).toBe(1000 - 100 - 190) // 710
   })
 
   it('rakeback: rebate sobre o rake total, valor do acerto é o rebate negativo (custo da liga)', () => {
@@ -305,7 +314,7 @@ describe('calcularAcerto — outros tipos de cobrança', () => {
 
   it('taxa_fixa_variavel: Regra vinculada no campo Rake Total substitui o fee_mtt_pct fixo', () => {
     const r = row({ rake_total: 1000, player_result: -100 })
-    const c = club({ settlement_type: 'taxa_fixa_variavel', fee_mtt_pct: 10 })
+    const c = club({ settlement_type: 'taxa_fixa_variavel', fee_mtt_pct: 10, taxa_op_ativo: false })
     const condicoesPorCampo = { ...CONDICOES_VAZIAS, rake_total: [condicao({ operador: '>', valor: 0, resultado_pct: 25 })] }
     const resultado = calcularAcerto(r, c, condicoesPorCampo, null)
     expect(resultado.fee_calculado).toBe(250) // 1000 * 25%, não os 10% fixos do cadastro

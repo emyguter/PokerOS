@@ -234,10 +234,24 @@ export function calcularAcerto(
       // Taxa única do clube, sem separar MTT/Cash — se tiver Regra vinculada
       // no campo "Rake Total", a % SE/ENTÃO substitui o fee_mtt_pct fixo do
       // cadastro (mesmo campo usado só por convenção histórica de coluna).
+      // Taxa Operacional (quando ligada no cadastro) é uma fee ADICIONAL
+      // sobre o Rake Total, somada em cima dessa taxa fixa/variável — mesma
+      // base usada em Taxa Dinâmica (confirmado pelo Cássio: cadastro deixa
+      // ligar Taxa Operacional pra qualquer tipo de clube, mas só Taxa
+      // Dinâmica aplicava de verdade).
       const condRakeTotal = condicoesPorCampo.rake_total.length > 0
         ? avaliarCondicoes(condicoesPorCampo.rake_total, row, wtr4Semanas)
         : null;
-      fee_calculado = rake_total * ((condRakeTotal ?? club.fee_mtt_pct) / 100);
+      const taxaFixaVariavel = rake_total * ((condRakeTotal ?? club.fee_mtt_pct) / 100);
+
+      if (condicoesPorCampo.taxa_op.length > 0) {
+        const pct = avaliarCondicoes(condicoesPorCampo.taxa_op, row, wtr4Semanas);
+        fee_operacional_valor = rake_total * ((pct ?? 0) / 100);
+      } else if (club.taxa_op_ativo) {
+        fee_operacional_valor = rake_total * (club.taxa_op_pct / 100);
+      }
+
+      fee_calculado = taxaFixaVariavel + fee_operacional_valor;
       valor_acerto = rake_total + row.player_result - fee_calculado;
       break;
     }

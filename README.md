@@ -880,6 +880,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   PRÓXIMO Acerto calculado desse clube (lançamento tipo "antecipacao" sem `acerto_id`, consumido só
   uma vez por `processarAcertos` — `buscarRolloverPendente`, `lib/acertos-engine.ts`). Requer
   migration manual (`lancamentos.rollover_consumido_import_id`)
+- [x] **Taxa Operacional passa a valer pra Taxa Fixa/Variável**: o cadastro sempre deixou ligar
+  Taxa Operacional pra qualquer tipo de clube, mas o motor só aplicava de verdade em Taxa Dinâmica
+  — em Taxa Fixa/Variável ficava sempre zerada, mesmo configurada e ligada (bug reportado pelo
+  Cássio, clube AK AMAKHA club 2). Agora soma como fee ADICIONAL sobre o Rake Total, em cima da
+  taxa fixa/variável já existente (confirmado pelo Cássio)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
