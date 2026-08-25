@@ -843,6 +843,8 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Bloqueio/Reembolso da Segurança já ficavam de fora sozinhos (usam `origem: 'seguranca'`, fora do
   par Suporte/Genia que a Conciliação casa). Extrato do clube já escondia esses tipos até serem
   liberados — não precisou mudar nada ali
+- [x] Reordenadas as colunas do Controle de Pagamentos: Club ID, Club Name, Diferença, Valor do
+  Acerto, Valor Pago, botão Descontar da Caução, Caução, Envio 1..40 (pedido explícito de ordem)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
