@@ -923,6 +923,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   investigando as duplicidades relatadas na Cobrança — o import em si não tinha nada de errado,
   cada clube tinha só 1 linha em `import_rows`, a duplicação era só em `acertos`). Agora o botão
   trava assim que clicado, antes da consulta de cotação (`AcertosView.tsx`)
+- [x] **Reorganização dos menus da Sidebar**: "VIP" virou "VIP Cards" e saiu de item
+  independente pra entrar dentro de Suporte (Lançar/Configurar Limites), junto com "Acertos
+  Pendentes" (subiu de Relatórios pra Suporte). Todos os Extratos (Suporte, Segurança, Stoploss)
+  saíram de seus menus originais e foram pra dentro de Relatórios, junto com o Relatório de VIP
+  Cards — mesma rota/tela de sempre, só o link mudou de lugar. Dentro de Relatórios, o item
+  "Acertos" (que só reabria a mesma tela do Recalcular, já acessível pelo item "Acertos" fora de
+  Relatórios) foi removido por ser redundante — "Resumo de Acertos" (a visão semanal) continua no
+  lugar dele. Controle de Stoploss: aba "Resumo" renomeada pra "Alteração" (`Sidebar.tsx`,
+  `RelatoriosView.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

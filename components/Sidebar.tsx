@@ -2,7 +2,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { BookOpen, Upload, FileText, LogOut, ShieldCheck, ShieldAlert, Wallet, Receipt, PanelLeftClose, PanelLeftOpen, HandCoins, ListChecks, Landmark, Gauge, Crown, Banknote, Menu, X, ChevronDown } from 'lucide-react'
+import { BookOpen, Upload, FileText, LogOut, ShieldCheck, ShieldAlert, Wallet, Receipt, PanelLeftClose, PanelLeftOpen, HandCoins, ListChecks, Landmark, Gauge, Banknote, Menu, X, ChevronDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { useI18n } from '@/lib/i18n'
@@ -29,13 +29,18 @@ const CADASTRO_SUB: SubNavItem[] = [
 // useSearchParams (ver useEffect em cada arquivo), não aqui na Sidebar: ela
 // renderiza em toda página (via app/layout.tsx), então usar o hook aqui
 // forçaria TODA página do app pra fora da renderização estática.
+// VIP Cards (Lançar/Configurar Limites) e Acertos Pendentes entraram aqui
+// dentro da reorganização de menus — extrato saiu daqui e foi pra dentro de
+// Relatórios (ver RELATORIOS_SUB), junto com o Relatório de VIP Cards.
 const LANCAMENTO_SUB: SubNavItem[] = [
   { key: 'lancar', labelKey: 'lancamento.aba_lancar', href: '/lancamento?tab=lancar' },
-  { key: 'extrato', labelKey: 'lancamento.aba_extrato', href: '/lancamento?tab=extrato' },
   { key: 'pendencias', labelKey: 'lancamento.aba_pendencias', href: '/lancamento?tab=pendencias' },
   { key: 'pagamentos', labelKey: 'lancamento.aba_pagamentos', href: '/lancamento?tab=pagamentos' },
   { key: 'extra', labelKey: 'lancamento.aba_extra', href: '/lancamento?tab=extra' },
   { key: 'conferencia', labelKey: 'lancamento.aba_conferencia', href: '/lancamento?tab=conferencia' },
+  { key: 'vip_lancamento', labelKey: 'vip.menu_suporte_lancamento', href: '/vip?tab=lancamento', chave: 'vip' },
+  { key: 'vip_limites', labelKey: 'vip.menu_suporte_limites', href: '/vip?tab=limites', chave: 'vip.limites' },
+  { key: 'acertos_pendentes', labelKey: 'relatorios.aba_acertos_pendentes', href: '/relatorios?tab=acertos_pendentes', chave: 'relatorios.acertos_pendentes' },
 ]
 const FINANCEIRO_SUB: SubNavItem[] = [
   { key: 'lancar', labelKey: 'lancamento.aba_lancar', href: '/financeiro?tab=lancar' },
@@ -45,28 +50,25 @@ const FINANCEIRO_SUB: SubNavItem[] = [
 ]
 const SEGURANCA_SUB: SubNavItem[] = [
   { key: 'lancar', labelKey: 'lancamento.aba_lancar', href: '/seguranca?tab=lancar' },
-  { key: 'extrato', labelKey: 'lancamento.aba_extrato', href: '/seguranca?tab=extrato' },
 ]
-// "relatorios" genérico dá acesso a Acertos/Lançamentos (compatibilidade —
-// mesma regra de RelatoriosView); Resumo de Taxas não herda dele de
-// propósito, só abre com a chave própria.
+// "relatorios" genérico dá acesso a Lançamentos (compatibilidade — mesma
+// regra de RelatoriosView); Resumo de Taxas não herda dele de propósito, só
+// abre com a chave própria. Os Extratos de Suporte/Segurança/Stoploss e o
+// Relatório de VIP Cards vieram de seus menus originais na reorganização —
+// mesma rota/tela de sempre, só o link mudou de lugar na sidebar.
 const RELATORIOS_SUB: SubNavItem[] = [
-  { key: 'acertos', labelKey: 'relatorios.aba_acertos', href: '/relatorios?tab=acertos', chave: ['relatorios', 'relatorios.acertos'] },
   { key: 'lancamentos', labelKey: 'relatorios.aba_lancamentos', href: '/relatorios?tab=lancamentos', chave: ['relatorios', 'relatorios.lancamentos'] },
   { key: 'taxas', labelKey: 'relatorios.aba_taxas', href: '/relatorios?tab=taxas', chave: 'relatorios.taxas' },
   { key: 'resumo_acertos', labelKey: 'relatorios.aba_resumo_acertos', href: '/relatorios?tab=resumo_acertos', chave: 'relatorios.resumo_acertos' },
-  { key: 'acertos_pendentes', labelKey: 'relatorios.aba_acertos_pendentes', href: '/relatorios?tab=acertos_pendentes', chave: 'relatorios.acertos_pendentes' },
   { key: 'historico_acertos_pendentes', labelKey: 'relatorios.aba_historico_acertos_pendentes', href: '/relatorios?tab=historico_acertos_pendentes', chave: 'relatorios.acertos_pendentes' },
-]
-const VIP_SUB: SubNavItem[] = [
-  { key: 'lancamento', labelKey: 'vip.aba_lancamento', href: '/vip?tab=lancamento', chave: 'vip' },
-  { key: 'relatorio', labelKey: 'vip.aba_relatorio', href: '/vip?tab=relatorio', chave: 'vip.relatorio' },
-  { key: 'limites', labelKey: 'vip.aba_limites', href: '/vip?tab=limites', chave: 'vip.limites' },
+  { key: 'extrato_suporte', labelKey: 'relatorios.aba_extrato_suporte', href: '/lancamento?tab=extrato', chave: 'lancamento' },
+  { key: 'extrato_seguranca', labelKey: 'relatorios.aba_extrato_seguranca', href: '/seguranca?tab=extrato', chave: 'seguranca' },
+  { key: 'extrato_stoploss', labelKey: 'relatorios.aba_extrato_stoploss', href: '/stoploss?tab=extrato', chave: 'stoploss' },
+  { key: 'vip_relatorio', labelKey: 'vip.menu_relatorios', href: '/vip?tab=relatorio', chave: 'vip.relatorio' },
 ]
 const STOPLOSS_SUB: SubNavItem[] = [
   { key: 'relatorio', labelKey: 'stoploss.aba_relatorio', href: '/stoploss?tab=relatorio' },
   { key: 'resumo', labelKey: 'stoploss.aba_resumo', href: '/stoploss?tab=resumo' },
-  { key: 'extrato', labelKey: 'stoploss.aba_extrato', href: '/stoploss?tab=extrato' },
   { key: 'fila', labelKey: 'stoploss.aba_fila', href: '/stoploss?tab=fila', chave: 'stoploss.aprovar' },
 ]
 // Permissões não vive em NAV (acesso é por isSuperAdmin, não por chave de
@@ -102,14 +104,13 @@ function ComTabAtivo({ children }: { children: (tab: string | null) => React.Rea
 const NAV = [
   { href: '/admin/cadastro/superligas', labelKey: 'nav.cadastros', icon: BookOpen, chaves: CADASTRO_CHAVES, subItems: CADASTRO_SUB },
   { href: '/importacao', labelKey: 'nav.importacao', icon: Upload, chaves: ['importacao'] },
-  { href: '/lancamento', labelKey: 'nav.lancamento', icon: Wallet, chaves: ['lancamento'], subItems: LANCAMENTO_SUB },
+  { href: '/lancamento', labelKey: 'nav.lancamento', icon: Wallet, chaves: ['lancamento', 'vip', 'vip.limites', 'relatorios.acertos_pendentes'], subItems: LANCAMENTO_SUB },
   { href: '/financeiro', labelKey: 'nav.financeiro', icon: Landmark, chaves: ['lancamento.genia'], subItems: FINANCEIRO_SUB },
   { href: '/seguranca', labelKey: 'nav.seguranca', icon: ShieldAlert, chaves: ['seguranca'], subItems: SEGURANCA_SUB },
   { href: '/stoploss', labelKey: 'nav.stoploss', icon: Gauge, chaves: ['stoploss'], subItems: STOPLOSS_SUB },
-  { href: '/vip', labelKey: 'nav.vip', icon: Crown, chaves: ['vip', 'vip.relatorio', 'vip.limites'], subItems: VIP_SUB },
   { href: '/dividas', labelKey: 'nav.dividas', icon: Banknote, chaves: ['dividas'] },
   { href: '/acertos', labelKey: 'nav.acertos', icon: Receipt, chaves: ['acertos.ver'] },
-  { href: '/relatorios', labelKey: 'nav.relatorios', icon: FileText, chaves: ['relatorios', 'relatorios.acertos', 'relatorios.lancamentos', 'relatorios.taxas', 'relatorios.resumo_acertos', 'relatorios.acertos_pendentes'], subItems: RELATORIOS_SUB },
+  { href: '/relatorios', labelKey: 'nav.relatorios', icon: FileText, chaves: ['relatorios', 'relatorios.lancamentos', 'relatorios.taxas', 'relatorios.resumo_acertos', 'relatorios.acertos_pendentes', 'lancamento', 'seguranca', 'stoploss', 'vip.relatorio'], subItems: RELATORIOS_SUB },
   { href: '/admin/regras', labelKey: 'nav.regras', icon: ListChecks, chaves: ['regras'] },
 ]
 

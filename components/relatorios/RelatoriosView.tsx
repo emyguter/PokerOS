@@ -3,17 +3,16 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 import { usePermissions } from '@/lib/permissions'
-import AcertosView from '@/components/acertos/AcertosView'
 import { RelatorioLancamentos } from './RelatorioLancamentos'
 import { RelatorioTaxas } from './RelatorioTaxas'
 import { RelatorioResumoAcertos } from './RelatorioResumoAcertos'
 import { RelatorioAcertosPendentes } from './RelatorioAcertosPendentes'
 import { RelatorioHistoricoAcertosPendentes } from './RelatorioHistoricoAcertosPendentes'
 
-type Tab = 'acertos' | 'lancamentos' | 'taxas' | 'resumo_acertos' | 'acertos_pendentes' | 'historico_acertos_pendentes'
+type Tab = 'lancamentos' | 'taxas' | 'resumo_acertos' | 'acertos_pendentes' | 'historico_acertos_pendentes'
 
 function tabDaUrl(valor: string | null): Tab | null {
-  return valor === 'acertos' || valor === 'lancamentos' || valor === 'taxas' || valor === 'resumo_acertos' || valor === 'acertos_pendentes' || valor === 'historico_acertos_pendentes' ? valor : null
+  return valor === 'lancamentos' || valor === 'taxas' || valor === 'resumo_acertos' || valor === 'acertos_pendentes' || valor === 'historico_acertos_pendentes' ? valor : null
 }
 
 export function RelatoriosView() {
@@ -21,11 +20,10 @@ export function RelatoriosView() {
   const { hasPermission } = usePermissions()
   const searchParams = useSearchParams()
 
-  // "relatorios" sozinho ainda dá acesso a tudo (compatibilidade com quem já
-  // tinha isso liberado); as chaves específicas servem pra dar acesso só a
-  // um relatório — ex: CS só vê Lançamentos, sem abrir a tela de Lançamento
-  // de verdade nem o relatório de Acertos.
-  const podeAcertos = hasPermission('relatorios') || hasPermission('relatorios.acertos')
+  // "relatorios" sozinho ainda dá acesso a Lançamentos (compatibilidade com
+  // quem já tinha isso liberado); as chaves específicas servem pra dar
+  // acesso só a um relatório — ex: CS só vê Lançamentos, sem abrir a tela de
+  // Lançamento de verdade.
   const podeLancamentos = hasPermission('relatorios') || hasPermission('relatorios.lancamentos')
   // Resumo de Taxas NÃO herda de "relatorios" genérico de propósito — é
   // visão executiva cross-clube de dado sensível, só abre pra quem for
@@ -39,8 +37,8 @@ export function RelatoriosView() {
   // Pendentes usa a MESMA chave — é o mesmo relatório, só numa tela própria
   // com filtros (não faz sentido liberar um sem o outro).
   const podeAcertosPendentes = hasPermission('relatorios.acertos_pendentes')
-  const primeiraPermitida: Tab | null = podeAcertos ? 'acertos' : podeLancamentos ? 'lancamentos' : podeTaxas ? 'taxas' : podeResumoAcertos ? 'resumo_acertos' : podeAcertosPendentes ? 'acertos_pendentes' : null
-  const ehPermitida = (aba: Tab) => aba === 'acertos' ? podeAcertos : aba === 'lancamentos' ? podeLancamentos : aba === 'taxas' ? podeTaxas : aba === 'resumo_acertos' ? podeResumoAcertos : podeAcertosPendentes
+  const primeiraPermitida: Tab | null = podeLancamentos ? 'lancamentos' : podeTaxas ? 'taxas' : podeResumoAcertos ? 'resumo_acertos' : podeAcertosPendentes ? 'acertos_pendentes' : null
+  const ehPermitida = (aba: Tab) => aba === 'lancamentos' ? podeLancamentos : aba === 'taxas' ? podeTaxas : aba === 'resumo_acertos' ? podeResumoAcertos : podeAcertosPendentes
 
   const [tab, setTab] = useState<Tab | null>(null)
 
@@ -57,7 +55,6 @@ export function RelatoriosView() {
 
   return (
     <div>
-      {abaAtiva === 'acertos' && <AcertosView />}
       {abaAtiva === 'lancamentos' && (
         <div style={{ background: '#0C0E0B', minHeight: '100vh' }} className="space-y-6 p-4 md:p-10">
           <div>

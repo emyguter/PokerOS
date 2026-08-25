@@ -19,7 +19,6 @@ export const pt = {
     financeiro: 'Financeiro',
     seguranca: 'Segurança',
     stoploss: 'Controle de Stoploss',
-    vip: 'VIP',
     dividas: 'Dívidas e Acordos',
     acertos: 'Acertos',
     relatorios: 'Relatórios',
@@ -218,7 +217,7 @@ export const pt = {
   },
   stoploss: {
     titulo: 'Controle de Stoploss', subtitulo: 'Limite de perda por clube — inicial, atual e ajustes do Suporte',
-    aba_relatorio: 'Relatório', aba_resumo: 'Resumo', aba_extrato: 'Extrato', aba_fila: 'Fila de Aprovação',
+    aba_relatorio: 'Relatório', aba_resumo: 'Alteração', aba_extrato: 'Extrato', aba_fila: 'Fila de Aprovação',
     clube: 'Clube', liga: 'Liga', ratio: 'Ratio', total: 'Total', buscar_clube: 'Buscar clube ou liga...',
     projeto: 'Projeto', todos_projetos: 'Todos os projetos',
     periodo: 'Período', periodo_atual: 'Atual', periodo_aviso: 'Mostrando como o Stoploss estava em {periodo} — valores reconstruídos pelo histórico.',
@@ -271,6 +270,7 @@ export const pt = {
     limite_titulo: 'Limite do mês atingido',
     limite_desc: 'Este clube já atingiu o máximo de VIPs para o mês. Enviar assim mesmo?',
     aba_lancamento: 'Lançar', aba_relatorio: 'Relatório', aba_limites: 'Configurar Limites',
+    menu_suporte_lancamento: 'VIP Cards - Lançar', menu_suporte_limites: 'VIP Cards - Configurar Limites', menu_relatorios: 'Relatório de VIP Cards',
     relatorio_subtitulo: 'Quantos VIPs cada clube já solicitou no mês, por tipo — com o quanto ainda falta pro limite',
     limites_subtitulo: 'Máximo mensal de VIP por clube e por tipo — em branco, sem limite configurado',
     faltam: 'faltam {n}', excedeu: 'excedeu o limite',
@@ -284,6 +284,7 @@ export const pt = {
   relatorios: {
     aba_acertos: 'Acertos', aba_lancamentos: 'Lançamentos', aba_taxas: 'Resumo de Taxas', aba_resumo_acertos: 'Resumo de Acertos',
     aba_acertos_pendentes: 'Acertos Pendentes', aba_historico_acertos_pendentes: 'Histórico de Acertos Pendentes',
+    aba_extrato_suporte: 'Extrato de Suporte', aba_extrato_seguranca: 'Extrato de Segurança', aba_extrato_stoploss: 'Extrato de Stoploss',
     titulo_lancamentos: 'Relatório de Lançamentos', subtitulo_lancamentos: 'Consulta lançamentos de todos os clubes, sem precisar escolher um por vez',
     titulo_taxas: 'Resumo de Taxas', subtitulo_taxas: 'Visão executiva das taxas cadastradas em todos os clubes ativos',
     titulo_resumo_acertos: 'Resumo de Acertos', subtitulo_resumo_acertos: 'Visão executiva de todos os clubes, todas as Ligas, numa semana só',
