@@ -2,8 +2,10 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import * as XLSX from "xlsx";
+import { AlertTriangle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { errMsg } from "@/lib/errors";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { MapeamentoColunasModal } from "./MapeamentoColunasModal";
 
 // Mesmo rótulo em todo lugar que mostra harmonization_status — card ao vivo e
@@ -551,6 +553,13 @@ export default function ImportacaoXlsx() {
   const [resolvedPlatformNome, setResolvedPlatformNome] = useState<string>("");
   const [importingId, setImportingId] = useState<string | null>(null);
 
+  // Import já existente pra essa mesma Liga + semana (mesmo period_start/
+  // period_end) — em vez de duplicar, pergunta se quer substituir pelos
+  // dados do arquivo novo (mesma importação, sem duplicar Acerto por Acerto
+  // no Controle de Pagamentos/Cobrança).
+  const [duplicado, setDuplicado] = useState<{ id: string; fileName: string; createdAt: string; leagueId: string } | null>(null);
+  const [substituindo, setSubstituindo] = useState(false);
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadPlataformas(); loadHistory(); }, []);
@@ -679,7 +688,6 @@ export default function ImportacaoXlsx() {
 
   async function handleConfirmImport() {
     if (!file || !parsed || !resolvedPlatformId) return;
-    setStep("saving");
     try {
       let leagueId: string | null = null;
       if (parsed.liga_id_ext) {
@@ -687,48 +695,107 @@ export default function ImportacaoXlsx() {
         leagueId = existing?.id ?? null;
       }
 
-      // 1) Registra a importação — nasce "pendente" de harmonização, nada
-      // foi escrito ainda nas tabelas normalizadas.
-      const { data: importData, error: importErr } = await supabase
-        .from("imports")
-        .insert({
-          league_id: leagueId,
-          plataforma_id: resolvedPlatformId,
-          file_name: file.name,
-          app_source: parsed.plataforma,
-          period_start: parsed.period_start || null,
-          period_end: parsed.period_end || null,
-          status: "processing",
-          harmonization_status: "pendente",
-          uploaded_by: "admin",
-        })
-        .select().single();
+      // Já existe uma importação dessa mesma Liga pra essa mesma semana
+      // (mesmo period_start/period_end)? Pergunta antes de duplicar — se
+      // confirmar, substitui os dados (mesma importação, mesmo id) em vez
+      // de criar uma segunda igual: sem isso, cada clube contava 2x no
+      // Controle de Pagamentos/Cobrança e no Resumo de Acertos.
+      if (leagueId && parsed.period_start && parsed.period_end) {
+        const { data: existenteMesmaSemana } = await supabase
+          .from("imports")
+          .select("id, file_name, created_at")
+          .eq("league_id", leagueId)
+          .eq("period_start", parsed.period_start)
+          .eq("period_end", parsed.period_end)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (existenteMesmaSemana) {
+          setDuplicado({ id: existenteMesmaSemana.id, fileName: existenteMesmaSemana.file_name, createdAt: existenteMesmaSemana.created_at, leagueId });
+          return;
+        }
+      }
 
-      if (importErr) throw { titulo: "Erro ao registrar importação", detalhe: importErr.message };
-
-      // 2) Sobe o arquivo original pro Storage (guardado só por alguns dias,
-      // suficiente pra reprocessar se algo mudar na harmonização).
-      const storagePath = `${importData.id}/${file.name}`;
-      const { error: uploadErr } = await supabase.storage.from("bronze-uploads").upload(storagePath, file, { upsert: true });
-      if (uploadErr) throw { titulo: "Erro ao guardar o arquivo original", detalhe: uploadErr.message };
-      await supabase.from("imports").update({ storage_path: storagePath }).eq("id", importData.id);
-
-      // 3) Grava o payload cru na bronze. Isso dispara o Database Webhook
-      // que chama a Edge Function `harmonizar-import` — a partir daqui o
-      // processamento roda sozinho, em segundo plano.
-      const { error: bronzeErr } = await supabase.from("bronze_rows").insert({
-        import_id: importData.id,
-        payload: { plataforma: parsed.plataforma, rows: parsed.rows, jogadores: parsed.jogadores },
-      });
-      if (bronzeErr) throw { titulo: "Erro ao registrar dados brutos", detalhe: bronzeErr.message };
-
-      setJogadorStats(null);
-      setHarmonStatus("pendente");
-      setStep("sent");
-      setImportingId(importData.id);
-      setParsed(null); setFile(null); setResolvedPlatformId(null);
-      await loadHistory();
+      await salvarImportacao(leagueId, null);
     } catch (err) { setImportError(formatError(err)); setStep("error"); }
+  }
+
+  // Substituição confirmada no popup de duplicidade: limpa os dados antigos
+  // dessa importação ANTES de gravar os novos — Acertos/linhas cruas
+  // primeiro (filhos), senão a reimportação dobraria tudo (harmonizar-import
+  // só INSERE linha nova, não sabe distinguir "substituição" de "primeira
+  // vez"). Se o Acerto antigo já tem Pagamento vinculado (Envio com
+  // acerto_id), o delete falha pela FK — aborta sem mexer em nada, em vez
+  // de deixar a importação pela metade.
+  async function confirmarSubstituicao() {
+    if (!duplicado) return;
+    setSubstituindo(true);
+    try {
+      const { error: acertosErr } = await supabase.from("acertos").delete().eq("import_id", duplicado.id);
+      if (acertosErr) throw { titulo: "Não deu pra substituir", detalhe: `Essa importação antiga já tem Acerto com Pagamento vinculado — desvincule o Pagamento antes de reimportar essa semana. (${acertosErr.message})` };
+      await supabase.from("acertos_agentes").delete().eq("import_id", duplicado.id);
+      const { error: rowsErr } = await supabase.from("import_rows").delete().eq("import_id", duplicado.id);
+      if (rowsErr) throw { titulo: "Não deu pra substituir", detalhe: rowsErr.message };
+
+      const leagueId = duplicado.leagueId
+      const importIdExistente = duplicado.id
+      setDuplicado(null)
+      await salvarImportacao(leagueId, importIdExistente)
+    } catch (err) { setDuplicado(null); setImportError(formatError(err)); setStep("error"); }
+    finally { setSubstituindo(false); }
+  }
+
+  // `reutilizarImportId`: null = nova importação (insert); preenchido =
+  // substituição confirmada, atualiza a importação existente no lugar
+  // (update), mesmo id — histórico e vínculos de Vínculo de Acerto/Pagamento
+  // que apontam pro import_id continuam valendo.
+  async function salvarImportacao(leagueId: string | null, reutilizarImportId: string | null) {
+    if (!file || !parsed || !resolvedPlatformId) return;
+    setStep("saving");
+
+    // 1) Registra (ou atualiza, se é substituição) a importação — nasce/
+    // volta "pendente" de harmonização, nada foi escrito ainda nas tabelas
+    // normalizadas.
+    const camposImport = {
+      league_id: leagueId,
+      plataforma_id: resolvedPlatformId,
+      file_name: file.name,
+      app_source: parsed.plataforma,
+      period_start: parsed.period_start || null,
+      period_end: parsed.period_end || null,
+      status: "processing",
+      harmonization_status: "pendente",
+      harmonization_error: null,
+      uploaded_by: "admin",
+    };
+    const { data: importData, error: importErr } = reutilizarImportId
+      ? await supabase.from("imports").update(camposImport).eq("id", reutilizarImportId).select().single()
+      : await supabase.from("imports").insert(camposImport).select().single();
+
+    if (importErr) throw { titulo: "Erro ao registrar importação", detalhe: importErr.message };
+
+    // 2) Sobe o arquivo original pro Storage (guardado só por alguns dias,
+    // suficiente pra reprocessar se algo mudar na harmonização).
+    const storagePath = `${importData.id}/${file.name}`;
+    const { error: uploadErr } = await supabase.storage.from("bronze-uploads").upload(storagePath, file, { upsert: true });
+    if (uploadErr) throw { titulo: "Erro ao guardar o arquivo original", detalhe: uploadErr.message };
+    await supabase.from("imports").update({ storage_path: storagePath }).eq("id", importData.id);
+
+    // 3) Grava o payload cru na bronze. Isso dispara o Database Webhook
+    // que chama a Edge Function `harmonizar-import` — a partir daqui o
+    // processamento roda sozinho, em segundo plano.
+    const { error: bronzeErr } = await supabase.from("bronze_rows").insert({
+      import_id: importData.id,
+      payload: { plataforma: parsed.plataforma, rows: parsed.rows, jogadores: parsed.jogadores },
+    });
+    if (bronzeErr) throw { titulo: "Erro ao registrar dados brutos", detalhe: bronzeErr.message };
+
+    setJogadorStats(null);
+    setHarmonStatus("pendente");
+    setStep("sent");
+    setImportingId(importData.id);
+    setParsed(null); setFile(null); setResolvedPlatformId(null);
+    await loadHistory();
   }
 
   function reset() {
@@ -961,6 +1028,18 @@ export default function ImportacaoXlsx() {
         plataformaNome={resolvedPlatformNome}
         onCancel={reset}
         onSave={handleMapeamentoSalvo}
+      />
+
+      <ConfirmModal
+        open={!!duplicado}
+        title="Já existe importação dessa semana"
+        description={duplicado && `Essa Liga já tem uma importação pra ${parsed?.period_start} → ${parsed?.period_end} (arquivo "${duplicado.fileName}", importado em ${new Date(duplicado.createdAt).toLocaleString("pt-BR")}). Substituir pelos dados desse novo arquivo? Os Acertos já calculados dessa semana serão apagados — recalcule de novo depois de concluir.`}
+        tone="amber"
+        icon={AlertTriangle}
+        saving={substituindo}
+        confirmLabel={substituindo ? "Substituindo..." : "Substituir"}
+        onConfirm={confirmarSubstituicao}
+        onCancel={() => setDuplicado(null)}
       />
     </div>
   );

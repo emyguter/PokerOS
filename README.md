@@ -908,6 +908,14 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   cru do clube, incoerente com a Diferença ao lado. Agora as duas seguem a mesma convenção:
   positivo = a liga vai receber, negativo = a liga precisa pagar (`diferencaDaLiga`,
   `CobrancaView.tsx`)
+- [x] **Importação avisa e substitui em vez de duplicar**: subir um arquivo pra uma Liga/semana
+  que já tem importação (mesmo `league_id` + `period_start`/`period_end`) agora mostra um aviso
+  perguntando se quer substituir, em vez de criar uma segunda importação igual — que fazia cada
+  clube contar 2x no Controle de Pagamentos/Cobrança/Resumo de Acertos. Confirmando, a importação
+  antiga é limpa (Acertos/linhas cruas) e reaproveitada com o arquivo novo (mesmo id, sem
+  duplicar); se já tiver Pagamento vinculado a algum Acerto antigo, aborta com aviso em vez de
+  duplicar por cima (`ImportacaoXlsx.tsx`). Duplicidades que já existiam no banco: consulta de
+  diagnóstico (só leitura) entregue à parte, pra revisar antes de decidir o que apagar
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
