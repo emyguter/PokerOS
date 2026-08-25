@@ -93,9 +93,6 @@ interface Props {
   // aba Extra do Suporte (só Bônus/Promoção/Outro), que não deve nem mostrar
   // Caução/Pagamento/Antecipação como opção.
   apenasTipos?: string[]
-  // Só lançamentos já conciliados com a Genia — a aba Extra só libera pro
-  // Acerto o que já bateu com o Financeiro.
-  apenasConciliados?: boolean
   // Liga o fluxo de "Liberar para Acerto": coluna de status, checkbox por
   // linha e os botões de liberar tudo/selecionados — usado na Segurança e na
   // aba Extra do Suporte. O motor de cálculo já soma esses lançamentos de
@@ -103,7 +100,7 @@ interface Props {
   mostrarLiberar?: boolean
 }
 
-export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCategoriaSeguranca = false, permitirEdicao = !clubeIdFixo, apenasTipos, apenasConciliados = false, mostrarLiberar = false }: Props) {
+export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCategoriaSeguranca = false, permitirEdicao = !clubeIdFixo, apenasTipos, mostrarLiberar = false }: Props) {
   const { t } = useI18n()
   const [clubes, setClubes] = useState<ClubeOpcao[]>([])
   const [clubeId, setClubeId] = useState(clubeIdFixo ?? (mostrarLiberar ? TODOS_CLUBES : ''))
@@ -137,7 +134,6 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
       .order('created_at', { ascending: true })
     if (clubeId !== TODOS_CLUBES) query = query.eq('clube_id', clubeId)
     if (apenasTipos) query = query.in('tipo', apenasTipos)
-    if (apenasConciliados) query = query.not('conciliado_com', 'is', null)
     if (tipoFiltro) query = query.eq(mostrarCategoriaSeguranca ? 'categoria_seguranca' : 'tipo', tipoFiltro)
     if (dataInicio) query = query.gte('data_lancamento', dataInicio)
     if (dataFim) query = query.lte('data_lancamento', dataFim)
@@ -145,7 +141,7 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
     setLancamentos((data ?? []) as unknown as Lancamento[])
     setSelecionados(new Set())
     setLoading(false)
-  }, [clubeId, origens, tipoFiltro, dataInicio, dataFim, mostrarCategoriaSeguranca, apenasTipos, apenasConciliados])
+  }, [clubeId, origens, tipoFiltro, dataInicio, dataFim, mostrarCategoriaSeguranca, apenasTipos])
 
   useEffect(() => { load() }, [load])
 

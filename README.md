@@ -853,6 +853,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   semana juntos. `buscarImportsComAcerto`/`buscarPagamentosPorImport` continuam existindo do jeito
   que eram — `lib/acertos-pendentes.ts` ainda depende deles por import individual. Filtro "Data do
   Import" (De/Até) trocado por filtro de nome do clube nas duas telas
+- [x] **Aba Extra voltou a mostrar Bônus/Promoção/Outro**: a exigência `apenasConciliados` em
+  `ExtratoView`/`LancamentoView` só mostrava esses lançamentos na aba Extra depois de conciliados
+  com a Genia — mas o ajuste anterior (Bônus/Promoção/Outro fora da Conciliação, ver item acima)
+  tornou essa condição impossível de cumprir, escondendo tudo pra sempre. Removida a exigência —
+  a aba Extra volta a listar Bônus/Promoção/Outro normalmente, liberação pro Acerto continua igual
+
+### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
 - [ ] Relatórios adicionais do escopo original (rake líquido da liga, PnL)
 - [ ] Contestação de lançamento pelo clube

@@ -45,7 +45,7 @@ export function LancamentoView() {
       {tab === 'extrato' && <ExtratoView />}
       {tab === 'pendencias' && <PendenciasSuporte />}
       {tab === 'pagamentos' && <ControlePagamentosView />}
-      {tab === 'extra' && <ExtratoView apenasTipos={TIPOS_EXTRA} apenasConciliados mostrarLiberar />}
+      {tab === 'extra' && <ExtratoView apenasTipos={TIPOS_EXTRA} mostrarLiberar />}
       {tab === 'conferencia' && <ConferenciaAppView />}
     </div>
   )
