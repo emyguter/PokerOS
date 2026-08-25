@@ -272,7 +272,7 @@ export const en: typeof pt = {
     limite_titulo: 'Monthly limit reached',
     limite_desc: 'This club has already reached the maximum VIPs for the month. Send anyway?',
     aba_lancamento: 'Log', aba_relatorio: 'Report', aba_limites: 'Configure Limits',
-    menu_suporte_grupo: 'VIP Cards', menu_relatorios: 'VIP Cards Report',
+    menu_suporte_grupo: 'VIP Cards', menu_relatorios: 'VIP Cards',
     relatorio_subtitulo: 'How many VIPs each club has requested this month, by type — with how much room is left before the limit',
     limites_subtitulo: 'Monthly VIP max per club and per type — blank means no limit configured',
     faltam: '{n} left', excedeu: 'limit exceeded',
@@ -286,7 +286,8 @@ export const en: typeof pt = {
   relatorios: {
     aba_acertos: 'Settlements', aba_lancamentos: 'Entries', aba_taxas: 'Fee Summary', aba_resumo_acertos: 'Settlement Summary',
     aba_acertos_pendentes: 'Pending Settlements', aba_historico_acertos_pendentes: 'Pending Settlements History',
-    aba_extrato_suporte: 'Support Statement', aba_extrato_seguranca: 'Security Statement', aba_extrato_stoploss: 'Stoploss Statement',
+    aba_stoploss: 'Stoploss', menu_extratos: 'Statements',
+    extrato_suporte: 'Support', extrato_seguranca: 'Security', extrato_stoploss: 'Stoploss', extrato_financeiro: 'Finance',
     titulo_lancamentos: 'Entries Report', subtitulo_lancamentos: 'Query entries across every club, without picking one at a time',
     titulo_taxas: 'Fee Summary', subtitulo_taxas: 'Executive view of the fees registered across every active club',
     titulo_resumo_acertos: 'Settlement Summary', subtitulo_resumo_acertos: 'Executive view of every club, every League, for one week',

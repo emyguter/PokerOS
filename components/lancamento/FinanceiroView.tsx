@@ -7,11 +7,12 @@ import { LancarFinanceiroTab } from './LancarFinanceiroTab'
 import { PendenciasFinanceiro } from './PendenciasFinanceiro'
 import { ConciliacaoView } from './ConciliacaoView'
 import { CobrancaView } from './CobrancaView'
+import { ExtratoView } from './ExtratoView'
 
-type Tab = 'lancar' | 'pendencias' | 'conciliacao' | 'cobranca'
+type Tab = 'lancar' | 'pendencias' | 'conciliacao' | 'cobranca' | 'extrato'
 
 function tabDaUrl(valor: string | null): Tab | null {
-  return valor === 'lancar' || valor === 'pendencias' || valor === 'conciliacao' || valor === 'cobranca' ? valor : null
+  return valor === 'lancar' || valor === 'pendencias' || valor === 'conciliacao' || valor === 'cobranca' || valor === 'extrato' ? valor : null
 }
 
 export function FinanceiroView() {
@@ -40,6 +41,7 @@ export function FinanceiroView() {
       {tab === 'pendencias' && <PendenciasFinanceiro />}
       {tab === 'conciliacao' && hasPermission('conciliacao') && <ConciliacaoView />}
       {tab === 'cobranca' && <CobrancaView />}
+      {tab === 'extrato' && <ExtratoView origens={['genia']} />}
     </div>
   )
 }

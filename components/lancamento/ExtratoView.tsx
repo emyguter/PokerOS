@@ -73,16 +73,17 @@ function formatMoeda(v: number) {
 // identidade e fazendo `load` (que depende de `origens`) ser recriado toda
 // hora, disparando o useEffect(load) em loop infinito (tela "Carregando"
 // piscando sem parar).
-const ORIGENS_PADRAO: ('suporte' | 'seguranca')[] = ['suporte']
+const ORIGENS_PADRAO: ('suporte' | 'seguranca' | 'genia')[] = ['suporte']
 
 interface Props {
   clubeIdFixo?: string
   // Quais origens de lançamento entram no extrato — cada tela interna vê só
-  // a própria (Suporte: 'suporte', Segurança: 'seguranca'); o extrato do
-  // clube (app/extrato) é o único que consolida mais de uma, porque as duas
-  // afetam o saldo dele de verdade. Financeiro ('genia') nunca entra aqui —
-  // é o espelho interno de conferência (Conciliação), não uma transação nova.
-  origens?: ('suporte' | 'seguranca')[]
+  // a própria (Suporte: 'suporte', Segurança: 'seguranca', Financeiro:
+  // 'genia'); o extrato do clube (app/extrato) é o único que consolida mais
+  // de uma (suporte+seguranca), porque as duas afetam o saldo dele de
+  // verdade — Financeiro nunca entra nesse consolidado, é o espelho interno
+  // de conferência (Conciliação), não o saldo do clube.
+  origens?: ('suporte' | 'seguranca' | 'genia')[]
   mostrarCategoriaSeguranca?: boolean
   // Editar/apagar só faz sentido nas telas internas — nunca no extrato que
   // o próprio clube vê (clubeIdFixo). EditarLancamentoModal já sabe alternar

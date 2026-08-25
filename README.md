@@ -952,6 +952,14 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   menus removeu por parecer redundante (achava que as duas rotas já mostravam o mesmo componente).
   Corrigido: `/acertos` agora mostra `AcertosView` (Recalcular) pra Suporte/Admin e continua
   mostrando `MeusAcertosView` pra login de Clube/Liga/SuperLiga/MegaLiga (`app/acertos/page.tsx`)
+- [x] **Mais ajustes de menu (pedido do Cássio)**: Relatório de Stoploss sai do submenu do próprio
+  Stoploss e vai pra dentro de Relatórios, com o nome "Stoploss". "Relatório de VIP Cards" vira só
+  "VIP Cards". Dentro de Relatórios, os Extratos de Suporte/Segurança/Stoploss viram uma pasta só
+  "Extratos" (sub-subitens "Suporte"/"Segurança"/"Stoploss"), com um 4º item novo: **Extrato do
+  Financeiro** — não existia ainda (`ExtratoView` nunca aceitava origem `'genia'`, de propósito, por
+  ser vista como só o espelho interno da Conciliação); agora `FinanceiroView` ganhou uma aba
+  "Extrato" própria mostrando os lançamentos `'genia'` (`ExtratoView.tsx`, `FinanceiroView.tsx`,
+  `Sidebar.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

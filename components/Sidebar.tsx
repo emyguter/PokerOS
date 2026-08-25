@@ -59,21 +59,29 @@ const SEGURANCA_SUB: SubNavItem[] = [
 ]
 // "relatorios" genérico dá acesso a Lançamentos (compatibilidade — mesma
 // regra de RelatoriosView); Resumo de Taxas não herda dele de propósito, só
-// abre com a chave própria. Os Extratos de Suporte/Segurança/Stoploss e o
-// Relatório de VIP Cards vieram de seus menus originais na reorganização —
-// mesma rota/tela de sempre, só o link mudou de lugar na sidebar.
+// abre com a chave própria. O Relatório de Stoploss e o "VIP Cards" vieram
+// de seus menus originais na reorganização — mesma rota/tela de sempre, só
+// o link mudou de lugar na sidebar. Os Extratos (Suporte/Segurança/
+// Stoploss/Financeiro) viraram uma pasta só, "Extratos", com um
+// sub-subitem por origem.
 const RELATORIOS_SUB: SubNavItem[] = [
   { key: 'lancamentos', labelKey: 'relatorios.aba_lancamentos', href: '/relatorios?tab=lancamentos', chave: ['relatorios', 'relatorios.lancamentos'] },
   { key: 'taxas', labelKey: 'relatorios.aba_taxas', href: '/relatorios?tab=taxas', chave: 'relatorios.taxas' },
   { key: 'resumo_acertos', labelKey: 'relatorios.aba_resumo_acertos', href: '/relatorios?tab=resumo_acertos', chave: 'relatorios.resumo_acertos' },
   { key: 'historico_acertos_pendentes', labelKey: 'relatorios.aba_historico_acertos_pendentes', href: '/relatorios?tab=historico_acertos_pendentes', chave: 'relatorios.acertos_pendentes' },
-  { key: 'extrato_suporte', labelKey: 'relatorios.aba_extrato_suporte', href: '/lancamento?tab=extrato', chave: 'lancamento' },
-  { key: 'extrato_seguranca', labelKey: 'relatorios.aba_extrato_seguranca', href: '/seguranca?tab=extrato', chave: 'seguranca' },
-  { key: 'extrato_stoploss', labelKey: 'relatorios.aba_extrato_stoploss', href: '/stoploss?tab=extrato', chave: 'stoploss' },
+  { key: 'stoploss', labelKey: 'relatorios.aba_stoploss', href: '/stoploss?tab=relatorio' },
   { key: 'vip_relatorio', labelKey: 'vip.menu_relatorios', href: '/vip?tab=relatorio', chave: 'vip.relatorio' },
+  {
+    key: 'extratos', labelKey: 'relatorios.menu_extratos', href: '/lancamento?tab=extrato', chave: ['lancamento', 'seguranca', 'stoploss', 'lancamento.genia'],
+    subItems: [
+      { key: 'extrato_suporte', labelKey: 'relatorios.extrato_suporte', href: '/lancamento?tab=extrato', chave: 'lancamento' },
+      { key: 'extrato_seguranca', labelKey: 'relatorios.extrato_seguranca', href: '/seguranca?tab=extrato', chave: 'seguranca' },
+      { key: 'extrato_stoploss', labelKey: 'relatorios.extrato_stoploss', href: '/stoploss?tab=extrato', chave: 'stoploss' },
+      { key: 'extrato_financeiro', labelKey: 'relatorios.extrato_financeiro', href: '/financeiro?tab=extrato', chave: 'lancamento.genia' },
+    ],
+  },
 ]
 const STOPLOSS_SUB: SubNavItem[] = [
-  { key: 'relatorio', labelKey: 'stoploss.aba_relatorio', href: '/stoploss?tab=relatorio' },
   { key: 'resumo', labelKey: 'stoploss.aba_resumo', href: '/stoploss?tab=resumo' },
   { key: 'fila', labelKey: 'stoploss.aba_fila', href: '/stoploss?tab=fila', chave: 'stoploss.aprovar' },
 ]
@@ -116,7 +124,7 @@ const NAV = [
   { href: '/stoploss', labelKey: 'nav.stoploss', icon: Gauge, chaves: ['stoploss'], subItems: STOPLOSS_SUB },
   { href: '/dividas', labelKey: 'nav.dividas', icon: Banknote, chaves: ['dividas'] },
   { href: '/acertos', labelKey: 'nav.acertos', icon: Receipt, chaves: ['acertos.ver'] },
-  { href: '/relatorios', labelKey: 'nav.relatorios', icon: FileText, chaves: ['relatorios', 'relatorios.lancamentos', 'relatorios.taxas', 'relatorios.resumo_acertos', 'relatorios.acertos_pendentes', 'lancamento', 'seguranca', 'stoploss', 'vip.relatorio'], subItems: RELATORIOS_SUB },
+  { href: '/relatorios', labelKey: 'nav.relatorios', icon: FileText, chaves: ['relatorios', 'relatorios.lancamentos', 'relatorios.taxas', 'relatorios.resumo_acertos', 'relatorios.acertos_pendentes', 'lancamento', 'seguranca', 'stoploss', 'vip.relatorio', 'lancamento.genia'], subItems: RELATORIOS_SUB },
   { href: '/admin/regras', labelKey: 'nav.regras', icon: ListChecks, chaves: ['regras'] },
 ]
 
