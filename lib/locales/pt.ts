@@ -196,7 +196,6 @@ export const pt = {
     titulo: 'Controle de Pagamentos',
     subtitulo: 'Cada Envio (pagamento) até quitar o Acerto do clube, semana a semana',
     import: 'Semana (import)', nenhum_import: 'Nenhum import com Acerto calculado ainda.',
-    data_import_de: 'Data do import — de', data_import_ate: 'até',
     nenhum_acerto: 'Selecione um import pra ver os pagamentos.',
     col_club_id: 'Club ID', col_club_name: 'Clube', col_valor_acerto: 'Valor do Acerto',
     col_valor_pago: 'Valor Pago', col_diferenca: 'Diferença', col_envio: 'Envio {n}',

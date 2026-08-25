@@ -273,3 +273,78 @@ export async function buscarImportsComAcerto(): Promise<ImportResumo[]> {
     .limit(500)
   return (data ?? []) as ImportResumo[]
 }
+
+export interface PeriodoPagamento {
+  inicio: string
+  fim: string
+}
+
+// Uma Liga = um import por semana — buscarImportsComAcerto (acima) traz um
+// registro por import, então a mesma semana aparecia repetida no seletor
+// (uma vez por Liga). Controle de Pagamentos/Cobrança pedem pra olhar a
+// semana inteira, não uma Liga isolada — aqui agrupa por period_end e some
+// as duplicatas, cada semana aparece 1 vez só.
+export async function buscarPeriodosComAcerto(): Promise<PeriodoPagamento[]> {
+  const { data } = await supabase
+    .from('imports')
+    .select('period_start, period_end')
+    .in('status', ['acertos_calculados', 'parcial'])
+    .not('period_end', 'is', null)
+    .order('period_end', { ascending: false })
+    .limit(500)
+  const vistos = new Set<string>()
+  const lista: PeriodoPagamento[] = []
+  for (const row of (data ?? []) as { period_start: string | null; period_end: string }[]) {
+    if (vistos.has(row.period_end)) continue
+    vistos.add(row.period_end)
+    lista.push({ inicio: row.period_start ?? row.period_end, fim: row.period_end })
+  }
+  return lista
+}
+
+// Mesma lógica de buscarPagamentosPorImport, só que pra TODOS os imports
+// (todas as Ligas) da mesma semana de uma vez, não um import isolado —
+// junta os club_id de cada Liga numa lista só de Acertos da semana.
+export async function buscarPagamentosPorPeriodo(periodoInicio: string, periodoFim: string): Promise<AcertoPagamento[]> {
+  const { data: importsData } = await supabase.from('imports').select('id').eq('period_end', periodoFim)
+  const importIds = (importsData ?? []).map((i) => i.id as string)
+  if (importIds.length === 0) return []
+
+  const { data: acertos } = await supabase
+    .from('acertos')
+    .select('id, club_id, club_external_id, club_name, valor_acerto, bilhetes, pendencias_antecipacao, indicacao_valor')
+    .in('import_id', importIds)
+    .order('club_name')
+
+  const lista = (acertos ?? []) as AcertoCompletoRow[]
+  if (lista.length === 0) return []
+
+  const clubIds = [...new Set(lista.map((a) => a.club_id).filter((id): id is string => !!id))]
+
+  const [{ data: pagamentos }, valorCompletoPorId, caucaoPorId, { data: clubesData }] = await Promise.all([
+    supabase
+      .from('lancamentos')
+      .select('id, acerto_id, natureza, valor, data_lancamento')
+      .in('acerto_id', lista.map((a) => a.id))
+      .in('tipo', ['pagamento', 'antecipacao'])
+      .order('data_lancamento', { ascending: true }),
+    valorAcertoCompletoPorRow(lista, periodoInicio, periodoFim),
+    caucaoPorClube(clubIds, periodoInicio, periodoFim),
+    clubIds.length > 0 ? supabase.from('clubs').select('id, projeto').in('id', clubIds) : Promise.resolve({ data: [] }),
+  ])
+  const projetoPorClube = new Map((clubesData ?? []).map((c) => [c.id as string, c.projeto as string | null]))
+
+  const listaCompleta: AcertoRow[] = lista.map((a) => ({ ...a, valor_acerto: valorCompletoPorId.get(a.id) ?? a.valor_acerto }))
+  const clubIdPorAcertoId = new Map(lista.map((a) => [a.id, a.club_id]))
+
+  const resultado = agregarPagamentos(listaCompleta, (pagamentos ?? []) as PagamentoRow[])
+  return resultado.map((r) => {
+    const clubId = clubIdPorAcertoId.get(r.acerto_id)
+    return {
+      ...r,
+      club_id: clubId ?? null,
+      caucao: clubId ? caucaoPorId.get(clubId) ?? 0 : 0,
+      projeto: clubId ? projetoPorClube.get(clubId) ?? null : null,
+    }
+  })
+}

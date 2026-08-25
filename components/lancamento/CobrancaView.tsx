@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useI18n } from '@/lib/i18n'
-import { buscarImportsComAcerto, buscarPagamentosPorImport, corDiferenca, diferencaDaLiga, type ImportResumo, type AcertoPagamento } from '@/lib/pagamentos'
+import { buscarPeriodosComAcerto, buscarPagamentosPorPeriodo, corDiferenca, diferencaDaLiga, type PeriodoPagamento, type AcertoPagamento } from '@/lib/pagamentos'
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -13,58 +13,54 @@ const COR_CLASSE: Record<ReturnType<typeof corDiferenca>, string> = {
   vermelho: 'text-alert',
 }
 
-function formatImportLabel(i: ImportResumo) {
-  return i.period_start ? `${i.period_start} → ${i.period_end || i.period_start}` : i.file_name
+function formatPeriodoLabel(p: PeriodoPagamento) {
+  return `${p.inicio} → ${p.fim}`
 }
 
 // Financeiro vê o total pago, não cada Envio individual — mesmos dados que
 // ControlePagamentosView (Suporte), só que somados. Sinal E cor da Diferença
 // são invertidos em relação ao Suporte: aqui é do ponto de vista da liga (o
 // que a liga precisa pagar/receber), não do clube — ver diferencaDaLiga em
-// lib/pagamentos.ts.
+// lib/pagamentos.ts. Seletor é por semana (uma vez só cada period_end, não
+// um import por Liga) — ver buscarPeriodosComAcerto.
 export function CobrancaView() {
   const { t } = useI18n()
-  const [imports, setImports] = useState<ImportResumo[]>([])
-  const [importId, setImportId] = useState('')
-  const [dataImportDe, setDataImportDe] = useState('')
-  const [dataImportAte, setDataImportAte] = useState('')
+  const [periodos, setPeriodos] = useState<PeriodoPagamento[]>([])
+  const [periodoFim, setPeriodoFim] = useState('')
+  const [clubeFiltro, setClubeFiltro] = useState('')
   const [projetoFiltro, setProjetoFiltro] = useState('')
   const [linhas, setLinhas] = useState<AcertoPagamento[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    buscarImportsComAcerto().then((lista) => {
-      setImports(lista)
-      if (lista[0]) setImportId(lista[0].id)
+    buscarPeriodosComAcerto().then((lista) => {
+      setPeriodos(lista)
+      if (lista[0]) setPeriodoFim(lista[0].fim)
     })
   }, [])
 
-  // Data que o import foi feito na Central de Importação (created_at) —
-  // diferente da semana que os dados cobrem (period_start/period_end).
-  const importsFiltrados = useMemo(() => imports.filter((i) => {
-    const dataImport = i.created_at.slice(0, 10)
-    return (!dataImportDe || dataImport >= dataImportDe) && (!dataImportAte || dataImport <= dataImportAte)
-  }), [imports, dataImportDe, dataImportAte])
+  const periodoSelecionado = useMemo(() => periodos.find((p) => p.fim === periodoFim) ?? null, [periodos, periodoFim])
 
-  useEffect(() => {
-    if (importsFiltrados.length === 0) { setImportId(''); return }
-    if (!importsFiltrados.some((i) => i.id === importId)) setImportId(importsFiltrados[0].id)
-  }, [importsFiltrados, importId])
-
-  const load = useCallback(async (id: string) => {
-    if (!id) { setLinhas([]); return }
+  const load = useCallback(async (periodo: PeriodoPagamento | null) => {
+    if (!periodo) { setLinhas([]); return }
     setLoading(true)
-    setLinhas(await buscarPagamentosPorImport(id))
+    setLinhas(await buscarPagamentosPorPeriodo(periodo.inicio, periodo.fim))
     setLoading(false)
   }, [])
 
-  useEffect(() => { load(importId) }, [importId, load])
+  useEffect(() => { load(periodoSelecionado) }, [periodoSelecionado, load])
 
   const projetosDisponiveis = useMemo(
     () => [...new Set(linhas.map((l) => l.projeto).filter((p): p is string => !!p))].sort(),
     [linhas]
   )
-  const linhasFiltradas = projetoFiltro ? linhas.filter((l) => l.projeto === projetoFiltro) : linhas
+  const linhasFiltradas = useMemo(() => {
+    const busca = clubeFiltro.trim().toLowerCase()
+    return linhas.filter((l) =>
+      (!projetoFiltro || l.projeto === projetoFiltro) &&
+      (!busca || l.club_name.toLowerCase().includes(busca))
+    )
+  }, [linhas, projetoFiltro, clubeFiltro])
 
   return (
     <div className="space-y-4">
@@ -73,21 +69,17 @@ export function CobrancaView() {
         <p className="text-sm text-gray-400 mt-1">{t('cobranca.subtitulo')}</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <div>
           <label className="block text-xs text-gray-500 mb-1.5">{t('pagamentos.import')}</label>
-          <select value={importId} onChange={(e) => setImportId(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
-            {importsFiltrados.length === 0 && <option value="">{t('pagamentos.nenhum_import')}</option>}
-            {importsFiltrados.map((i) => <option key={i.id} value={i.id}>{formatImportLabel(i)}</option>)}
+          <select value={periodoFim} onChange={(e) => setPeriodoFim(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
+            {periodos.length === 0 && <option value="">{t('pagamentos.nenhum_import')}</option>}
+            {periodos.map((p) => <option key={p.fim} value={p.fim}>{formatPeriodoLabel(p)}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1.5">{t('pagamentos.data_import_de')}</label>
-          <input type="date" value={dataImportDe} onChange={(e) => setDataImportDe(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1.5">{t('pagamentos.data_import_ate')}</label>
-          <input type="date" value={dataImportAte} onChange={(e) => setDataImportAte(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50" />
+          <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.clube')}</label>
+          <input type="text" value={clubeFiltro} onChange={(e) => setClubeFiltro(e.target.value)} placeholder={t('acertos.buscar_placeholder')} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50" />
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.projeto')}</label>

@@ -845,8 +845,14 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   liberados — não precisou mudar nada ali
 - [x] Reordenadas as colunas do Controle de Pagamentos: Club ID, Club Name, Diferença, Valor do
   Acerto, Valor Pago, botão Descontar da Caução, Caução, Envio 1..40 (pedido explícito de ordem)
-
-### Próximas fases
+- [x] **Controle de Pagamentos/Cobrança: seletor por semana, não mais por import de uma Liga só**:
+  cada Liga gera 1 import por semana, então a mesma semana aparecia repetida no seletor (uma vez
+  por Liga) — e olhar 1 import só mostrava as taxas de 1 Liga por vez, não a semana inteira. Novo
+  `buscarPeriodosComAcerto`/`buscarPagamentosPorPeriodo` (`lib/pagamentos.ts`) agrupam por
+  `period_end`: cada semana aparece 1 vez no seletor e traz os Acertos de todas as Ligas daquela
+  semana juntos. `buscarImportsComAcerto`/`buscarPagamentosPorImport` continuam existindo do jeito
+  que eram — `lib/acertos-pendentes.ts` ainda depende deles por import individual. Filtro "Data do
+  Import" (De/Até) trocado por filtro de nome do clube nas duas telas
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
 - [ ] Relatórios adicionais do escopo original (rake líquido da liga, PnL)
 - [ ] Contestação de lançamento pelo clube

@@ -198,7 +198,6 @@ export const en: typeof pt = {
     titulo: 'Payment Control',
     subtitulo: "Each Payment (Envio) until the club's Settlement is fully paid off, week by week",
     import: 'Week (import)', nenhum_import: 'No import with a calculated Settlement yet.',
-    data_import_de: 'Import date — from', data_import_ate: 'to',
     nenhum_acerto: 'Select an import to see the payments.',
     col_club_id: 'Club ID', col_club_name: 'Club', col_valor_acerto: 'Settlement Amount',
     col_valor_pago: 'Amount Paid', col_diferenca: 'Difference', col_envio: 'Payment {n}',
