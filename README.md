@@ -1012,6 +1012,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   apagava o `crypto_rebate_pct` de propósito pra clube Taxa Dinâmica e Rakeback — mesmo com o campo
   liberado na tela, salvar zerava o valor de novo. Agora só limpa quando o toggle "Crypto Rebate"
   está desligado, igual já funciona pro Rebate normal, independente do tipo de cobrança
+- [x] **Lançamento de Antecipação travava exigindo escolher um Acerto**: a tela de Lançamento
+  (Suporte/Financeiro) obrigava escolher "Qual Acerto está sendo pago?" pra Tipo Antecipação, igual
+  Pagamento — mas Antecipação não paga Acerto nenhum, ela só aumenta o Stoploss vigente do clube
+  quando concilia com a Genia (`registrarAntecipacaoNoStoploss`, `useConciliacao.ts`),
+  independente de ter Acerto pendente ou não (reportado pelo Cássio). Agora só Pagamento exige
+  escolher o Acerto — pra Antecipação o campo continua disponível (útil se quiser rastrear no
+  Controle de Pagamentos mesmo assim), mas é opcional. Corrigido nos dois formulários
+  (`LancarForm.tsx` e `EditarLancamentoModal.tsx`), incluindo um bug lateral onde não vincular
+  nenhum Acerto salvava uma string vazia em vez de `null` no banco
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

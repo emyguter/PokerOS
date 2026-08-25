@@ -203,6 +203,7 @@ export const en: typeof pt = {
     col_club_id: 'Club ID', col_club_name: 'Club', col_valor_acerto: 'Settlement Amount',
     col_valor_pago: 'Amount Paid', col_diferenca: 'Difference', col_envio: 'Payment {n}',
     qual_acerto: 'Which Settlement is this paying?',
+    qual_acerto_antecipacao: 'Link to a Settlement (optional)',
     qual_acerto_obrigatorio: 'Choose the Settlement being paid.',
     selecione_acerto: '— Select the Settlement —',
     nenhum_acerto_do_clube: "This club doesn't have a calculated Settlement yet.",

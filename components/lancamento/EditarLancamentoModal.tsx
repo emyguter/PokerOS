@@ -90,20 +90,23 @@ export function EditarLancamentoModal({ open, lancamento, onClose, onSaved }: Pr
   // troca o Tipo/Natureza genéricos pela mesma Ação + Categoria da tela de
   // Segurança, pra não deixar salvar uma combinação incoerente.
   const seguranca = ehTipoSeguranca(lancamento.tipo)
-  // Mesmo campo do LancarForm — Pagamento/Antecipação editados aqui também
-  // precisam apontar pra um Acerto, senão somem do Controle de Pagamentos.
+  // Mesmo critério do LancarForm — só Pagamento precisa mesmo apontar pra um
+  // Acerto (quita uma Diferença específica, alimenta Controle de
+  // Pagamentos). Antecipação não paga Acerto — só aumenta o Stoploss quando
+  // concilia com a Genia — então o campo continua disponível mas opcional.
   const ehPagamentoComAcerto = !seguranca && (tipo === 'pagamento' || tipo === 'antecipacao')
+  const acertoObrigatorio = !seguranca && tipo === 'pagamento'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const valorNum = Number(valor.replace(',', '.'))
     if (!valorNum || valorNum <= 0) { setError('Informe um valor válido.'); return }
-    if (ehPagamentoComAcerto && !acertoId) { setError(t('pagamentos.qual_acerto_obrigatorio')); return }
+    if (acertoObrigatorio && !acertoId) { setError(t('pagamentos.qual_acerto_obrigatorio')); return }
     setSaving(true); setError(null)
     try {
       const payload = seguranca
         ? { tipo, natureza, categoria_seguranca: categoria, valor: valorNum, descricao: descricao || null, data_lancamento: data }
-        : { tipo, natureza, valor: valorNum, descricao: descricao || null, data_lancamento: data, acerto_id: ehPagamentoComAcerto ? acertoId : null }
+        : { tipo, natureza, valor: valorNum, descricao: descricao || null, data_lancamento: data, acerto_id: ehPagamentoComAcerto && acertoId ? acertoId : null }
       const { error: updErr } = await supabase.from('lancamentos').update(payload).eq('id', lancamento!.id)
       if (updErr) throw updErr
       onSaved()
@@ -205,7 +208,7 @@ export function EditarLancamentoModal({ open, lancamento, onClose, onSaved }: Pr
 
               {ehPagamentoComAcerto && (
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">{t('pagamentos.qual_acerto')}</label>
+                  <label className="block text-xs text-gray-500 mb-1.5">{t(acertoObrigatorio ? 'pagamentos.qual_acerto' : 'pagamentos.qual_acerto_antecipacao')}</label>
                   <select value={acertoId} onChange={(e) => setAcertoId(e.target.value)} className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
                     <option value="">{t('pagamentos.selecione_acerto')}</option>
                     {acertosClube.map((a) => <option key={a.id} value={a.id}>{formatPeriodoAcerto(a)}</option>)}

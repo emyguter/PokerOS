@@ -201,6 +201,7 @@ export const pt = {
     col_club_id: 'Club ID', col_club_name: 'Clube', col_valor_acerto: 'Valor do Acerto',
     col_valor_pago: 'Valor Pago', col_diferenca: 'Diferença', col_envio: 'Envio {n}',
     qual_acerto: 'Qual Acerto está sendo pago?',
+    qual_acerto_antecipacao: 'Vincular a um Acerto (opcional)',
     qual_acerto_obrigatorio: 'Escolha o Acerto que está sendo pago.',
     selecione_acerto: '— Selecione o Acerto —',
     nenhum_acerto_do_clube: 'Esse clube ainda não tem Acerto calculado.',
