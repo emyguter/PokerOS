@@ -1007,7 +1007,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Acertos já aplica o Crypto Rebate de forma genérica pra qualquer clube com `crypto_rebate_pct`
   cadastrado (card "Total Crypto Rebate", `AcertosView.tsx` + `corrigirValorCrypto` em
   `relatorio-acerto.ts`), a restrição no cadastro só impedia configurar pros demais tipos de clube.
-  Agora o toggle aparece pra qualquer clube (`ClubModal.tsx`)
+  Agora o toggle aparece pra qualquer clube (`ClubModal.tsx`). Achado um segundo problema na mesma
+  investigação: a função `clean()` que roda ao salvar o clube (`app/admin/cadastro/clubes/page.tsx`)
+  apagava o `crypto_rebate_pct` de propósito pra clube Taxa Dinâmica e Rakeback — mesmo com o campo
+  liberado na tela, salvar zerava o valor de novo. Agora só limpa quando o toggle "Crypto Rebate"
+  está desligado, igual já funciona pro Rebate normal, independente do tipo de cobrança
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
