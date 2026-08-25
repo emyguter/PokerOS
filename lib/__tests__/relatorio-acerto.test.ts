@@ -11,8 +11,11 @@ describe('corrigirValorCrypto', () => {
 })
 
 describe('ehObrigatorio', () => {
-  it('reconhece os 8 campos que sempre aparecem', () => {
+  it('reconhece todos os campos que sempre aparecem (incluindo Indicação/Lançamentos/Dívidas)', () => {
     for (const campo of CAMPOS_OBRIGATORIOS) expect(ehObrigatorio(campo)).toBe(true)
+    expect(ehObrigatorio('indicacao')).toBe(true)
+    expect(ehObrigatorio('lancamentos_periodo')).toBe(true)
+    expect(ehObrigatorio('dividas_acordos')).toBe(true)
   })
   it('campo opcional não é obrigatório', () => {
     expect(ehObrigatorio('rebate')).toBe(false)

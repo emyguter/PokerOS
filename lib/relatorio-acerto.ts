@@ -5,6 +5,7 @@ import { getDividasAcertoDoClube } from './dividas'
 // pra esconder pela Regra de Layout, só reordenar (confirmado pelo Cássio).
 export const CAMPOS_OBRIGATORIOS = [
   'semana', 'clube', 'pendencias', 'rake_total', 'ganhos', 'bilhetes', 'seguranca', 'spinup',
+  'indicacao', 'lancamentos_periodo', 'dividas_acordos',
 ] as const
 
 // Pool de campos que a Regra de Layout pode ligar/desligar e reordenar.
@@ -13,7 +14,7 @@ export const CAMPOS_OBRIGATORIOS = [
 // de propósito pra não ter dois lugares representando o mesmo bônus.
 export const CAMPOS_OPCIONAIS = [
   'taxa_mtt', 'wtr4', 'taxa_cash', 'rake_mtt', 'rake_cash', 'taxa_operacional', 'taxa_liga',
-  'rebate', 'indicacao', 'lancamentos_periodo', 'dividas_acordos',
+  'rebate',
 ] as const
 
 export type CampoAcerto = (typeof CAMPOS_OBRIGATORIOS)[number] | (typeof CAMPOS_OPCIONAIS)[number]

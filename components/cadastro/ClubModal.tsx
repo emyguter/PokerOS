@@ -471,15 +471,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               Fee MTT, Fee Cash, Taxa Operacional (quando ligada) e SpinUp acima só valem pro campo que <strong>não</strong> tiver regra variável vinculada — campo com regra vinculada aparece travado, mostrando “Campo seguindo regra vinculada” no lugar do número. Confira/altere o vínculo na etapa “Regras”.
             </p>
           )}
-          {!isRkb && !isDin && (
-            <p className="text-xs text-gray-500">
-              Essa é a taxa própria desse clube, cobrada em cima do Rake Total inteiro — <strong>não</strong> é a
-              Taxa da Liga (que é uma camada à parte, configurada no cadastro da Liga vinculada e soma em cima
-              dessa aqui). Campo com regra variável vinculada aparece travado, mostrando “Campo seguindo regra
-              vinculada” no lugar do número. Confira/altere o vínculo na etapa “Regras”.
-            </p>
-          )}
-
           <div className="space-y-2">
             <label className="flex items-center gap-3 cursor-pointer w-fit">
               <div

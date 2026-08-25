@@ -294,12 +294,8 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
               <ArrowRight size={16} className="text-gray-600 shrink-0 mt-6" />
               <SeletorEntidade titulo="Para (quem recebe a regra)" multi lado={ladoPara} onChange={setLadoParaEZerarAviso} />
             </div>
-            {(ladoPara.tipo === 'clube' || ladoPara.tipo === 'liga') && (
-              regra.campo ? (
-                <p className="text-xs text-gray-500">Essa regra vai substituir <span className="text-gold">{LABEL_CAMPO[regra.campo]}</span> {ladoPara.tipo === 'liga' ? 'da liga' : 'do clube'}.</p>
-              ) : (
-                <p className="text-xs text-alert">Essa regra não tem &quot;Aplica em&quot; definido (só vale pra tipo Cálculo de Acerto) — o vínculo não vai afetar nenhum cálculo até isso ser configurado na Regra.</p>
-              )
+            {(ladoPara.tipo === 'clube' || ladoPara.tipo === 'liga') && regra.campo && (
+              <p className="text-xs text-gray-500">Essa regra vai substituir <span className="text-gold">{LABEL_CAMPO[regra.campo]}</span> {ladoPara.tipo === 'liga' ? 'da liga' : 'do clube'}.</p>
             )}
             {incompativeisNovo.length > 0 && regra.campo && (
               <div className="flex items-start gap-2 p-3 rounded-lg border border-alert/30 bg-alert/10 text-alert text-xs">

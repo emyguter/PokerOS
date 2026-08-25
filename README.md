@@ -885,6 +885,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   — em Taxa Fixa/Variável ficava sempre zerada, mesmo configurada e ligada (bug reportado pelo
   Cássio, clube AK AMAKHA club 2). Agora soma como fee ADICIONAL sobre o Rake Total, em cima da
   taxa fixa/variável já existente (confirmado pelo Cássio)
+- [x] **Ajustes de UI em Vínculos/Layout do Acerto/Cadastro de Clube**: tirado o aviso vermelho de
+  "Regra sem 'Aplica em' definido" ao criar um Vínculo (`VinculosPanel.tsx`) — informava algo que
+  não precisava travar o fluxo. Indicação, Lançamentos do período e Dívidas/Acordos agora são
+  campos **obrigatórios** no Layout do Acerto (sempre visíveis, junto com Pendências/Segurança/etc,
+  não dá mais pra esconder). Tirado o texto explicativo embaixo de Taxa Operacional no cadastro de
+  clubes Taxa Fixa/Variável (`ClubModal.tsx`) — deixou de fazer sentido depois que Taxa Operacional
+  passou a valer de verdade pra esse tipo (item acima)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
