@@ -960,6 +960,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   ser vista como só o espelho interno da Conciliação); agora `FinanceiroView` ganhou uma aba
   "Extrato" própria mostrando os lançamentos `'genia'` (`ExtratoView.tsx`, `FinanceiroView.tsx`,
   `Sidebar.tsx`)
+- [x] **Avisa quando a importação cadastra um clube novo sozinha**: clube que aparece na planilha
+  mas ainda não tá em Cadastro > Clubes já era pré-cadastrado automaticamente pelo motor
+  (`processarAcertos`, nome + ID externo + liga, sem taxa/regra nenhuma) — mas sem NENHUM aviso: o
+  `settlement_type` cai no default `'taxa_dinamica'` da tabela, e com taxa em branco vira 0% em
+  tudo, então o Acerto sai com status "calculado" ✓ e valor zerado, sem cair no aviso de "sem_regra"
+  que só cobre linha malformada sem ID externo — bem fácil de passar batido. Agora
+  `processarAcertos` devolve quais clubes foram criados nesse cálculo, e a tela de Acertos mostra um
+  aviso destacado com o nome de cada um e link direto pra Cadastro > Clubes (`acertos-engine.ts`,
+  `AcertosView.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

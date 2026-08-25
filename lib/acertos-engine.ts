@@ -479,10 +479,23 @@ async function buscarRolloverPendente(clubIds: string[], importId: string): Prom
   return { porClube, ids };
 }
 
+export interface ClubeNovo {
+  id: string;
+  name: string;
+  external_id: string;
+}
+
 export async function processarAcertos(importId: string): Promise<{
   success: boolean;
   count: number;
   error?: string;
+  // Clubes que apareceram na planilha mas ainda não estavam cadastrados —
+  // pré-cadastrados aqui do zero (nome, ID externo, liga), com taxas/regras
+  // em branco (settlement_type cai no default 'taxa_dinamica' da tabela,
+  // mas com fee_*_pct null vira tudo 0%, sem nenhum aviso de "sem_regra").
+  // O chamador (AcertosView) mostra um aviso pedindo pra completar o
+  // cadastro em Clubes antes de confiar no valor calculado dele.
+  clubesNovos: ClubeNovo[];
 }> {
   try {
     const { data: rows, error: rowsError } = await supabase
@@ -492,7 +505,7 @@ export async function processarAcertos(importId: string): Promise<{
 
     if (rowsError) throw new Error(rowsError.message);
     if (!rows || rows.length === 0)
-      return { success: false, count: 0, error: "Nenhuma linha encontrada." };
+      return { success: false, count: 0, error: "Nenhuma linha encontrada.", clubesNovos: [] };
 
     const { data: clubs, error: clubsError } = await supabase
       .from("clubs")
@@ -539,6 +552,8 @@ export async function processarAcertos(importId: string): Promise<{
     await supabase.from("acertos").delete().eq("import_id", importId);
 
     const acertos: AcertoCalculado[] = [];
+
+    const clubesNovos: ClubeNovo[] = [];
 
     for (const row of rows as ImportRow[]) {
       let club =
@@ -597,6 +612,7 @@ export async function processarAcertos(importId: string): Promise<{
         club = novoClube as ClubSettings;
         clubByExtId.set(String(club.external_id), club);
         clubByName.set(club.name.toLowerCase().trim(), club);
+        clubesNovos.push({ id: club.id, name: club.name, external_id: club.external_id });
       }
       // O WtR 4 Semanas manual (cadastro > Regras) só é usado como tapa-buraco
       // enquanto o clube não tem 4 semanas seguidas de histórico no banco
@@ -674,9 +690,9 @@ export async function processarAcertos(importId: string): Promise<{
       .update({ status: semRegra > 0 ? "parcial" : "acertos_calculados" })
       .eq("id", importId);
 
-    return { success: true, count: acertos.length };
+    return { success: true, count: acertos.length, clubesNovos };
   } catch (err) {
-    return { success: false, count: 0, error: err instanceof Error ? err.message : "Erro" };
+    return { success: false, count: 0, error: err instanceof Error ? err.message : "Erro", clubesNovos: [] };
   }
 }
 
