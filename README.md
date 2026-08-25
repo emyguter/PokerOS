@@ -969,6 +969,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   `processarAcertos` devolve quais clubes foram criados nesse cálculo, e a tela de Acertos mostra um
   aviso destacado com o nome de cada um e link direto pra Cadastro > Clubes (`acertos-engine.ts`,
   `AcertosView.tsx`)
+- [x] **Recalcular duplicava Acerto em vez de atualizar**: `processarAcertos` fazia "apaga tudo
+  desse import e insere de novo" — mas sem checar se o delete deu erro. Se qualquer Acerto do
+  import já tinha Pagamento/Envio vinculado (`lancamentos.acerto_id` é FK), o delete em massa
+  quebrava silenciosamente e o código seguia pro insert do mesmo jeito, empilhando um Acerto novo
+  em cima do antigo a cada clique em Recalcular (achado investigando o PIXGAME duplicado 3x,
+  reportado pelo Cássio — "toda vez que recalcula, ele tá acrescentando, é update"). Agora
+  Recalcular atualiza a linha existente de cada clube (mesmo `id`, preserva o vínculo de
+  Pagamento) e só insere linha nova pra clube que ainda não tinha Acerto nesse import
+  (`acertos-engine.ts`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
