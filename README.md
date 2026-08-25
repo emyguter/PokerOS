@@ -797,6 +797,12 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   e a lista reordena por `valor_acerto`, então também não dava pra achar de novo o clube que se
   estava conferindo. Agora guarda qual clube estava aberto antes de recalcular e reabre o mesmo já
   com os dados novos
+- [x] Cadastro de Clube (clubes `taxa_fixa_variavel`/`weekly_usd`, sem separar MTT/Cash): campo da
+  taxa própria do clube estava rotulado **"Taxa da Liga (%)"**, colidindo com o nome da Taxa da
+  Liga de verdade (camada separada, configurada no cadastro da Liga vinculada, soma em cima dessa
+  aqui — ver item "Taxa da Liga inverte prioridade"). Isso levava a configurar o campo errado
+  achando que tinha preenchido a Taxa da Liga, e ela ficava 0% no Acerto. Renomeado pra "Taxa sobre
+  Rake Total (%)", com nota explicando a diferença — sem mudança de cálculo, só de rótulo
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

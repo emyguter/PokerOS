@@ -420,7 +420,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
         <>
           {!isRkb && (
             <div className="grid grid-cols-2 gap-4">
-              <Fld label={isDin ? 'Fee MTT (%)' : 'Taxa da Liga (%)'}>
+              <Fld label={isDin ? 'Fee MTT (%)' : 'Taxa sobre Rake Total (%)'}>
                 {camposComRegra.has(isDin ? 'fee_mtt' : 'rake_total')
                   ? <CampoSeguindoRegra />
                   : <NumInput value={form.fee_mtt_pct} onChange={v => set('fee_mtt_pct', v)} placeholder="Ex: 8.5" />}
@@ -468,6 +468,14 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
           {!isRkb && isDin && (
             <p className="text-xs text-gray-500">
               Fee MTT, Fee Cash, Taxa Operacional (quando ligada) e SpinUp acima só valem pro campo que <strong>não</strong> tiver regra variável vinculada — campo com regra vinculada aparece travado, mostrando “Campo seguindo regra vinculada” no lugar do número. Confira/altere o vínculo na etapa “Regras”.
+            </p>
+          )}
+          {!isRkb && !isDin && (
+            <p className="text-xs text-gray-500">
+              Essa é a taxa própria desse clube, cobrada em cima do Rake Total inteiro — <strong>não</strong> é a
+              Taxa da Liga (que é uma camada à parte, configurada no cadastro da Liga vinculada e soma em cima
+              dessa aqui). Campo com regra variável vinculada aparece travado, mostrando “Campo seguindo regra
+              vinculada” no lugar do número. Confira/altere o vínculo na etapa “Regras”.
             </p>
           )}
 
