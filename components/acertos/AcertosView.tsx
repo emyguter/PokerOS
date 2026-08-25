@@ -207,8 +207,12 @@ export default function AcertosView() {
       setImports(data as Import[]);
       // Sem isso, a tela sempre abria no aviso "Selecione um import ao
       // lado" — o import mais recente já vem selecionado sozinho (mesmo
-      // padrão de CobrancaView/ControlePagamentosView).
-      if (data.length > 0) await handleSelect(data[0] as Import);
+      // padrão de CobrancaView/ControlePagamentosView). Só auto-seleciona
+      // quando ainda não tem nada selecionado (primeira carga) — loadImports
+      // também roda de novo depois de Recalcular (pra atualizar o status na
+      // lista), e ali não pode trocar a seleção pro import mais novo,
+      // perdendo o que o usuário estava vendo.
+      if (data.length > 0 && !selected) await handleSelect(data[0] as Import);
     }
   }
 

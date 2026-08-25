@@ -978,6 +978,12 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Recalcular atualiza a linha existente de cada clube (mesmo `id`, preserva o vínculo de
   Pagamento) e só insere linha nova pra clube que ainda não tinha Acerto nesse import
   (`acertos-engine.ts`)
+- [x] **Recalcular perdia o import selecionado**: `loadImports` sempre reselecionava o import mais
+  recente da lista — certo na primeira carga da tela (senão abria vazia), mas essa mesma função
+  também roda de novo depois de Recalcular (pra atualizar o status na lista), e ali trocava a
+  seleção pro import mais novo em vez de manter o que o usuário estava vendo, exigindo dar refresh
+  pra voltar pro import certo. Agora só auto-seleciona quando ainda não tem nada selecionado
+  (`AcertosView.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
