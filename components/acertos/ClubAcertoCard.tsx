@@ -186,8 +186,12 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         const validos = rows.filter((r) => r.rake_total)
         if (validos.length < 4 && club?.wtr4_semanas_manual != null) { setWtr(club.wtr4_semanas_manual); return }
         if (validos.length === 0) { setWtr(null); return }
-        const media = validos.reduce((s, r) => s + r.player_result / r.rake_total, 0) / validos.length
-        setWtr(media)
+        // Razão das somas (mesma fórmula de lib/acertos-engine.ts): soma
+        // Ganhos e soma Rake das semanas primeiro, divide os totais uma vez
+        // só — não é a média de cada razão semanal.
+        const somaGanhos = validos.reduce((s, r) => s + r.player_result, 0)
+        const somaRake = validos.reduce((s, r) => s + r.rake_total, 0)
+        setWtr(somaRake ? somaGanhos / somaRake : null)
       })
   }, [acerto.club_external_id, club])
 

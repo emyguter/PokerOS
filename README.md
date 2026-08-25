@@ -827,6 +827,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   estiver configurado na própria Liga quando tiver algo (`taxa_liga_valor != 0`), senão cai pro que
   a Regra vinculada ao clube calculou (`fee_calculado`) — mesma linha, não duas separadas. Não entra
   nesse fallback em `taxa_dinamica` (já vem itemizado em Taxa MTT/Cash/Operacional/SpinUp)
+- [x] **WtR 4 Semanas corrigido pra razão das somas**: era a média de cada razão semanal
+  (Ganhos/Rake de cada semana, depois tira a média das 4) — confirmado com o Cássio (planilha real
+  comparando os dois métodos) que o certo é somar o Ganhos e somar o Rake das até-4 semanas
+  primeiro, e dividir os totais uma vez só no final — os dois métodos dão resultados bem diferentes
+  quando o Rake varia muito semana a semana. Corrigido em `calcularWtr4Semanas`
+  (`lib/acertos-engine.ts`, usado pra decidir a faixa de taxa de verdade) e na conta equivalente do
+  card de Acerto (`ClubAcertoCard.tsx`, só exibição) — os dois tinham que ficar iguais, senão o
+  número mostrado no card não bateria com o que decidiu a taxa aplicada. 3 novos testes cobrindo a
+  fórmula (inclusive o exemplo exato da planilha)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

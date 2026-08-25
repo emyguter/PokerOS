@@ -396,10 +396,16 @@ async function buscarHistoricoWtr(clubExternalIds: string[], importIdAtual: stri
   return mapa;
 }
 
-function calcularWtr4Semanas(row: ImportRow, historico: { player_result: number; rake_total: number }[]): number | null {
+// Razão das somas — confirmado com o Cássio: soma o Ganhos e soma o Rake das
+// até-4 semanas primeiro, divide os totais uma vez só no final. NÃO é a
+// média de cada razão semanal (essas duas contas dão resultados bem
+// diferentes quando o Rake varia muito de semana pra semana).
+export function calcularWtr4Semanas(row: ImportRow, historico: { player_result: number; rake_total: number }[]): number | null {
   const candidatos = [{ player_result: row.player_result ?? 0, rake_total: row.rake_total ?? 0 }, ...historico].filter((r) => r.rake_total);
   if (candidatos.length === 0) return null;
-  return candidatos.reduce((s, r) => s + r.player_result / r.rake_total, 0) / candidatos.length;
+  const somaGanhos = candidatos.reduce((s, r) => s + r.player_result, 0);
+  const somaRake = candidatos.reduce((s, r) => s + r.rake_total, 0);
+  return somaRake ? somaGanhos / somaRake : null;
 }
 
 // Pendências/Antecipação = lançamentos de Antecipação do Suporte já

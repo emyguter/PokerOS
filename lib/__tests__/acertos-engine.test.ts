@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   calcularAcerto,
   calcularIndicacao,
+  calcularWtr4Semanas,
   valorIndicador,
   avaliarCondicoes,
   CONDICOES_VAZIAS,
@@ -159,6 +160,30 @@ describe('calcularIndicacao', () => {
   it('rake zero ou percentual zero dá bônus zero', () => {
     expect(calcularIndicacao(10, 0)).toBe(0)
     expect(calcularIndicacao(0, 1000)).toBe(0)
+  })
+})
+
+describe('calcularWtr4Semanas', () => {
+  it('razão das somas: soma Ganhos e soma Rake das semanas, divide uma vez só — não é média das razões semanais', () => {
+    // Exemplo real conferido com o Cássio: W1 1000/-500, W2 250/-500, W3 700/200, W4 100/-230
+    // Soma Rake = 2050, soma Ganhos = -1030 → -1030/2050 = -0,50244 (não -1,12857, que seria a média das razões)
+    const atual = { player_result: -230, rake_total: 100 }
+    const historico = [
+      { player_result: 200, rake_total: 700 },
+      { player_result: -500, rake_total: 250 },
+      { player_result: -500, rake_total: 1000 },
+    ]
+    expect(calcularWtr4Semanas(row(atual), historico)).toBeCloseTo(-0.50244, 5)
+  })
+
+  it('ignora semana com rake zero, sem null nem divisão por zero', () => {
+    const atual = { player_result: 100, rake_total: 500 }
+    const historico = [{ player_result: 999, rake_total: 0 }]
+    expect(calcularWtr4Semanas(row(atual), historico)).toBe(0.2) // só a semana atual conta: 100/500
+  })
+
+  it('sem nenhuma semana com rake, dá null', () => {
+    expect(calcularWtr4Semanas(row({ player_result: 0, rake_total: 0 }), [])).toBeNull()
   })
 })
 
