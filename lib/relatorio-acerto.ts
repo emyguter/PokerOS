@@ -11,13 +11,8 @@ export const CAMPOS_OBRIGATORIOS = [
 // "Taxa A-A Home Game" existiu como campo digitado à mão antes da Indicação
 // virar automática — confirmado pelo Cássio que era a mesma coisa, removido
 // de propósito pra não ter dois lugares representando o mesmo bônus.
-// "taxa_propria" mostra `fee_calculado` — a taxa própria do clube (Regra
-// vinculada ao campo Rake, ou % fixo do cadastro), que pra clubes
-// taxa_fixa_variavel/weekly_usd não tinha NENHUMA linha própria no card
-// (Taxa MTT/Cash só existem de verdade em taxa_dinamica) — o valor já era
-// descontado do Total, só não aparecia em lugar nenhum.
 export const CAMPOS_OPCIONAIS = [
-  'taxa_mtt', 'wtr4', 'taxa_cash', 'taxa_propria', 'rake_mtt', 'rake_cash', 'taxa_operacional', 'taxa_liga',
+  'taxa_mtt', 'wtr4', 'taxa_cash', 'rake_mtt', 'rake_cash', 'taxa_operacional', 'taxa_liga',
   'rebate', 'indicacao', 'lancamentos_periodo', 'dividas_acordos',
 ] as const
 
@@ -35,7 +30,6 @@ export const LABEL_CAMPO: Record<CampoAcerto, string> = {
   taxa_mtt: 'Taxa MTT',
   wtr4: 'WtR 4 Semanas',
   taxa_cash: 'Taxa Cash',
-  taxa_propria: 'Taxa',
   rake_mtt: 'Rake MTT',
   rake_cash: 'Rake Cash',
   taxa_operacional: 'Taxa Operacional',
@@ -49,7 +43,7 @@ export const LABEL_CAMPO: Record<CampoAcerto, string> = {
 // Ordem que o card de Acerto sempre teve, antes de existir Regra de Layout —
 // é o que qualquer clube sem regra vinculada continua vendo, sem mudar nada.
 export const LAYOUT_PADRAO: CampoAcerto[] = [
-  'semana', 'clube', 'taxa_mtt', 'wtr4', 'taxa_cash', 'taxa_propria',
+  'semana', 'clube', 'taxa_mtt', 'wtr4', 'taxa_cash',
   'rake_total', 'rake_mtt', 'rake_cash', 'ganhos',
   'taxa_operacional', 'spinup', 'taxa_liga', 'bilhetes', 'pendencias', 'seguranca',
   'rebate', 'indicacao', 'lancamentos_periodo', 'dividas_acordos',

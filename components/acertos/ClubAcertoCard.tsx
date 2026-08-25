@@ -384,16 +384,6 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         )
       case 'taxa_cash':
         return <Linha key={campo} label={`Taxa Cash (${fmtPct(acerto.taxa_cash_pct_aplicada)}%)`} value={-feeCashValor} />
-      case 'taxa_propria': {
-        // fee_calculado é a taxa própria do clube — em taxa_dinamica já é a
-        // soma de Taxa MTT/Cash/Operacional/SpinUp (linhas próprias, mostrar
-        // aqui também seria redundante); só tem valor como linha própria pra
-        // taxa_fixa_variavel/weekly_usd, que não tinham NENHUMA taxa visível
-        // no card antes disso.
-        if (acerto.settlement_type === 'taxa_dinamica' || feeCalculadoValor === 0) return null
-        const pct = rakeTotal > 0 ? (feeCalculadoValor / rakeTotal) * 100 : 0
-        return <Linha key={campo} label={`Taxa (${fmtPct(pct)}%)`} value={-feeCalculadoValor} />
-      }
       case 'rake_total':
         return <Linha key={campo} label="Rake Total" value={rakeTotal} />
       case 'rake_mtt':
@@ -406,8 +396,18 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         return <Linha key={campo} label={club?.taxa_op_ativo === false ? 'Taxa Operacional (desativada)' : `Taxa Operacional (${fmtPct(club?.taxa_op_pct ?? null)}%)`} value={-feeOperacionalValor} />
       case 'spinup':
         return <Linha key={campo} label={`SpinUp Rake (${fmtPct(club?.spinup_pct ?? null)}%)`} value={-feeSpinupValor} />
-      case 'taxa_liga':
-        return <Linha key={campo} label={`Taxa da Liga (${fmtPct(club?.leagues?.taxa_app_pct ?? null)}%)`} value={-taxaLigaValor} />
+      case 'taxa_liga': {
+        // Taxa da Liga: cadastro/Regra da própria Liga manda quando tiver
+        // algo configurado ali (taxaLigaValor != 0). Sem nada configurado na
+        // Liga, cai pra Regra vinculada ao clube (fee_calculado) — pra
+        // clubes sem Fee MTT/Cash (taxa_fixa_variavel/weekly_usd) é a única
+        // taxa que existe, e conta como Taxa da Liga aqui. Em taxa_dinamica
+        // nunca cai nesse fallback — já vem itemizado em Taxa MTT/Cash/
+        // Operacional/SpinUp, e a Liga continua sendo uma camada à parte.
+        const valorTaxaLiga = taxaLigaValor !== 0 || acerto.settlement_type === 'taxa_dinamica' ? taxaLigaValor : feeCalculadoValor
+        const pct = rakeTotal > 0 ? (valorTaxaLiga / rakeTotal) * 100 : 0
+        return <Linha key={campo} label={`Taxa da Liga (${fmtPct(pct)}%)`} value={-valorTaxaLiga} />
+      }
       case 'bilhetes':
         return <Linha key={campo} label="Bilhetes" value={bilhetesValor} />
       case 'pendencias':

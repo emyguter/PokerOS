@@ -818,16 +818,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   clube selecionado, então continuava aparecendo mesmo depois de revertido (ou olhando outro
   clube que nunca teve corte nenhum). Resetada em `handleReverterCorte50` e na troca de clube. Card
   "Stoploss Atual" agora mostra "—" quando o clube está Bloqueado
-- [x] **Novo campo "Taxa" no card de Acerto** (`taxa_propria`, opcional na Regra de Layout): clubes
-  `taxa_fixa_variavel`/`weekly_usd` (sem separar MTT/Cash) não tinham NENHUMA linha própria
-  mostrando a taxa cobrada — Taxa MTT/Cash só existem de verdade em `taxa_dinamica`. O valor
-  (`fee_calculado`, via Regra de Faixa vinculada ao campo Rake ou % fixo do cadastro) já era
-  descontado do Total, só não aparecia em lugar nenhum — o que gerou confusão com a Taxa da Liga
-  (camada completamente separada, da Liga, não do clube). Adicionado ao `LAYOUT_PADRAO`; como
-  `resolverLayout` já completa automaticamente com campos novos que não existiam quando o Layout
-  customizado de um clube foi salvo, aparece sozinho sem precisar reconfigurar nada. Some em
-  `taxa_dinamica` (já vem itemizado em Taxa MTT/Cash/Operacional/SpinUp, mostrar de novo seria
-  redundante)
+- [x] **"Taxa da Liga" no card do Acerto ganha fallback pra Regra do clube**: clubes
+  `taxa_fixa_variavel`/`weekly_usd` (sem separar MTT/Cash) não tinham NENHUMA taxa própria visível
+  no card — Taxa MTT/Cash só existem de verdade em `taxa_dinamica`. O valor (`fee_calculado`, via
+  Regra de Faixa vinculada ao clube no campo Rake, ou % fixo do cadastro) já era descontado do
+  Total, só não aparecia em lugar nenhum, o que gerou confusão com a Taxa da Liga de verdade (Liga
+  cadastro/Regra, camada separada). Pedido confirmado: "Taxa da Liga" no card passa a mostrar o que
+  estiver configurado na própria Liga quando tiver algo (`taxa_liga_valor != 0`), senão cai pro que
+  a Regra vinculada ao clube calculou (`fee_calculado`) — mesma linha, não duas separadas. Não entra
+  nesse fallback em `taxa_dinamica` (já vem itemizado em Taxa MTT/Cash/Operacional/SpinUp)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
