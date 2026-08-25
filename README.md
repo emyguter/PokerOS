@@ -995,6 +995,12 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   de aparecer com R$0 (achado no caso PIXGAME/Liga Particular + PIXGAME/Orion). Agora a quebra
   aparece sempre que o clube TEM vínculo cadastrado, e cada membro sem Acerto entra com total R$0
   (`ClubAcertoCard.tsx`)
+- [x] **Clube Vinculado no cadastro não salvava de verdade**: selecionar o clube na busca de "Clube
+  Vinculado" (Cadastro > Clubes) só deixava ele pronto num chip com um botão "+" separado pra
+  confirmar — clicar no resultado da busca parecia já ter vinculado, mas sem esse segundo clique
+  (fácil de não perceber, é uma ação independente do "Salvar Clube" principal) o vínculo nunca era
+  salvo (reportado pelo Cássio, caso PIXGAME Liga Particular + PIXGAME Orion). Agora salva direto
+  ao clicar no resultado da busca, sem passo intermediário (`ClubModal.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
