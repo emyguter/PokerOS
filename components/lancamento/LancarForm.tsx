@@ -83,16 +83,20 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
     supabase.from('clubs').select('id, name').order('name').then(({ data }) => setClubes(data ?? []))
   }, [])
 
-  // Pagamento e Antecipação (Envio), de Suporte ou Financeiro, precisam
-  // apontar pra um Acerto — alimentam Controle de Pagamentos/Cobrança (ver
-  // lib/pagamentos.ts, buscarPagamentosPorImport busca pelos dois tipos com
-  // acerto_id, sem filtrar por origem). Antecipação é só outro jeito de
-  // registrar um pagamento do clube — mesmo tratamento de Pagamento daqui pra
-  // frente, exceto o nome. Aproveita a troca de clube pra já buscar o % de
-  // Crypto Rebate junto (usado só pelo botão "Pagar com Crypto", Tipo
-  // Pagamento) — corrige o Valor pra já vir descontado, mesma fórmula do
-  // "Total Crypto Rebate" em Acertos (valor ÷ (1 + %)).
+  // Pagamento sempre precisa apontar pra um Acerto — quita uma Diferença
+  // específica e alimenta o Controle de Pagamentos/Cobrança (ver
+  // lib/pagamentos.ts, buscarPagamentosPorImport busca por acerto_id).
+  // Antecipação NÃO paga Acerto nenhum — ela só aumenta o Stoploss vigente
+  // do clube quando concilia com a Genia (registrarAntecipacaoNoStoploss em
+  // useConciliacao.ts), independente de ter Acerto pendente ou não. Por isso
+  // o campo de Acerto continua aparecendo pra Antecipação (útil se quiser
+  // rastrear no Controle de Pagamentos mesmo assim), mas não é obrigatório.
+  // Aproveita a troca de clube pra já buscar o % de Crypto Rebate junto
+  // (usado só pelo botão "Pagar com Crypto", Tipo Pagamento) — corrige o
+  // Valor pra já vir descontado, mesma fórmula do "Total Crypto Rebate" em
+  // Acertos (valor ÷ (1 + %)).
   const ehPagamentoComAcerto = tipo === 'pagamento' || tipo === 'antecipacao'
+  const acertoObrigatorio = tipo === 'pagamento'
   useEffect(() => {
     if (!clubeId) { setClubeCryptoPct(0) }
     else {
@@ -145,7 +149,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
     if (!clubeId) { setError('Escolha o clube.'); return }
     const valorNum = Number(valor.replace(',', '.'))
     if (!valorNum || valorNum <= 0) { setError('Informe um valor válido.'); return }
-    if (ehPagamentoComAcerto && !acertoId) { setError(t('pagamentos.qual_acerto_obrigatorio')); return }
+    if (acertoObrigatorio && !acertoId) { setError(t('pagamentos.qual_acerto_obrigatorio')); return }
 
     // Caução do Suporte pula direto pra fila da Genia — fácil de lançar
     // duplicado sem querer, então avisa antes se já existe algo igual.
@@ -185,7 +189,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
         criado_por: userData.user?.id ?? null,
         origem,
         status,
-        acerto_id: ehPagamentoComAcerto ? acertoId : null,
+        acerto_id: ehPagamentoComAcerto && acertoId ? acertoId : null,
         pago_crypto: tipo === 'pagamento' && pagoCrypto,
       })
       if (insErr) throw insErr
@@ -264,7 +268,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
 
         {ehPagamentoComAcerto && clubeId && (
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5">{t('pagamentos.qual_acerto')}</label>
+            <label className="block text-xs text-gray-500 mb-1.5">{t(acertoObrigatorio ? 'pagamentos.qual_acerto' : 'pagamentos.qual_acerto_antecipacao')}</label>
             <select value={acertoId} onChange={(e) => { setAcertoId(e.target.value); setPagoCrypto(false) }} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
               <option value="">{t('pagamentos.selecione_acerto')}</option>
               {acertosClube.map((a) => <option key={a.id} value={a.id}>{formatPeriodoAcerto(a)}</option>)}
