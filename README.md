@@ -791,6 +791,12 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   clube, o "Indicação (X%)" mostrado busca direto os vínculos cadastrados hoje em vez de reconstruir
   a partir do valor gravado — mesma simplificação já usada nos outros % do card (mostra a config
   atual, só o R$ é o histórico)
+- [x] Recalcular Acertos (Relatórios → aba Acertos) mantém o card aberto no mesmo clube: como
+  `processarAcertos` apaga e reinsere as linhas do import, o `id` de cada Acerto muda a cada
+  recálculo — o card que já estava aberto ficava com os números antigos (referência à linha velha),
+  e a lista reordena por `valor_acerto`, então também não dava pra achar de novo o clube que se
+  estava conferindo. Agora guarda qual clube estava aberto antes de recalcular e reabre o mesmo já
+  com os dados novos
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

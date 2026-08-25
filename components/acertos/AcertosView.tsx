@@ -130,8 +130,10 @@ export default function AcertosView() {
       .select("*")
       .eq("import_id", importId)
       .order("valor_acerto", { ascending: false });
-    setAcertos((data as Acerto[]) ?? []);
+    const linhas = (data as Acerto[]) ?? [];
+    setAcertos(linhas);
     setLoading(false);
+    return linhas;
   }, []);
 
   // Lançamentos (bônus/promoção/pagamento) do próprio clube, lançados na
@@ -241,11 +243,25 @@ export default function AcertosView() {
 
   async function executarCalculo(importId: string) {
     setCalculating(true);
+    // Recalcular apaga e reinsere as linhas do import (processarAcertos),
+    // então o `id` de cada Acerto muda — sem isso, o card que estava aberto
+    // (cardAberto, uma referência à linha antiga) ficava com número velho na
+    // tela, e a lista reordena por valor_acerto, então também não dava pra
+    // achar de novo o clube que se estava olhando. Guarda o clube antes de
+    // recalcular e reabre o mesmo, já com os dados novos.
+    const clubAbertoId = cardAberto?.club_id ?? null;
+    const clubExtAberto = cardAberto?.club_external_id ?? null;
     const result = await processarAcertos(importId);
     if (result.success) {
       const resultAgentes = await processarAcertosAgentes(importId);
       if (!resultAgentes.success) alert("Acertos por clube ok, mas erro no acerto de agentes: " + resultAgentes.error);
-      await loadAcertos(importId);
+      const linhasAtualizadas = await loadAcertos(importId);
+      if (cardAberto) {
+        const atualizado = linhasAtualizadas.find((a) =>
+          clubAbertoId ? a.club_id === clubAbertoId : a.club_external_id === clubExtAberto
+        );
+        setCardAberto(atualizado ?? null);
+      }
       await loadImports();
     } else {
       alert("Erro: " + result.error);
