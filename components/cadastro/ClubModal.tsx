@@ -94,7 +94,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   const [vinculos, setVinculos] = useState<VinculoAcertoRow[]>([])
   const [salvandoVinculo, setSalvandoVinculo] = useState(false)
   const [erroVinculo, setErroVinculo] = useState<string | null>(null)
-  const [vinculoClub, setVinculoClub] = useState<{ id: string; nome: string } | null>(null)
   const [buscaVinculoClub, setBuscaVinculoClub] = useState('')
   const [resultadosVinculoClub, setResultadosVinculoClub] = useState<{ id: string; name: string; external_id: string | null; plataformaNome: string | null }[]>([])
   const [buscandoVinculoClub, setBuscandoVinculoClub] = useState(false)
@@ -122,7 +121,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     setResultadosIndClub([])
     setVinculos([])
     setErroVinculo(null)
-    setVinculoClub(null)
     setBuscaVinculoClub('')
     setResultadosVinculoClub([])
     setClubeLocked(!!editing?.name && !!editing?.external_id)
@@ -205,13 +203,20 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     }, 400)
   }, [buscaIndClub, editing])
 
-  async function adicionarVinculo() {
-    if (!editing || !vinculoClub) return
+  // Salva direto ao clicar no resultado da busca — não tem campo extra pra
+  // preencher (diferente de Indicações, que precisa do % antes de
+  // confirmar), então o passo intermediário de "selecionar, depois clicar
+  // num botão + separado" só criava a chance de alguém achar que já tinha
+  // vinculado (o clube aparecia escolhido) e fechar o modal sem esse
+  // segundo clique — o vínculo nunca era salvo (reportado pelo Cássio,
+  // caso PIXGAME Liga Particular + PIXGAME Orion).
+  async function adicionarVinculo(clube: { id: string; nome: string }) {
+    if (!editing) return
     setSalvandoVinculo(true); setErroVinculo(null)
     try {
-      await addVinculoAcerto(editing.id, vinculoClub.id)
+      await addVinculoAcerto(editing.id, clube.id)
       setVinculos(await getVinculosAcerto(editing.id))
-      setVinculoClub(null); setBuscaVinculoClub('')
+      setBuscaVinculoClub(''); setResultadosVinculoClub([])
     } catch (e) {
       setErroVinculo(errMsg(e))
     } finally {
@@ -259,7 +264,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
 
   const set = (k: keyof ClubForm, v: any) => setForm(f => ({ ...f, [k]: v }))
   const isDin = form.settlement_type === 'taxa_dinamica'
-  const isUSD = form.settlement_type === 'weekly_usd'
   const isRkb = form.settlement_type === 'rakeback'
   // Stoploss Inicial só pode ser definido uma vez — depois disso o campo trava.
   const stoplossTravado = editing?.stoploss_inicial != null
@@ -347,41 +351,28 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
             ) : (
               <>
                 {erroVinculo && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroVinculo}</div>}
-                {vinculoClub ? (
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 flex items-center justify-between px-3 py-2 bg-surface2 border border-gold/30 rounded-lg text-sm">
-                      <span className="text-white">{vinculoClub.nome}</span>
-                      <button type="button" onClick={() => setVinculoClub(null)} className="text-gray-500 hover:text-alert"><Trash2 size={13} /></button>
+                <div className="relative">
+                  <input
+                    type="text" value={buscaVinculoClub} onChange={e => setBuscaVinculoClub(e.target.value)}
+                    disabled={salvandoVinculo}
+                    placeholder="Buscar clube por ID ou nome..." className={inputCls}
+                  />
+                  {(buscandoVinculoClub || salvandoVinculo) && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
+                  {resultadosVinculoClub.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-surface2 border border-white/10 rounded-lg overflow-hidden shadow-xl">
+                      {resultadosVinculoClub.map(c => (
+                        <button
+                          key={c.id} type="button"
+                          onClick={() => adicionarVinculo({ id: c.id, nome: c.name })}
+                          disabled={salvandoVinculo}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-white/5 transition-colors disabled:opacity-40"
+                        >
+                          {c.name} <span className="text-gray-500">(ID: {c.external_id ?? '—'}{c.plataformaNome ? ` · ${c.plataformaNome}` : ''})</span>
+                        </button>
+                      ))}
                     </div>
-                    <button
-                      type="button"
-                      onClick={adicionarVinculo}
-                      disabled={salvandoVinculo}
-                      className="px-3 py-2 bg-surface2 border border-white/10 rounded-lg text-gold hover:border-gold/50 disabled:opacity-40 transition-colors"
-                    ><Plus size={16} /></button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <input
-                      type="text" value={buscaVinculoClub} onChange={e => setBuscaVinculoClub(e.target.value)}
-                      placeholder="Buscar clube por ID ou nome..." className={inputCls}
-                    />
-                    {buscandoVinculoClub && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
-                    {resultadosVinculoClub.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-surface2 border border-white/10 rounded-lg overflow-hidden shadow-xl">
-                        {resultadosVinculoClub.map(c => (
-                          <button
-                            key={c.id} type="button"
-                            onClick={() => { setVinculoClub({ id: c.id, nome: c.name }); setBuscaVinculoClub(''); setResultadosVinculoClub([]) }}
-                            className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-white/5 transition-colors"
-                          >
-                            {c.name} <span className="text-gray-500">(ID: {c.external_id ?? '—'}{c.plataformaNome ? ` · ${c.plataformaNome}` : ''})</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
                 {vinculos.map(v => (
                   <div key={v.id} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-white/10 text-sm">
                     <span className="text-gray-300">{v.nome}</span>
@@ -559,22 +550,20 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
             )}
           </div>
 
-          {!isRkb && isUSD && (
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 cursor-pointer w-fit">
-                <div
-                  onClick={() => { const novo = !form.crypto_rebate_ativo; set('crypto_rebate_ativo', novo); if (!novo) set('crypto_rebate_pct', null) }}
-                  className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${form.crypto_rebate_ativo ? 'bg-gold' : 'bg-white/10'}`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${form.crypto_rebate_ativo ? 'translate-x-5' : 'translate-x-1'}`} />
-                </div>
-                <span className="text-sm text-gray-300">Crypto Rebate</span>
-              </label>
-              {form.crypto_rebate_ativo && (
-                <Fld label="Crypto Rebate (%)"><NumInput value={form.crypto_rebate_pct} onChange={v => set('crypto_rebate_pct', v)} placeholder="Ex: 5" /></Fld>
-              )}
-            </div>
-          )}
+          <div className="space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer w-fit">
+              <div
+                onClick={() => { const novo = !form.crypto_rebate_ativo; set('crypto_rebate_ativo', novo); if (!novo) set('crypto_rebate_pct', null) }}
+                className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${form.crypto_rebate_ativo ? 'bg-gold' : 'bg-white/10'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${form.crypto_rebate_ativo ? 'translate-x-5' : 'translate-x-1'}`} />
+              </div>
+              <span className="text-sm text-gray-300">Crypto Rebate</span>
+            </label>
+            {form.crypto_rebate_ativo && (
+              <Fld label="Crypto Rebate (%)"><NumInput value={form.crypto_rebate_pct} onChange={v => set('crypto_rebate_pct', v)} placeholder="Ex: 5" /></Fld>
+            )}
+          </div>
 
           <div className="space-y-2 pt-2 border-t border-white/10">
             <Fld label="Termos especiais">

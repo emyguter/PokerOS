@@ -995,6 +995,23 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   de aparecer com R$0 (achado no caso PIXGAME/Liga Particular + PIXGAME/Orion). Agora a quebra
   aparece sempre que o clube TEM vínculo cadastrado, e cada membro sem Acerto entra com total R$0
   (`ClubAcertoCard.tsx`)
+- [x] **Clube Vinculado no cadastro não salvava de verdade**: selecionar o clube na busca de "Clube
+  Vinculado" (Cadastro > Clubes) só deixava ele pronto num chip com um botão "+" separado pra
+  confirmar — clicar no resultado da busca parecia já ter vinculado, mas sem esse segundo clique
+  (fácil de não perceber, é uma ação independente do "Salvar Clube" principal) o vínculo nunca era
+  salvo (reportado pelo Cássio, caso PIXGAME Liga Particular + PIXGAME Orion). Agora salva direto
+  ao clicar no resultado da busca, sem passo intermediário (`ClubModal.tsx`)
+- [x] **Crypto Rebate só aparecia no cadastro pra clube Weekly USD**: o toggle "Crypto Rebate"
+  (Cadastro > Clubes > Taxas) só era exibido pra clubes com `settlement_type = weekly_usd`,
+  diferente do toggle "Rebate" logo acima (esse já sem nenhuma restrição por tipo). Como a tela de
+  Acertos já aplica o Crypto Rebate de forma genérica pra qualquer clube com `crypto_rebate_pct`
+  cadastrado (card "Total Crypto Rebate", `AcertosView.tsx` + `corrigirValorCrypto` em
+  `relatorio-acerto.ts`), a restrição no cadastro só impedia configurar pros demais tipos de clube.
+  Agora o toggle aparece pra qualquer clube (`ClubModal.tsx`). Achado um segundo problema na mesma
+  investigação: a função `clean()` que roda ao salvar o clube (`app/admin/cadastro/clubes/page.tsx`)
+  apagava o `crypto_rebate_pct` de propósito pra clube Taxa Dinâmica e Rakeback — mesmo com o campo
+  liberado na tela, salvar zerava o valor de novo. Agora só limpa quando o toggle "Crypto Rebate"
+  está desligado, igual já funciona pro Rebate normal, independente do tipo de cobrança
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
