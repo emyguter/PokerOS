@@ -264,7 +264,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
 
   const set = (k: keyof ClubForm, v: any) => setForm(f => ({ ...f, [k]: v }))
   const isDin = form.settlement_type === 'taxa_dinamica'
-  const isUSD = form.settlement_type === 'weekly_usd'
   const isRkb = form.settlement_type === 'rakeback'
   // Stoploss Inicial só pode ser definido uma vez — depois disso o campo trava.
   const stoplossTravado = editing?.stoploss_inicial != null
@@ -551,22 +550,20 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
             )}
           </div>
 
-          {!isRkb && isUSD && (
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 cursor-pointer w-fit">
-                <div
-                  onClick={() => { const novo = !form.crypto_rebate_ativo; set('crypto_rebate_ativo', novo); if (!novo) set('crypto_rebate_pct', null) }}
-                  className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${form.crypto_rebate_ativo ? 'bg-gold' : 'bg-white/10'}`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${form.crypto_rebate_ativo ? 'translate-x-5' : 'translate-x-1'}`} />
-                </div>
-                <span className="text-sm text-gray-300">Crypto Rebate</span>
-              </label>
-              {form.crypto_rebate_ativo && (
-                <Fld label="Crypto Rebate (%)"><NumInput value={form.crypto_rebate_pct} onChange={v => set('crypto_rebate_pct', v)} placeholder="Ex: 5" /></Fld>
-              )}
-            </div>
-          )}
+          <div className="space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer w-fit">
+              <div
+                onClick={() => { const novo = !form.crypto_rebate_ativo; set('crypto_rebate_ativo', novo); if (!novo) set('crypto_rebate_pct', null) }}
+                className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${form.crypto_rebate_ativo ? 'bg-gold' : 'bg-white/10'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${form.crypto_rebate_ativo ? 'translate-x-5' : 'translate-x-1'}`} />
+              </div>
+              <span className="text-sm text-gray-300">Crypto Rebate</span>
+            </label>
+            {form.crypto_rebate_ativo && (
+              <Fld label="Crypto Rebate (%)"><NumInput value={form.crypto_rebate_pct} onChange={v => set('crypto_rebate_pct', v)} placeholder="Ex: 5" /></Fld>
+            )}
+          </div>
 
           <div className="space-y-2 pt-2 border-t border-white/10">
             <Fld label="Termos especiais">

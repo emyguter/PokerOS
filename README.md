@@ -1001,6 +1001,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   (fácil de não perceber, é uma ação independente do "Salvar Clube" principal) o vínculo nunca era
   salvo (reportado pelo Cássio, caso PIXGAME Liga Particular + PIXGAME Orion). Agora salva direto
   ao clicar no resultado da busca, sem passo intermediário (`ClubModal.tsx`)
+- [x] **Crypto Rebate só aparecia no cadastro pra clube Weekly USD**: o toggle "Crypto Rebate"
+  (Cadastro > Clubes > Taxas) só era exibido pra clubes com `settlement_type = weekly_usd`,
+  diferente do toggle "Rebate" logo acima (esse já sem nenhuma restrição por tipo). Como a tela de
+  Acertos já aplica o Crypto Rebate de forma genérica pra qualquer clube com `crypto_rebate_pct`
+  cadastrado (card "Total Crypto Rebate", `AcertosView.tsx` + `corrigirValorCrypto` em
+  `relatorio-acerto.ts`), a restrição no cadastro só impedia configurar pros demais tipos de clube.
+  Agora o toggle aparece pra qualquer clube (`ClubModal.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
