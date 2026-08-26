@@ -1119,6 +1119,13 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   trava nem libera nada em nenhuma outra tela do sistema, é só o "olhei e tá certo" do Suporte pra
   aquela semana. Uma vez conferido, o botão vira um "Conferido em ..." fixo (`ConferenciaAppView.tsx`,
   `conferencia.ts`, `pagamentos.ts`, `20260826030000_conferido_no_import.sql`)
+- [x] **Rollover some da tela de Conciliação/Financeiro**: achado no INTERLAGOS CLUB — o Rollover
+  (ver `rolloverAcerto`) cria dois lançamentos só do lado do Suporte, sem par nenhum da Genia (é uma
+  decisão interna, sem dinheiro de verdade se movendo), então ficavam pendurados pra sempre com
+  status "Falta Financeiro" — ninguém nunca ia preencher o outro lado. Agora lançamentos com
+  descrição "Rollover" não aparecem mais na Conciliação nem na fila de Pendências (continuam
+  existindo normal no banco e entrando certinho no próximo Acerto do clube, sem multa — só param de
+  pedir uma conferência que nunca ia acontecer) (`useConciliacao.ts`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
