@@ -93,9 +93,14 @@ export function calcularFeeRegra(a: {
   fee_cash_valor: number
   taxa_liga_valor: number
   fee_calculado: number
+  fee_operacional_valor: number
 }): number {
   if (a.settlement_type === 'taxa_dinamica') return (a.fee_mtt_valor ?? 0) + (a.fee_cash_valor ?? 0)
-  return (a.taxa_liga_valor ?? 0) !== 0 ? a.taxa_liga_valor : (a.fee_calculado ?? 0)
+  if ((a.taxa_liga_valor ?? 0) !== 0) return a.taxa_liga_valor
+  // fee_calculado já inclui fee_operacional_valor (que tem coluna própria
+  // aqui) — sem subtrair, dobrava a Taxa Operacional no fallback (achado no
+  // caso AK AMAKHA club 2, mesmo bug do ClubAcertoCard).
+  return (a.fee_calculado ?? 0) - (a.fee_operacional_valor ?? 0)
 }
 
 // Visão executiva "1 linha por clube" pra uma semana inteira, cruzando
