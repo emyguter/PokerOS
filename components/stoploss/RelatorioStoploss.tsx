@@ -195,10 +195,10 @@ export function RelatorioStoploss() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.liga')}</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.caucao_atual')}</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.stoploss_inicial')}</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider" title="Correções manuais de rake/resultado errado reportado pela plataforma.">Bug PPPoker</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider" title="Ajuste do Suporte já aprovado pela gerência/comitê.">Liberado pela Gerência</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider" title={t('stoploss.title_bug_pppoker')}>{t('stoploss.col_bug_pppoker')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider" title={t('stoploss.title_liberado_gerencia')}>{t('stoploss.col_liberado_gerencia')}</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.pre_payment')}</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider" title="+10% de uso único.">Margem de Monitoria</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider" title={t('stoploss.title_margem_monitoria')}>{t('stoploss.tipo_margem')}</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.stoploss_atual')}</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('stoploss.ratio')}</th>
               </tr>

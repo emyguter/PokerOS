@@ -1204,9 +1204,17 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
 - [x] **Espanhol (fase 16 — telas de Cadastro/Regras e acessos restritos)**: destrava
   `app/admin/regras/page.tsx`, `app/admin/cadastro/clubes/page.tsx`, `app/extrato/page.tsx`,
   `app/agente/extrato/page.tsx`, `app/admin/permissoes/page.tsx` e os 2 títulos que faltavam no
-  `CadastroTable.tsx` compartilhado. ~25 frases novas nos três dicionários. Varredura ampla encontrou
-  mais alguns componentes ainda pendentes (Controle de Pagamentos, Conciliação, Sidebar, alguns
-  Relatórios) — seguem nas próximas fases
+  `CadastroTable.tsx` compartilhado. ~25 frases novas nos três dicionários
+- [x] **Espanhol (fase 17 — últimos retoques, tradução completa)**: última leva de textos soltos
+  encontrados numa varredura ampla do repositório inteiro — tooltips e coluna "Caução"/"Descontar da
+  Caução" no Controle de Pagamentos, colunas e badges de status na Conciliação, tooltips de Bug
+  PPPoker/Liberado pela Gerência/Margem de Monitoria no Relatório de Stoploss, opções de filtro no
+  Relatório de Lançamentos, tooltips de Rollover no Relatório de Acertos Pendentes, aria-label de Super
+  Admin nos modais de usuário, e o placeholder "Visto no app" na Conferência do App. Varredura final
+  confirma: **nenhum texto em português direto no código sobrou no sistema** (só ficaram de propósito os
+  nomes dos idiomas no seletor PT/EN/ES e a marca "PokerOS · League Platform", que não devem ser
+  traduzidos). Tradução Espanhol **completa** — 17 fases, ~280 frases originais + ~600 novas nos três
+  dicionários (pt.ts, en.ts, es.ts)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

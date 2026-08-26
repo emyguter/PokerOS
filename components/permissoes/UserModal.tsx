@@ -258,7 +258,7 @@ export function UserModal({ open, user, roles, permissoes, clubes, agentes, liga
                     type="button"
                     role="switch"
                     aria-checked={isSuperAdmin}
-                    aria-label="Super Admin"
+                    aria-label={t('permissoes.super_admin')}
                     onClick={() => setIsSuperAdmin((v) => !v)}
                     className={`w-10 h-6 rounded-full transition-colors relative shrink-0 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:ring-offset-2 focus:ring-offset-surface2 ${isSuperAdmin ? 'bg-gold' : 'bg-white/10'}`}
                   >
