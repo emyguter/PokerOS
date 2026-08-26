@@ -107,6 +107,14 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
           .in('clube_id', clubIds)
           .in('origem', ['suporte', 'seguranca'])
           .neq('tipo', 'caucao')
+          // Antecipação já entra separado (pendencias_antecipacao) e
+          // Pagamento já quita o Acerto certo pelo acerto_id vinculado (ver
+          // agregarPagamentos) — contar os dois de novo aqui dobra o valor
+          // (mesmo bug do ClubAcertoCard/AcertosView, achado no CHIP COIN:
+          // Antecipação de uma semana entrando 2x, e Pagamento que fechou a
+          // semana anterior "vazando" pra essa por causa da data).
+          .neq('tipo', 'antecipacao')
+          .neq('tipo', 'pagamento')
           .gte('data_lancamento', periodStart)
           .lte('data_lancamento', periodEnd || periodStart)
       : Promise.resolve({ data: [] as { clube_id: string; natureza: 'credito' | 'debito'; valor: number }[] }),

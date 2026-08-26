@@ -1097,6 +1097,17 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   novo além do seletor. O card "Acerto Geral" troca a linha fixa "Total USD" por `Total {moeda
   escolhida}`, calculada como Total ÷ Cotação (`ClubModal.tsx`, `ClubAcertoCard.tsx`,
   `20260826020000_moeda_conversao_no_clube.sql`)
+- [x] **Corrige Antecipação e Pagamento contando 2x no Valor do Acerto**: achado investigando o
+  CHIP COIN — em 5 lugares que somam "Lançamentos do período" (bônus/promoção/outro) em cima do
+  Acerto (card "Acerto Geral", lista de Acertos, Controle de Pagamentos/Cobrança, Resumo de Acertos
+  e "Meus Acertos"), faltava excluir os tipos Antecipação e Pagamento — cada um já entra certo por
+  outro caminho (Antecipação via `pendencias_antecipacao`, Pagamento via o `acerto_id` vinculado que
+  já quita a Diferença daquele Acerto específico), então contar de novo aqui inflava o total sempre
+  que a data caía dentro da semana (ex: Antecipação lançada durante a semana, ou Pagamento que
+  fechou a semana anterior datado bem na virada). Confirmado pelo Cássio: uma vez que o Pagamento
+  quita a Diferença, "é nóis" — não deve mexer em mais nada; sobra vira Diferença e rola pra próxima
+  semana sozinho (`AcertosView.tsx`, `ClubAcertoCard.tsx`, `pagamentos.ts`, `relatorio-resumo-acertos.ts`,
+  `meus-acertos.ts`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

@@ -145,6 +145,10 @@ export async function buscarResumoAcertos(periodoFim: string): Promise<LinhaResu
     .in('origem', ['suporte', 'seguranca'])
     .neq('tipo', 'caucao')
     .neq('tipo', 'antecipacao')
+    // Pagamento já quita o Acerto certo pelo acerto_id vinculado (ver
+    // agregarPagamentos em lib/pagamentos.ts) — contar aqui de novo dobra o
+    // valor (mesmo ajuste feito no AcertosView/ClubAcertoCard).
+    .neq('tipo', 'pagamento')
     .lte('data_lancamento', periodoFim)
   const extrasLancPorClube = new Map<string, number>()
   for (const l of (lancData ?? []) as { clube_id: string; natureza: string; valor: number }[]) {
