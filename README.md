@@ -1201,6 +1201,12 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   a maior fase até agora), incluindo as ~35 mensagens de erro/aviso dos parsers de PPPoker/GGPoker/
   genérico (que precisaram de `t` passado por parâmetro, já que os parsers não são componentes React) e
   toda a UI de upload/histórico. ~70 frases novas nos três dicionários
+- [x] **Espanhol (fase 16 — telas de Cadastro/Regras e acessos restritos)**: destrava
+  `app/admin/regras/page.tsx`, `app/admin/cadastro/clubes/page.tsx`, `app/extrato/page.tsx`,
+  `app/agente/extrato/page.tsx`, `app/admin/permissoes/page.tsx` e os 2 títulos que faltavam no
+  `CadastroTable.tsx` compartilhado. ~25 frases novas nos três dicionários. Varredura ampla encontrou
+  mais alguns componentes ainda pendentes (Controle de Pagamentos, Conciliação, Sidebar, alguns
+  Relatórios) — seguem nas próximas fases
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

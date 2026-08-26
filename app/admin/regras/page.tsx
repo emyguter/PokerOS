@@ -11,39 +11,37 @@ import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { RegraModal, type RegraModalResult } from '@/components/cadastro/RegraModal'
 import { VinculosPanel } from '@/components/cadastro/VinculosPanel'
 import { Plus, Link2 } from 'lucide-react'
+import { useI18n } from '@/lib/i18n'
 
 interface IndicadorInfo { nome: string; descricao: string | null }
 
-// Mesmo rótulo usado em VinculosPanel/RegrasAplicadas — sobre qual taxa do
-// clube (Fee MTT/Fee Cash/Taxa Operacional/SpinUp) o percentual da regra
-// incide (campo escolhido explicitamente na Regra, não mais inferido).
-const LABEL_CAMPO: Record<CampoClube, string> = {
-  fee_mtt: 'Rake MTT', fee_cash: 'Rake Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp', rake_total: 'Rake', taxa_liga: 'Taxa da Liga',
-}
-
 // Frase em linguagem simples do que a regra faz — em vez de só "3 faixas",
 // pra quem não é técnico entender sem abrir o formulário.
-function resumoRegra(r: Regra, indicadores: Map<string, IndicadorInfo>): string {
+function resumoRegra(r: Regra, indicadores: Map<string, IndicadorInfo>, t: (path: string, vars?: Record<string, string | number>) => string): string {
   if (r.tipo === 'multa_atraso') {
-    if (r.faixasMulta.length === 0) return 'Sem faixas ainda'
+    if (r.faixasMulta.length === 0) return t('regras_page.sem_faixas_ainda')
     return r.faixasMulta.map(f => `${f.quantidade ?? '?'} ${f.unidade} → ${f.percentual ?? '?'}%`).join(', ')
   }
   if (r.tipo === 'layout_acerto') {
     const visiveis = resolverLayout(r.layoutCampos).filter(c => c.visivel)
     return visiveis.map(c => LABEL_CAMPO_ACERTO[c.campo]).join(' → ')
   }
-  if (r.condicoes.length === 0) return 'Sem condições ainda'
+  if (r.condicoes.length === 0) return t('regras_page.sem_condicoes_ainda')
   return r.condicoes.map(c => {
-    if (c.is_fallback) return `SENÃO → ${c.resultado_pct ?? '?'}%`
+    if (c.is_fallback) return t('regras_page.senao_resultado', { pct: c.resultado_pct ?? '?' })
     const termos = c.indicador_ids
       .filter(Boolean)
       .map(id => { const ind = indicadores.get(id); return ind ? formatIndicadorNome(ind.nome, ind.descricao) : '?' })
       .join(' + ')
-    return `SE ${termos || '?'} ${c.operador} ${c.valor ?? '?'} → ${c.resultado_pct ?? '?'}%`
+    return t('regras_page.se_resultado', { termos: termos || '?', operador: c.operador, valor: c.valor ?? '?', pct: c.resultado_pct ?? '?' })
   }).join(', ')
 }
 
 export default function RegrasPage() {
+  const { t } = useI18n()
+  const LABEL_CAMPO: Record<CampoClube, string> = {
+    fee_mtt: t('regra_modal.campo_fee_mtt'), fee_cash: t('regra_modal.campo_fee_cash'), taxa_op: t('regra_modal.campo_taxa_op'), spinup: t('regra_modal.campo_spinup'), rake_total: t('regra_modal.campo_rake_total'), taxa_liga: t('regra_modal.campo_taxa_liga'),
+  }
   const [items, setItems] = useState<Regra[]>([])
   const [indicadores, setIndicadores] = useState<Map<string, IndicadorInfo>>(new Map())
   const [loading, setLoading] = useState(true)
@@ -131,15 +129,15 @@ export default function RegrasPage() {
     setError(null)
     try {
       if (regra.tipo === 'faixa') {
-        const paiId = await createRegra({ nome: `${regra.nome} (cópia)`, tipo: 'faixa', campo: regra.campo, condicoes: regra.condicoes, faixasMulta: [], layoutCampos: [] })
+        const paiId = await createRegra({ nome: `${regra.nome} ${t('regras_page.copia_suffix')}`, tipo: 'faixa', campo: regra.campo, condicoes: regra.condicoes, faixasMulta: [], layoutCampos: [] })
         const layoutFilho = items.find(r => r.regraPaiId === regra.id && r.tipo === 'layout_acerto')
-        if (layoutFilho) await createRegra({ nome: 'Layout do Acerto', tipo: 'layout_acerto', campo: null, condicoes: [], faixasMulta: [], layoutCampos: layoutFilho.layoutCampos }, paiId)
+        if (layoutFilho) await createRegra({ nome: t('regra_modal.tipo_layout'), tipo: 'layout_acerto', campo: null, condicoes: [], faixasMulta: [], layoutCampos: layoutFilho.layoutCampos }, paiId)
         const multaFilha = items.find(r => r.regraPaiId === regra.id && r.tipo === 'multa_atraso')
-        if (multaFilha) await createRegra({ nome: `${regra.nome} (cópia)`, tipo: 'multa_atraso', campo: null, condicoes: [], faixasMulta: multaFilha.faixasMulta, layoutCampos: [] }, paiId)
+        if (multaFilha) await createRegra({ nome: `${regra.nome} ${t('regras_page.copia_suffix')}`, tipo: 'multa_atraso', campo: null, condicoes: [], faixasMulta: multaFilha.faixasMulta, layoutCampos: [] }, paiId)
       } else {
         // Layout do Acerto não tem nome digitado — fica sempre com o mesmo
         // nome fixo, a cópia também (ver RegraModal.tsx).
-        const nome = regra.tipo === 'layout_acerto' ? 'Layout do Acerto' : `${regra.nome} (cópia)`
+        const nome = regra.tipo === 'layout_acerto' ? t('regra_modal.tipo_layout') : `${regra.nome} ${t('regras_page.copia_suffix')}`
         await createRegra({ nome, tipo: regra.tipo, campo: regra.campo, condicoes: regra.condicoes, faixasMulta: regra.faixasMulta, layoutCampos: regra.layoutCampos })
       }
       await load()
@@ -164,11 +162,11 @@ export default function RegrasPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Regras</h1>
-          <p className="text-sm text-gray-400 mt-1">Cálculo, Layout e Multa de Acerto — crie/edite tudo junto aqui, depois vincule a Ligas, Clubes ou Agentes</p>
+          <h1 className="text-2xl font-semibold text-white">{t('regras_page.titulo')}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t('regras_page.desc')}</p>
         </div>
         <button onClick={() => { setEditing(null); setModalOpen(true) }} className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors">
-          <Plus size={16} />Nova Regra
+          <Plus size={16} />{t('regras_page.nova_regra')}
         </button>
       </div>
 
@@ -178,38 +176,38 @@ export default function RegrasPage() {
         columns={[
           {
             key: 'nome',
-            label: 'Nome',
+            label: t('regra_modal.nome_label'),
             render: (v: string, row: Regra) => (
               <button onClick={() => setVinculosRegra(row)} className="text-gold hover:underline text-left">{v}</button>
             ),
           },
           {
             key: 'tipo',
-            label: 'O que faz',
+            label: t('regras_page.col_o_que_faz'),
             render: (_: string, row: Regra) => {
               const campo = row.tipo === 'faixa' ? row.campo : null
               const temLayout = row.tipo === 'faixa' && items.some(r => r.regraPaiId === row.id && r.tipo === 'layout_acerto')
               const temMulta = row.tipo === 'faixa' && items.some(r => r.regraPaiId === row.id && r.tipo === 'multa_atraso')
               return (
                 <span className="text-xs text-gray-300">
-                  {resumoRegra(row, indicadores)}
+                  {resumoRegra(row, indicadores, t)}
                   {campo && (
                     <span className="ml-2 px-1.5 py-0.5 rounded-full bg-surface2 border border-white/10 text-gray-400 text-[10px] align-middle whitespace-nowrap">
-                      sobre {LABEL_CAMPO[campo]}
+                      {t('regras_page.sobre_campo', { campo: LABEL_CAMPO[campo] })}
                     </span>
                   )}
-                  {temLayout && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-surface2 border border-white/10 text-gray-400 text-[10px] align-middle whitespace-nowrap">+ Layout</span>}
-                  {temMulta && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-surface2 border border-white/10 text-gray-400 text-[10px] align-middle whitespace-nowrap">+ Multa</span>}
+                  {temLayout && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-surface2 border border-white/10 text-gray-400 text-[10px] align-middle whitespace-nowrap">{t('regras_page.mais_layout')}</span>}
+                  {temMulta && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-surface2 border border-white/10 text-gray-400 text-[10px] align-middle whitespace-nowrap">{t('regras_page.mais_multa')}</span>}
                 </span>
               )
             },
           },
           {
             key: 'vinculoCount',
-            label: 'Vínculos',
+            label: t('regras_page.col_vinculos'),
             render: (v: number, row: Regra) => (
               <button onClick={() => setVinculosRegra(row)} className={`flex items-center gap-1.5 text-sm transition-colors ${v === 0 ? 'text-gold hover:underline' : 'text-gray-300 hover:text-gold'}`}>
-                <Link2 size={13} />{v === 0 ? 'Vincular agora' : v}
+                <Link2 size={13} />{v === 0 ? t('regras_page.vincular_agora') : v}
               </button>
             ),
           },
@@ -235,7 +233,7 @@ export default function RegrasPage() {
       <VinculosPanel
         open={!!vinculosRegra}
         regra={vinculosRegra}
-        resumo={vinculosRegra ? resumoRegra(vinculosRegra, indicadores) : undefined}
+        resumo={vinculosRegra ? resumoRegra(vinculosRegra, indicadores, t) : undefined}
         onClose={() => { setVinculosRegra(null); load() }}
       />
 

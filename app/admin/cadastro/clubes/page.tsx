@@ -100,7 +100,7 @@ export default function ClubesPage() {
             value={filter}
             onChange={setFilter}
             opcoes={leagues.map(l => ({ id: l.id, nome: l.name }))}
-            vazio="Todas as ligas"
+            vazio={t('clubes.todas_ligas')}
             className="bg-surface2 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50 w-full"
           />
         </div>
@@ -110,14 +110,14 @@ export default function ClubesPage() {
             type="text"
             value={nomeFiltro}
             onChange={e => setNomeFiltro(e.target.value)}
-            placeholder="Buscar por nome..."
+            placeholder={t('common.buscar_por_nome')}
             className="w-full bg-surface2 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gold/50"
           />
         </div>
-        <span className="text-sm text-gray-500">{itemsFiltrados.length} clube{itemsFiltrados.length !== 1 ? 's' : ''}</span>
+        <span className="text-sm text-gray-500">{t(itemsFiltrados.length === 1 ? 'clubes.clube_singular' : 'clubes.clube_plural', { n: itemsFiltrados.length })}</span>
         <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer ml-auto">
           <input type="checkbox" checked={mostrarInativos} onChange={e => setMostrarInativos(e.target.checked)} className="accent-gold" />
-          Mostrar inativos
+          {t('clubes.mostrar_inativos')}
         </label>
       </div>
 
@@ -125,16 +125,16 @@ export default function ClubesPage() {
 
       <CadastroTable
         columns={[
-          { key: 'name', label: 'Nome', render: (v: string, row: Club) => (
+          { key: 'name', label: t('regra_modal.nome_label'), render: (v: string, row: Club) => (
             <span className="flex items-center gap-2">
               {v}
-              {!row.ativo && <span className="px-1.5 py-0.5 rounded-full border border-white/10 text-gray-500 text-[10px] uppercase tracking-wider">Inativo</span>}
+              {!row.ativo && <span className="px-1.5 py-0.5 rounded-full border border-white/10 text-gray-500 text-[10px] uppercase tracking-wider">{t('clubes.inativo_badge')}</span>}
             </span>
           ) },
-          { key: 'external_id', label: 'ID App', render: (v: string) => v ?? '—' },
-          { key: 'leagues', label: 'Liga', render: (_: any, row: Club) => row.leagues?.name ?? '—' },
-          { key: 'moeda', label: 'Moeda' },
-          { key: 'rebate_ativo', label: 'Rebate', render: (v: boolean, row: Club) => v ? `${row.rebate_pct ?? 0}%` : '—' },
+          { key: 'external_id', label: t('clubes.col_id_app'), render: (v: string) => v ?? '—' },
+          { key: 'leagues', label: t('regras_aplicadas.entidade_liga'), render: (_: any, row: Club) => row.leagues?.name ?? '—' },
+          { key: 'moeda', label: t('league_modal.moeda_label') },
+          { key: 'rebate_ativo', label: t('relatorio_taxas.col_rebate'), render: (v: boolean, row: Club) => v ? `${row.rebate_pct ?? 0}%` : '—' },
         ]}
         data={itemsFiltrados}
         loading={loading}
@@ -159,9 +159,9 @@ export default function ClubesPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
         saving={saving}
-        title="Inativar clube"
-        confirmLabel="Inativar"
-        description={<>Tem certeza que deseja inativar <span className="text-white font-medium">“{deleteTarget?.name}”</span>? Ele some da lista, mas o cadastro e o histórico (acertos, stoploss, lançamentos) continuam intactos — dá pra reativar depois.</>}
+        title={t('clubes.inativar_titulo')}
+        confirmLabel={t('clubes.inativar_confirm')}
+        description={t('clubes.inativar_desc', { nome: deleteTarget?.name ?? '' })}
       />
     </div>
   )
