@@ -496,13 +496,16 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
           {!isRkb && (
             <div className="grid grid-cols-2 gap-4">
               <Fld label={isDin ? 'Fee MTT (%)' : 'Taxa sobre Rake Total (%)'}>
-                {camposComRegra.has(isDin ? 'fee_mtt' : 'rake_total')
+                {/* Taxa Dinâmica: Regra vinculada em Rake Total serve de fallback
+                    pro campo quando ele não tem regra própria (ver
+                    lib/acertos-engine.ts) — trava igual uma regra direta. */}
+                {camposComRegra.has(isDin ? 'fee_mtt' : 'rake_total') || (isDin && camposComRegra.has('rake_total'))
                   ? <CampoSeguindoRegra />
                   : <NumInput value={form.fee_mtt_pct} onChange={v => set('fee_mtt_pct', v)} placeholder="Ex: 8.5" />}
               </Fld>
               {isDin && (
                 <Fld label="Fee Cash (%)">
-                  {camposComRegra.has('fee_cash')
+                  {camposComRegra.has('fee_cash') || camposComRegra.has('rake_total')
                     ? <CampoSeguindoRegra />
                     : <NumInput value={form.fee_cash_pct} onChange={v => set('fee_cash_pct', v)} placeholder="Ex: 8.5" />}
                 </Fld>
