@@ -1167,6 +1167,10 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
 - [x] **Espanhol (fase 4 — card de detalhe do Acerto)**: destrava o card "Common Settlement / Acerto
   Geral" (`ClubAcertoCard.tsx`) — abre toda vez que alguém clica num clube na lista de Acertos, era
   100% português direto no código. ~25 frases novas nos três dicionários
+- [x] **Espanhol (fase 5 — modal de Clube)**: destrava o `ClubModal.tsx` (maior modal de Cadastro do
+  sistema, 5 etapas — Identificação, Plataforma, Taxas, Regras, Garantias & Limites) e o `StepModal.tsx`
+  compartilhado (usado por todos os modais em etapas — "Cancelar"/"Salvar" agora traduzidos globalmente).
+  ~50 frases novas nos três dicionários
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

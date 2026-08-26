@@ -1,5 +1,6 @@
 'use client'
 import { X, Loader2 } from 'lucide-react'
+import { useI18n } from '@/lib/i18n'
 
 export interface ModalStep {
   key: string
@@ -25,7 +26,8 @@ interface Props {
 // uma etapa navegável em vez de tudo empilhado num scroll só. Modais de
 // entidade simples (poucos campos) podem só não passar `steps` com mais de
 // um item, que a barra de etapas nem aparece.
-export function StepModal({ open, title, steps, active, onStepChange, onClose, onSubmit, saving, error, submitLabel = 'Salvar', children, maxWidth = 'max-w-2xl' }: Props) {
+export function StepModal({ open, title, steps, active, onStepChange, onClose, onSubmit, saving, error, submitLabel, children, maxWidth = 'max-w-2xl' }: Props) {
+  const { t } = useI18n()
   if (!open) return null
 
   return (
@@ -60,9 +62,9 @@ export function StepModal({ open, title, steps, active, onStepChange, onClose, o
             <div className="shrink-0 mx-6 mb-4 p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>
           )}
           <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
-            <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">{t('common.cancelar')}</button>
             <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
-              {saving && <Loader2 size={14} className="animate-spin" />}{submitLabel}
+              {saving && <Loader2 size={14} className="animate-spin" />}{submitLabel ?? t('common.salvar')}
             </button>
           </div>
         </form>
