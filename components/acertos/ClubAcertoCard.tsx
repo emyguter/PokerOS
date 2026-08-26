@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { getLayoutDoClube, resolverLayout, calcularTotalAcerto, corrigirValorCrypto, type CampoAcerto, type CampoResolvido } from '@/lib/relatorio-acerto'
 import { getDividasAcertoDoClube, type ItemDividaAcerto } from '@/lib/dividas'
 import { getVinculosAcerto, getIndicacoes } from '@/lib/cadastro-api'
+import { calcularIndicacao } from '@/lib/acertos-engine'
 
 export interface AcertoCard {
   id: string
@@ -46,6 +47,8 @@ interface ClubSettings {
   security: number | null
   wtr4_semanas_manual: number | null
   crypto_rebate_pct: number | null
+  moeda: string | null
+  cotacao: number | null
   leagues: { taxa_app_pct: number | null } | null
 }
 
@@ -159,11 +162,11 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const [outrosMembros, setOutrosMembros] = useState<{ id: string; nome: string }[]>([])
   const [acertosGrupo, setAcertosGrupo] = useState<AcertoGrupoRow[]>([])
   const [extrasPorClube, setExtrasPorClube] = useState<Map<string, ExtrasClube>>(new Map())
-  const [indicacaoPct, setIndicacaoPct] = useState(0)
+  const [indicacoesDetalhe, setIndicacoesDetalhe] = useState<{ nome: string; pct: number; valor: number }[]>([])
 
   useEffect(() => {
     if (acerto.club_id) {
-      supabase.from('clubs').select('fee_mtt_pct, taxa_op_pct, taxa_op_ativo, spinup_pct, security, wtr4_semanas_manual, crypto_rebate_pct, leagues(taxa_app_pct)').eq('id', acerto.club_id).maybeSingle()
+      supabase.from('clubs').select('fee_mtt_pct, taxa_op_pct, taxa_op_ativo, spinup_pct, security, wtr4_semanas_manual, crypto_rebate_pct, moeda, cotacao, leagues(taxa_app_pct)').eq('id', acerto.club_id).maybeSingle()
         .then(({ data }) => setClub(data as unknown as ClubSettings))
     }
   }, [acerto.club_id])
@@ -243,17 +246,33 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   }, [acerto.club_id])
 
   useEffect(() => {
-    // % pra exibir na linha "Indicação (X%)" — o valor em R$ (indicacaoValor)
-    // é calculado sobre o rake do clube indicado, não desse clube, então não
-    // dá pra reconstruir a % dividindo pelo rake daqui. Busca direto o(s)
-    // vínculo(s) cadastrados hoje e soma — mesma simplificação já usada nos
-    // outros % do card (Taxa MTT/Cash etc.): mostra a config atual, não a
-    // histórica de quando o Acerto foi calculado.
-    if (!acerto.club_id) { setIndicacaoPct(0); return }
-    getIndicacoes(acerto.club_id)
-      .then((linhas) => setIndicacaoPct(linhas.reduce((s, l) => s + l.taxaIndicacaoPct, 0)))
-      .catch(() => setIndicacaoPct(0))
-  }, [acerto.club_id])
+    // Quebra "Indicação" por clube indicado (pedido do Cássio, mesmo formato
+    // da planilha de referência: "Referência 3% CHIP COIN" / "Referência 3%
+    // LEGENDS", cada indicação numa linha própria em vez de somar tudo numa
+    // só). O valor de cada linha é calculado sobre o rake do CLUBE INDICADO
+    // nesse mesmo período (mesma fórmula do motor, calcularIndicacao) — usa
+    // o % cadastrado hoje, não o histórico de quando o Acerto foi calculado
+    // (mesma simplificação já usada nos outros % do card).
+    if (!acerto.club_id || !periodEnd) { setIndicacoesDetalhe([]); return }
+    let cancelado = false
+    ;(async () => {
+      const linhas = await getIndicacoes(acerto.club_id!).catch(() => [])
+      if (linhas.length === 0) { if (!cancelado) setIndicacoesDetalhe([]); return }
+      const { data: importsData } = await supabase.from('imports').select('id').eq('period_end', periodEnd)
+      const importIds = (importsData ?? []).map((i) => i.id as string)
+      const { data: acertosIndicados } = importIds.length > 0
+        ? await supabase.from('acertos').select('club_id, rake_total').in('club_id', linhas.map((l) => l.club_indicado_id)).in('import_id', importIds)
+        : { data: [] }
+      const rakePorClube = new Map((acertosIndicados ?? []).map((a) => [a.club_id as string, a.rake_total as number]))
+      if (cancelado) return
+      setIndicacoesDetalhe(linhas.map((l) => ({
+        nome: l.nome,
+        pct: l.taxaIndicacaoPct,
+        valor: calcularIndicacao(l.taxaIndicacaoPct, rakePorClube.get(l.club_indicado_id) ?? 0),
+      })))
+    })()
+    return () => { cancelado = true }
+  }, [acerto.club_id, periodEnd])
 
   const idsGrupo = acerto.club_id && outrosMembros.length > 0 ? [acerto.club_id, ...outrosMembros.map((m) => m.id)] : []
   const idsGrupoChave = idsGrupo.join(',')
@@ -304,7 +323,6 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const taxaLigaValor = agrupado ? somaGrupo('taxa_liga_valor') : acerto.taxa_liga_valor
   const bilhetesValor = agrupado ? somaGrupo('bilhetes') : acerto.bilhetes
   const pendenciasValor = agrupado ? somaGrupo('pendencias_antecipacao') : acerto.pendencias_antecipacao
-  const indicacaoValor = agrupado ? somaGrupo('indicacao_valor') : acerto.indicacao_valor
   const rebateCalculado = agrupado ? somaGrupo('rebate_calculado') : acerto.rebate_calculado
   const clubNameDisplay = agrupado ? [...new Set(acertosGrupo.map((r) => r.club_name))].join(' + ') : acerto.club_name
 
@@ -377,6 +395,12 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const totalComCrypto = club?.crypto_rebate_pct ? corrigirValorCrypto(total, club.crypto_rebate_pct) : null
   const descontoCrypto = totalComCrypto != null ? total - totalComCrypto : null
 
+  // Segunda linha de Total em USD — mesmo formato da planilha de referência
+  // do Cássio ("Total PEN" + "Total USD"). Só aparece quando o clube tem
+  // Moeda diferente de BRL e Cotação cadastrada (etapa "Plataforma" do
+  // cadastro) — a Cotação converte da Moeda do clube pra Moeda de Acerto.
+  const totalUsd = club?.moeda && club.moeda !== 'BRL' && club.cotacao ? total / club.cotacao : null
+
   // O layout (Regra vinculada ao clube) só decide QUAIS linhas aparecem e em
   // que ordem — o Total sempre soma tudo, igual já funciona no Liberar para
   // Acerto: personalizar o card não pode acidentalmente mudar quanto o
@@ -448,13 +472,19 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       case 'rebate':
         return <Linha key={campo} label="Rebate" value={rebateDisplay} />
       case 'indicacao': {
-        if (indicacaoValor === 0) return null
-        // O valor em R$ vem pronto do Acerto (soma de cada indicação × rake
-        // do respectivo clube indicado, ver calcularIndicacao) — o % exibido
-        // é o cadastrado hoje nos vínculos desse clube (indicacaoPct),
-        // buscado à parte, já que não dá mais pra reconstruir a % dividindo
-        // o valor pelo rake daqui (a base agora é o rake do indicado).
-        return <Linha key={campo} label={`Indicação (${fmtPct(indicacaoPct)}%)`} value={indicacaoValor} />
+        if (indicacoesDetalhe.length === 0) return null
+        // Uma linha por clube indicado, mesmo formato da planilha de
+        // referência do Cássio ("Referência 3% CHIP COIN" / "Referência 3%
+        // LEGENDS") — antes somava tudo numa linha só. Cada valor é
+        // calculado sobre o rake do respectivo indicado nesse período (ver
+        // useEffect acima), com o % cadastrado hoje.
+        return (
+          <div key={campo}>
+            {indicacoesDetalhe.map((d) => (
+              <Linha key={d.nome} label={`Indicação (${fmtPct(d.pct)}%) ${d.nome}`} value={d.valor} />
+            ))}
+          </div>
+        )
       }
       case 'lancamentos_periodo':
         return lancamentosDisplay.length > 0 ? (
@@ -521,6 +551,13 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
             <span className="text-white font-semibold text-sm">Total</span>
             <span className={`font-bold text-base ${total >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(total)}</span>
           </div>
+
+          {totalUsd != null && (
+            <div className="flex items-center justify-between py-2 px-3 bg-surface2">
+              <span className="text-white font-semibold text-sm">Total USD</span>
+              <span className={`font-bold text-base ${totalUsd >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(totalUsd)}</span>
+            </div>
+          )}
 
           {totalComCrypto != null && descontoCrypto != null && (
             <>

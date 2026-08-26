@@ -1080,6 +1080,14 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   (`lib/acertos-engine.ts`, `ClubAcertoCard.tsx`). **Importante**: só vale pra Acerto recalculado
   daqui pra frente — Acertos de semanas já calculadas continuam com o SpinUp descontado até
   "Recalcular"
+- [x] **Card "Acerto Geral": Indicação separada por clube + Total em USD**: pedido do Cássio,
+  comparando com a planilha de referência dele — duas mudanças no card: (1) a linha "Indicação"
+  somava todos os clubes indicados numa linha só (% e valor combinados); agora mostra uma linha por
+  clube indicado ("Indicação (3%) CHIP COIN", "Indicação (3%) LEGENDS"), cada valor calculado sobre
+  o rake do respectivo indicado nesse período — mesmo formato da planilha ("Referência 3% CHIP
+  COIN" / "Referência 3% LEGENDS"). (2) Nova linha "Total USD" logo abaixo do Total, convertendo
+  pela Cotação cadastrada do clube (Moeda ÷ Cotação) — só aparece quando o clube tem Moeda diferente
+  de BRL e Cotação preenchida (`ClubAcertoCard.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
