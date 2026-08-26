@@ -1160,6 +1160,10 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   100% em português direto no código, sem passar pelo sistema de tradução — agora trocam para
   EN/ES normalmente junto com o resto do sistema. ~55 frases novas nos três dicionários
   (`pt.ts`, `en.ts`, `es.ts`)
+- [x] **Espanhol (fase 3 — tela de Acertos)**: destrava a tela principal de Acertos (`AcertosView.tsx`)
+  e os modais de Recalcular/Cotação (`ConfirmRecalcularModal.tsx`, `ConfirmCotacaoModal.tsx`) — a
+  maior tela do sistema, tinha texto 100% em português direto no código desde sempre. ~65 frases
+  novas nos três dicionários
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
