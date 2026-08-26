@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus, CheckCircle2, AlertTriangle, Trash2, Pencil, Split } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { errMsg } from '@/lib/errors'
+import { useI18n } from '@/lib/i18n'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import {
   getDividas, getParcelas, criarDivida, atualizarDivida, podeEditarTermosDivida, interromperEcriarFilho,
@@ -24,10 +25,14 @@ function fmtData(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR')
 }
 
-const STATUS_LABEL: Record<DividaRow['status'], string> = { ativo: 'Ativo', quitado: 'Quitado', cancelado: 'Cancelado', interrompido: 'Interrompido' }
 const STATUS_COR: Record<DividaRow['status'], string> = { ativo: 'text-gold', quitado: 'text-success', cancelado: 'text-gray-500', interrompido: 'text-alert' }
 
 export function DividasView() {
+  const { t } = useI18n()
+  const STATUS_LABEL: Record<DividaRow['status'], string> = {
+    ativo: t('dividas_view.status.ativo'), quitado: t('dividas_view.status.quitado'),
+    cancelado: t('dividas_view.status.cancelado'), interrompido: t('dividas_view.status.interrompido'),
+  }
   const [clubes, setClubes] = useState<ClubeOpcao[]>([])
   const [dividas, setDividas] = useState<DividaRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -162,29 +167,29 @@ export function DividasView() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Dívidas e Acordos</h1>
-          <p className="text-sm text-gray-400 mt-1">Clubes com dívida simples ou Acordo parcelado, com juros e multa por atraso</p>
+          <h1 className="text-2xl font-semibold text-white">{t('dividas_view.titulo')}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t('dividas_view.subtitulo')}</p>
         </div>
         <button onClick={() => { setError(null); setEditando(null); setModalOpen(true) }} className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 transition-colors">
-          <Plus size={16} />Nova Dívida
+          <Plus size={16} />{t('dividas_view.nova')}
         </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-4">
         <div className="rounded-xl border border-white/10 overflow-hidden">
           {loading ? (
-            <div className="p-8 text-center text-gray-500 text-sm">Carregando...</div>
+            <div className="p-8 text-center text-gray-500 text-sm">{t('common.carregando')}</div>
           ) : dividas.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 text-sm">Nenhuma dívida cadastrada ainda.</div>
+            <div className="p-8 text-center text-gray-500 text-sm">{t('dividas_view.nenhuma')}</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-white/10 bg-surface2">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Clube</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Tipo</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Valor</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('dividas_view.col_clube')}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('dividas_view.col_tipo')}</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('dividas_view.col_valor')}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('dividas_view.col_status')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -195,7 +200,7 @@ export function DividasView() {
                       className={`border-b border-white/5 cursor-pointer transition-colors hover:bg-white/[0.03] ${selecionada?.id === d.id ? 'bg-gold/5' : ''}`}
                     >
                       <td className="px-4 py-3 text-white">{d.clube_nome}</td>
-                      <td className="px-4 py-3 text-gray-300">{d.tipo === 'acordo' ? 'Acordo' : 'Simples'}</td>
+                      <td className="px-4 py-3 text-gray-300">{d.tipo === 'acordo' ? t('dividas_view.tipo_acordo') : t('dividas_view.tipo_simples')}</td>
                       <td className="px-4 py-3 text-right text-gray-300">{fmt(d.valor_integral)}</td>
                       <td className={`px-4 py-3 font-medium ${STATUS_COR[d.status]}`}>{STATUS_LABEL[d.status]}</td>
                     </tr>
@@ -208,24 +213,24 @@ export function DividasView() {
 
         <div className="rounded-xl border border-white/10 p-4">
           {!selecionada ? (
-            <p className="text-sm text-gray-500 text-center py-8">Selecione uma dívida pra ver os detalhes.</p>
+            <p className="text-sm text-gray-500 text-center py-8">{t('dividas_view.selecione_detalhe')}</p>
           ) : loadingDetalhe ? (
-            <p className="text-sm text-gray-500 text-center py-8">Carregando...</p>
+            <p className="text-sm text-gray-500 text-center py-8">{t('common.carregando')}</p>
           ) : (
             <div className="space-y-4">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-white font-medium">{selecionada.clube_nome}</p>
                   <p className="text-xs text-gray-500">{selecionada.descricao || '—'}</p>
-                  {selecionada.divida_pai_id && <p className="text-xs text-gray-600 mt-0.5">Acordo filho de uma renegociação</p>}
+                  {selecionada.divida_pai_id && <p className="text-xs text-gray-600 mt-0.5">{t('dividas_view.acordo_filho')}</p>}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`text-sm font-medium ${STATUS_COR[selecionada.status]}`}>{STATUS_LABEL[selecionada.status]}</span>
-                  <button onClick={() => { setEditando(selecionada); setError(null); setModalOpen(true) }} title="Editar" className="p-1.5 rounded-lg text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors"><Pencil size={14} /></button>
+                  <button onClick={() => { setEditando(selecionada); setError(null); setModalOpen(true) }} title={t('dividas_view.editar_title')} className="p-1.5 rounded-lg text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors"><Pencil size={14} /></button>
                   {selecionada.tipo === 'acordo' && selecionada.status === 'ativo' && (
-                    <button onClick={() => { setError(null); setInterromperAberto(true) }} title="Interromper e Renegociar" className="p-1.5 rounded-lg text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors"><Split size={14} /></button>
+                    <button onClick={() => { setError(null); setInterromperAberto(true) }} title={t('dividas_view.interromper_title')} className="p-1.5 rounded-lg text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors"><Split size={14} /></button>
                   )}
-                  <button onClick={() => setExcluindo(selecionada)} title="Excluir" className="p-1.5 rounded-lg text-gray-400 hover:text-alert hover:bg-alert/10 transition-colors"><Trash2 size={14} /></button>
+                  <button onClick={() => setExcluindo(selecionada)} title={t('dividas_view.excluir_title')} className="p-1.5 rounded-lg text-gray-400 hover:text-alert hover:bg-alert/10 transition-colors"><Trash2 size={14} /></button>
                 </div>
               </div>
 
@@ -233,18 +238,18 @@ export function DividasView() {
                 <div className="rounded-lg border border-white/10 bg-surface2 p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500">{selecionada.rakeback_pct != null ? 'Saldo Restante' : 'Valor'}</p>
+                      <p className="text-xs text-gray-500">{selecionada.rakeback_pct != null ? t('dividas_view.saldo_restante') : t('dividas_view.valor')}</p>
                       <p className="text-lg font-semibold text-white">{fmt(selecionada.rakeback_pct != null ? selecionada.saldo_restante ?? selecionada.valor_integral : selecionada.valor_integral)}</p>
                       {selecionada.rakeback_pct != null && (
                         <p className="text-xs text-gray-500 mt-0.5">
-                          De {fmt(selecionada.valor_integral)} · {selecionada.rakeback_pct}% do Rake por semana
-                          {selecionada.pagamento_minimo ? ` · mínimo ${fmt(selecionada.pagamento_minimo)} pra abater` : ''}
+                          {t('dividas_view.de_valor_pct', { valor: fmt(selecionada.valor_integral), pct: selecionada.rakeback_pct })}
+                          {selecionada.pagamento_minimo ? t('dividas_view.minimo_abater', { valor: fmt(selecionada.pagamento_minimo) }) : ''}
                         </p>
                       )}
                     </div>
                     {selecionada.status === 'ativo' && (
                       <button onClick={handleMarcarSimplesQuitada} className="flex items-center gap-1.5 px-3 py-2 bg-success/10 border border-success/30 text-success rounded-lg text-sm font-medium hover:bg-success/20 transition-colors">
-                        <CheckCircle2 size={14} />Marcar como quitada
+                        <CheckCircle2 size={14} />{t('dividas_view.marcar_quitada')}
                       </button>
                     )}
                   </div>
@@ -252,31 +257,31 @@ export function DividasView() {
                     <div onClick={handleTogglePagoComRake} className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${selecionada.pago_com_rake ? 'bg-gold' : 'bg-white/10'}`}>
                       <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${selecionada.pago_com_rake ? 'translate-x-4' : 'translate-x-0.5'}`} />
                     </div>
-                    <span className="text-xs text-gray-400">Pagar com Rake</span>
+                    <span className="text-xs text-gray-400">{t('dividas_view.pagar_com_rake')}</span>
                   </label>
                 </div>
               ) : semCronograma ? (
                 <div className="rounded-lg border border-white/10 bg-surface2 p-4 space-y-3">
                   <div>
-                    <p className="text-xs text-gray-500">Dívida Inicial</p>
+                    <p className="text-xs text-gray-500">{t('dividas_view.divida_inicial')}</p>
                     <p className="text-lg font-semibold text-white">{fmt(selecionada.valor_integral)}</p>
                   </div>
                   {selecionada.status === 'quitado' && selecionada.quitado_em ? (
-                    <p className="text-xs text-success flex items-center gap-1"><CheckCircle2 size={12} />Pago em {fmtData(selecionada.quitado_em)}: {fmt(selecionada.valor_integral)}</p>
+                    <p className="text-xs text-success flex items-center gap-1"><CheckCircle2 size={12} />{t('dividas_view.pago_em', { data: fmtData(selecionada.quitado_em), valor: fmt(selecionada.valor_integral) })}</p>
                   ) : (
-                    <p className="text-xs text-gray-500">Em aberto — {fmt(saldoRestante)} (quita de uma vez no próximo Acerto, sem multa)</p>
+                    <p className="text-xs text-gray-500">{t('dividas_view.em_aberto_sem_multa', { valor: fmt(saldoRestante) })}</p>
                   )}
                   <label className="flex items-center gap-3 cursor-pointer w-fit">
                     <div onClick={handleTogglePagoComRake} className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${selecionada.pago_com_rake ? 'bg-gold' : 'bg-white/10'}`}>
                       <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${selecionada.pago_com_rake ? 'translate-x-4' : 'translate-x-0.5'}`} />
                     </div>
-                    <span className="text-xs text-gray-400">Pagar com Rake</span>
+                    <span className="text-xs text-gray-400">{t('dividas_view.pagar_com_rake')}</span>
                   </label>
                 </div>
               ) : (
                 <div className="space-y-2">
                   {faixasMulta.length === 0 && (
-                    <p className="text-xs text-gray-500 italic">Esse clube não tem Regra de Multa de Acerto vinculada — parcelas atrasadas não recebem multa.</p>
+                    <p className="text-xs text-gray-500 italic">{t('dividas_view.sem_regra_multa')}</p>
                   )}
                   {parcelas.map((p) => {
                     const atraso = !p.pago ? diasDeAtraso(p.vencimento) : 0
@@ -285,26 +290,26 @@ export function DividasView() {
                     return (
                       <div key={p.id} className={`rounded-lg border p-3 flex items-center justify-between gap-3 ${p.pago ? 'border-white/10 bg-surface2' : atraso > 0 ? 'border-alert/30 bg-alert/5' : 'border-white/10 bg-surface2'}`}>
                         <div>
-                          <p className="text-sm text-white">Parcela {p.numero} <span className="text-gray-500">— vence {new Date(p.vencimento + 'T00:00:00').toLocaleDateString('pt-BR')}</span></p>
+                          <p className="text-sm text-white">{t('dividas_view.parcela_vence', { n: p.numero, data: new Date(p.vencimento + 'T00:00:00').toLocaleDateString('pt-BR') })}</p>
                           {p.pago ? (
-                            <p className="text-xs text-success flex items-center gap-1 mt-0.5"><CheckCircle2 size={12} />Pago: {fmt(p.valor_pago ?? p.valor)}</p>
+                            <p className="text-xs text-success flex items-center gap-1 mt-0.5"><CheckCircle2 size={12} />{t('dividas_view.pago_valor', { valor: fmt(p.valor_pago ?? p.valor) })}</p>
                           ) : atraso > 0 ? (
-                            <p className="text-xs text-alert flex items-center gap-1 mt-0.5"><AlertTriangle size={12} />{atraso} dia(s) de atraso{pct > 0 ? ` · +${pct}% de multa` : ''} — {fmt(valorComPenalidade)}</p>
+                            <p className="text-xs text-alert flex items-center gap-1 mt-0.5"><AlertTriangle size={12} />{t('dividas_view.atraso', { n: atraso })}{pct > 0 ? t('dividas_view.multa_pct', { pct }) : ''} — {fmt(valorComPenalidade)}</p>
                           ) : (
-                            <p className="text-xs text-gray-500 mt-0.5">Em aberto — {fmt(p.valor)}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">{t('dividas_view.em_aberto', { valor: fmt(p.valor) })}</p>
                           )}
                           {!p.pago && (
                             <label className="flex items-center gap-2 cursor-pointer w-fit mt-1.5">
                               <div onClick={() => handleToggleParcelaPagoComRake(p)} className={`w-8 h-4 rounded-full transition-colors relative cursor-pointer ${p.pago_com_rake ? 'bg-gold' : 'bg-white/10'}`}>
                                 <div className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white transition-transform ${p.pago_com_rake ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
                               </div>
-                              <span className="text-[11px] text-gray-500">Pagar com Rake</span>
+                              <span className="text-[11px] text-gray-500">{t('dividas_view.pagar_com_rake')}</span>
                             </label>
                           )}
                         </div>
                         {!p.pago && (
                           <button onClick={() => handleMarcarPaga(p)} className="shrink-0 px-3 py-1.5 bg-gold text-surface rounded-lg text-xs font-semibold hover:bg-gold/90 transition-colors">
-                            Marcar como paga
+                            {t('dividas_view.marcar_paga')}
                           </button>
                         )}
                       </div>
@@ -342,8 +347,8 @@ export function DividasView() {
         onConfirm={handleExcluir}
         onCancel={() => setExcluindo(null)}
         saving={saving}
-        title="Excluir dívida"
-        description={<>Tem certeza que deseja excluir a dívida de <span className="text-white font-medium">{excluindo?.clube_nome}</span>? Isso apaga também todas as parcelas. Essa ação não pode ser desfeita.</>}
+        title={t('dividas_view.excluir_titulo')}
+        description={<>{t('dividas_view.excluir_desc_pre')} <span className="text-white font-medium">{excluindo?.clube_nome}</span>{t('dividas_view.excluir_desc_pos')}</>}
       />
     </div>
   )

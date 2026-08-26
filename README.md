@@ -1155,6 +1155,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   passar pelo `t()` nenhum, então continuam em português mesmo com EN/ES selecionado. Destravar essas
   telas (ligar cada texto no `t()` + escrever a tradução) é trabalho grande, vem em fases seguintes
   (`i18n.tsx`, `es.ts`, `Sidebar.tsx`, `login/page.tsx`)
+- [x] **Espanhol (fase 2 — telas de Dívidas)**: destrava as 3 telas de Dívidas e Acordos
+  (`DividaModal.tsx`, `DividasView.tsx`, `InterromperAcordoModal.tsx`), que até agora tinham texto
+  100% em português direto no código, sem passar pelo sistema de tradução — agora trocam para
+  EN/ES normalmente junto com o resto do sistema. ~55 frases novas nos três dicionários
+  (`pt.ts`, `en.ts`, `es.ts`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
