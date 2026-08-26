@@ -36,10 +36,12 @@ export function LancamentoView() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-white">{t('lancamento.titulo')}</h1>
-        <p className="text-sm text-gray-400 mt-1">{t('lancamento.subtitulo')}</p>
-      </div>
+      {tab !== 'conferencia' && (
+        <div>
+          <h1 className="text-2xl font-semibold text-white">{t('lancamento.titulo')}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t('lancamento.subtitulo')}</p>
+        </div>
+      )}
 
       {tab === 'lancar' && <LancarForm origem="suporte" />}
       {tab === 'extrato' && <ExtratoView />}

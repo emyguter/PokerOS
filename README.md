@@ -1108,6 +1108,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   quita a Diferença, "é nóis" — não deve mexer em mais nada; sobra vira Diferença e rola pra próxima
   semana sozinho (`AcertosView.tsx`, `ClubAcertoCard.tsx`, `pagamentos.ts`, `relatorio-resumo-acertos.ts`,
   `meus-acertos.ts`)
+- [x] **Conferência do App sem o título "Lançamento" em cima**: pedido do Cássio ("não faz sentido
+  lá em cima") — essa aba mora dentro do menu Lançamento por conveniência, mas não é um lançamento
+  (é só um checklist visual de Rake/Ganhos calculado vs visto na plataforma), então o título e
+  subtítulo fixos da página ("Lançamento" / "Bônus, promoções, caução e pagamentos por clube") agora
+  somem só nessa aba (`LancamentoView.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
