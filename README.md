@@ -1021,6 +1021,30 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Controle de Pagamentos mesmo assim), mas é opcional. Corrigido nos dois formulários
   (`LancarForm.tsx` e `EditarLancamentoModal.tsx`), incluindo um bug lateral onde não vincular
   nenhum Acerto salvava uma string vazia em vez de `null` no banco
+- [x] **`taxa_tipo` (Fixa/Variável) virou automático**: esse campo (usado só como etiqueta
+  informativa pra clube Taxa Fixa/Variável, nunca teve controle na tela pra escolher manualmente e
+  não afeta o cálculo — o motor já usa a Regra vinculada quando existe, senão o número fixo,
+  independente do valor desse campo) ficava sempre travado em "fixa" desde a criação do clube. Agora
+  é derivado sozinho ao salvar o cadastro: clube com Regra vinculada no campo Rake vira "variavel",
+  sem Regra vinculada vira "fixa" — sem precisar de nenhum toggle manual (`ClubModal.tsx`). Migration
+  `20260826000000_backfill_taxa_tipo_por_regra_vinculada.sql` corrige de uma vez os clubes que já
+  existem hoje, sem precisar reabrir e salvar cada um na mão
+- [x] **Crypto Rebate no Weekly USD passa a corrigir por divisão, não mais subtrair do rake**:
+  discutido com o Cássio — no cálculo do Acerto de clube Weekly USD, o Crypto Rebate era somado ao
+  Rebate normal e subtraído linear da fee (`rake_total × %`), igual um desconto qualquer. Agora o
+  Rebate normal (Weekly USD) e o Rakeback continuam subtraídos assim, sem mudança — Crypto Rebate
+  sai do motor de cálculo por completo, o Valor do Acerto guardado não muda mais por causa dele.
+  Em vez disso, o card "Acerto Geral" (`ClubAcertoCard.tsx`) passa a mostrar duas linhas novas
+  embaixo do Total, pra qualquer tipo de clube (não só Weekly USD) que tenha % de Crypto Rebate
+  cadastrado: "Acerto com Crypto" (o Total corrigido pela mesma fórmula do "Total Crypto
+  Rebate"/"Pagar com Crypto" — `corrigirValorCrypto`: valor ÷ (1 + %)) e "Desconto" (a diferença
+  entre os dois). O Total normal continua exatamente igual, alimentando Controle de Pagamentos e
+  Resumo de Acertos sem nenhuma mudança
+- [x] **Migration: Weekly USD vira Taxa Fixa/Variável**: decisão do Cássio — os 18 clubes Weekly
+  USD passam pra Taxa Fixa/Variável, ciente do impacto (Resultado do Jogador passa a entrar na
+  conta do Acerto, Taxa Operacional passa a valer se estiver ligada). Migration
+  `20260826010000_converte_weekly_usd_para_taxa_fixa_variavel.sql`. Só corrige o cadastro pra
+  frente — Acertos de semanas já calculadas continuam com a fórmula antiga até "Recalcular"
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

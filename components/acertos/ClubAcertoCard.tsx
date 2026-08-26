@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { getLayoutDoClube, resolverLayout, calcularTotalAcerto, type CampoAcerto, type CampoResolvido } from '@/lib/relatorio-acerto'
+import { getLayoutDoClube, resolverLayout, calcularTotalAcerto, corrigirValorCrypto, type CampoAcerto, type CampoResolvido } from '@/lib/relatorio-acerto'
 import { getDividasAcertoDoClube, type ItemDividaAcerto } from '@/lib/dividas'
 import { getVinculosAcerto, getIndicacoes } from '@/lib/cadastro-api'
 
@@ -45,6 +45,7 @@ interface ClubSettings {
   spinup_pct: number | null
   security: number | null
   wtr4_semanas_manual: number | null
+  crypto_rebate_pct: number | null
   leagues: { taxa_app_pct: number | null } | null
 }
 
@@ -162,7 +163,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
 
   useEffect(() => {
     if (acerto.club_id) {
-      supabase.from('clubs').select('fee_mtt_pct, taxa_op_pct, taxa_op_ativo, spinup_pct, security, wtr4_semanas_manual, leagues(taxa_app_pct)').eq('id', acerto.club_id).maybeSingle()
+      supabase.from('clubs').select('fee_mtt_pct, taxa_op_pct, taxa_op_ativo, spinup_pct, security, wtr4_semanas_manual, crypto_rebate_pct, leagues(taxa_app_pct)').eq('id', acerto.club_id).maybeSingle()
         .then(({ data }) => setClub(data as unknown as ClubSettings))
     }
   }, [acerto.club_id])
@@ -367,6 +368,15 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         dividasTotal,
       })
 
+  // Crypto Rebate NÃO muda o Total guardado do Acerto — é só uma segunda
+  // exibição embaixo dele (confirmado pelo Cássio): "Acerto com Crypto" é o
+  // Total corrigido pela mesma fórmula do "Total Crypto Rebate"/"Pagar com
+  // Crypto" (corrigirValorCrypto: valor ÷ (1 + %)), e "Desconto" é a
+  // diferença entre os dois. Só aparece quando o clube tem % de Crypto
+  // Rebate cadastrado — qualquer tipo de cobrança, não só Weekly USD.
+  const totalComCrypto = club?.crypto_rebate_pct ? corrigirValorCrypto(total, club.crypto_rebate_pct) : null
+  const descontoCrypto = totalComCrypto != null ? total - totalComCrypto : null
+
   // O layout (Regra vinculada ao clube) só decide QUAIS linhas aparecem e em
   // que ordem — o Total sempre soma tudo, igual já funciona no Liberar para
   // Acerto: personalizar o card não pode acidentalmente mudar quanto o
@@ -504,6 +514,19 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
             <span className="text-white font-semibold text-sm">Total</span>
             <span className={`font-bold text-base ${total >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(total)}</span>
           </div>
+
+          {totalComCrypto != null && descontoCrypto != null && (
+            <>
+              <div className="flex items-center justify-between py-2 px-3">
+                <span className="text-gray-400 text-sm">Acerto com Crypto</span>
+                <span className={`font-semibold text-sm ${totalComCrypto >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(totalComCrypto)}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 px-3">
+                <span className="text-gray-400 text-sm">Desconto ({fmtPct(club?.crypto_rebate_pct ?? null)}%)</span>
+                <span className="text-gray-400 text-sm">{fmt(descontoCrypto)}</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

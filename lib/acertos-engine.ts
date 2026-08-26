@@ -263,11 +263,9 @@ export function calcularAcerto(
       const condRakeTotal = condicoesPorCampo.rake_total.length > 0
         ? avaliarCondicoes(condicoesPorCampo.rake_total, row, wtr4Semanas)
         : null;
-      rebate_calculado =
-        rake_total * (club.rebate_pct / 100) +
-        rake_total * (club.crypto_rebate_pct / 100);
+      rebate_calculado = rake_total * (club.rebate_pct / 100);
       fee_calculado = rake_total * ((condRakeTotal ?? club.fee_mtt_pct) / 100);
-      valor_acerto  = fee_calculado - rebate_calculado;
+      valor_acerto = fee_calculado - rebate_calculado;
       break;
     }
     default:
