@@ -1141,6 +1141,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   planilha de referência do Sevens Pkr House — "Complemento Pgto Mínimo"). Vazio, continua exatamente
   como sempre foi (`DividaModal.tsx`, `DividasView.tsx`, `dividas.ts`,
   `20260826040000_divida_rakeback_pct.sql`)
+- [x] **Lista de Acertos: colunas Rake MTT/Rake Cash/Acerto (Rake) trocadas por Bilhetes/Segurança/
+  SpinUp Rake**: pedido do Cássio — a tabela principal de Acertos tinha colunas de detalhe do rake
+  bruto (MTT/Cash separado, e o "Acerto (Rake)" só com o cálculo automático) que não ajudavam tanto
+  quanto ver Bilhetes, Segurança e SpinUp Rake ali direto, sem precisar abrir o card de cada clube
+  (`AcertosView.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

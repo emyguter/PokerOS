@@ -663,13 +663,13 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                       <thead>
                         <tr>
                           <th>Clube</th><th>Modelo</th>
-                          <th style={{ textAlign: "right" }}>Rake MTT</th>
-                          <th style={{ textAlign: "right" }}>Rake Cash</th>
                           <th style={{ textAlign: "right" }}>Rake Total</th>
                           <th style={{ textAlign: "right" }}>Ganhos</th>
                           <th style={{ textAlign: "right" }}>Fee</th>
                           <th style={{ textAlign: "right" }}>Rebate</th>
-                          <th style={{ textAlign: "right" }} title="Só o cálculo automático em cima do rake importado — não inclui bônus, caução, pagamentos etc. lançados à parte.">Acerto (Rake)</th>
+                          <th style={{ textAlign: "right" }}>Bilhetes</th>
+                          <th style={{ textAlign: "right" }}>Segurança</th>
+                          <th style={{ textAlign: "right" }}>SpinUp Rake</th>
                           <th style={{ textAlign: "right" }}>Lançamentos</th>
                           <th style={{ textAlign: "right" }} title="Acerto (Rake) + Bilhetes + Pendências/Antecipação + Segurança + Taxa A-A Home Game + Indicação + Lançamentos do período − Dívidas/Acordos. Nada fica de fora — esse é o número final a cobrar/pagar do clube.">Valor Acerto</th>
                           <th>Status</th>
@@ -692,13 +692,13 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                               </button>
                             </td>
                             <td><span style={{ fontSize: 11, color: "#7a7a70" }}>{LABELS[a.settlement_type] ?? a.settlement_type}</span></td>
-                            <td style={{ textAlign: "right" }}>{fmt(a.rake_mtt)}</td>
-                            <td style={{ textAlign: "right" }}>{fmt(a.rake_cash)}</td>
                             <td style={{ textAlign: "right" }}>{fmt(a.rake_total)}</td>
                             <td style={{ textAlign: "right", color: a.player_result >= 0 ? "#7DC97D" : "#E07070" }}>{fmt(a.player_result)}</td>
                             <td style={{ textAlign: "right", color: "#C9A84C" }}>{fmt(feeDisplay(a))}</td>
                             <td style={{ textAlign: "right", color: "#E07070" }}>{a.rebate_calculado > 0 ? fmt(a.rebate_calculado) : "—"}</td>
-                            <td style={{ textAlign: "right", color: "#7a7a70" }}>{fmt(valorDisplay(a))}</td>
+                            <td style={{ textAlign: "right" }}>{a.bilhetes ? fmt(a.bilhetes) : "—"}</td>
+                            <td style={{ textAlign: "right" }}>{(a.club_id ? extrasPorClube.get(a.club_id)?.security ?? 0 : 0) ? fmt(extrasPorClube.get(a.club_id ?? "")?.security ?? 0) : "—"}</td>
+                            <td style={{ textAlign: "right" }}>{a.fee_spinup_valor ? fmt(a.fee_spinup_valor) : "—"}</td>
                             <td style={{ textAlign: "right" }} title={(lancamentosPorClube.get(a.club_id ?? "")?.itens ?? []).map((l) => `${LABELS_LANCAMENTO[l.tipo] ?? l.tipo}: ${l.natureza === "credito" ? "+" : "−"}${fmt(l.valor)}`).join(" · ") || undefined}>
                               {lancamentosDoClube(a.club_id) === 0 ? "—" : (
                                 <span className={lancamentosDoClube(a.club_id) > 0 ? "vpos" : "vneg"}>{fmt(lancamentosDoClube(a.club_id))}</span>
