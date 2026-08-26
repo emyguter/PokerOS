@@ -1126,6 +1126,12 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   descrição "Rollover" não aparecem mais na Conciliação nem na fila de Pendências (continuam
   existindo normal no banco e entrando certinho no próximo Acerto do clube, sem multa — só param de
   pedir uma conferência que nunca ia acontecer) (`useConciliacao.ts`)
+- [x] **Controle de Pagamentos: Envio contando 2x quando o Pagamento já foi conciliado**: achado no
+  CHIP COIN (semana 10/08-16/08, Valor Pago mostrando -1.355,94 em vez de -677,97, com "Envio 1" e
+  "Envio 2" repetindo o mesmo valor). A busca de Envios por Acerto não filtrava por origem, então
+  puxava os DOIS lados de um Pagamento já conciliado (o lançamento do Suporte e o par da Genia, cada
+  um com o mesmo `acerto_id`) como se fossem dois pagamentos diferentes. Agora conta só o lado
+  Suporte — mesma regra já usada em Pendências/Antecipação (`pagamentos.ts`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

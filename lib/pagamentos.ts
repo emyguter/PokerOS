@@ -179,6 +179,11 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
       .select('id, acerto_id, natureza, valor, data_lancamento, pago_crypto')
       .in('acerto_id', lista.map((a) => a.id))
       .in('tipo', ['pagamento', 'antecipacao'])
+      // Conta só o lado Suporte, não o par da Genia — senão um Pagamento já
+      // conciliado (que tem os dois lados com o mesmo acerto_id) dobra o
+      // Valor Pago (achado no CHIP COIN: 2 Envios de -677,97 pro mesmo
+      // Pagamento). Mesma regra já usada em buscarPendenciasAntecipacao.
+      .eq('origem', 'suporte')
       .order('data_lancamento', { ascending: true }),
     valorAcertoCompletoPorRow(lista, importInfo?.period_start ?? '', importInfo?.period_end ?? ''),
     caucaoPorClube(clubIds, importInfo?.period_start ?? '', importInfo?.period_end ?? ''),
@@ -377,6 +382,11 @@ export async function buscarPagamentosPorPeriodo(periodoInicio: string, periodoF
       .select('id, acerto_id, natureza, valor, data_lancamento, pago_crypto')
       .in('acerto_id', lista.map((a) => a.id))
       .in('tipo', ['pagamento', 'antecipacao'])
+      // Conta só o lado Suporte, não o par da Genia — senão um Pagamento já
+      // conciliado (que tem os dois lados com o mesmo acerto_id) dobra o
+      // Valor Pago (achado no CHIP COIN: 2 Envios de -677,97 pro mesmo
+      // Pagamento). Mesma regra já usada em buscarPendenciasAntecipacao.
+      .eq('origem', 'suporte')
       .order('data_lancamento', { ascending: true }),
     valorAcertoCompletoPorRow(lista, periodoInicio, periodoFim),
     caucaoPorClube(clubIds, periodoInicio, periodoFim),
