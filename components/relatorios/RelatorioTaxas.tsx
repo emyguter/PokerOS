@@ -3,11 +3,13 @@ import { useState, useEffect, useCallback } from 'react'
 import { buscarResumoTaxas, type ResumoTaxaClube, type TaxaCampoResumo } from '@/lib/relatorio-taxas'
 import { LABEL_SETTLEMENT } from '@/lib/types'
 import { errMsg } from '@/lib/errors'
+import { useI18n } from '@/lib/i18n'
 
 function Celula({ campo }: { campo: TaxaCampoResumo | null }) {
+  const { t } = useI18n()
   if (!campo) return <span className="text-gray-700">—</span>
   return (
-    <span className={campo.variavel ? 'text-gold' : 'text-gray-300'} title={campo.variavel ? 'Faixa variável, via Regra vinculada' : 'Percentual fixo do cadastro'}>
+    <span className={campo.variavel ? 'text-gold' : 'text-gray-300'} title={campo.variavel ? t('relatorio_taxas.title_variavel') : t('relatorio_taxas.title_fixo')}>
       {campo.valor}
     </span>
   )
@@ -18,6 +20,7 @@ function CelulaPct({ v }: { v: number | null }) {
 }
 
 export function RelatorioTaxas() {
+  const { t } = useI18n()
   const [linhas, setLinhas] = useState<ResumoTaxaClube[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -34,7 +37,7 @@ export function RelatorioTaxas() {
   return (
     <div className="space-y-4">
       <p className="text-xs text-gray-500">
-        Percentual <span className="text-gold">dourado</span> = faixa variável (Regra vinculada); percentual cinza = fixo do cadastro. Colunas em branco não se aplicam ao tipo de cobrança daquele clube.
+        {t('relatorio_taxas.legenda_prefix')} <span className="text-gold">{t('relatorio_taxas.legenda_dourado')}</span>{t('relatorio_taxas.legenda_suffix')}
       </p>
 
       {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
@@ -44,25 +47,25 @@ export function RelatorioTaxas() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 bg-surface2">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">ID</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Clube</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Tipo de cobrança</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Fee MTT</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Fee Cash</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Taxa Operacional</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">SpinUp</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Taxa da Liga</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Rebate</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Crypto Rebate</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Rakeback</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Termos especiais</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_taxas.col_id')}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_taxas.col_clube')}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_taxas.col_tipo_cobranca')}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('regra_modal.campo_fee_mtt')}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('regra_modal.campo_fee_cash')}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('regra_modal.campo_taxa_op')}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('regra_modal.campo_spinup')}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('regra_modal.campo_taxa_liga')}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_taxas.col_rebate')}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_taxas.col_crypto_rebate')}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_taxas.col_rakeback')}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_taxas.col_termos_especiais')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={12} className="px-4 py-8 text-center text-gray-500 text-sm">Carregando...</td></tr>
+                <tr><td colSpan={12} className="px-4 py-8 text-center text-gray-500 text-sm">{t('common.carregando')}</td></tr>
               ) : linhas.length === 0 ? (
-                <tr><td colSpan={12} className="px-4 py-8 text-center text-gray-500 text-sm">Nenhum clube ativo cadastrado.</td></tr>
+                <tr><td colSpan={12} className="px-4 py-8 text-center text-gray-500 text-sm">{t('relatorio_taxas.nenhum_clube_ativo')}</td></tr>
               ) : (
                 linhas.map(l => (
                   <tr key={l.id} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors">

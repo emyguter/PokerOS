@@ -1189,6 +1189,9 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
 - [x] **Espanhol (fase 11 — buscas com dropdown)**: destrava `BuscaSelect.tsx` e `BuscaSelectMulti.tsx`
   (usados em quase toda tela de Cadastro e Relatórios pra escolher Liga/Clube/Agente etc) — reaproveitou
   chaves já existentes, sem frases novas. `Footer.tsx` conferido — já era 100% em inglês, sem mudança
+- [x] **Espanhol (fase 12 — Relatórios de Taxas e Resumo de Acertos)**: destrava `RelatorioTaxas.tsx`
+  e `RelatorioResumoAcertos.tsx` (visão executiva das taxas de todos os clubes, e resumo semanal
+  cruzando todas as Ligas). ~30 frases novas nos três dicionários
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
