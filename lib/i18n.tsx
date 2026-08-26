@@ -2,10 +2,14 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react'
 import { pt } from './locales/pt'
 import { en } from './locales/en'
+import { es } from './locales/es'
 
-export type Locale = 'pt' | 'en'
+export type Locale = 'pt' | 'en' | 'es'
 
-const DICTS: Record<Locale, typeof pt> = { pt, en }
+const DICTS: Record<Locale, typeof pt> = { pt, en, es }
+// Ordem do ciclo do toggleLocale (PT -> EN -> ES -> PT...) — usado só onde
+// não cabe um seletor de verdade (ex: botão compacto).
+const ORDEM: Locale[] = ['pt', 'en', 'es']
 const STORAGE_KEY = 'pokeros_locale'
 
 interface I18nContextValue {
@@ -34,7 +38,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved === 'pt' || saved === 'en') setLocaleState(saved)
+    if (saved === 'pt' || saved === 'en' || saved === 'es') setLocaleState(saved)
   }, [])
 
   const setLocale = useCallback((l: Locale) => {
@@ -44,7 +48,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   const toggleLocale = useCallback(() => {
     setLocaleState((prev) => {
-      const next = prev === 'pt' ? 'en' : 'pt'
+      const next = ORDEM[(ORDEM.indexOf(prev) + 1) % ORDEM.length]
       localStorage.setItem(STORAGE_KEY, next)
       return next
     })

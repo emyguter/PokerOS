@@ -1146,6 +1146,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   bruto (MTT/Cash separado, e o "Acerto (Rake)" só com o cálculo automático) que não ajudavam tanto
   quanto ver Bilhetes, Segurança e SpinUp Rake ali direto, sem precisar abrir o card de cada clube
   (`AcertosView.tsx`)
+- [x] **Espanhol (fase 1 — infraestrutura + as ~280 frases já traduzíveis hoje)**: pedido do Cássio.
+  O seletor de idioma (Sidebar + tela de Login) virou PT/EN/ES em vez do toggle PT/EN de antes, e o
+  dicionário `lib/locales/es.ts` traduz palavra por palavra o mesmo conteúdo que já existe em inglês
+  (`en.ts`) — checado por tipo (`typeof pt`), garante que nenhuma chave fica faltando. **Importante**:
+  isso cobre só as ~49 telas que já passavam pelo sistema de tradução — outras ~40 telas (Cadastro de
+  Clube, Dívidas, a lista de Acertos, entre outras) têm texto em português direto no código, sem
+  passar pelo `t()` nenhum, então continuam em português mesmo com EN/ES selecionado. Destravar essas
+  telas (ligar cada texto no `t()` + escrever a tradução) é trabalho grande, vem em fases seguintes
+  (`i18n.tsx`, `es.ts`, `Sidebar.tsx`, `login/page.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
