@@ -1040,6 +1040,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Rebate"/"Pagar com Crypto" — `corrigirValorCrypto`: valor ÷ (1 + %)) e "Desconto" (a diferença
   entre os dois). O Total normal continua exatamente igual, alimentando Controle de Pagamentos e
   Resumo de Acertos sem nenhuma mudança
+- [x] **Migration: Weekly USD vira Taxa Fixa/Variável**: decisão do Cássio — os 18 clubes Weekly
+  USD passam pra Taxa Fixa/Variável, ciente do impacto (Resultado do Jogador passa a entrar na
+  conta do Acerto, Taxa Operacional passa a valer se estiver ligada). Migration
+  `20260826010000_converte_weekly_usd_para_taxa_fixa_variavel.sql`. Só corrige o cadastro pra
+  frente — Acertos de semanas já calculadas continuam com a fórmula antiga até "Recalcular"
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
