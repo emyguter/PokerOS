@@ -621,6 +621,15 @@ export const es: typeof pt = {
     nenhum_acerto: 'Aún no se calculó ninguna liquidación esta semana.',
     total_label: 'Total ({n})',
   },
+  agentes_acertos_view: {
+    buscar_agente_label: 'Buscar agente', buscar_agente_placeholder: 'Nombre del agente...',
+    de_label: 'Desde', ate_label: 'Hasta',
+    total_rakeback_label: 'Total Rakeback',
+    nenhum_acerto_desc: 'Aún no se calculó ninguna liquidación de agente en este período. Calcula primero las liquidaciones de una importación en la pestaña "Por Club".',
+    clubes_count_singular: '{n} club', clubes_count_plural: '{n} clubes',
+    rake_inline: 'Rake {v}', sem_clube: '— sin club —',
+    col_clube: 'Club', col_rake: 'Rake', col_rakeback: 'Rakeback',
+  },
   confirm_delete: {
     title_default: 'Confirmar eliminación',
     description_default: '¿Estás seguro de que deseas eliminar "{name}"? Esta acción no se puede deshacer.',

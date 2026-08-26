@@ -619,6 +619,15 @@ export const pt = {
     nenhum_acerto: 'Nenhum acerto calculado nessa semana ainda.',
     total_label: 'Total ({n})',
   },
+  agentes_acertos_view: {
+    buscar_agente_label: 'Buscar agente', buscar_agente_placeholder: 'Nome do agente...',
+    de_label: 'De', ate_label: 'Até',
+    total_rakeback_label: 'Total Rakeback',
+    nenhum_acerto_desc: 'Nenhum acerto de agente calculado ainda nesse período. Calcule os acertos de um import na aba "Por Clube" primeiro.',
+    clubes_count_singular: '{n} clube', clubes_count_plural: '{n} clubes',
+    rake_inline: 'Rake {v}', sem_clube: '— sem clube —',
+    col_clube: 'Clube', col_rake: 'Rake', col_rakeback: 'Rakeback',
+  },
   confirm_delete: {
     title_default: 'Confirmar exclusão',
     description_default: 'Tem certeza que deseja excluir "{name}"? Esta ação não pode ser desfeita.',

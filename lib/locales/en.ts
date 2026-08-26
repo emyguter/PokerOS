@@ -621,6 +621,15 @@ export const en: typeof pt = {
     nenhum_acerto: 'No settlement calculated for this week yet.',
     total_label: 'Total ({n})',
   },
+  agentes_acertos_view: {
+    buscar_agente_label: 'Search agent', buscar_agente_placeholder: "Agent's name...",
+    de_label: 'From', ate_label: 'To',
+    total_rakeback_label: 'Total Rakeback',
+    nenhum_acerto_desc: 'No agent settlement calculated yet for this period. Calculate the settlements of an import in the "By Club" tab first.',
+    clubes_count_singular: '{n} club', clubes_count_plural: '{n} clubs',
+    rake_inline: 'Rake {v}', sem_clube: '— no club —',
+    col_clube: 'Club', col_rake: 'Rake', col_rakeback: 'Rakeback',
+  },
   confirm_delete: {
     title_default: 'Confirm deletion',
     description_default: 'Are you sure you want to delete "{name}"? This action cannot be undone.',

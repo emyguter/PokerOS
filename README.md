@@ -1192,6 +1192,8 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
 - [x] **Espanhol (fase 12 — Relatórios de Taxas e Resumo de Acertos)**: destrava `RelatorioTaxas.tsx`
   e `RelatorioResumoAcertos.tsx` (visão executiva das taxas de todos os clubes, e resumo semanal
   cruzando todas as Ligas). ~30 frases novas nos três dicionários
+- [x] **Espanhol (fase 13 — Acertos de Agentes)**: destrava `AgentesAcertosView.tsx` (Rakeback por
+  agente, com o detalhe por clube). ~15 frases novas nos três dicionários
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
