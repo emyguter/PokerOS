@@ -5,36 +5,13 @@ import type { Regra, RegraVinculo, EntidadeTipo, CampoClube } from '@/lib/types'
 import { CAMPOS_POR_SETTLEMENT, LABEL_SETTLEMENT, settlementsQueAceitam, campoAplicavelAoTipo } from '@/lib/types'
 import { getVinculos, addVinculo, updateVinculo, removeVinculo, buscarEntidades, buscarSettlementTypesClubes } from '@/lib/cadastro-api'
 import { errMsg } from '@/lib/errors'
+import { useI18n } from '@/lib/i18n'
 
 interface Props {
   open: boolean
   regra: Regra | null
   resumo?: string
   onClose: () => void
-}
-
-const TIPOS: { value: EntidadeTipo; label: string }[] = [
-  { value: 'plataforma', label: 'App' },
-  { value: 'mega_liga', label: 'Mega Liga' },
-  { value: 'superliga', label: 'Superliga' },
-  { value: 'liga', label: 'Liga' },
-  { value: 'clube', label: 'Clube' },
-  { value: 'agente', label: 'Agente / Super Agente' },
-  { value: 'jogador', label: 'Jogador' },
-]
-
-const LABEL_TIPO: Record<EntidadeTipo, string> = {
-  plataforma: 'App',
-  mega_liga: 'Mega Liga',
-  superliga: 'Superliga',
-  liga: 'Liga',
-  clube: 'Clube',
-  agente: 'Agente',
-  jogador: 'Jogador',
-}
-
-const LABEL_CAMPO: Record<CampoClube, string> = {
-  fee_mtt: 'Rake MTT', fee_cash: 'Rake Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp', rake_total: 'Rake', taxa_liga: 'Taxa da Liga',
 }
 
 interface Entidade { id: string; nome: string }
@@ -51,6 +28,21 @@ const LADO_INICIAL = (tipo: EntidadeTipo): Lado => ({ tipo, busca: '', resultado
 const LADO_COM = (tipo: EntidadeTipo, entidade: Entidade): Lado => ({ ...LADO_INICIAL(tipo), selecionados: [entidade] })
 
 function SeletorEntidade({ titulo, opcional, multi, lado, onChange }: { titulo: string; opcional?: boolean; multi?: boolean; lado: Lado; onChange: (l: Lado) => void }) {
+  const { t } = useI18n()
+  const TIPOS: { value: EntidadeTipo; label: string }[] = [
+    { value: 'plataforma', label: t('regras_aplicadas.entidade_plataforma') },
+    { value: 'mega_liga', label: t('regras_aplicadas.entidade_mega_liga') },
+    { value: 'superliga', label: t('regras_aplicadas.entidade_superliga') },
+    { value: 'liga', label: t('regras_aplicadas.entidade_liga') },
+    { value: 'clube', label: t('regras_aplicadas.entidade_clube') },
+    { value: 'agente', label: t('vinculos_panel.tipo_agente_super') },
+    { value: 'jogador', label: t('regras_aplicadas.entidade_jogador') },
+  ]
+  const LABEL_TIPO: Record<EntidadeTipo, string> = {
+    plataforma: t('regras_aplicadas.entidade_plataforma'), mega_liga: t('regras_aplicadas.entidade_mega_liga'),
+    superliga: t('regras_aplicadas.entidade_superliga'), liga: t('regras_aplicadas.entidade_liga'),
+    clube: t('regras_aplicadas.entidade_clube'), agente: t('regras_aplicadas.entidade_agente'), jogador: t('regras_aplicadas.entidade_jogador'),
+  }
   useEffect(() => {
     onChange({ ...lado, buscando: true })
     const timer = setTimeout(() => {
@@ -83,7 +75,7 @@ function SeletorEntidade({ titulo, opcional, multi, lado, onChange }: { titulo: 
 
   return (
     <div className="flex-1 space-y-1.5">
-      <p className="text-xs text-gray-500">{titulo}{opcional && <span className="text-gray-600"> (opcional)</span>}{multi && <span className="text-gray-600"> — pode escolher vários</span>}</p>
+      <p className="text-xs text-gray-500">{titulo}{opcional && <span className="text-gray-600"> ({t('vinculos_panel.opcional')})</span>}{multi && <span className="text-gray-600"> — {t('vinculos_panel.pode_escolher_varios')}</span>}</p>
       <select
         value={lado.tipo}
         onChange={e => onChange({ ...LADO_INICIAL(e.target.value as EntidadeTipo) })}
@@ -109,26 +101,26 @@ function SeletorEntidade({ titulo, opcional, multi, lado, onChange }: { titulo: 
             type="text"
             value={lado.busca}
             onChange={e => onChange({ ...lado, busca: e.target.value })}
-            placeholder={`Buscar ${LABEL_TIPO[lado.tipo].toLowerCase()}...`}
+            placeholder={t('vinculos_panel.buscar_placeholder', { tipo: LABEL_TIPO[lado.tipo].toLowerCase() })}
             className="w-full bg-surface border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs placeholder-gray-600 focus:outline-none focus:border-gold/50"
           />
           {multi && (
             <div className="flex items-center gap-3">
               <button type="button" onClick={selecionarTodos} disabled={lado.buscando} className="text-xs text-gold hover:underline disabled:opacity-40">
-                Selecionar todos{lado.busca.trim() ? ' (dessa busca)' : ` (${LABEL_TIPO[lado.tipo].toLowerCase()})`}
+                {lado.busca.trim() ? t('vinculos_panel.selecionar_todos_desta_busca') : t('vinculos_panel.selecionar_todos_tipo', { tipo: LABEL_TIPO[lado.tipo].toLowerCase() })}
               </button>
               {lado.selecionados.length > 0 && (
                 <button type="button" onClick={() => onChange({ ...lado, selecionados: [] })} className="text-xs text-gray-500 hover:text-white">
-                  Limpar seleção
+                  {t('vinculos_panel.limpar_selecao')}
                 </button>
               )}
             </div>
           )}
           <div className="max-h-32 overflow-y-auto space-y-1">
             {lado.buscando ? (
-              <p className="text-xs text-gray-500 px-1">Buscando...</p>
+              <p className="text-xs text-gray-500 px-1">{t('vinculos_panel.buscando')}</p>
             ) : lado.resultados.length === 0 ? (
-              <p className="text-xs text-gray-500 px-1 italic">Nenhum resultado.</p>
+              <p className="text-xs text-gray-500 px-1 italic">{t('vinculos_panel.nenhum_resultado')}</p>
             ) : (
               lado.resultados.map(r => {
                 const selecionado = idsSelecionados.has(r.id)
@@ -152,6 +144,15 @@ function SeletorEntidade({ titulo, opcional, multi, lado, onChange }: { titulo: 
 }
 
 export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
+  const { t } = useI18n()
+  const LABEL_TIPO: Record<EntidadeTipo, string> = {
+    plataforma: t('regras_aplicadas.entidade_plataforma'), mega_liga: t('regras_aplicadas.entidade_mega_liga'),
+    superliga: t('regras_aplicadas.entidade_superliga'), liga: t('regras_aplicadas.entidade_liga'),
+    clube: t('regras_aplicadas.entidade_clube'), agente: t('regras_aplicadas.entidade_agente'), jogador: t('regras_aplicadas.entidade_jogador'),
+  }
+  const LABEL_CAMPO: Record<CampoClube, string> = {
+    fee_mtt: t('regra_modal.campo_fee_mtt'), fee_cash: t('regra_modal.campo_fee_cash'), taxa_op: t('regra_modal.campo_taxa_op'), spinup: t('regra_modal.campo_spinup'), rake_total: t('regra_modal.campo_rake_total'), taxa_liga: t('regra_modal.campo_taxa_liga'),
+  }
   const [vinculos, setVinculos] = useState<RegraVinculo[]>([])
   const [loading, setLoading] = useState(false)
   const [editando, setEditando] = useState<RegraVinculo | null>(null)
@@ -277,8 +278,8 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
       <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-xl mx-4 shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
           <div>
-            <h2 className="text-lg font-semibold text-white">Vínculos — {regra.nome}</h2>
-            <p className="text-xs text-gray-500">{resumo ? resumo : 'De quem pra quem essa regra vale'}</p>
+            <h2 className="text-lg font-semibold text-white">{t('vinculos_panel.vinculos_titulo', { nome: regra.nome })}</h2>
+            <p className="text-xs text-gray-500">{resumo ? resumo : t('vinculos_panel.resumo_padrao')}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><X size={18} /></button>
         </div>
@@ -286,29 +287,31 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{editando ? 'Editando vínculo' : 'Novo vínculo — de quem, pra quem'}</p>
-              {editando && <button type="button" onClick={resetForm} className="text-xs text-gray-500 hover:text-white">cancelar edição</button>}
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{editando ? t('vinculos_panel.editando_vinculo') : t('vinculos_panel.novo_vinculo')}</p>
+              {editando && <button type="button" onClick={resetForm} className="text-xs text-gray-500 hover:text-white">{t('vinculos_panel.cancelar_edicao')}</button>}
             </div>
             <div className="flex items-start gap-3">
-              <SeletorEntidade titulo="De (quem define/cobra)" opcional multi lado={ladoDe} onChange={setLadoDe} />
+              <SeletorEntidade titulo={t('vinculos_panel.de_label')} opcional multi lado={ladoDe} onChange={setLadoDe} />
               <ArrowRight size={16} className="text-gray-600 shrink-0 mt-6" />
-              <SeletorEntidade titulo="Para (quem recebe a regra)" multi lado={ladoPara} onChange={setLadoParaEZerarAviso} />
+              <SeletorEntidade titulo={t('vinculos_panel.para_label')} multi lado={ladoPara} onChange={setLadoParaEZerarAviso} />
             </div>
             {(ladoPara.tipo === 'clube' || ladoPara.tipo === 'liga') && regra.campo && (
-              <p className="text-xs text-gray-500">Essa regra vai substituir <span className="text-gold">{LABEL_CAMPO[regra.campo]}</span> {ladoPara.tipo === 'liga' ? 'da liga' : 'do clube'}.</p>
+              <p className="text-xs text-gray-500">{t('vinculos_panel.substituir_desc', { campo: LABEL_CAMPO[regra.campo], ligaOuClube: ladoPara.tipo === 'liga' ? t('vinculos_panel.da_liga') : t('vinculos_panel.do_clube') })}</p>
             )}
             {incompativeisNovo.length > 0 && regra.campo && (
               <div className="flex items-start gap-2 p-3 rounded-lg border border-alert/30 bg-alert/10 text-alert text-xs">
                 <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                 <div className="space-y-2">
                   <p>
-                    {incompativeisNovo.map(c => c.nome).join(', ')}: o tipo de cobrança desse clube não usa{' '}
-                    <span className="font-medium">{LABEL_CAMPO[regra.campo]}</span> no cálculo — o vínculo seria salvo, mas sem
-                    nenhum efeito. Só clubes {settlementsQueAceitam(regra.campo).map(s => LABEL_SETTLEMENT[s] ?? s).join(' ou ')} usam esse campo.
+                    {t('vinculos_panel.incompat_desc', {
+                      nomes: incompativeisNovo.map(c => c.nome).join(', '),
+                      campo: LABEL_CAMPO[regra.campo],
+                      settlements: settlementsQueAceitam(regra.campo).map(s => LABEL_SETTLEMENT[s] ?? s).join(' ou '),
+                    })}
                   </p>
                   <label className="flex items-center gap-2 cursor-pointer select-none text-gray-300">
                     <input type="checkbox" checked={cienteIncompatibilidade} onChange={e => setCienteIncompatibilidade(e.target.checked)} className="accent-alert" />
-                    Entendi, vincular mesmo assim (sem efeito nesse clube)
+                    {t('vinculos_panel.entendi_vincular_mesmo')}
                   </label>
                 </div>
               </div>
@@ -323,19 +326,19 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   {editando
-                    ? (totalCombos > 1 ? `Salvar edição + vincular a mais ${totalCombos - 1}` : 'Salvar edição')
-                    : (totalCombos > 1 ? `Vincular ${totalCombos} combinações` : 'Vincular')}
+                    ? (totalCombos > 1 ? t('vinculos_panel.salvar_edicao_mais', { n: totalCombos - 1 }) : t('vinculos_panel.salvar_edicao'))
+                    : (totalCombos > 1 ? t('vinculos_panel.vincular_combinacoes', { n: totalCombos }) : t('vinculos_panel.vincular'))}
                 </button>
               )
             })()}
           </div>
 
           <div className="space-y-2 pt-2 border-t border-white/10">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Vínculos ativos</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('vinculos_panel.vinculos_ativos_titulo')}</p>
             {loading ? (
-              <p className="text-sm text-gray-500">Carregando...</p>
+              <p className="text-sm text-gray-500">{t('common.carregando')}</p>
             ) : vinculos.length === 0 ? (
-              <p className="text-sm text-gray-500 italic">Nenhum vínculo ainda — essa regra não está sendo aplicada em nada.</p>
+              <p className="text-sm text-gray-500 italic">{t('vinculos_panel.nenhum_vinculo')}</p>
             ) : (
               <div className="space-y-1.5">
                 {vinculos.map(v => (
@@ -348,7 +351,7 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
                           <ArrowRight size={13} className="text-gray-500" />
                         </>
                       ) : (
-                        <span className="text-xs text-gray-600 italic">sem origem</span>
+                        <span className="text-xs text-gray-600 italic">{t('vinculos_panel.sem_origem')}</span>
                       )}
                       <span className="px-2 py-0.5 rounded-full bg-gold/10 border border-gold/30 text-gold text-xs">{LABEL_TIPO[v.para_tipo]}</span>
                       <span className="text-gray-200">{v.para_nome}</span>
@@ -357,10 +360,10 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
                       )}
                       {v.campo && campoTemEfeito(v.para_tipo, v.para_id, v.campo) === false && (
                         <span
-                          title={`O tipo de cobrança desse clube não usa "${LABEL_CAMPO[v.campo]}" no cálculo — vínculo salvo, mas sem efeito`}
+                          title={t('vinculos_panel.sem_efeito_title', { campo: LABEL_CAMPO[v.campo] })}
                           className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-alert/10 border border-alert/30 text-alert text-xs"
                         >
-                          <AlertTriangle size={11} />sem efeito
+                          <AlertTriangle size={11} />{t('vinculos_panel.sem_efeito_badge')}
                         </span>
                       )}
                     </div>

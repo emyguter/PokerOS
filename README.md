@@ -1180,6 +1180,9 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
 - [x] **Espanhol (fase 8 — modal de Liga + painel de Regras Aplicadas)**: destrava `LeagueModal.tsx` e o
   `RegrasAplicadas.tsx` compartilhado (painel usado em Clube, Regra, Agente e Liga — traduzido uma vez,
   vale pros quatro cadastros). ~40 frases novas nos três dicionários
+- [x] **Espanhol (fase 9 — painel de Vínculos)**: destrava `VinculosPanel.tsx` (tela /admin/regras — de
+  quem pra quem cada Regra vale, com busca De/Para, seleção múltipla e aviso de incompatibilidade).
+  ~30 frases novas nos três dicionários
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
