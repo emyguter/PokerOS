@@ -1186,6 +1186,9 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
 - [x] **Espanhol (fase 10 — modais de confirmação genéricos)**: destrava `ConfirmDelete.tsx`,
   `CadastroModal.tsx` e o `ConfirmModal.tsx` compartilhado (usados em excluir/confirmar em telas por
   todo o sistema — Cadastro, Segurança, Stoploss, etc). ~5 frases novas + 1 chave nova em `common`
+- [x] **Espanhol (fase 11 — buscas com dropdown)**: destrava `BuscaSelect.tsx` e `BuscaSelectMulti.tsx`
+  (usados em quase toda tela de Cadastro e Relatórios pra escolher Liga/Clube/Agente etc) — reaproveitou
+  chaves já existentes, sem frases novas. `Footer.tsx` conferido — já era 100% em inglês, sem mudança
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

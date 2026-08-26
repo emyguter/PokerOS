@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { X } from 'lucide-react'
+import { useI18n } from '@/lib/i18n'
 
 interface Opcao { id: string; nome: string }
 
@@ -16,6 +17,7 @@ interface Props {
 // Mesma ideia do BuscaSelect, mas pra escolher vários de uma vez (tipo Excel:
 // todos, um só, ou vários aleatórios) — usado em filtro de relatório.
 export function BuscaSelectMulti({ value, onChange, opcoes, placeholder, vazio, className }: Props) {
+  const { t } = useI18n()
   const [aberto, setAberto] = useState(false)
   const [busca, setBusca] = useState('')
 
@@ -57,11 +59,11 @@ export function BuscaSelectMulti({ value, onChange, opcoes, placeholder, vazio, 
         <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-white/10 bg-surface shadow-2xl">
           {selecionadas.length > 0 && (
             <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => onChange([])} className="block w-full text-left px-3 py-2 text-xs text-gray-500 hover:bg-white/5 hover:text-white transition-colors italic">
-              Limpar seleção
+              {t('vinculos_panel.limpar_selecao')}
             </button>
           )}
           {filtradas.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-gray-500 italic">Nenhum resultado.</p>
+            <p className="px-3 py-2 text-sm text-gray-500 italic">{t('vinculos_panel.nenhum_resultado')}</p>
           ) : (
             filtradas.map(o => {
               const marcada = value.includes(o.id)
