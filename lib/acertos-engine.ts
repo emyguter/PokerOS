@@ -239,11 +239,16 @@ export function calcularAcerto(
         fee_spinup_valor = rake_spinup * ((club.spinup_pct ?? 0) / 100);
       }
 
-      fee_calculado = fee_mtt_valor + fee_cash_valor + fee_operacional_valor + fee_spinup_valor;
+      // SpinUp NÃO é uma fee que a liga cobra do clube, ao contrário de Fee
+      // MTT/Fee Cash/Taxa Operacional — é um crédito que o clube ganha
+      // (confirmado pelo Cássio), por isso fica de fora do fee_calculado e
+      // entra somando no Valor do Acerto, não subtraindo.
+      fee_calculado = fee_mtt_valor + fee_cash_valor + fee_operacional_valor;
       // Valor do Acerto = soma de todas as variáveis do período (confirmado
       // com a planilha manual do Cássio, fórmula =ARRED(SOMA(...);2)): Rake
-      // Total + Ganhos/Perdas do jogador − a taxa cobrada (custo do clube).
-      valor_acerto = rake_total + row.player_result - fee_calculado;
+      // Total + Ganhos/Perdas do jogador + SpinUp (crédito) − a taxa cobrada
+      // (custo do clube).
+      valor_acerto = rake_total + row.player_result + fee_spinup_valor - fee_calculado;
       break;
     }
     case "taxa_fixa_variavel": {

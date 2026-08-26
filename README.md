@@ -1072,6 +1072,14 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Operacional"). Corrigido subtraindo a Taxa Operacional do fallback nos dois lugares
   (`ClubAcertoCard.tsx`, `lib/relatorio-resumo-acertos.ts`) — o Total/Valor do Acerto em si nunca
   esteve errado, só a quebra visual das linhas
+- [x] **SpinUp Rake vira crédito do clube, não fee cobrada dele**: decisão do Cássio — diferente de
+  Taxa MTT/Fee Cash/Taxa Operacional (que a liga cobra do clube, Taxa Dinâmica), o % de SpinUp é
+  ganho do clube, e deve somar no Valor do Acerto em vez de descontar. `fee_spinup_valor` sai do
+  `fee_calculado` (que continua só MTT+Cash+Operacional) e passa a somar direto no Valor do Acerto.
+  O card "Acerto Geral" também troca o sinal da linha "SpinUp Rake" pra positivo
+  (`lib/acertos-engine.ts`, `ClubAcertoCard.tsx`). **Importante**: só vale pra Acerto recalculado
+  daqui pra frente — Acertos de semanas já calculadas continuam com o SpinUp descontado até
+  "Recalcular"
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

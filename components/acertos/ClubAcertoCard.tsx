@@ -419,7 +419,9 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       case 'taxa_operacional':
         return <Linha key={campo} label={club?.taxa_op_ativo === false ? 'Taxa Operacional (desativada)' : `Taxa Operacional (${fmtPct(club?.taxa_op_pct ?? null)}%)`} value={-feeOperacionalValor} />
       case 'spinup':
-        return <Linha key={campo} label={`SpinUp Rake (${fmtPct(club?.spinup_pct ?? null)}%)`} value={-feeSpinupValor} />
+        // SpinUp é crédito do clube (soma no Acerto), não fee cobrada dele —
+        // por isso positivo aqui, diferente das outras taxas acima.
+        return <Linha key={campo} label={`SpinUp Rake (${fmtPct(club?.spinup_pct ?? null)}%)`} value={feeSpinupValor} />
       case 'taxa_liga': {
         // Taxa da Liga: cadastro/Regra da própria Liga manda quando tiver
         // algo configurado ali (taxaLigaValor != 0). Sem nada configurado na
