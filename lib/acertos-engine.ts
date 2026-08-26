@@ -193,10 +193,24 @@ export function calcularAcerto(
       // variável, "Taxa Dinâmica - Cash%") multiplica sobre o próprio Rake
       // Cash; Taxa Operacional multiplica sobre o Rake TOTAL, não sobre o
       // Rake Cash. Fee MTT e SpinUp sempre usam a própria base.
+      //
+      // Regra vinculada no campo "Rake" (rake_total) é um fallback pra
+      // quando Fee Cash/Fee MTT não têm regra própria — clube com uma única
+      // Regra pro rake todo (em vez de duplicar a mesma regra em Fee MTT E
+      // Fee Cash) passa a valer pros dois, aplicada sobre a base de cada um
+      // (confirmado pelo Cássio, achado no caso Mts Poker). Continua
+      // perdendo pra regra específica de cada campo quando ela existir.
+      const condRakeTotal = condicoesPorCampo.rake_total.length > 0
+        ? avaliarCondicoes(condicoesPorCampo.rake_total, row, wtr4Semanas)
+        : null;
+
       if (condicoesPorCampo.fee_cash.length > 0) {
         const pct = avaliarCondicoes(condicoesPorCampo.fee_cash, row, wtr4Semanas);
         taxa_cash_pct_aplicada = pct ?? 0;
         fee_cash_valor = rake_cash * ((pct ?? 0) / 100);
+      } else if (condRakeTotal != null) {
+        taxa_cash_pct_aplicada = condRakeTotal;
+        fee_cash_valor = rake_cash * (condRakeTotal / 100);
       } else {
         taxa_cash_pct_aplicada = club.fee_cash_pct ?? 0;
         fee_cash_valor = rake_cash * ((club.fee_cash_pct ?? 0) / 100);
@@ -205,6 +219,8 @@ export function calcularAcerto(
       if (condicoesPorCampo.fee_mtt.length > 0) {
         const pct = avaliarCondicoes(condicoesPorCampo.fee_mtt, row, wtr4Semanas);
         fee_mtt_valor = rake_mtt * ((pct ?? 0) / 100);
+      } else if (condRakeTotal != null) {
+        fee_mtt_valor = rake_mtt * (condRakeTotal / 100);
       } else {
         fee_mtt_valor = rake_mtt * (club.fee_mtt_pct / 100);
       }

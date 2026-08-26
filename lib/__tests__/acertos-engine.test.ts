@@ -268,6 +268,28 @@ describe('calcularAcerto — taxa_dinamica (regra SE/ENTÃO variável)', () => {
     expect(resultado.fee_cash_valor).toBe(0)
     expect(resultado.taxa_cash_pct_aplicada).toBe(0)
   })
+
+  it('Regra vinculada no campo Rake Total serve de fallback pra Fee MTT e Fee Cash quando eles não têm regra própria', () => {
+    const r = row({ rake_total: 1000, rake_mtt: 400, rake_cash: 500 })
+    const c = club({ fee_mtt_pct: 10, fee_cash_pct: 5 }) // ignorados: Rake Total tem prioridade sobre o fixo
+    const condicoesPorCampo = { ...CONDICOES_VAZIAS, rake_total: [condicao({ operador: '>', valor: 0, resultado_pct: 20 })] }
+    const resultado = calcularAcerto(r, c, condicoesPorCampo, null)
+    expect(resultado.fee_mtt_valor).toBe(80) // 400 * 20%, não os 10% fixos
+    expect(resultado.fee_cash_valor).toBe(100) // 500 * 20%, não os 5% fixos
+    expect(resultado.taxa_cash_pct_aplicada).toBe(20)
+  })
+
+  it('Regra própria de Fee Cash continua tendo prioridade sobre o fallback de Rake Total', () => {
+    const r = row({ rake_total: 1000, rake_cash: 500 })
+    const c = club()
+    const condicoesPorCampo = {
+      ...CONDICOES_VAZIAS,
+      fee_cash: [condicao({ operador: '>', valor: 0, resultado_pct: 20 })],
+      rake_total: [condicao({ operador: '>', valor: 0, resultado_pct: 50 })],
+    }
+    const resultado = calcularAcerto(r, c, condicoesPorCampo, null)
+    expect(resultado.fee_cash_valor).toBe(100) // 500 * 20% (regra própria), não os 50% do fallback
+  })
 })
 
 describe('calcularAcerto — outros tipos de cobrança', () => {
