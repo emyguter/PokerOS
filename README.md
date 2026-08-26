@@ -1197,6 +1197,10 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
 - [x] **Espanhol (fase 14 — mapeamento de colunas da Importação)**: destrava `MapeamentoColunasModal.tsx`
   (popup que ensina o sistema a ler uma plataforma nova sem precisar de código). ~20 frases novas nos
   três dicionários
+- [x] **Espanhol (fase 15 — tela principal de Importação)**: destrava `ImportacaoXlsx.tsx` (1045 linhas —
+  a maior fase até agora), incluindo as ~35 mensagens de erro/aviso dos parsers de PPPoker/GGPoker/
+  genérico (que precisaram de `t` passado por parâmetro, já que os parsers não são componentes React) e
+  toda a UI de upload/histórico. ~70 frases novas nos três dicionários
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
