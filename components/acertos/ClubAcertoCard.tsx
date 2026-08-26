@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useI18n } from '@/lib/i18n'
 import { getLayoutDoClube, resolverLayout, calcularTotalAcerto, corrigirValorCrypto, type CampoAcerto, type CampoResolvido } from '@/lib/relatorio-acerto'
 import { getDividasAcertoDoClube, type ItemDividaAcerto } from '@/lib/dividas'
 import { getVinculosAcerto, getIndicacoes } from '@/lib/cadastro-api'
@@ -89,14 +90,6 @@ interface ExtrasClube {
   dividasItens: ItemDividaAcerto[]
 }
 
-const LABELS_LANCAMENTO: Record<string, string> = {
-  bonus: 'Bônus',
-  promocao: 'Promoção',
-  caucao: 'Caução',
-  pagamento: 'Pagamento',
-  outro: 'Outro',
-}
-
 const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtPct = (n: number | null) => (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -155,6 +148,7 @@ async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd
 }
 
 export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClose }: Props) {
+  const { t } = useI18n()
   const [club, setClub] = useState<ClubSettings | null>(null)
   const [wtr, setWtr] = useState<number | null>(null)
   const [lancamentos, setLancamentos] = useState<LancamentoCard[]>([])
@@ -420,42 +414,42 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       case 'semana':
         return (
           <div key={campo} className="flex items-center justify-between py-1.5 px-3 text-sm">
-            <span className="text-gray-400">Semana</span>
+            <span className="text-gray-400">{t('club_acerto_card.semana')}</span>
             <span className="text-white font-medium">{formatPeriodo(periodStart, periodEnd)}</span>
           </div>
         )
       case 'clube':
         return (
           <div key={campo} className="flex items-center justify-between py-1.5 px-3 text-sm">
-            <span className="text-gray-400">Club</span>
+            <span className="text-gray-400">{t('club_acerto_card.clube_label')}</span>
             <span className="text-gold font-medium">{clubNameDisplay}</span>
           </div>
         )
       case 'taxa_mtt':
-        return <Linha key={campo} label={`Taxa MTT (${fmtPct(club?.fee_mtt_pct ?? null)}%)`} value={-feeMttValor} />
+        return <Linha key={campo} label={t('club_acerto_card.taxa_mtt_label', { pct: fmtPct(club?.fee_mtt_pct ?? null) })} value={-feeMttValor} />
       case 'wtr4':
         return (
           <div key={campo} className="flex items-center justify-between py-1.5 px-3 text-sm">
-            <span className="text-gray-400">WtR 4 Semanas</span>
+            <span className="text-gray-400">{t('club_acerto_card.wtr4_label')}</span>
             <span className="text-white font-medium">{wtr === null ? '—' : fmt(wtr)}</span>
           </div>
         )
       case 'taxa_cash':
-        return <Linha key={campo} label={`Taxa Cash (${fmtPct(acerto.taxa_cash_pct_aplicada)}%)`} value={-feeCashValor} />
+        return <Linha key={campo} label={t('club_acerto_card.taxa_cash_label', { pct: fmtPct(acerto.taxa_cash_pct_aplicada) })} value={-feeCashValor} />
       case 'rake_total':
-        return <Linha key={campo} label="Rake Total" value={rakeTotal} />
+        return <Linha key={campo} label={t('club_acerto_card.rake_total_label')} value={rakeTotal} />
       case 'rake_mtt':
-        return <Linha key={campo} label="Rake MTT" value={rakeMtt} />
+        return <Linha key={campo} label={t('club_acerto_card.rake_mtt_label')} value={rakeMtt} />
       case 'rake_cash':
-        return <Linha key={campo} label="Rake Cash" value={rakeCash} />
+        return <Linha key={campo} label={t('club_acerto_card.rake_cash_label')} value={rakeCash} />
       case 'ganhos':
-        return <Linha key={campo} label="Ganhos/Perdas" value={ganhos} />
+        return <Linha key={campo} label={t('club_acerto_card.ganhos_label')} value={ganhos} />
       case 'taxa_operacional':
-        return <Linha key={campo} label={club?.taxa_op_ativo === false ? 'Taxa Operacional (desativada)' : `Taxa Operacional (${fmtPct(club?.taxa_op_pct ?? null)}%)`} value={-feeOperacionalValor} />
+        return <Linha key={campo} label={club?.taxa_op_ativo === false ? t('club_acerto_card.taxa_operacional_desativada') : t('club_acerto_card.taxa_operacional_label', { pct: fmtPct(club?.taxa_op_pct ?? null) })} value={-feeOperacionalValor} />
       case 'spinup':
         // SpinUp é crédito do clube (soma no Acerto), não fee cobrada dele —
         // por isso positivo aqui, diferente das outras taxas acima.
-        return <Linha key={campo} label={`SpinUp Rake (${fmtPct(club?.spinup_pct ?? null)}%)`} value={feeSpinupValor} />
+        return <Linha key={campo} label={t('club_acerto_card.spinup_label', { pct: fmtPct(club?.spinup_pct ?? null) })} value={feeSpinupValor} />
       case 'taxa_liga': {
         // Taxa da Liga: cadastro/Regra da própria Liga manda quando tiver
         // algo configurado ali (taxaLigaValor != 0). Sem nada configurado na
@@ -471,16 +465,16 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         // apareciam de novo na linha de Taxa Operacional).
         const valorTaxaLiga = taxaLigaValor !== 0 || acerto.settlement_type === 'taxa_dinamica' ? taxaLigaValor : feeCalculadoValor - feeOperacionalValor
         const pct = rakeTotal > 0 ? (valorTaxaLiga / rakeTotal) * 100 : 0
-        return <Linha key={campo} label={`Taxa da Liga (${fmtPct(pct)}%)`} value={-valorTaxaLiga} />
+        return <Linha key={campo} label={t('club_acerto_card.taxa_liga_label', { pct: fmtPct(pct) })} value={-valorTaxaLiga} />
       }
       case 'bilhetes':
-        return <Linha key={campo} label="Bilhetes" value={bilhetesValor} />
+        return <Linha key={campo} label={t('club_acerto_card.bilhetes_label')} value={bilhetesValor} />
       case 'pendencias':
-        return <Linha key={campo} label="Pendências / Antecipação" value={pendenciasValor} />
+        return <Linha key={campo} label={t('club_acerto_card.pendencias_label')} value={pendenciasValor} />
       case 'seguranca':
-        return <Linha key={campo} label="Segurança" value={security} />
+        return <Linha key={campo} label={t('club_acerto_card.seguranca_label')} value={security} />
       case 'rebate':
-        return <Linha key={campo} label="Rebate" value={rebateDisplay} />
+        return <Linha key={campo} label={t('club_acerto_card.rebate_label')} value={rebateDisplay} />
       case 'indicacao': {
         if (indicacoesDetalhe.length === 0) return null
         // Uma linha por clube indicado, mesmo formato da planilha de
@@ -491,7 +485,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         return (
           <div key={campo}>
             {indicacoesDetalhe.map((d) => (
-              <Linha key={d.nome} label={`Indicação (${fmtPct(d.pct)}%) ${d.nome}`} value={d.valor} />
+              <Linha key={d.nome} label={t('club_acerto_card.indicacao_label', { pct: fmtPct(d.pct), nome: d.nome })} value={d.valor} />
             ))}
           </div>
         )
@@ -499,11 +493,11 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       case 'lancamentos_periodo':
         return lancamentosDisplay.length > 0 ? (
           <div key={campo} className="py-1">
-            <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">Lançamentos do período</p>
+            <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">{t('club_acerto_card.lancamentos_periodo_titulo')}</p>
             {lancamentosDisplay.map((l) => (
               <div key={l.id} className="flex items-center justify-between py-1 px-3 text-sm">
                 <span className="text-gray-400">
-                  {LABELS_LANCAMENTO[l.tipo] ?? l.tipo}
+                  {t(`lancamento.tipos.${l.tipo}`)}
                   {l.descricao && <span className="text-gray-600"> · {l.descricao}</span>}
                 </span>
                 <span className={l.natureza === 'credito' ? 'text-success font-medium' : 'text-alert font-medium'}>
@@ -516,7 +510,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       case 'dividas_acordos':
         return dividasDisplay.length > 0 ? (
           <div key={campo} className="py-1">
-            <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">Dívidas / Acordos</p>
+            <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">{t('club_acerto_card.dividas_acordos_titulo')}</p>
             {dividasDisplay.map((d, i) => (
               <div key={i} className="flex items-center justify-between py-1 px-3 text-sm">
                 <span className="text-gray-400">{d.descricao}</span>
@@ -537,7 +531,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
           <div className="text-center flex-1">
             <p className="text-gold font-display font-semibold text-base leading-tight">{ligaNome}</p>
-            <p className="text-xs text-gray-400 tracking-wide mt-0.5">COMMON SETTLEMENT / ACERTO GERAL</p>
+            <p className="text-xs text-gray-400 tracking-wide mt-0.5">{t('club_acerto_card.header_label')}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors shrink-0"><X size={16} /></button>
         </div>
@@ -547,10 +541,10 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
 
           {agrupado && (
             <div className="py-1">
-              <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">Acerto por clube vinculado</p>
+              <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">{t('club_acerto_card.acerto_por_clube_vinculado')}</p>
               {totaisPorMembro.map((m) => (
                 <div key={m.nome} className="flex items-center justify-between py-1 px-3 text-sm">
-                  <span className="text-gray-400">Acerto R$ {m.nome}</span>
+                  <span className="text-gray-400">{t('club_acerto_card.acerto_rs', { nome: m.nome })}</span>
                   <span className="text-white font-medium">{fmt(m.total)}</span>
                 </div>
               ))}
@@ -558,13 +552,13 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           )}
 
           <div className="flex items-center justify-between py-3 px-3 bg-surface2">
-            <span className="text-white font-semibold text-sm">Total</span>
+            <span className="text-white font-semibold text-sm">{t('club_acerto_card.total')}</span>
             <span className={`font-bold text-base ${total >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(total)}</span>
           </div>
 
           {totalConvertido != null && (
             <div className="flex items-center justify-between py-2 px-3 bg-surface2">
-              <span className="text-white font-semibold text-sm">Total {club?.moeda_conversao}</span>
+              <span className="text-white font-semibold text-sm">{t('club_acerto_card.total_moeda', { moeda: club?.moeda_conversao ?? '' })}</span>
               <span className={`font-bold text-base ${totalConvertido >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(totalConvertido)}</span>
             </div>
           )}
@@ -572,11 +566,11 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           {totalComCrypto != null && descontoCrypto != null && (
             <>
               <div className="flex items-center justify-between py-2 px-3">
-                <span className="text-gray-400 text-sm">Acerto com Crypto</span>
+                <span className="text-gray-400 text-sm">{t('club_acerto_card.acerto_com_crypto')}</span>
                 <span className={`font-semibold text-sm ${totalComCrypto >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(totalComCrypto)}</span>
               </div>
               <div className="flex items-center justify-between py-2 px-3">
-                <span className="text-gray-400 text-sm">Desconto ({fmtPct(club?.crypto_rebate_pct ?? null)}%)</span>
+                <span className="text-gray-400 text-sm">{t('club_acerto_card.desconto_pct', { pct: fmtPct(club?.crypto_rebate_pct ?? null) })}</span>
                 <span className="text-gray-400 text-sm">{fmt(descontoCrypto)}</span>
               </div>
             </>

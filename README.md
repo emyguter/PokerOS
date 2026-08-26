@@ -1164,6 +1164,9 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   e os modais de Recalcular/Cotação (`ConfirmRecalcularModal.tsx`, `ConfirmCotacaoModal.tsx`) — a
   maior tela do sistema, tinha texto 100% em português direto no código desde sempre. ~65 frases
   novas nos três dicionários
+- [x] **Espanhol (fase 4 — card de detalhe do Acerto)**: destrava o card "Common Settlement / Acerto
+  Geral" (`ClubAcertoCard.tsx`) — abre toda vez que alguém clica num clube na lista de Acertos, era
+  100% português direto no código. ~25 frases novas nos três dicionários
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
