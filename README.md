@@ -1113,6 +1113,12 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   (é só um checklist visual de Rake/Ganhos calculado vs visto na plataforma), então o título e
   subtítulo fixos da página ("Lançamento" / "Bônus, promoções, caução e pagamentos por clube") agora
   somem só nessa aba (`LancamentoView.tsx`)
+- [x] **Conferência do App: botão "Liberar Acerto"**: pedido do Cássio — só libera (fica clicável)
+  quando Rake E Ganhos dos 3 clubes conferidos baterem com o que o Suporte viu direto na plataforma.
+  Ao clicar, só registra um carimbo (`imports.conferido_em`) com a data/hora — de propósito, não
+  trava nem libera nada em nenhuma outra tela do sistema, é só o "olhei e tá certo" do Suporte pra
+  aquela semana. Uma vez conferido, o botão vira um "Conferido em ..." fixo (`ConferenciaAppView.tsx`,
+  `conferencia.ts`, `pagamentos.ts`, `20260826030000_conferido_no_import.sql`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

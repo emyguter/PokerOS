@@ -217,6 +217,9 @@ export const en: typeof pt = {
     subtitulo: "Check Rake and Winnings directly in the platform app for the highest-rake clubs in this import — just a visual checklist, doesn't change anything.",
     nenhum_clube: 'No club calculated in this import yet.',
     rake: 'Rake', ganhos: 'Winnings',
+    liberar_acerto: 'Release Settlement',
+    liberar_aviso: 'Only unlocks once Rake and Winnings match for all 3 clubs.',
+    conferido_em: 'Verified on {data}',
   },
   stoploss: {
     titulo: 'Stoploss Control', subtitulo: 'Loss limit per club — initial, current and Support adjustments',

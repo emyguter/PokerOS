@@ -215,6 +215,9 @@ export const pt = {
     subtitulo: 'Confira Rake e Ganhos direto no app da plataforma pros clubes de maior rake desse import — só um checklist visual, não altera nada.',
     nenhum_clube: 'Nenhum clube calculado nesse import ainda.',
     rake: 'Rake', ganhos: 'Ganhos',
+    liberar_acerto: 'Liberar Acerto',
+    liberar_aviso: 'Só libera quando Rake e Ganhos dos 3 clubes baterem.',
+    conferido_em: 'Conferido em {data}',
   },
   stoploss: {
     titulo: 'Controle de Stoploss', subtitulo: 'Limite de perda por clube — inicial, atual e ajustes do Suporte',

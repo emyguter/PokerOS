@@ -26,3 +26,13 @@ export async function buscarTop3RakeDoImport(importId: string): Promise<AcertoCo
     .limit(3)
   return (data ?? []) as AcertoConferencia[]
 }
+
+// "Liberar Acerto": carimbo de que o Suporte conferiu Rake/Ganhos dos
+// clubes de maior rake e bateu tudo com o app da plataforma. Só um registro
+// (data) — não trava nem libera nada em outra tela, de propósito.
+export async function marcarConferido(importId: string): Promise<string> {
+  const agora = new Date().toISOString()
+  const { error } = await supabase.from('imports').update({ conferido_em: agora }).eq('id', importId)
+  if (error) throw error
+  return agora
+}

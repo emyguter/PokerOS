@@ -304,6 +304,10 @@ export interface ImportResumo {
   // pro filtro "Data do import" (achar o import pela data que foi subido,
   // não pela semana que ele representa).
   created_at: string
+  // Carimbo da Conferência do App (ver lib/conferencia.ts) — quando o
+  // Suporte confirmou que Rake/Ganhos batem com o que vê direto na
+  // plataforma. null = ainda não conferiu essa semana.
+  conferido_em: string | null
 }
 
 // Últimos imports com Acerto calculado — só esses fazem sentido pra
@@ -313,7 +317,7 @@ export interface ImportResumo {
 export async function buscarImportsComAcerto(): Promise<ImportResumo[]> {
   const { data } = await supabase
     .from('imports')
-    .select('id, file_name, period_start, period_end, created_at')
+    .select('id, file_name, period_start, period_end, created_at, conferido_em')
     .in('status', ['acertos_calculados', 'parcial'])
     .order('period_start', { ascending: false })
     .limit(500)
