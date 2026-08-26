@@ -1021,6 +1021,12 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Controle de Pagamentos mesmo assim), mas é opcional. Corrigido nos dois formulários
   (`LancarForm.tsx` e `EditarLancamentoModal.tsx`), incluindo um bug lateral onde não vincular
   nenhum Acerto salvava uma string vazia em vez de `null` no banco
+- [x] **`taxa_tipo` (Fixa/Variável) virou automático**: esse campo (usado só como etiqueta
+  informativa pra clube Taxa Fixa/Variável, nunca teve controle na tela pra escolher manualmente e
+  não afeta o cálculo — o motor já usa a Regra vinculada quando existe, senão o número fixo,
+  independente do valor desse campo) ficava sempre travado em "fixa" desde a criação do clube. Agora
+  é derivado sozinho ao salvar o cadastro: clube com Regra vinculada no campo Rake vira "variavel",
+  sem Regra vinculada vira "fixa" — sem precisar de nenhum toggle manual (`ClubModal.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

@@ -298,7 +298,17 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       active={step}
       onStepChange={setStep}
       onClose={onClose}
-      onSubmit={e => { e.preventDefault(); onSave(form) }}
+      onSubmit={e => {
+        e.preventDefault()
+        // taxa_tipo não é mais escolhido à mão — deriva sozinho de ter ou
+        // não uma Regra vinculada no campo Rake: com Regra é "variavel"
+        // (o % muda sozinho pela condição SE/ENTÃO), sem Regra é "fixa" (só
+        // o número digitado em Taxas). O motor de cálculo já tratava os dois
+        // casos igual (usa a Regra se tiver, senão o número fixo) — isso só
+        // corrige a etiqueta pra sempre bater com a realidade, sem precisar
+        // de um campo manual que nunca teve controle na tela.
+        onSave({ ...form, taxa_tipo: camposComRegra.has('rake_total') ? 'variavel' : 'fixa' })
+      }}
       saving={saving}
       error={error}
       submitLabel="Salvar Clube"
