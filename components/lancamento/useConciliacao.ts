@@ -104,6 +104,11 @@ export function useConciliacao() {
         .neq('tipo', 'bonus')
         .neq('tipo', 'promocao')
         .neq('tipo', 'outro')
+        // Rollover (ver rolloverAcerto em lib/pagamentos.ts) é decisão só do
+        // Suporte, sem dinheiro de verdade se movendo — não tem "lado da
+        // Genia" pra confirmar, então nunca teria par e ficaria pendurado
+        // pra sempre em "Falta Financeiro" (achado no INTERLAGOS CLUB).
+        .neq('descricao', 'Rollover')
         .gte('data_lancamento', dataInicio)
         .order('data_lancamento', { ascending: true })
       if (dataFim) query = query.lte('data_lancamento', dataFim)

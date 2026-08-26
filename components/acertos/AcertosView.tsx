@@ -198,6 +198,11 @@ export default function AcertosView() {
       // (a.pendencias_antecipacao) — contar aqui também dobraria o valor
       // agora que o Valor Acerto soma os dois (mesma regra do ClubAcertoCard).
       .neq("tipo", "antecipacao")
+      // Pagamento já quita o Acerto certo pelo acerto_id vinculado (ver
+      // agregarPagamentos em lib/pagamentos.ts) — contar aqui de novo dobra
+      // o valor se a data cair dentro da janela dessa semana (achado no
+      // CHIP COIN: pagamento que fechou a semana anterior "vazando" pra cá).
+      .neq("tipo", "pagamento")
       .gte("data_lancamento", periodStart)
       .lte("data_lancamento", periodEnd || periodStart);
     setLancamentos((data as Lancamento[]) ?? []);

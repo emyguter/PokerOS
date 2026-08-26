@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { CheckCircle2, XCircle } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { buscarImportsComAcerto, type ImportResumo } from '@/lib/pagamentos'
-import { buscarTop3RakeDoImport, valoresBatem, type AcertoConferencia } from '@/lib/conferencia'
+import { buscarTop3RakeDoImport, marcarConferido, valoresBatem, type AcertoConferencia } from '@/lib/conferencia'
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -59,6 +59,7 @@ export function ConferenciaAppView() {
   const [clubes, setClubes] = useState<AcertoConferencia[]>([])
   const [loading, setLoading] = useState(false)
   const [vistos, setVistos] = useState<Record<string, ValoresVistos>>({})
+  const [liberando, setLiberando] = useState(false)
 
   useEffect(() => {
     buscarImportsComAcerto().then((lista) => {
@@ -79,6 +80,29 @@ export function ConferenciaAppView() {
 
   function setValor(clubeKey: string, campo: keyof ValoresVistos, valor: string) {
     setVistos((prev) => ({ ...prev, [clubeKey]: { ...(prev[clubeKey] ?? VAZIO), [campo]: valor } }))
+  }
+
+  // Só libera quando os 3 clubes tiverem Rake E Ganhos batendo com o que o
+  // Suporte digitou (pedido do Cássio) — nenhum valor em branco conta como
+  // "bateu".
+  const todosBatem = clubes.length > 0 && clubes.every((c) => {
+    const key = c.club_id ?? c.club_external_id
+    const visto = vistos[key] ?? VAZIO
+    const rakeNum = toNumero(visto.rake)
+    const ganhosNum = toNumero(visto.ganhos)
+    return rakeNum != null && ganhosNum != null && valoresBatem(rakeNum, c.rake_total) && valoresBatem(ganhosNum, c.player_result)
+  })
+
+  const importAtual = imports.find((i) => i.id === importId)
+
+  async function handleLiberar() {
+    setLiberando(true)
+    try {
+      const agora = await marcarConferido(importId)
+      setImports((prev) => prev.map((i) => (i.id === importId ? { ...i, conferido_em: agora } : i)))
+    } finally {
+      setLiberando(false)
+    }
   }
 
   return (
@@ -117,6 +141,26 @@ export function ConferenciaAppView() {
             )
           })}
         </div>
+      )}
+
+      {!loading && clubes.length > 0 && (
+        importAtual?.conferido_em ? (
+          <p className="flex items-center gap-1.5 text-sm text-success font-medium">
+            <CheckCircle2 size={16} />
+            {t('conferencia.conferido_em', { data: new Date(importAtual.conferido_em).toLocaleString('pt-BR') })}
+          </p>
+        ) : (
+          <div>
+            <button
+              onClick={handleLiberar}
+              disabled={!todosBatem || liberando}
+              className="px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {t('conferencia.liberar_acerto')}
+            </button>
+            <p className="text-xs text-gray-500 mt-1.5">{t('conferencia.liberar_aviso')}</p>
+          </div>
+        )
       )}
     </div>
   )

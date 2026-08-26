@@ -138,6 +138,11 @@ async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd
       .in('origem', ['suporte', 'seguranca'])
       .neq('tipo', 'caucao')
       .neq('tipo', 'antecipacao')
+      // Pagamento já quita o Acerto certo pelo acerto_id vinculado (ver
+      // agregarPagamentos em lib/pagamentos.ts) — contar aqui de novo dobra
+      // o valor se a data cair dentro da janela dessa semana (achado no
+      // CHIP COIN: pagamento que fechou a semana anterior "vazando" pra cá).
+      .neq('tipo', 'pagamento')
       .gte('data_lancamento', periodStart)
       .lte('data_lancamento', periodEnd || periodStart),
     getDividasAcertoDoClube(clubeId, periodEnd || periodStart),
@@ -220,6 +225,10 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       .in('origem', ['suporte', 'seguranca'])
       .neq('tipo', 'caucao')
       .neq('tipo', 'antecipacao')
+      // Pagamento já quita o Acerto certo pelo acerto_id vinculado — contar
+      // aqui de novo dobra o valor quando a data cai dentro da janela dessa
+      // semana (ver mesmo comentário em buscarExtrasClube acima).
+      .neq('tipo', 'pagamento')
       .gte('data_lancamento', periodStart)
       .lte('data_lancamento', periodEnd || periodStart)
       .then(({ data }) => setLancamentos(data ?? []))

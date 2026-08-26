@@ -1097,6 +1097,41 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   novo além do seletor. O card "Acerto Geral" troca a linha fixa "Total USD" por `Total {moeda
   escolhida}`, calculada como Total ÷ Cotação (`ClubModal.tsx`, `ClubAcertoCard.tsx`,
   `20260826020000_moeda_conversao_no_clube.sql`)
+- [x] **Corrige Antecipação e Pagamento contando 2x no Valor do Acerto**: achado investigando o
+  CHIP COIN — em 5 lugares que somam "Lançamentos do período" (bônus/promoção/outro) em cima do
+  Acerto (card "Acerto Geral", lista de Acertos, Controle de Pagamentos/Cobrança, Resumo de Acertos
+  e "Meus Acertos"), faltava excluir os tipos Antecipação e Pagamento — cada um já entra certo por
+  outro caminho (Antecipação via `pendencias_antecipacao`, Pagamento via o `acerto_id` vinculado que
+  já quita a Diferença daquele Acerto específico), então contar de novo aqui inflava o total sempre
+  que a data caía dentro da semana (ex: Antecipação lançada durante a semana, ou Pagamento que
+  fechou a semana anterior datado bem na virada). Confirmado pelo Cássio: uma vez que o Pagamento
+  quita a Diferença, "é nóis" — não deve mexer em mais nada; sobra vira Diferença e rola pra próxima
+  semana sozinho (`AcertosView.tsx`, `ClubAcertoCard.tsx`, `pagamentos.ts`, `relatorio-resumo-acertos.ts`,
+  `meus-acertos.ts`)
+- [x] **Conferência do App sem o título "Lançamento" em cima**: pedido do Cássio ("não faz sentido
+  lá em cima") — essa aba mora dentro do menu Lançamento por conveniência, mas não é um lançamento
+  (é só um checklist visual de Rake/Ganhos calculado vs visto na plataforma), então o título e
+  subtítulo fixos da página ("Lançamento" / "Bônus, promoções, caução e pagamentos por clube") agora
+  somem só nessa aba (`LancamentoView.tsx`)
+- [x] **Conferência do App: botão "Liberar Acerto"**: pedido do Cássio — só libera (fica clicável)
+  quando Rake E Ganhos dos 3 clubes conferidos baterem com o que o Suporte viu direto na plataforma.
+  Ao clicar, só registra um carimbo (`imports.conferido_em`) com a data/hora — de propósito, não
+  trava nem libera nada em nenhuma outra tela do sistema, é só o "olhei e tá certo" do Suporte pra
+  aquela semana. Uma vez conferido, o botão vira um "Conferido em ..." fixo (`ConferenciaAppView.tsx`,
+  `conferencia.ts`, `pagamentos.ts`, `20260826030000_conferido_no_import.sql`)
+- [x] **Rollover some da tela de Conciliação/Financeiro**: achado no INTERLAGOS CLUB — o Rollover
+  (ver `rolloverAcerto`) cria dois lançamentos só do lado do Suporte, sem par nenhum da Genia (é uma
+  decisão interna, sem dinheiro de verdade se movendo), então ficavam pendurados pra sempre com
+  status "Falta Financeiro" — ninguém nunca ia preencher o outro lado. Agora lançamentos com
+  descrição "Rollover" não aparecem mais na Conciliação nem na fila de Pendências (continuam
+  existindo normal no banco e entrando certinho no próximo Acerto do clube, sem multa — só param de
+  pedir uma conferência que nunca ia acontecer) (`useConciliacao.ts`)
+- [x] **Controle de Pagamentos: Envio contando 2x quando o Pagamento já foi conciliado**: achado no
+  CHIP COIN (semana 10/08-16/08, Valor Pago mostrando -1.355,94 em vez de -677,97, com "Envio 1" e
+  "Envio 2" repetindo o mesmo valor). A busca de Envios por Acerto não filtrava por origem, então
+  puxava os DOIS lados de um Pagamento já conciliado (o lançamento do Suporte e o par da Genia, cada
+  um com o mesmo `acerto_id`) como se fossem dois pagamentos diferentes. Agora conta só o lado
+  Suporte — mesma regra já usada em Pendências/Antecipação (`pagamentos.ts`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

@@ -48,6 +48,10 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
       .in('origem', ['suporte', 'seguranca'])
       .neq('tipo', 'caucao')
       .neq('tipo', 'antecipacao')
+      // Pagamento já quita o Acerto certo pelo acerto_id vinculado (ver
+      // agregarPagamentos em lib/pagamentos.ts) — contar aqui de novo dobra
+      // o valor (mesmo ajuste feito no AcertosView/ClubAcertoCard).
+      .neq('tipo', 'pagamento')
       .lte('data_lancamento', periodoFim),
   ])
   const lancPorClube = new Map<string, number>()

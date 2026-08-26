@@ -107,6 +107,14 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
           .in('clube_id', clubIds)
           .in('origem', ['suporte', 'seguranca'])
           .neq('tipo', 'caucao')
+          // Antecipação já entra separado (pendencias_antecipacao) e
+          // Pagamento já quita o Acerto certo pelo acerto_id vinculado (ver
+          // agregarPagamentos) — contar os dois de novo aqui dobra o valor
+          // (mesmo bug do ClubAcertoCard/AcertosView, achado no CHIP COIN:
+          // Antecipação de uma semana entrando 2x, e Pagamento que fechou a
+          // semana anterior "vazando" pra essa por causa da data).
+          .neq('tipo', 'antecipacao')
+          .neq('tipo', 'pagamento')
           .gte('data_lancamento', periodStart)
           .lte('data_lancamento', periodEnd || periodStart)
       : Promise.resolve({ data: [] as { clube_id: string; natureza: 'credito' | 'debito'; valor: number }[] }),
@@ -171,6 +179,11 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
       .select('id, acerto_id, natureza, valor, data_lancamento, pago_crypto')
       .in('acerto_id', lista.map((a) => a.id))
       .in('tipo', ['pagamento', 'antecipacao'])
+      // Conta só o lado Suporte, não o par da Genia — senão um Pagamento já
+      // conciliado (que tem os dois lados com o mesmo acerto_id) dobra o
+      // Valor Pago (achado no CHIP COIN: 2 Envios de -677,97 pro mesmo
+      // Pagamento). Mesma regra já usada em buscarPendenciasAntecipacao.
+      .eq('origem', 'suporte')
       .order('data_lancamento', { ascending: true }),
     valorAcertoCompletoPorRow(lista, importInfo?.period_start ?? '', importInfo?.period_end ?? ''),
     caucaoPorClube(clubIds, importInfo?.period_start ?? '', importInfo?.period_end ?? ''),
@@ -296,6 +309,10 @@ export interface ImportResumo {
   // pro filtro "Data do import" (achar o import pela data que foi subido,
   // não pela semana que ele representa).
   created_at: string
+  // Carimbo da Conferência do App (ver lib/conferencia.ts) — quando o
+  // Suporte confirmou que Rake/Ganhos batem com o que vê direto na
+  // plataforma. null = ainda não conferiu essa semana.
+  conferido_em: string | null
 }
 
 // Últimos imports com Acerto calculado — só esses fazem sentido pra
@@ -305,7 +322,7 @@ export interface ImportResumo {
 export async function buscarImportsComAcerto(): Promise<ImportResumo[]> {
   const { data } = await supabase
     .from('imports')
-    .select('id, file_name, period_start, period_end, created_at')
+    .select('id, file_name, period_start, period_end, created_at, conferido_em')
     .in('status', ['acertos_calculados', 'parcial'])
     .order('period_start', { ascending: false })
     .limit(500)
@@ -365,6 +382,11 @@ export async function buscarPagamentosPorPeriodo(periodoInicio: string, periodoF
       .select('id, acerto_id, natureza, valor, data_lancamento, pago_crypto')
       .in('acerto_id', lista.map((a) => a.id))
       .in('tipo', ['pagamento', 'antecipacao'])
+      // Conta só o lado Suporte, não o par da Genia — senão um Pagamento já
+      // conciliado (que tem os dois lados com o mesmo acerto_id) dobra o
+      // Valor Pago (achado no CHIP COIN: 2 Envios de -677,97 pro mesmo
+      // Pagamento). Mesma regra já usada em buscarPendenciasAntecipacao.
+      .eq('origem', 'suporte')
       .order('data_lancamento', { ascending: true }),
     valorAcertoCompletoPorRow(lista, periodoInicio, periodoFim),
     caucaoPorClube(clubIds, periodoInicio, periodoFim),
