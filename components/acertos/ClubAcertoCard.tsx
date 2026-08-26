@@ -49,6 +49,7 @@ interface ClubSettings {
   crypto_rebate_pct: number | null
   moeda: string | null
   cotacao: number | null
+  moeda_conversao: string | null
   leagues: { taxa_app_pct: number | null } | null
 }
 
@@ -166,7 +167,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
 
   useEffect(() => {
     if (acerto.club_id) {
-      supabase.from('clubs').select('fee_mtt_pct, taxa_op_pct, taxa_op_ativo, spinup_pct, security, wtr4_semanas_manual, crypto_rebate_pct, moeda, cotacao, leagues(taxa_app_pct)').eq('id', acerto.club_id).maybeSingle()
+      supabase.from('clubs').select('fee_mtt_pct, taxa_op_pct, taxa_op_ativo, spinup_pct, security, wtr4_semanas_manual, crypto_rebate_pct, moeda, cotacao, moeda_conversao, leagues(taxa_app_pct)').eq('id', acerto.club_id).maybeSingle()
         .then(({ data }) => setClub(data as unknown as ClubSettings))
     }
   }, [acerto.club_id])
@@ -395,11 +396,11 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const totalComCrypto = club?.crypto_rebate_pct ? corrigirValorCrypto(total, club.crypto_rebate_pct) : null
   const descontoCrypto = totalComCrypto != null ? total - totalComCrypto : null
 
-  // Segunda linha de Total em USD — mesmo formato da planilha de referência
-  // do Cássio ("Total PEN" + "Total USD"). Só aparece quando o clube tem
-  // Moeda diferente de BRL e Cotação cadastrada (etapa "Plataforma" do
-  // cadastro) — a Cotação converte da Moeda do clube pra Moeda de Acerto.
-  const totalUsd = club?.moeda && club.moeda !== 'BRL' && club.cotacao ? total / club.cotacao : null
+  // Segunda linha de Total convertido — mesmo formato da planilha de
+  // referência do Cássio ("Total PEN" + "Total USD"). Só aparece quando o
+  // clube tem "Converter para" e Cotação cadastradas (etapa "Plataforma" do
+  // cadastro) — a Cotação converte da Moeda do clube pra Moeda de Conversão.
+  const totalConvertido = club?.moeda_conversao && club.cotacao ? total / club.cotacao : null
 
   // O layout (Regra vinculada ao clube) só decide QUAIS linhas aparecem e em
   // que ordem — o Total sempre soma tudo, igual já funciona no Liberar para
@@ -552,10 +553,10 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
             <span className={`font-bold text-base ${total >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(total)}</span>
           </div>
 
-          {totalUsd != null && (
+          {totalConvertido != null && (
             <div className="flex items-center justify-between py-2 px-3 bg-surface2">
-              <span className="text-white font-semibold text-sm">Total USD</span>
-              <span className={`font-bold text-base ${totalUsd >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(totalUsd)}</span>
+              <span className="text-white font-semibold text-sm">Total {club?.moeda_conversao}</span>
+              <span className={`font-bold text-base ${totalConvertido >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(totalConvertido)}</span>
             </div>
           )}
 

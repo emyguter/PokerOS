@@ -17,6 +17,7 @@ function clean(form: ClubForm): ClubForm {
   if (f.taxa_tipo === 'fixa') { f.taxa_variavel_nome = null; f.taxa_variavel_indicador = null; f.taxa_variavel_regra = null }
   if (!f.rebate_ativo) f.rebate_pct = null
   if (!f.crypto_rebate_ativo) f.crypto_rebate_pct = null
+  if (!f.moeda_conversao) f.cotacao = null
   return f
 }
 

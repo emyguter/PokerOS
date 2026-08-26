@@ -1088,6 +1088,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   COIN" / "Referência 3% LEGENDS"). (2) Nova linha "Total USD" logo abaixo do Total, convertendo
   pela Cotação cadastrada do clube (Moeda ÷ Cotação) — só aparece quando o clube tem Moeda diferente
   de BRL e Cotação preenchida (`ClubAcertoCard.tsx`)
+- [x] **Cadastro de Clube: "Converter para" — conversão de moeda genérica, não só USD**: generaliza o
+  item anterior pra qualquer par de moedas (não só USD), do jeito que o Cássio pediu ("cotação pra
+  USD, PEN, ou quaisquer outras moedas"). Novo campo `clubs.moeda_conversao` (opcional, vazio por
+  padrão = sem conversão) na etapa "Plataforma" do cadastro: um seletor "Converter para (opcional)"
+  que, ao escolher uma moeda, revela o campo Cotação já existente com um rótulo explicando a conta
+  ("1 USD vale quantos PEN?"). Reaproveita o `clubs.cotacao` que já existia — nenhum campo/tabela
+  novo além do seletor. O card "Acerto Geral" troca a linha fixa "Total USD" por `Total {moeda
+  escolhida}`, calculada como Total ÷ Cotação (`ClubModal.tsx`, `ClubAcertoCard.tsx`,
+  `20260826020000_moeda_conversao_no_clube.sql`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
