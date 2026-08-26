@@ -233,8 +233,14 @@ export function DividasView() {
                 <div className="rounded-lg border border-white/10 bg-surface2 p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500">Valor</p>
-                      <p className="text-lg font-semibold text-white">{fmt(selecionada.valor_integral)}</p>
+                      <p className="text-xs text-gray-500">{selecionada.rakeback_pct != null ? 'Saldo Restante' : 'Valor'}</p>
+                      <p className="text-lg font-semibold text-white">{fmt(selecionada.rakeback_pct != null ? selecionada.saldo_restante ?? selecionada.valor_integral : selecionada.valor_integral)}</p>
+                      {selecionada.rakeback_pct != null && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          De {fmt(selecionada.valor_integral)} · {selecionada.rakeback_pct}% do Rake por semana
+                          {selecionada.pagamento_minimo ? ` · mínimo ${fmt(selecionada.pagamento_minimo)} pra abater` : ''}
+                        </p>
+                      )}
                     </div>
                     {selecionada.status === 'ativo' && (
                       <button onClick={handleMarcarSimplesQuitada} className="flex items-center gap-1.5 px-3 py-2 bg-success/10 border border-success/30 text-success rounded-lg text-sm font-medium hover:bg-success/20 transition-colors">

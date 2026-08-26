@@ -120,6 +120,18 @@ export interface DividaRow {
   // ou se é cobrado por fora. Acordo COM cronograma controla por parcela
   // (ver ParcelaRow.pago_com_rake).
   pago_com_rake: boolean
+  // Só pro tipo 'simples' com pago_com_rake ligado — null = comportamento de
+  // sempre (desconta o Valor Integral inteiro de uma vez). Preenchido =
+  // desconta só esse % do Rake do clube a cada semana (Rakeback), até
+  // zerar saldo_restante. pagamento_minimo (mesmo campo do Acordo) vira o
+  // piso: semana em que o % do Rake render menos que o Mínimo, não desconta
+  // nada — espera uma semana melhor (confirmado pelo Cássio com a planilha
+  // de referência do Sevens Pkr House).
+  rakeback_pct: number | null
+  // Quanto ainda falta pra quitar — só relevante quando rakeback_pct não é
+  // null. Começa igual a valor_integral, cai a cada semana que desconta
+  // (ver marcarDividasPagasComRake), chega a zero = Dívida quitada sozinha.
+  saldo_restante: number | null
   // Renegociação: aponta pro Acordo que foi interrompido pra dar origem a
   // esse (ver interromperEcriarFilho) — null pra dívida que nasceu do zero.
   divida_pai_id: string | null
@@ -141,6 +153,7 @@ export interface DividaForm {
   juros_pct: number | null
   data_primeira_parcela: string | null
   pago_com_rake: boolean
+  rakeback_pct: number | null
 }
 
 export interface ParcelaRow {
@@ -157,7 +170,7 @@ export interface ParcelaRow {
 export async function getDividas(): Promise<DividaRow[]> {
   const { data, error } = await supabase
     .from('dividas')
-    .select('id, clube_id, tipo, valor_integral, descricao, status, pagamento_minimo, quantidade_parcelas, juros_ativo, juros_pct, data_primeira_parcela, pago_com_rake, divida_pai_id, quitado_em, criado_em, clubs(name)')
+    .select('id, clube_id, tipo, valor_integral, descricao, status, pagamento_minimo, quantidade_parcelas, juros_ativo, juros_pct, data_primeira_parcela, pago_com_rake, rakeback_pct, saldo_restante, divida_pai_id, quitado_em, criado_em, clubs(name)')
     .order('criado_em', { ascending: false })
   if (error) throw error
   return (data ?? []).map((d) => {
@@ -202,6 +215,7 @@ async function gerarEInserirParcelas(dividaId: string, form: DividaForm): Promis
 
 export async function criarDivida(form: DividaForm): Promise<string> {
   const { data: userData } = await supabase.auth.getUser()
+  const rakebackAtivo = form.tipo === 'simples' && form.rakeback_pct != null
   const { data: nova, error } = await supabase
     .from('dividas')
     .insert({
@@ -209,6 +223,8 @@ export async function criarDivida(form: DividaForm): Promise<string> {
       pagamento_minimo: form.pagamento_minimo, quantidade_parcelas: form.quantidade_parcelas,
       juros_ativo: form.juros_ativo, juros_pct: form.juros_pct, data_primeira_parcela: form.data_primeira_parcela,
       pago_com_rake: form.pago_com_rake, criado_por: userData.user?.id ?? null,
+      rakeback_pct: rakebackAtivo ? form.rakeback_pct : null,
+      saldo_restante: rakebackAtivo ? form.valor_integral : null,
     })
     .select('id')
     .single()
@@ -235,6 +251,19 @@ export async function atualizarDivida(dividaId: string, form: DividaForm): Promi
       valor_integral: form.valor_integral, pagamento_minimo: form.pagamento_minimo, quantidade_parcelas: form.quantidade_parcelas,
       juros_ativo: form.juros_ativo, juros_pct: form.juros_pct, data_primeira_parcela: form.data_primeira_parcela,
     })
+  }
+  if (form.tipo === 'simples') {
+    const rakebackAtivo = form.rakeback_pct != null
+    patch.rakeback_pct = rakebackAtivo ? form.rakeback_pct : null
+    if (!rakebackAtivo) {
+      patch.saldo_restante = null
+    } else {
+      // Só reinicia o saldo se estiver ligando o modo Rakeback agora (não
+      // tinha antes) — se já vinha descontando aos poucos, um simples
+      // "Salvar" não pode zerar o progresso já feito.
+      const { data: atual } = await supabase.from('dividas').select('rakeback_pct').eq('id', dividaId).single()
+      if (atual?.rakeback_pct == null) patch.saldo_restante = form.valor_integral
+    }
   }
   const { error } = await supabase.from('dividas').update(patch).eq('id', dividaId)
   if (error) throw error
@@ -294,6 +323,20 @@ export async function atualizarStatusDivida(dividaId: string, status: StatusDivi
   if (error) throw error
 }
 
+// Dívida Simples em modo Rakeback (rakeback_pct preenchido): atualiza
+// saldo_restante depois de descontar a fatia dessa semana — chegando a
+// zero (ou menos, por segurança), quita sozinha igual as outras.
+export async function atualizarSaldoRestanteDivida(dividaId: string, saldoApos: number): Promise<void> {
+  const saldo = Math.max(arredonda(saldoApos), 0)
+  const patch: Record<string, unknown> = { saldo_restante: saldo }
+  if (saldo <= 0) {
+    patch.status = 'quitado'
+    patch.quitado_em = new Date().toISOString()
+  }
+  const { error } = await supabase.from('dividas').update(patch).eq('id', dividaId)
+  if (error) throw error
+}
+
 export async function atualizarDividaPagoComRake(dividaId: string, pagoComRake: boolean): Promise<void> {
   const { error } = await supabase.from('dividas').update({ pago_com_rake: pagoComRake }).eq('id', dividaId)
   if (error) throw error
@@ -337,8 +380,13 @@ export interface ItemDividaAcerto {
   // Pra marcar como paga sozinha quando o Acerto for processado (ver
   // marcarDividasPagasComRake, chamado por processarAcertos) — 'simples' e
   // 'acordo_rake' marcam a Dívida inteira (status quitado, de uma vez só),
-  // 'parcela' marca só aquela Parcela do cronograma.
-  origem: { tipo: 'simples'; dividaId: string } | { tipo: 'acordo_rake'; dividaId: string } | { tipo: 'parcela'; parcelaId: string }
+  // 'parcela' marca só aquela Parcela do cronograma, 'simples_rakeback'
+  // atualiza saldo_restante (e só quita quando ele chega a zero).
+  origem:
+    | { tipo: 'simples'; dividaId: string }
+    | { tipo: 'acordo_rake'; dividaId: string }
+    | { tipo: 'parcela'; parcelaId: string }
+    | { tipo: 'simples_rakeback'; dividaId: string; saldoApos: number }
 }
 
 // Dívida/Acordo desse clube que entra no card de Acerto — só quem estiver
@@ -355,16 +403,37 @@ export interface ItemDividaAcerto {
 // sem regra vinculada, não tem multa nenhuma, igual sempre foi). Atraso
 // calculado em relação ao FIM DO PERÍODO, não "hoje" — um Acerto já fechado
 // não pode mudar de valor se reaberto numa data futura.
-export async function getDividasAcertoDoClube(clubeId: string, periodoFim: string): Promise<ItemDividaAcerto[]> {
+//
+// Dívida Simples com rakeback_pct preenchido foge desse "tudo de uma vez":
+// desconta só rakeback_pct% do rakeTotal dessa semana, até zerar
+// saldo_restante. Numa semana em que esse valor der menos que o Pagamento
+// Mínimo cadastrado, não desconta nada — sem multa nem cronograma, só espera
+// uma semana melhor (confirmado pelo Cássio com a planilha do Sevens Pkr
+// House: "Complemento Pgto Mínimo" desfazendo o desconto abaixo do mínimo).
+export async function getDividasAcertoDoClube(clubeId: string, periodoFim: string, rakeTotal: number): Promise<ItemDividaAcerto[]> {
   const [{ data: dividas }, faixas] = await Promise.all([
-    supabase.from('dividas').select('id, tipo, valor_integral, descricao, quantidade_parcelas, pago_com_rake').eq('clube_id', clubeId).eq('status', 'ativo'),
+    supabase.from('dividas').select('id, tipo, valor_integral, descricao, quantidade_parcelas, pago_com_rake, rakeback_pct, saldo_restante, pagamento_minimo').eq('clube_id', clubeId).eq('status', 'ativo'),
     getFaixasMultaDoClube(clubeId),
   ])
 
   const itens: ItemDividaAcerto[] = []
   const hoje = new Date(periodoFim + 'T00:00:00')
-  for (const d of (dividas ?? []) as { id: string; tipo: TipoDivida; valor_integral: number; descricao: string | null; quantidade_parcelas: number | null; pago_com_rake: boolean }[]) {
+  for (const d of (dividas ?? []) as { id: string; tipo: TipoDivida; valor_integral: number; descricao: string | null; quantidade_parcelas: number | null; pago_com_rake: boolean; rakeback_pct: number | null; saldo_restante: number | null; pagamento_minimo: number | null }[]) {
     if (!d.pago_com_rake) continue
+    if (d.tipo === 'simples' && d.rakeback_pct != null) {
+      const saldoAtual = d.saldo_restante ?? d.valor_integral
+      if (saldoAtual <= 0) continue
+      const valorSemana = arredonda(rakeTotal * d.rakeback_pct / 100)
+      if (d.pagamento_minimo && valorSemana < d.pagamento_minimo) continue
+      if (valorSemana <= 0) continue
+      const valorDeduzido = Math.min(valorSemana, saldoAtual)
+      itens.push({
+        descricao: d.descricao || 'Dívida',
+        valor: valorDeduzido,
+        origem: { tipo: 'simples_rakeback', dividaId: d.id, saldoApos: arredonda(saldoAtual - valorDeduzido) },
+      })
+      continue
+    }
     if (d.tipo === 'simples') {
       itens.push({ descricao: d.descricao || 'Dívida', valor: d.valor_integral, origem: { tipo: 'simples', dividaId: d.id } })
       continue
@@ -422,15 +491,16 @@ export async function getMultaAplicadaDoClube(clubeId: string, periodoFim: strin
 // marca como paga agora, pra não descontar de novo no próximo import. Erro
 // numa Dívida específica não derruba as outras nem o processamento do
 // import (os Acertos em si já foram salvos com sucesso antes disso rodar).
-export async function marcarDividasPagasComRake(clubIds: string[], periodoFim: string): Promise<void> {
+export async function marcarDividasPagasComRake(clubIds: string[], periodoFim: string, rakeTotalPorClube: Map<string, number>): Promise<void> {
   if (!periodoFim) return
   for (const clubeId of clubIds) {
     let itens: ItemDividaAcerto[]
-    try { itens = await getDividasAcertoDoClube(clubeId, periodoFim) }
+    try { itens = await getDividasAcertoDoClube(clubeId, periodoFim, rakeTotalPorClube.get(clubeId) ?? 0) }
     catch { continue }
     for (const item of itens) {
       try {
         if (item.origem.tipo === 'parcela') await marcarParcelaPaga(item.origem.parcelaId, item.valor)
+        else if (item.origem.tipo === 'simples_rakeback') await atualizarSaldoRestanteDivida(item.origem.dividaId, item.origem.saldoApos)
         else await atualizarStatusDivida(item.origem.dividaId, 'quitado')
       } catch { /* segue pros outros itens */ }
     }

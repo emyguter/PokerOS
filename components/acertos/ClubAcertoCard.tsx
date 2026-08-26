@@ -128,7 +128,7 @@ function Linha({ label, value, editable, onCommit }: { label: string; value: num
   )
 }
 
-async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd: string): Promise<ExtrasClube> {
+async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd: string, rakeTotal: number): Promise<ExtrasClube> {
   const [{ data: clubeData }, { data: lancData }, dividasItens] = await Promise.all([
     supabase.from('clubs').select('security').eq('id', clubeId).maybeSingle(),
     supabase
@@ -145,7 +145,7 @@ async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd
       .neq('tipo', 'pagamento')
       .gte('data_lancamento', periodStart)
       .lte('data_lancamento', periodEnd || periodStart),
-    getDividasAcertoDoClube(clubeId, periodEnd || periodStart),
+    getDividasAcertoDoClube(clubeId, periodEnd || periodStart, rakeTotal),
   ])
   return {
     security: (clubeData?.security as number | null) ?? 0,
@@ -239,8 +239,8 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
     // também reduz o Acerto — continua entrando toda semana até o Suporte
     // marcar como paga em Dívidas e Acordos.
     if (!acerto.club_id || !periodStart) { setDividasItens([]); return }
-    getDividasAcertoDoClube(acerto.club_id, periodEnd || periodStart).then(setDividasItens)
-  }, [acerto.club_id, periodStart, periodEnd])
+    getDividasAcertoDoClube(acerto.club_id, periodEnd || periodStart, acerto.rake_total).then(setDividasItens)
+  }, [acerto.club_id, periodStart, periodEnd, acerto.rake_total])
 
   useEffect(() => {
     // Regra de Layout do Acerto vinculada ao clube (se tiver) — decide só
@@ -300,7 +300,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         .in('club_id', idsGrupo)
         .in('import_id', importIds)
       const linhas = (data ?? []) as AcertoGrupoRow[]
-      const extras = await Promise.all(linhas.map(async (r) => [r.club_id, await buscarExtrasClube(r.club_id, periodStart, periodEnd)] as const))
+      const extras = await Promise.all(linhas.map(async (r) => [r.club_id, await buscarExtrasClube(r.club_id, periodStart, periodEnd, r.rake_total)] as const))
       if (cancelado) return
       setAcertosGrupo(linhas)
       setExtrasPorClube(new Map(extras))

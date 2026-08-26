@@ -740,7 +740,10 @@ export async function processarAcertos(importId: string): Promise<{
     // import. Best-effort: os Acertos já foram salvos com sucesso acima,
     // isso não pode derrubar o processamento do import.
     try {
-      await marcarDividasPagasComRake(clubIdsResolvidos, importInfo?.period_end || importInfo?.period_start || "");
+      const rakeTotalPorClube = new Map(
+        acertosComExtras.filter((a) => a.club_id).map((a) => [a.club_id as string, a.rake_total])
+      );
+      await marcarDividasPagasComRake(clubIdsResolvidos, importInfo?.period_end || importInfo?.period_start || "", rakeTotalPorClube);
     } catch { /* best-effort */ }
 
     const semRegra = acertos.filter((a) => a.status === "sem_regra").length;

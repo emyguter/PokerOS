@@ -55,6 +55,7 @@ export function InterromperAcordoModal({ open, divida, saldoRestante, onClose, o
       juros_pct: !semCronograma && jurosAtivo && jurosPct ? Number(jurosPct.replace(',', '.')) : null,
       data_primeira_parcela: semCronograma ? null : dataPrimeiraParcela,
       pago_com_rake: pagoComRake,
+      rakeback_pct: null,
     })
   }
 

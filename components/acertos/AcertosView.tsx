@@ -213,8 +213,8 @@ export default function AcertosView() {
   // além de Bilhetes/Pendências/Indicação/Taxa AA (que já vêm direto na
   // linha de `acertos`) e Lançamentos (acima).
   const [extrasPorClube, setExtrasPorClube] = useState<Map<string, { security: number; dividasTotal: number }>>(new Map());
-  const loadExtras = useCallback(async (clubIds: string[], periodEnd: string) => {
-    setExtrasPorClube(await buscarSecurityEDividasPorClube(clubIds, periodEnd));
+  const loadExtras = useCallback(async (clubIds: string[], periodEnd: string, rakeTotalPorClube: Map<string, number>) => {
+    setExtrasPorClube(await buscarSecurityEDividasPorClube(clubIds, periodEnd, rakeTotalPorClube));
   }, []);
 
   // % de Crypto Rebate cadastrado por clube — só pro "Total Crypto Rebate"
@@ -260,8 +260,9 @@ export default function AcertosView() {
   useEffect(() => {
     if (!selected || acertos.length === 0) { setLancamentos([]); setExtrasPorClube(new Map()); setCryptoPctPorClube(new Map()); return; }
     const clubIds = [...new Set(acertos.map((a) => a.club_id).filter((id): id is string => !!id))];
+    const rakeTotalPorClube = new Map(acertos.filter((a) => a.club_id).map((a) => [a.club_id as string, a.rake_total]));
     loadLancamentos(clubIds, selected.period_start, selected.period_end);
-    loadExtras(clubIds, selected.period_end || selected.period_start);
+    loadExtras(clubIds, selected.period_end || selected.period_start, rakeTotalPorClube);
     loadCryptoPct(clubIds);
   }, [acertos, selected, loadLancamentos, loadExtras, loadCryptoPct]);
 

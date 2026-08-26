@@ -44,6 +44,7 @@ export function DividaModal({ open, clubes, onClose, onSave, saving, error, edit
   const [jurosPct, setJurosPct] = useState('')
   const [dataPrimeiraParcela, setDataPrimeiraParcela] = useState(hoje())
   const [pagoComRake, setPagoComRake] = useState(true)
+  const [rakebackPct, setRakebackPct] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -55,10 +56,11 @@ export function DividaModal({ open, clubes, onClose, onSave, saving, error, edit
       setJurosAtivo(editing.juros_ativo); setJurosPct(editing.juros_pct != null ? String(editing.juros_pct) : '')
       setDataPrimeiraParcela(editing.data_primeira_parcela ?? hoje())
       setPagoComRake(editing.pago_com_rake)
+      setRakebackPct(editing.rakeback_pct != null ? String(editing.rakeback_pct) : '')
     } else {
       setClubeId(''); setTipo('simples'); setValorIntegral(''); setDescricao('')
       setPagamentoMinimo(''); setQuantidadeParcelas('0'); setJurosAtivo(false); setJurosPct('')
-      setDataPrimeiraParcela(hoje()); setPagoComRake(true)
+      setDataPrimeiraParcela(hoje()); setPagoComRake(true); setRakebackPct('')
     }
   }, [open, editing])
 
@@ -67,6 +69,13 @@ export function DividaModal({ open, clubes, onClose, onSave, saving, error, edit
   // (confirmado pelo Cássio: "se for pagar com rake, não haverá parcela").
   const semCronograma = tipo === 'acordo' && pagoComRake
   const travado = tipo === 'acordo' && !podeEditarTermos
+  // Dívida Simples com Pagar com Rake ligado pode descontar aos poucos (só
+  // um % do Rake por semana) em vez de tudo de uma vez — % Rakeback vazio
+  // continua com o comportamento de sempre (desconta o Valor Integral
+  // inteiro na próxima semana). Pagamento Mínimo aqui é o piso: semana em
+  // que o % render menos que ele, não desconta nada (confirmado pelo
+  // Cássio com a planilha de referência do Sevens Pkr House).
+  const simplesComRake = tipo === 'simples' && pagoComRake
 
   const preview = useMemo(() => {
     const valor = Number(valorIntegral.replace(',', '.'))
@@ -95,12 +104,13 @@ export function DividaModal({ open, clubes, onClose, onSave, saving, error, edit
       tipo,
       valor_integral: Number(valorIntegral.replace(',', '.')),
       descricao: descricao || null,
-      pagamento_minimo: tipo === 'acordo' && !semCronograma && pagamentoMinimo ? Number(pagamentoMinimo.replace(',', '.')) : null,
+      pagamento_minimo: (tipo === 'acordo' && !semCronograma || simplesComRake) && pagamentoMinimo ? Number(pagamentoMinimo.replace(',', '.')) : null,
       quantidade_parcelas: tipo === 'acordo' && !semCronograma ? Number(quantidadeParcelas) : null,
       juros_ativo: tipo === 'acordo' && !semCronograma && jurosAtivo,
       juros_pct: tipo === 'acordo' && !semCronograma && jurosAtivo && jurosPct ? Number(jurosPct.replace(',', '.')) : null,
       data_primeira_parcela: tipo === 'acordo' && !semCronograma ? dataPrimeiraParcela : null,
       pago_com_rake: pagoComRake,
+      rakeback_pct: simplesComRake && rakebackPct ? Number(rakebackPct.replace(',', '.')) : null,
     })
   }
 
@@ -159,9 +169,24 @@ export function DividaModal({ open, clubes, onClose, onSave, saving, error, edit
               <p className="text-xs text-gray-500">
                 {tipo === 'acordo'
                   ? 'Ligado, quita tudo de uma vez no próximo Acerto processado, sem cronograma de parcelas. Desligado, define um cronograma parcelado abaixo (dá pra ligar Pagar com Rake parcela a parcela depois, na tela de Dívidas).'
-                  : 'Ligado, desconta automático do Acerto toda semana até quitar. Desligado, o clube paga por fora e alguém marca como quitada na mão.'}
+                  : 'Sem % Rakeback preenchido abaixo, desconta o Valor Integral inteiro de uma vez no próximo Acerto. Com % Rakeback, desconta aos poucos — só esse % do Rake por semana, até quitar. Desligado, o clube paga por fora e alguém marca como quitada na mão.'}
               </p>
             </div>
+
+            {simplesComRake && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">% Rakeback (opcional)</label>
+                  <input type="text" inputMode="decimal" value={rakebackPct} onChange={(e) => setRakebackPct(e.target.value)} placeholder="Ex: 10" className={inputCls} />
+                  <p className="text-xs text-gray-500 mt-1.5">Vazio = desconta tudo de uma vez, como sempre foi.</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">Pagamento Mínimo (opcional)</label>
+                  <input type="text" inputMode="decimal" value={pagamentoMinimo} onChange={(e) => setPagamentoMinimo(e.target.value)} placeholder="Piso semanal" disabled={!rakebackPct} className={rakebackPct ? inputCls : inputLockedCls} />
+                  <p className="text-xs text-gray-500 mt-1.5">Semana em que o % render menos que isso, não desconta nada.</p>
+                </div>
+              </div>
+            )}
 
             {tipo === 'acordo' && !semCronograma && (
               <>

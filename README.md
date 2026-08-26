@@ -1132,6 +1132,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   puxava os DOIS lados de um Pagamento já conciliado (o lançamento do Suporte e o par da Genia, cada
   um com o mesmo `acerto_id`) como se fossem dois pagamentos diferentes. Agora conta só o lado
   Suporte — mesma regra já usada em Pendências/Antecipação (`pagamentos.ts`)
+- [x] **Dívida Simples "Pagar com Rake" ganha modo gradual (% Rakeback + Pagamento Mínimo)**: pedido
+  do Cássio — antes, "Pagar com Rake" numa Dívida Simples só descontava o Valor Integral inteiro de
+  uma vez no próximo Acerto. Agora, com "% Rakeback" preenchido, desconta só esse % do Rake do clube
+  a cada semana (`dividas.saldo_restante` cai aos poucos até zerar, quitando sozinha) — Pagamento
+  Mínimo (reaproveita o campo que já existia só pro Acordo) é o piso: numa semana em que o % render
+  menos que o Mínimo, não desconta nada, espera uma semana melhor (comportamento confirmado com a
+  planilha de referência do Sevens Pkr House — "Complemento Pgto Mínimo"). Vazio, continua exatamente
+  como sempre foi (`DividaModal.tsx`, `DividasView.tsx`, `dividas.ts`,
+  `20260826040000_divida_rakeback_pct.sql`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

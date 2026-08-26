@@ -41,6 +41,7 @@ interface AcertoCompletoRow extends AcertoRow {
   bilhetes: number
   pendencias_antecipacao: number
   indicacao_valor: number
+  rake_total: number
 }
 
 interface PagamentoRow {
@@ -98,6 +99,7 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
 // fora, senão a Diferença de Cobrança/Controle de Pagamentos fica errada.
 async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart: string, periodEnd: string): Promise<Map<string, number>> {
   const clubIds = [...new Set(lista.map((a) => a.club_id).filter((id): id is string => !!id))]
+  const rakeTotalPorClube = new Map(lista.filter((a) => a.club_id).map((a) => [a.club_id as string, a.rake_total]))
 
   const [{ data: lancamentosData }, extrasPorClube] = await Promise.all([
     clubIds.length > 0 && periodStart
@@ -118,7 +120,7 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
           .gte('data_lancamento', periodStart)
           .lte('data_lancamento', periodEnd || periodStart)
       : Promise.resolve({ data: [] as { clube_id: string; natureza: 'credito' | 'debito'; valor: number }[] }),
-    buscarSecurityEDividasPorClube(clubIds, periodEnd || periodStart),
+    buscarSecurityEDividasPorClube(clubIds, periodEnd || periodStart, rakeTotalPorClube),
   ])
 
   const lancamentosPorClube = new Map<string, number>()
@@ -163,7 +165,7 @@ async function caucaoPorClube(clubIds: string[], periodStart: string, periodEnd:
 export async function buscarPagamentosPorImport(importId: string): Promise<AcertoPagamento[]> {
   const { data: acertos } = await supabase
     .from('acertos')
-    .select('id, club_id, club_external_id, club_name, valor_acerto, bilhetes, pendencias_antecipacao, indicacao_valor')
+    .select('id, club_id, club_external_id, club_name, valor_acerto, bilhetes, pendencias_antecipacao, indicacao_valor, rake_total')
     .eq('import_id', importId)
     .order('club_name')
 
@@ -367,7 +369,7 @@ export async function buscarPagamentosPorPeriodo(periodoInicio: string, periodoF
 
   const { data: acertos } = await supabase
     .from('acertos')
-    .select('id, club_id, club_external_id, club_name, valor_acerto, bilhetes, pendencias_antecipacao, indicacao_valor')
+    .select('id, club_id, club_external_id, club_name, valor_acerto, bilhetes, pendencias_antecipacao, indicacao_valor, rake_total')
     .in('import_id', importIds)
     .order('club_name')
 
