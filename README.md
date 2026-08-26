@@ -1031,13 +1031,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   existem hoje, sem precisar reabrir e salvar cada um na mão
 - [x] **Crypto Rebate no Weekly USD passa a corrigir por divisão, não mais subtrair do rake**:
   discutido com o Cássio — no cálculo do Acerto de clube Weekly USD, o Crypto Rebate era somado ao
-  Rebate normal e subtraído linear da fee (`rake_total × %`), igual um desconto qualquer. Agora só o
-  Rebate normal continua subtraído assim; o Crypto Rebate passa a corrigir o Valor do Acerto por
-  divisão — mesma fórmula do "Total Crypto Rebate"/"Pagar com Crypto" (`corrigirValorCrypto`: valor
-  ÷ (1 + %)) — só quando o clube tem % de Crypto Rebate cadastrado. A linha "Rebate" exibida no card
-  não muda (continua somando os dois, é só informativa). **Importante**: isso só vale pra Acerto
-  recalculado daqui pra frente — quem já tem Crypto Rebate configurado precisa clicar em
-  "Recalcular" no import da semana pra o valor atualizar (`lib/acertos-engine.ts`)
+  Rebate normal e subtraído linear da fee (`rake_total × %`), igual um desconto qualquer. Agora o
+  Rebate normal (Weekly USD) e o Rakeback continuam subtraídos assim, sem mudança — Crypto Rebate
+  sai do motor de cálculo por completo, o Valor do Acerto guardado não muda mais por causa dele.
+  Em vez disso, o card "Acerto Geral" (`ClubAcertoCard.tsx`) passa a mostrar duas linhas novas
+  embaixo do Total, pra qualquer tipo de clube (não só Weekly USD) que tenha % de Crypto Rebate
+  cadastrado: "Acerto com Crypto" (o Total corrigido pela mesma fórmula do "Total Crypto
+  Rebate"/"Pagar com Crypto" — `corrigirValorCrypto`: valor ÷ (1 + %)) e "Desconto" (a diferença
+  entre os dois). O Total normal continua exatamente igual, alimentando Controle de Pagamentos e
+  Resumo de Acertos sem nenhuma mudança
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

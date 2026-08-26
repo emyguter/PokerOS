@@ -1,6 +1,5 @@
 import { supabase } from "@/lib/supabase";
 import { marcarDividasPagasComRake } from "@/lib/dividas";
-import { corrigirValorCrypto } from "@/lib/relatorio-acerto";
 
 export interface ClubSettings {
   id: string;
@@ -264,21 +263,9 @@ export function calcularAcerto(
       const condRakeTotal = condicoesPorCampo.rake_total.length > 0
         ? avaliarCondicoes(condicoesPorCampo.rake_total, row, wtr4Semanas)
         : null;
-      const rebateNormal = rake_total * (club.rebate_pct / 100);
-      const rebateCrypto = rake_total * (club.crypto_rebate_pct / 100);
-      // rebate_calculado continua somando os dois — é só a linha "Rebate"
-      // exibida no card, não muda (ver ClubAcertoCard.tsx).
-      rebate_calculado = rebateNormal + rebateCrypto;
+      rebate_calculado = rake_total * (club.rebate_pct / 100);
       fee_calculado = rake_total * ((condRakeTotal ?? club.fee_mtt_pct) / 100);
-      // Crypto Rebate NÃO desconta como o Rebate normal (linear, subtraído
-      // do rake) — ele corrige o Valor do Acerto por divisão, mesma fórmula
-      // do "Total Crypto Rebate"/"Pagar com Crypto" (corrigirValorCrypto:
-      // valor ÷ (1 + %)), confirmado pelo Cássio. Só entra quando o clube
-      // tem % de Crypto Rebate cadastrado.
-      const valorAntesCrypto = fee_calculado - rebateNormal;
-      valor_acerto = club.crypto_rebate_pct
-        ? corrigirValorCrypto(valorAntesCrypto, club.crypto_rebate_pct)
-        : valorAntesCrypto;
+      valor_acerto = fee_calculado - rebate_calculado;
       break;
     }
     default:

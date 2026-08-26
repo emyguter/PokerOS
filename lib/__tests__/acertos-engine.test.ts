@@ -296,15 +296,15 @@ describe('calcularAcerto — outros tipos de cobrança', () => {
     expect(resultado.valor_acerto).toBe(-80)
   })
 
-  it('weekly_usd: fee fixo menos rebate normal, Crypto Rebate corrige por divisão', () => {
+  it('weekly_usd: fee fixo menos rebate (comum + cripto)', () => {
     const r = row({ rake_total: 1000 })
     const c = club({ settlement_type: 'weekly_usd', fee_mtt_pct: 15, rebate_pct: 5, crypto_rebate_pct: 2 })
     const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
-    expect(resultado.rebate_calculado).toBe(70) // 1000*5% + 1000*2% — só a linha exibida no card
+    expect(resultado.rebate_calculado).toBe(50)
     expect(resultado.fee_calculado).toBe(150) // 1000*15%
-    // fee - rebate normal (150-50=100), depois ÷ (1+2%) — Crypto Rebate não
-    // é mais subtraído linear, corrige o Valor do Acerto por divisão.
-    expect(resultado.valor_acerto).toBe(98.04)
+    // Crypto Rebate não entra no valor_acerto — vira exibição separada
+    // ("Acerto com Crypto"/"Desconto") na tela, não muda o Acerto guardado.
+    expect(resultado.valor_acerto).toBe(150 - 50)
   })
 
   it('tipo de cobrança desconhecido não quebra, só zera o valor do acerto', () => {
@@ -329,9 +329,8 @@ describe('calcularAcerto — outros tipos de cobrança', () => {
     const condicoesPorCampo = { ...CONDICOES_VAZIAS, rake_total: [condicao({ operador: '>', valor: 0, resultado_pct: 20 })] }
     const resultado = calcularAcerto(r, c, condicoesPorCampo, null)
     expect(resultado.fee_calculado).toBe(200) // 1000 * 20%, não os 15% fixos do cadastro
-    expect(resultado.rebate_calculado).toBe(70)
-    // fee - rebate normal (200-50=150), depois ÷ (1+2%)
-    expect(resultado.valor_acerto).toBe(147.06)
+    expect(resultado.rebate_calculado).toBe(50)
+    expect(resultado.valor_acerto).toBe(200 - 50)
   })
 })
 
