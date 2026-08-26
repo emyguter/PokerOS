@@ -23,7 +23,7 @@ interface Props {
 }
 
 const EMPTY: ClubForm = {
-  league_id: null, name: '', external_id: null, settlement_type: 'taxa_dinamica', moeda: 'BRL', cotacao: null,
+  league_id: null, name: '', external_id: null, settlement_type: 'taxa_dinamica', moeda: 'BRL', cotacao: null, moeda_conversao: null,
   taxa_tipo: 'fixa', fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: 9, taxa_op_ativo: true, taxa_op_tipo: 'fixa',
   spinup_pct: null, rebate_pct: null, crypto_rebate_pct: null, rakeback_pct: null, security: null,
   taxa_variavel_nome: null, taxa_variavel_indicador: null, taxa_variavel_regra: null,
@@ -47,7 +47,7 @@ const inputLockedCls = 'w-full bg-surface/50 border border-white/5 rounded-lg px
 function toForm(c: Club): ClubForm {
   return {
     league_id: c.league_id, name: c.name, external_id: c.external_id, settlement_type: c.settlement_type,
-    moeda: c.moeda, cotacao: c.cotacao ?? null, taxa_tipo: c.taxa_tipo, fee_mtt_pct: c.fee_mtt_pct, fee_cash_pct: c.fee_cash_pct,
+    moeda: c.moeda, cotacao: c.cotacao ?? null, moeda_conversao: c.moeda_conversao ?? null, taxa_tipo: c.taxa_tipo, fee_mtt_pct: c.fee_mtt_pct, fee_cash_pct: c.fee_cash_pct,
     taxa_op_pct: c.taxa_op_pct, taxa_op_ativo: c.taxa_op_ativo ?? true, taxa_op_tipo: c.taxa_op_tipo, spinup_pct: c.spinup_pct, rebate_pct: c.rebate_pct,
     crypto_rebate_pct: c.crypto_rebate_pct, rakeback_pct: c.rakeback_pct, security: c.security,
     taxa_variavel_nome: c.taxa_variavel_nome, taxa_variavel_indicador: c.taxa_variavel_indicador,
@@ -481,12 +481,26 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                 {MOEDAS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
               </select>
             </Fld>
-            <Fld label="Cotação (opcional)">
-              <NumInput value={form.cotacao} onChange={v => set('cotacao', v)} placeholder="Ex: 5.20" />
+            <Fld label="Converter para (opcional)">
+              <select
+                value={form.moeda_conversao ?? ''}
+                onChange={e => { const v = e.target.value || null; set('moeda_conversao', v); if (!v) set('cotacao', null) }}
+                className={inputCls}
+              >
+                <option value="">— Sem conversão —</option>
+                {MOEDAS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
             </Fld>
           </div>
+          {form.moeda_conversao && (
+            <Fld label={`Cotação — 1 ${form.moeda_conversao} vale quantos ${form.moeda ?? 'BRL'}?`}>
+              <NumInput value={form.cotacao} onChange={v => set('cotacao', v)} placeholder="Ex: 5.20" />
+            </Fld>
+          )}
           <p className="text-xs text-gray-500 -mt-2">
-            Cotação: valor de conversão da Moeda desse clube pra moeda de acerto, quando forem diferentes. É o único lugar do sistema onde esse valor é definido — atualize aqui sempre que precisar trocar.
+            Deixando &ldquo;Converter para&rdquo; vazio, o Acerto desse clube fica só na Moeda cadastrada, sem
+            nenhuma conversão extra. Selecionando uma moeda ali (ex: USD) e preenchendo a Cotação,
+            o card do Acerto passa a mostrar um Total extra já convertido pra essa moeda.
           </p>
         </>
       )}

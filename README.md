@@ -1072,6 +1072,31 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   Operacional"). Corrigido subtraindo a Taxa Operacional do fallback nos dois lugares
   (`ClubAcertoCard.tsx`, `lib/relatorio-resumo-acertos.ts`) — o Total/Valor do Acerto em si nunca
   esteve errado, só a quebra visual das linhas
+- [x] **SpinUp Rake vira crédito do clube, não fee cobrada dele**: decisão do Cássio — diferente de
+  Taxa MTT/Fee Cash/Taxa Operacional (que a liga cobra do clube, Taxa Dinâmica), o % de SpinUp é
+  ganho do clube, e deve somar no Valor do Acerto em vez de descontar. `fee_spinup_valor` sai do
+  `fee_calculado` (que continua só MTT+Cash+Operacional) e passa a somar direto no Valor do Acerto.
+  O card "Acerto Geral" também troca o sinal da linha "SpinUp Rake" pra positivo
+  (`lib/acertos-engine.ts`, `ClubAcertoCard.tsx`). **Importante**: só vale pra Acerto recalculado
+  daqui pra frente — Acertos de semanas já calculadas continuam com o SpinUp descontado até
+  "Recalcular"
+- [x] **Card "Acerto Geral": Indicação separada por clube + Total em USD**: pedido do Cássio,
+  comparando com a planilha de referência dele — duas mudanças no card: (1) a linha "Indicação"
+  somava todos os clubes indicados numa linha só (% e valor combinados); agora mostra uma linha por
+  clube indicado ("Indicação (3%) CHIP COIN", "Indicação (3%) LEGENDS"), cada valor calculado sobre
+  o rake do respectivo indicado nesse período — mesmo formato da planilha ("Referência 3% CHIP
+  COIN" / "Referência 3% LEGENDS"). (2) Nova linha "Total USD" logo abaixo do Total, convertendo
+  pela Cotação cadastrada do clube (Moeda ÷ Cotação) — só aparece quando o clube tem Moeda diferente
+  de BRL e Cotação preenchida (`ClubAcertoCard.tsx`)
+- [x] **Cadastro de Clube: "Converter para" — conversão de moeda genérica, não só USD**: generaliza o
+  item anterior pra qualquer par de moedas (não só USD), do jeito que o Cássio pediu ("cotação pra
+  USD, PEN, ou quaisquer outras moedas"). Novo campo `clubs.moeda_conversao` (opcional, vazio por
+  padrão = sem conversão) na etapa "Plataforma" do cadastro: um seletor "Converter para (opcional)"
+  que, ao escolher uma moeda, revela o campo Cotação já existente com um rótulo explicando a conta
+  ("1 USD vale quantos PEN?"). Reaproveita o `clubs.cotacao` que já existia — nenhum campo/tabela
+  novo além do seletor. O card "Acerto Geral" troca a linha fixa "Total USD" por `Total {moeda
+  escolhida}`, calculada como Total ÷ Cotação (`ClubModal.tsx`, `ClubAcertoCard.tsx`,
+  `20260826020000_moeda_conversao_no_clube.sql`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

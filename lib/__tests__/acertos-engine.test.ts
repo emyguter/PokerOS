@@ -213,13 +213,15 @@ describe('calcularAcerto — taxa_dinamica (todas as taxas fixas)', () => {
     expect(resultado.fee_mtt_valor).toBe(40) // outras taxas continuam normais
   })
 
-  it('Valor do Acerto = Rake Total + Ganhos do jogador − Taxa cobrada', () => {
+  it('Valor do Acerto = Rake Total + Ganhos do jogador + SpinUp (crédito) − Taxa cobrada', () => {
     const r = row({ rake_total: 1000, rake_mtt: 400, rake_cash: 500, rake_spinup: 100, player_result: -200 })
     const c = club({ fee_mtt_pct: 10, fee_cash_pct: 5, taxa_op_pct: 2, spinup_pct: 3 })
     const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
-    // fee = 400*10% (mtt) + 500*5% (cash) + 1000*2% (operacional, base = rake total) + 100*3% (spinup) = 40 + 25 + 20 + 3 = 88
-    expect(resultado.fee_calculado).toBe(88)
-    expect(resultado.valor_acerto).toBe(1000 + -200 - 88) // 712
+    // fee = 400*10% (mtt) + 500*5% (cash) + 1000*2% (operacional, base = rake total) = 40 + 25 + 20 = 85
+    // SpinUp (100*3%=3) NÃO entra na fee — é crédito do clube, soma no Acerto.
+    expect(resultado.fee_spinup_valor).toBe(3)
+    expect(resultado.fee_calculado).toBe(85)
+    expect(resultado.valor_acerto).toBe(1000 + -200 + 3 - 85) // 718
   })
 
   it('arredonda os valores pra 2 casas decimais', () => {

@@ -92,6 +92,7 @@ export type Club = {
   security: number | null
   moeda: string
   cotacao: number | null
+  moeda_conversao: string | null
   taxa_tipo: string
   taxa_variavel_nome: string | null
   taxa_variavel_indicador: string | null
@@ -135,6 +136,7 @@ export type ClubForm = {
   security: number | null
   moeda: string
   cotacao: number | null
+  moeda_conversao: string | null
   taxa_tipo: string
   taxa_variavel_nome: string | null
   taxa_variavel_indicador: string | null
