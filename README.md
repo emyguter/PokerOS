@@ -1177,6 +1177,9 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
 - [x] **Espanhol (fase 7 — modais de Jogador e Agente)**: destrava `JogadorModal.tsx` e `AgenteModal.tsx`
   (identificação, plataformas, clubes vinculados, hierarquia de Super Agente, Rakeback). ~60 frases novas
   nos três dicionários
+- [x] **Espanhol (fase 8 — modal de Liga + painel de Regras Aplicadas)**: destrava `LeagueModal.tsx` e o
+  `RegrasAplicadas.tsx` compartilhado (painel usado em Clube, Regra, Agente e Liga — traduzido uma vez,
+  vale pros quatro cadastros). ~40 frases novas nos três dicionários
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
