@@ -1194,6 +1194,9 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   cruzando todas as Ligas). ~30 frases novas nos três dicionários
 - [x] **Espanhol (fase 13 — Acertos de Agentes)**: destrava `AgentesAcertosView.tsx` (Rakeback por
   agente, com o detalhe por clube). ~15 frases novas nos três dicionários
+- [x] **Espanhol (fase 14 — mapeamento de colunas da Importação)**: destrava `MapeamentoColunasModal.tsx`
+  (popup que ensina o sistema a ler uma plataforma nova sem precisar de código). ~20 frases novas nos
+  três dicionários
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
