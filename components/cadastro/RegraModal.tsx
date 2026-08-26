@@ -5,6 +5,7 @@ import type { Regra, RegraForm, RegraCondicaoForm, RegraTipo, FaixaMultaForm, La
 import { formatIndicadorNome } from '@/lib/indicadores'
 import { supabase } from '@/lib/supabase'
 import { LAYOUT_PADRAO, LABEL_CAMPO, ehObrigatorio } from '@/lib/relatorio-acerto'
+import { useI18n } from '@/lib/i18n'
 
 interface Indicador { id: string; nome: string; descricao: string | null }
 
@@ -38,10 +39,6 @@ interface Props {
 const EMPTY_COND: RegraCondicaoForm = { indicador_ids: [''], operador: '>', valor: null, resultado_pct: null, is_fallback: false }
 const EMPTY_FAIXA: FaixaMultaForm = { quantidade: null, unidade: 'semanas', percentual: null }
 const LAYOUT_INICIAL: LayoutCampoForm[] = LAYOUT_PADRAO.map((campo, ordem) => ({ campo, ordem, visivel: true }))
-const LABEL_TIPO: Record<RegraTipo, string> = { faixa: 'Cálculo de Acerto', multa_atraso: 'Multa de Acerto', layout_acerto: 'Layout do Acerto' }
-// Nome diferente de LABEL_CAMPO (importado acima) pra não colidir — aquele é
-// dos campos do Layout do Acerto, esse é sobre qual taxa do clube a regra incide.
-const LABEL_CAMPO_CLUBE: Record<CampoClube, string> = { fee_mtt: 'Rake MTT', fee_cash: 'Rake Cash', taxa_op: 'Taxa Operacional', spinup: 'SpinUp', rake_total: 'Rake', taxa_liga: 'Taxa da Liga' }
 const inputCls = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20'
 
 // Cálculo de Acerto e Layout do Acerto sempre nascem juntos — não fazem
@@ -76,6 +73,11 @@ function EtapaOpcional({ titulo, descricao, checked, onToggle, children }: { tit
 }
 
 export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, onSave, saving, error }: Props) {
+  const { t } = useI18n()
+  const LABEL_TIPO: Record<RegraTipo, string> = { faixa: t('regra_modal.tipo_faixa'), multa_atraso: t('regra_modal.tipo_multa'), layout_acerto: t('regra_modal.tipo_layout') }
+  // Nome diferente de LABEL_CAMPO (importado acima) pra não colidir — aquele é
+  // dos campos do Layout do Acerto, esse é sobre qual taxa do clube a regra incide.
+  const LABEL_CAMPO_CLUBE: Record<CampoClube, string> = { fee_mtt: t('regra_modal.campo_fee_mtt'), fee_cash: t('regra_modal.campo_fee_cash'), taxa_op: t('regra_modal.campo_taxa_op'), spinup: t('regra_modal.campo_spinup'), rake_total: t('regra_modal.campo_rake_total'), taxa_liga: t('regra_modal.campo_taxa_liga') }
   const [nome, setNome] = useState('')
   const [campo, setCampo] = useState<CampoClube | null>(null)
   const [condicoes, setCondicoes] = useState<RegraCondicaoForm[]>([])
@@ -180,23 +182,23 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
 
   const multaConteudo = (
     <>
-      <p className="text-xs text-gray-600">A maior faixa já atingida vale sozinha (não soma com as anteriores) — incide sobre o valor da parcela atrasada. A última faixa cadastrada já vale pra sempre dali pra frente: não precisa cadastrar uma faixa por semana, quem passar da maior faixa continua pagando a porcentagem dela.</p>
+      <p className="text-xs text-gray-600">{t('regra_modal.multa_faixas_desc')}</p>
       {faixasMulta.map((f, i) => (
         <div key={i} className="flex items-center gap-2 p-3 rounded-lg border border-white/10 bg-surface2">
           <input
             type="number" step="1" min="1" value={f.quantidade ?? ''}
             onChange={e => setFaixa(i, 'quantidade', e.target.value === '' ? null : Number(e.target.value))}
-            placeholder="Ex: 1" className={`${inputCls} w-20`}
+            placeholder={t('regra_modal.faixa_quantidade_placeholder')} className={`${inputCls} w-20`}
           />
           <select value={f.unidade} onChange={e => setFaixa(i, 'unidade', e.target.value)} className={`${inputCls} w-auto`}>
-            <option value="dias">dia(s)</option>
-            <option value="semanas">semana(s)</option>
+            <option value="dias">{t('regra_modal.faixa_dias')}</option>
+            <option value="semanas">{t('regra_modal.faixa_semanas')}</option>
           </select>
-          <span className="text-gray-500 text-sm">de atraso →</span>
+          <span className="text-gray-500 text-sm">{t('regra_modal.faixa_de_atraso')}</span>
           <input
             type="number" step="any" value={f.percentual ?? ''}
             onChange={e => setFaixa(i, 'percentual', e.target.value === '' ? null : Number(e.target.value))}
-            placeholder="Ex: 2" className={`${inputCls} w-24`}
+            placeholder={t('regra_modal.faixa_percentual_placeholder')} className={`${inputCls} w-24`}
           />
           <span className="text-gray-500 text-sm">%</span>
           {faixasMulta.length > 1 && (
@@ -205,7 +207,7 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
         </div>
       ))}
       <button type="button" onClick={addFaixa} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
-        <Plus size={12} />Faixa
+        <Plus size={12} />{t('regra_modal.add_faixa')}
       </button>
     </>
   )
@@ -230,29 +232,29 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
       <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
           <h2 className="text-lg font-semibold text-white">
-            {editing ? `Editar ${LABEL_TIPO[editing.tipo]}` : step0 ? 'Nova Regra' : criandoSoMulta ? 'Nova Multa Avulsa' : criandoLayoutAvulso ? 'Novo Layout do Acerto' : 'Novo Cálculo de Acerto'}
+            {editing ? t('regra_modal.editar_titulo', { tipo: LABEL_TIPO[editing.tipo] }) : step0 ? t('regra_modal.nova_regra_titulo') : criandoSoMulta ? t('regra_modal.nova_multa_titulo') : criandoLayoutAvulso ? t('regra_modal.novo_layout_titulo') : t('regra_modal.novo_calculo_titulo')}
           </h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><X size={18} /></button>
         </div>
         {step0 ? (
           <>
             <div className="overflow-y-auto flex-1 px-6 py-5 space-y-3">
-              <p className="text-xs text-gray-500 mb-1">O que você quer criar?</p>
+              <p className="text-xs text-gray-500 mb-1">{t('regra_modal.o_que_criar')}</p>
               <button type="button" onClick={() => setTipoCriacao('completo')} className="w-full text-left p-4 rounded-lg border border-white/10 hover:border-gold/50 transition-colors">
-                <p className="text-sm font-medium text-white">Cálculo de Acerto</p>
-                <p className="text-xs text-gray-500 mt-1">% que varia por Rake/Ganhos — já vem com o Layout do card de Acerto junto, e Multa por atraso se quiser</p>
+                <p className="text-sm font-medium text-white">{t('regra_modal.calculo_titulo')}</p>
+                <p className="text-xs text-gray-500 mt-1">{t('regra_modal.calculo_desc')}</p>
               </button>
               <button type="button" onClick={() => setTipoCriacao('multa')} className="w-full text-left p-4 rounded-lg border border-white/10 hover:border-gold/50 transition-colors">
-                <p className="text-sm font-medium text-white">Multa Avulsa</p>
-                <p className="text-xs text-gray-500 mt-1">Só a % de multa por atraso, sem Cálculo — raro, use só se o Cálculo já existir em outro lugar</p>
+                <p className="text-sm font-medium text-white">{t('regra_modal.multa_avulsa_titulo')}</p>
+                <p className="text-xs text-gray-500 mt-1">{t('regra_modal.multa_avulsa_desc')}</p>
               </button>
               <button type="button" onClick={() => setTipoCriacao('layout')} className="w-full text-left p-4 rounded-lg border border-white/10 hover:border-gold/50 transition-colors">
-                <p className="text-sm font-medium text-white">Layout do Acerto Avulso</p>
-                <p className="text-xs text-gray-500 mt-1">Só a ordem/visibilidade dos campos do card, sem Cálculo — pra clube de Taxa Fixa (sem faixa SE/ENTÃO) que precisa de um layout próprio</p>
+                <p className="text-sm font-medium text-white">{t('regra_modal.layout_avulso_titulo')}</p>
+                <p className="text-xs text-gray-500 mt-1">{t('regra_modal.layout_avulso_desc')}</p>
               </button>
             </div>
             <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
-              <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
+              <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">{t('common.cancelar')}</button>
             </div>
           </>
         ) : (
@@ -262,45 +264,45 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
               <div className="flex items-center justify-between">
                 <p className="text-xs text-gray-500">
                   {criandoCompleto
-                    ? 'Cálculo e Layout do Acerto nascem juntos — Multa é opcional, marque só se essa regra tiver.'
+                    ? t('regra_modal.desc_criando_completo')
                     : criandoLayoutAvulso
-                    ? 'Layout avulso — sem Cálculo/Multa, precisa do próprio vínculo depois.'
-                    : 'Multa avulsa — sem Cálculo/Layout, precisa do próprio vínculo depois.'}
+                    ? t('regra_modal.desc_criando_layout')
+                    : t('regra_modal.desc_criando_multa')}
                 </p>
-                <button type="button" onClick={() => setTipoCriacao(null)} className="text-xs text-gray-500 hover:text-gold shrink-0 ml-2">← voltar</button>
+                <button type="button" onClick={() => setTipoCriacao(null)} className="text-xs text-gray-500 hover:text-gold shrink-0 ml-2">{t('regra_modal.voltar')}</button>
               </div>
             )}
             {editandoCalculo && (
-              <p className="text-xs text-gray-500">Layout e Multa aqui pertencem só a este Cálculo — editar/desmarcar muda só ele, não afeta outros.</p>
+              <p className="text-xs text-gray-500">{t('regra_modal.editando_calculo_desc')}</p>
             )}
 
             {precisaNome && (
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">Nome<span className="text-gray-500 ml-1">*</span></label>
-                <input type="text" value={nome} onChange={e => setNome(e.target.value)} required placeholder="Ex: 5%-15%" className={inputCls} />
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">{t('regra_modal.nome_label')}<span className="text-gray-500 ml-1">*</span></label>
+                <input type="text" value={nome} onChange={e => setNome(e.target.value)} required placeholder={t('regra_modal.nome_placeholder')} className={inputCls} />
                 {!editing && incluirMulta && (
-                  <p className="text-xs text-gray-600 mt-1">Usado nas duas regras (Cálculo e Multa) — dá pra renomear cada uma depois, separadamente.</p>
+                  <p className="text-xs text-gray-600 mt-1">{t('regra_modal.nome_usado_duas_regras')}</p>
                 )}
               </div>
             )}
 
             {mostrarCalculo && (
-            <Secao titulo="Cálculo de Acerto" descricao="Faixa SE/ENTÃO — % que varia por rake/ganhos">
+            <Secao titulo={t('regra_modal.calculo_titulo')} descricao={t('regra_modal.calculo_secao_desc')}>
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1.5">Aplica em<span className="text-gray-500 ml-1">*</span></label>
-                  <p className="text-xs text-gray-600 mb-1.5">Sobre qual taxa do clube esse percentual incide (Taxa da Liga é a única daqui que se vincula a uma Liga, não a um Clube).</p>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">{t('regra_modal.aplica_em_label')}<span className="text-gray-500 ml-1">*</span></label>
+                  <p className="text-xs text-gray-600 mb-1.5">{t('regra_modal.aplica_em_desc')}</p>
                   <select value={campo ?? ''} onChange={e => setCampo(e.target.value ? e.target.value as CampoClube : null)} required className={inputCls}>
-                    <option value="">Selecione</option>
+                    <option value="">{t('regra_modal.selecione_generico')}</option>
                     {(Object.keys(LABEL_CAMPO_CLUBE) as CampoClube[]).map(c => <option key={c} value={c}>{LABEL_CAMPO_CLUBE[c]}</option>)}
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Condições SE / ENTÃO</p>
+                  <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">{t('regra_modal.condicoes_titulo')}</p>
                   {condicoes.map((c, i) => (
                     <div key={i} className={`p-3 rounded-lg border space-y-2 ${c.is_fallback ? 'border-gold/30 bg-gold/5' : 'border-white/10 bg-surface2'}`}>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-gray-400">{c.is_fallback ? 'SENÃO' : `SE ${i + 1}`}</span>
+                        <span className="text-xs font-medium text-gray-400">{c.is_fallback ? t('regra_modal.senao') : t('regra_modal.se_numero', { n: i + 1 })}</span>
                         <button type="button" onClick={() => removeCondicao(i)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={13} /></button>
                       </div>
                       {!c.is_fallback && (
@@ -310,7 +312,7 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
                               <div key={ti} className="flex items-center gap-1">
                                 {ti > 0 && <span className="text-gray-500 text-xs">+</span>}
                                 <select value={id} onChange={e => setTermo(i, ti, e.target.value)} className={`${inputCls} w-auto`}>
-                                  <option value="">Indicador</option>
+                                  <option value="">{t('regra_modal.indicador_placeholder')}</option>
                                   {indicadores.map(ind => <option key={ind.id} value={ind.id}>{formatIndicadorNome(ind.nome, ind.descricao)}</option>)}
                                 </select>
                                 {c.indicador_ids.length > 1 && (
@@ -318,26 +320,26 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
                                 )}
                               </div>
                             ))}
-                            <button type="button" onClick={() => addTermo(i)} className="text-gold text-xs hover:underline">+ variável</button>
+                            <button type="button" onClick={() => addTermo(i)} className="text-gold text-xs hover:underline">{t('regra_modal.mais_variavel')}</button>
                           </div>
                           <div className="grid grid-cols-2 gap-2">
                             <select value={c.operador} onChange={e => setCondicao(i, 'operador', e.target.value)} className={inputCls}>
                               {['>', '>=', '<', '<='].map(op => <option key={op} value={op}>{op}</option>)}
                             </select>
-                            <input type="number" step="any" value={c.valor ?? ''} onChange={e => setCondicao(i, 'valor', e.target.value === '' ? null : Number(e.target.value))} placeholder="Valor" className={inputCls} />
+                            <input type="number" step="any" value={c.valor ?? ''} onChange={e => setCondicao(i, 'valor', e.target.value === '' ? null : Number(e.target.value))} placeholder={t('regra_modal.valor_placeholder')} className={inputCls} />
                           </div>
                         </>
                       )}
-                      <input type="number" step="any" value={c.resultado_pct ?? ''} onChange={e => setCondicao(i, 'resultado_pct', e.target.value === '' ? null : Number(e.target.value))} placeholder="Resultado (%)" className={inputCls} />
+                      <input type="number" step="any" value={c.resultado_pct ?? ''} onChange={e => setCondicao(i, 'resultado_pct', e.target.value === '' ? null : Number(e.target.value))} placeholder={t('regra_modal.resultado_pct_placeholder')} className={inputCls} />
                     </div>
                   ))}
                   <div className="flex gap-2 pt-1">
                     <button type="button" onClick={addCondicao} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
-                      <Plus size={12} />SE condição
+                      <Plus size={12} />{t('regra_modal.add_se_condicao')}
                     </button>
                     {!condicoes.some(c => c.is_fallback) && (
                       <button type="button" onClick={addFallback} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
-                        <Plus size={12} />SENÃO (regra padrão)
+                        <Plus size={12} />{t('regra_modal.add_senao')}
                       </button>
                     )}
                   </div>
@@ -347,8 +349,8 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
             )}
 
             {mostrarLayout && (
-            <Secao titulo="Layout do Acerto" descricao="Quais campos aparecem e em que ordem, no card de Acerto">
-              <p className="text-xs text-gray-600">Arraste pra reordenar (ou use as setinhas — funcionam melhor no celular). Os marcados como obrigatório sempre aparecem — só dá pra ligar/desligar os outros.</p>
+            <Secao titulo={t('regra_modal.tipo_layout')} descricao={t('regra_modal.layout_secao_desc')}>
+              <p className="text-xs text-gray-600">{t('regra_modal.layout_arraste_desc')}</p>
               <div className="space-y-1">
                 {layoutCampos.map((c, i) => {
                   const obrigatorio = ehObrigatorio(c.campo)
@@ -369,11 +371,11 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
                       </div>
                       <span className="text-sm text-white flex-1">{LABEL_CAMPO[c.campo as keyof typeof LABEL_CAMPO] ?? c.campo}</span>
                       {obrigatorio ? (
-                        <span className="px-1.5 py-0.5 rounded-full bg-surface border border-white/10 text-gray-500 text-[10px] whitespace-nowrap">obrigatório</span>
+                        <span className="px-1.5 py-0.5 rounded-full bg-surface border border-white/10 text-gray-500 text-[10px] whitespace-nowrap">{t('regra_modal.obrigatorio_badge')}</span>
                       ) : (
                         <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer select-none">
                           <input type="checkbox" checked={c.visivel} onChange={() => toggleVisivel(i)} className="accent-gold" />
-                          visível
+                          {t('regra_modal.visivel_label')}
                         </label>
                       )}
                     </div>
@@ -385,15 +387,15 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
 
             {mostrarMultaComCheckbox ? (
               <EtapaOpcional
-                titulo="Multa de Acerto"
-                descricao="% de multa por atraso, pra Dívidas e Acordos — opcional, nem todo Cálculo precisa"
+                titulo={t('regra_modal.multa_titulo')}
+                descricao={t('regra_modal.multa_opcional_desc')}
                 checked={incluirMulta}
                 onToggle={() => setIncluirMulta(v => !v)}
               >
                 {multaConteudo}
               </EtapaOpcional>
             ) : mostrarMultaFixa && (
-              <Secao titulo="Multa de Acerto" descricao="% de multa por atraso, pra Dívidas e Acordos">
+              <Secao titulo={t('regra_modal.multa_titulo')} descricao={t('regra_modal.multa_fixa_desc')}>
                 {multaConteudo}
               </Secao>
             )}
@@ -401,9 +403,9 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
             {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
           </div>
           <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
-            <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">{t('common.cancelar')}</button>
             <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
-              {saving && <Loader2 size={14} className="animate-spin" />}Salvar
+              {saving && <Loader2 size={14} className="animate-spin" />}{t('common.salvar')}
             </button>
           </div>
         </form>

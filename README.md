@@ -1171,6 +1171,9 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   sistema, 5 etapas — Identificação, Plataforma, Taxas, Regras, Garantias & Limites) e o `StepModal.tsx`
   compartilhado (usado por todos os modais em etapas — "Cancelar"/"Salvar" agora traduzidos globalmente).
   ~50 frases novas nos três dicionários
+- [x] **Espanhol (fase 6 — modal de Regras)**: destrava o `RegraModal.tsx` (Cálculo de Acerto SE/ENTÃO,
+  Multa por atraso e Layout do card de Acerto) — era 100% português direto no código. ~50 frases novas
+  nos três dicionários
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
