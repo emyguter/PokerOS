@@ -1029,6 +1029,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   sem Regra vinculada vira "fixa" — sem precisar de nenhum toggle manual (`ClubModal.tsx`). Migration
   `20260826000000_backfill_taxa_tipo_por_regra_vinculada.sql` corrige de uma vez os clubes que já
   existem hoje, sem precisar reabrir e salvar cada um na mão
+- [x] **Crypto Rebate no Weekly USD passa a corrigir por divisão, não mais subtrair do rake**:
+  discutido com o Cássio — no cálculo do Acerto de clube Weekly USD, o Crypto Rebate era somado ao
+  Rebate normal e subtraído linear da fee (`rake_total × %`), igual um desconto qualquer. Agora só o
+  Rebate normal continua subtraído assim; o Crypto Rebate passa a corrigir o Valor do Acerto por
+  divisão — mesma fórmula do "Total Crypto Rebate"/"Pagar com Crypto" (`corrigirValorCrypto`: valor
+  ÷ (1 + %)) — só quando o clube tem % de Crypto Rebate cadastrado. A linha "Rebate" exibida no card
+  não muda (continua somando os dois, é só informativa). **Importante**: isso só vale pra Acerto
+  recalculado daqui pra frente — quem já tem Crypto Rebate configurado precisa clicar em
+  "Recalcular" no import da semana pra o valor atualizar (`lib/acertos-engine.ts`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
