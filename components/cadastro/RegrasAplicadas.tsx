@@ -76,8 +76,12 @@ export function RegrasAplicadas({ entidadeTipo, entidadeId, settlementType, feeC
   }, [entidadeTipo, entidadeId])
 
   const pctFixo: Record<string, number | null | undefined> = { fee_cash: feeCashPct, fee_mtt: feeMttPct }
+  // Regra vinculada no campo "Rake" (rake_total) serve de fallback pra Fee
+  // Cash/Fee MTT em Taxa Dinâmica quando eles não têm regra própria (ver
+  // lib/acertos-engine.ts) — então também conta como "tem taxa" aqui.
+  const temRegraRakeTotal = regras.some(r => r.campo === 'rake_total')
   const camposSemTaxa = entidadeTipo === 'clube' && settlementType === 'taxa_dinamica'
-    ? CAMPOS_CRITICOS.filter(({ campo }) => !regras.some(r => r.campo === campo) && !pctFixo[campo])
+    ? CAMPOS_CRITICOS.filter(({ campo }) => !regras.some(r => r.campo === campo) && !pctFixo[campo] && !temRegraRakeTotal)
     : []
 
   return (

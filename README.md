@@ -1045,6 +1045,14 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   conta do Acerto, Taxa Operacional passa a valer se estiver ligada). Migration
   `20260826010000_converte_weekly_usd_para_taxa_fixa_variavel.sql`. Só corrige o cadastro pra
   frente — Acertos de semanas já calculadas continuam com a fórmula antiga até "Recalcular"
+- [x] **Taxa Dinâmica passa a considerar Regra vinculada em Rake Total**: achado no caso Mts Poker —
+  clube Taxa Dinâmica com uma única Regra pro rake todo (vinculada no campo "Rake"/`rake_total`, em
+  vez de duplicar a mesma regra em Fee MTT E Fee Cash) não tinha efeito nenhum, porque o motor só
+  lia Regra vinculada especificamente em Fee MTT/Fee Cash — mesmo com a Regra visível no cadastro,
+  nenhuma taxa era cobrada. Agora a Regra de Rake Total serve de fallback pros dois campos (aplicada
+  sobre a base de cada um — Rake MTT e Rake Cash), só perdendo pra regra própria de cada campo
+  quando ela existir. O aviso vermelho na etapa Regras também para de disparar nesse caso
+  (`lib/acertos-engine.ts`, `RegrasAplicadas.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
