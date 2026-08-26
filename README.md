@@ -1052,7 +1052,11 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   nenhuma taxa era cobrada. Agora a Regra de Rake Total serve de fallback pros dois campos (aplicada
   sobre a base de cada um — Rake MTT e Rake Cash), só perdendo pra regra própria de cada campo
   quando ela existir. O aviso vermelho na etapa Regras também para de disparar nesse caso
-  (`lib/acertos-engine.ts`, `RegrasAplicadas.tsx`)
+  (`lib/acertos-engine.ts`, `RegrasAplicadas.tsx`). Faltava travar visualmente os campos Fee
+  MTT/Fee Cash na etapa Taxas do cadastro nesse mesmo caso — ficavam abertos pra digitar mesmo já
+  seguindo a Regra de Rake Total por baixo, o que confundia (campo parecia sem taxa nenhuma
+  configurada). Agora aparecem travados também, mostrando "Campo seguindo regra vinculada"
+  (`ClubModal.tsx`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
