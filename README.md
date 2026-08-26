@@ -1026,7 +1026,9 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   não afeta o cálculo — o motor já usa a Regra vinculada quando existe, senão o número fixo,
   independente do valor desse campo) ficava sempre travado em "fixa" desde a criação do clube. Agora
   é derivado sozinho ao salvar o cadastro: clube com Regra vinculada no campo Rake vira "variavel",
-  sem Regra vinculada vira "fixa" — sem precisar de nenhum toggle manual (`ClubModal.tsx`)
+  sem Regra vinculada vira "fixa" — sem precisar de nenhum toggle manual (`ClubModal.tsx`). Migration
+  `20260826000000_backfill_taxa_tipo_por_regra_vinculada.sql` corrige de uma vez os clubes que já
+  existem hoje, sem precisar reabrir e salvar cada um na mão
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
