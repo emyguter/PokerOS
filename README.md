@@ -1063,6 +1063,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   que Rake Total agora também vale pra Taxa Dinâmica (fallback pra Fee MTT/Fee Cash). Continuava
   marcando o vínculo Liga→Clube em Rake como "sem efeito" mesmo já funcionando no cálculo. Corrigido
   adicionando `rake_total` à lista de Taxa Dinâmica (`lib/types.ts`)
+- [x] **Taxa da Liga contava a Taxa Operacional duas vezes** (caso AK AMAKHA club 2): quando a Liga
+  não tem % nem Regra configurada, o card "Acerto Geral" e o Resumo de Acertos caem pro
+  `fee_calculado` do próprio clube como "Taxa da Liga" (clube Taxa Fixa/Variável ou Weekly USD, sem
+  Fee MTT/Cash pra itemizar). Só que `fee_calculado` já inclui a Taxa Operacional — que também
+  aparece como linha própria no card — dobrando ela na exibição (o clube via 19% de "Taxa da Liga"
+  quando só 10% era taxa de rake de verdade, os outros 9% já apareciam de novo embaixo em "Taxa
+  Operacional"). Corrigido subtraindo a Taxa Operacional do fallback nos dois lugares
+  (`ClubAcertoCard.tsx`, `lib/relatorio-resumo-acertos.ts`) — o Total/Valor do Acerto em si nunca
+  esteve errado, só a quebra visual das linhas
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

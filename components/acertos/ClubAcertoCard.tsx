@@ -428,7 +428,12 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         // taxa que existe, e conta como Taxa da Liga aqui. Em taxa_dinamica
         // nunca cai nesse fallback — já vem itemizado em Taxa MTT/Cash/
         // Operacional/SpinUp, e a Liga continua sendo uma camada à parte.
-        const valorTaxaLiga = taxaLigaValor !== 0 || acerto.settlement_type === 'taxa_dinamica' ? taxaLigaValor : feeCalculadoValor
+        // Subtrai a Taxa Operacional do fallback — ela já é uma linha própria
+        // do card (case 'taxa_operacional' acima), então feeCalculadoValor
+        // sozinho contava ela duas vezes (achado no caso AK AMAKHA club 2:
+        // 19% mostrado, mas só 10% era taxa de verdade — os outros 9% já
+        // apareciam de novo na linha de Taxa Operacional).
+        const valorTaxaLiga = taxaLigaValor !== 0 || acerto.settlement_type === 'taxa_dinamica' ? taxaLigaValor : feeCalculadoValor - feeOperacionalValor
         const pct = rakeTotal > 0 ? (valorTaxaLiga / rakeTotal) * 100 : 0
         return <Linha key={campo} label={`Taxa da Liga (${fmtPct(pct)}%)`} value={-valorTaxaLiga} />
       }
