@@ -13,6 +13,7 @@ export const es: typeof pt = {
     selecione: '— Seleccionar —',
     sim: 'Sí',
     nao: 'No',
+    confirmar: 'Confirmar',
   },
   nav: {
     cadastros: 'Registros',
@@ -599,5 +600,10 @@ export const es: typeof pt = {
     sem_origem: 'sin origen',
     sem_efeito_badge: 'sin efecto',
     sem_efeito_title: 'El tipo de cobro de este club no usa "{campo}" en el cálculo — vínculo guardado, pero sin efecto',
+  },
+  confirm_delete: {
+    title_default: 'Confirmar eliminación',
+    description_default: '¿Estás seguro de que deseas eliminar "{name}"? Esta acción no se puede deshacer.',
+    confirm_default: 'Eliminar',
   },
 }

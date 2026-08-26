@@ -13,6 +13,7 @@ export const en: typeof pt = {
     selecione: '— Select —',
     sim: 'Yes',
     nao: 'No',
+    confirmar: 'Confirm',
   },
   nav: {
     cadastros: 'Registrations',
@@ -599,5 +600,10 @@ export const en: typeof pt = {
     sem_origem: 'no source',
     sem_efeito_badge: 'no effect',
     sem_efeito_title: 'This club\'s fee type doesn\'t use "{campo}" in the calculation — link saved, but with no effect',
+  },
+  confirm_delete: {
+    title_default: 'Confirm deletion',
+    description_default: 'Are you sure you want to delete "{name}"? This action cannot be undone.',
+    confirm_default: 'Delete',
   },
 }

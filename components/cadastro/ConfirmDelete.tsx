@@ -1,5 +1,6 @@
 'use client'
 import { Loader2, Trash2 } from 'lucide-react'
+import { useI18n } from '@/lib/i18n'
 interface Props {
   open: boolean
   name: string
@@ -12,6 +13,7 @@ interface Props {
   error?: string | null
 }
 export function ConfirmDelete({ open, name, onConfirm, onCancel, saving, title, description, confirmLabel, error }: Props) {
+  const { t } = useI18n()
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -19,14 +21,14 @@ export function ConfirmDelete({ open, name, onConfirm, onCancel, saving, title, 
       <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-sm mx-4 shadow-2xl p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 rounded-lg bg-alert/10 text-alert"><Trash2 size={18} /></div>
-          <h2 className="text-lg font-semibold text-white">{title ?? 'Confirmar exclusão'}</h2>
+          <h2 className="text-lg font-semibold text-white">{title ?? t('confirm_delete.title_default')}</h2>
         </div>
-        <p className="text-sm text-gray-400 mb-6">{description ?? <>Tem certeza que deseja excluir <span className="text-white font-medium">"{name}"</span>? Esta ação não pode ser desfeita.</>}</p>
+        <p className="text-sm text-gray-400 mb-6">{description ?? t('confirm_delete.description_default', { name })}</p>
         {error && <div className="mb-4 p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
         <div className="flex items-center justify-end gap-3">
-          <button onClick={onCancel} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
+          <button onClick={onCancel} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">{t('common.cancelar')}</button>
           <button onClick={onConfirm} disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-alert text-white rounded-lg text-sm font-semibold hover:bg-alert/90 disabled:opacity-50 transition-colors">
-            {saving && <Loader2 size={14} className="animate-spin" />}{confirmLabel ?? 'Excluir'}
+            {saving && <Loader2 size={14} className="animate-spin" />}{confirmLabel ?? t('confirm_delete.confirm_default')}
           </button>
         </div>
       </div>

@@ -1183,6 +1183,9 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
 - [x] **Espanhol (fase 9 — painel de Vínculos)**: destrava `VinculosPanel.tsx` (tela /admin/regras — de
   quem pra quem cada Regra vale, com busca De/Para, seleção múltipla e aviso de incompatibilidade).
   ~30 frases novas nos três dicionários
+- [x] **Espanhol (fase 10 — modais de confirmação genéricos)**: destrava `ConfirmDelete.tsx`,
+  `CadastroModal.tsx` e o `ConfirmModal.tsx` compartilhado (usados em excluir/confirmar em telas por
+  todo o sistema — Cadastro, Segurança, Stoploss, etc). ~5 frases novas + 1 chave nova em `common`
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

@@ -11,6 +11,7 @@ export const pt = {
     selecione: '— Selecione —',
     sim: 'Sim',
     nao: 'Não',
+    confirmar: 'Confirmar',
   },
   nav: {
     cadastros: 'Cadastros',
@@ -597,5 +598,10 @@ export const pt = {
     sem_origem: 'sem origem',
     sem_efeito_badge: 'sem efeito',
     sem_efeito_title: 'O tipo de cobrança desse clube não usa "{campo}" no cálculo — vínculo salvo, mas sem efeito',
+  },
+  confirm_delete: {
+    title_default: 'Confirmar exclusão',
+    description_default: 'Tem certeza que deseja excluir "{name}"? Esta ação não pode ser desfeita.',
+    confirm_default: 'Excluir',
   },
 }
