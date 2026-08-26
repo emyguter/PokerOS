@@ -316,7 +316,9 @@ export type CampoClube = 'fee_mtt' | 'fee_cash' | 'taxa_op' | 'spinup' | 'rake_t
 // no cálculo (usado pra avisar isso na tela de Vínculos). taxa_liga fica de
 // fora — não é campo de clube, ver campoAplicavelAoTipo.
 export const CAMPOS_POR_SETTLEMENT: Record<string, CampoClube[]> = {
-  taxa_dinamica: ['fee_mtt', 'fee_cash', 'taxa_op', 'spinup'],
+  // rake_total: fallback pra Fee MTT/Fee Cash quando eles não têm regra
+  // própria (ver calcularAcerto, case "taxa_dinamica").
+  taxa_dinamica: ['fee_mtt', 'fee_cash', 'taxa_op', 'spinup', 'rake_total'],
   taxa_fixa_variavel: ['rake_total'],
   weekly_usd: ['rake_total'],
   rakeback: [],

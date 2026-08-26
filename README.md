@@ -1057,6 +1057,12 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   seguindo a Regra de Rake Total por baixo, o que confundia (campo parecia sem taxa nenhuma
   configurada). Agora aparecem travados também, mostrando "Campo seguindo regra vinculada"
   (`ClubModal.tsx`)
+- [x] **Rótulo "sem efeito" na tela de Vínculos ficou desatualizado**: última peça do mesmo caso Mts
+  Poker — a lista que decide se um vínculo de Regra "tem efeito" pro settlement_type do clube
+  (`CAMPOS_POR_SETTLEMENT`, usada na etapa "Regras" do cadastro e na tela `/admin/regras`) não sabia
+  que Rake Total agora também vale pra Taxa Dinâmica (fallback pra Fee MTT/Fee Cash). Continuava
+  marcando o vínculo Liga→Clube em Rake como "sem efeito" mesmo já funcionando no cálculo. Corrigido
+  adicionando `rake_total` à lista de Taxa Dinâmica (`lib/types.ts`)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
