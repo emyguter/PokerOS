@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { RegrasAplicadas } from './RegrasAplicadas'
 import { StepModal, type ModalStep } from './StepModal'
 import { BuscaSelect } from '@/components/BuscaSelect'
+import { useI18n } from '@/lib/i18n'
 
 interface VinculoState extends AgentePlataforma {
   searching: boolean
@@ -40,6 +41,7 @@ function Fld({ label, required, children }: { label: string; required?: boolean;
 }
 
 export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosIniciais, subAgentesIniciais = [], plataformas, onClose, onSave, saving, error, esconderSuperAgente }: Props) {
+  const { t } = useI18n()
   const [form, setForm] = useState<AgenteForm>(EMPTY)
   const [step, setStep] = useState('identificacao')
   const [vinculos, setVinculos] = useState<VinculoState[]>([])
@@ -62,12 +64,12 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
   // agente virar Super Agente. Num Agente comum, não tem o que vincular
   // abaixo dele.
   const STEPS: ModalStep[] = [
-    { key: 'identificacao', label: 'Identificação' },
-    ...(esconderSuperAgente ? [] : [{ key: 'hierarquia', label: 'Hierarquia' }]),
-    ...(esconderSuperAgente ? [{ key: 'sub_agentes', label: 'Agentes Vinculados' }] : []),
-    { key: 'plataformas', label: 'Plataformas' },
-    { key: 'clubes', label: 'Clubes' },
-    { key: 'rakeback', label: 'Rakeback do Jogador' },
+    { key: 'identificacao', label: t('agente_modal.step_identificacao') },
+    ...(esconderSuperAgente ? [] : [{ key: 'hierarquia', label: t('agente_modal.step_hierarquia') }]),
+    ...(esconderSuperAgente ? [{ key: 'sub_agentes', label: t('agente_modal.step_sub_agentes') }] : []),
+    { key: 'plataformas', label: t('agente_modal.step_plataformas') },
+    { key: 'clubes', label: t('agente_modal.step_clubes') },
+    { key: 'rakeback', label: t('agente_modal.step_rakeback') },
   ]
 
   useEffect(() => {
@@ -199,7 +201,7 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
   return (
     <StepModal
       open={open}
-      title={esconderSuperAgente ? (editing ? 'Editar Super Agente' : 'Novo Super Agente') : (editing ? 'Editar Agente' : 'Novo Agente')}
+      title={esconderSuperAgente ? (editing ? t('agente_modal.title_edit_super') : t('agente_modal.title_new_super')) : (editing ? t('agente_modal.title_edit') : t('agente_modal.title_new'))}
       steps={STEPS}
       active={step}
       onStepChange={setStep}
@@ -207,42 +209,42 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
       onSubmit={e => { e.preventDefault(); if (podeSalvar) onSave(form, vinculos, clubesSelecionados.map(c => ({ id: c.id, rakeback_pct: c.rakeback_pct })), subAgentes.map(a => a.id)) }}
       saving={saving}
       error={error}
-      submitLabel={`Salvar ${esconderSuperAgente ? 'Super Agente' : 'Agente'}`}
+      submitLabel={t('agente_modal.submit_label', { tipo: esconderSuperAgente ? t('agente_modal.submit_super') : t('agente_modal.submit_agente') })}
     >
       {step === 'identificacao' && (
         <>
-          <Fld label="Nome" required>
-            <input type="text" value={form.nome} onChange={e => set('nome', e.target.value)} placeholder="Nome do agente" className={inputCls} />
+          <Fld label={t('agente_modal.nome_label')} required>
+            <input type="text" value={form.nome} onChange={e => set('nome', e.target.value)} placeholder={t('agente_modal.nome_placeholder')} className={inputCls} />
           </Fld>
           <div className="grid grid-cols-2 gap-4">
-            <Fld label="Email">
-              <input type="email" value={form.email ?? ''} onChange={e => set('email', e.target.value || null)} placeholder="opcional" className={inputCls} />
+            <Fld label={t('agente_modal.email_label')}>
+              <input type="email" value={form.email ?? ''} onChange={e => set('email', e.target.value || null)} placeholder={t('agente_modal.opcional_placeholder')} className={inputCls} />
             </Fld>
-            <Fld label="Telefone">
-              <input type="text" value={form.telefone ?? ''} onChange={e => set('telefone', e.target.value || null)} placeholder="opcional" className={inputCls} />
+            <Fld label={t('agente_modal.telefone_label')}>
+              <input type="text" value={form.telefone ?? ''} onChange={e => set('telefone', e.target.value || null)} placeholder={t('agente_modal.opcional_placeholder')} className={inputCls} />
             </Fld>
           </div>
         </>
       )}
 
       {step === 'hierarquia' && !esconderSuperAgente && (
-        <Fld label="Super Agente">
+        <Fld label={t('agente_modal.super_agente_label')}>
           <BuscaSelect
             value={form.superagente_id ?? ''}
             onChange={v => set('superagente_id', v || null)}
             opcoes={agentesDisponiveis.map(a => ({ id: a.id, nome: a.nome }))}
-            vazio="— Nenhum (agente direto) —"
+            vazio={t('agente_modal.super_agente_vazio')}
             className={inputCls}
           />
-          <p className="text-xs text-gray-500 mt-1.5">Se esse agente responde a um Super Agente, selecione acima. Deixe em branco se ele é direto.</p>
+          <p className="text-xs text-gray-500 mt-1.5">{t('agente_modal.super_agente_desc')}</p>
         </Fld>
       )}
 
       {step === 'sub_agentes' && (
         <>
-          <p className="text-xs text-gray-500">Agentes que respondem a este. Se adicionar alguém aqui, este agente vira um Super Agente.</p>
+          <p className="text-xs text-gray-500">{t('agente_modal.sub_agentes_desc')}</p>
           <div className="relative">
-            <input type="text" value={buscaSubAgente} onChange={e => setBuscaSubAgente(e.target.value)} placeholder="Buscar agente por nome..." className={inputCls} />
+            <input type="text" value={buscaSubAgente} onChange={e => setBuscaSubAgente(e.target.value)} placeholder={t('agente_modal.buscar_agente_placeholder')} className={inputCls} />
             {resultadosSubAgente.length > 0 && (
               <div className="absolute z-10 w-full mt-1 bg-surface2 border border-white/10 rounded-lg overflow-hidden shadow-xl">
                 {resultadosSubAgente.map(a => (
@@ -264,11 +266,11 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
 
       {step === 'plataformas' && (
         <>
-          <p className="text-xs text-gray-500">O agente pode ter um ID diferente em cada plataforma. Adicione um vínculo por plataforma.</p>
+          <p className="text-xs text-gray-500">{t('agente_modal.plataformas_desc')}</p>
           {vinculos.map((v, i) => (
             <div key={i} className="p-3 rounded-lg border border-white/10 bg-surface2 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-gray-400">Plataforma {i + 1}</span>
+                <span className="text-xs font-medium text-gray-400">{t('agente_modal.plataforma_numero', { n: i + 1 })}</span>
                 {vinculos.length > 1 && (
                   <button type="button" onClick={() => removeVinculo(i)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={13} /></button>
                 )}
@@ -278,58 +280,58 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
                 onChange={e => setVinculo(i, { plataforma_id: e.target.value, external_id: '', nickname: null, status: 'idle' })}
                 className={inputCls}
               >
-                <option value="">— Selecione a plataforma —</option>
+                <option value="">{t('agente_modal.selecione_plataforma')}</option>
                 {plataformasDisponiveis(v.plataforma_id).map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
               </select>
               <div className="grid grid-cols-2 gap-3">
-                <Fld label="ID nessa plataforma" required>
+                <Fld label={t('agente_modal.id_plataforma_label')} required>
                   <div className="relative">
                     <input
                       type="text"
                       value={v.external_id}
                       onChange={e => { setVinculo(i, { external_id: e.target.value }); buscar(i, v.plataforma_id, e.target.value) }}
-                      placeholder="Ex: 12034210"
+                      placeholder={t('agente_modal.id_placeholder')}
                       disabled={!v.plataforma_id}
                       className={inputCls}
                     />
                     {v.searching && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
                   </div>
                 </Fld>
-                <Fld label="Nickname">
+                <Fld label={t('agente_modal.nickname_label')}>
                   <input
                     type="text"
                     value={v.nickname ?? ''}
                     onChange={e => setVinculo(i, { nickname: e.target.value || null })}
-                    placeholder="Preenchido automaticamente"
+                    placeholder={t('agente_modal.nickname_placeholder')}
                     disabled={v.status === 'found_agente' || v.status === 'found_import'}
                     className={(v.status === 'found_agente' || v.status === 'found_import') ? inputLockedCls : inputCls}
                   />
                 </Fld>
               </div>
               {v.status === 'found_import' && (
-                <p className="text-xs text-gold/80">⚠ Esse ID já apareceu em importações ({v.nickname}), mas ainda não tinha cadastro. Vai ser vinculado agora.</p>
+                <p className="text-xs text-gold/80">{t('agente_modal.found_import_desc', { nickname: v.nickname ?? '' })}</p>
               )}
               {v.status === 'not_found' && (
-                <p className="text-xs text-gray-500">ID novo — preencha o nickname pra cadastrar.</p>
+                <p className="text-xs text-gray-500">{t('agente_modal.not_found_desc')}</p>
               )}
               {v.status === 'conflict' && (
-                <p className="text-xs text-alert flex items-center gap-1.5"><AlertTriangle size={12} />Esse ID já pertence a outro agente ({v.conflictNome}). Verifique antes de salvar.</p>
+                <p className="text-xs text-alert flex items-center gap-1.5"><AlertTriangle size={12} />{t('agente_modal.conflict_desc', { nome: v.conflictNome ?? '' })}</p>
               )}
             </div>
           ))}
           <button type="button" onClick={addVinculo} className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-white/10 rounded-lg hover:border-gold/50 hover:text-white transition-all">
-            <Plus size={12} />Adicionar plataforma
+            <Plus size={12} />{t('agente_modal.add_plataforma')}
           </button>
         </>
       )}
 
       {step === 'clubes' && (
         <>
-          <p className="text-xs text-gray-500">Em quais clubes esse agente atua. O ID/nickname dele em cada clube vem automaticamente da plataforma daquele clube.</p>
+          <p className="text-xs text-gray-500">{t('agente_modal.clubes_desc')}</p>
           <div className="relative">
             <input
               type="text" value={buscaClube} onChange={e => setBuscaClube(e.target.value)}
-              placeholder="Buscar clube por ID ou nome..." className={inputCls}
+              placeholder={t('agente_modal.buscar_clube_placeholder')} className={inputCls}
             />
             {buscandoClube && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
             {resultadosClube.length > 0 && (
@@ -339,7 +341,7 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
                     key={c.id} type="button" onClick={() => addClube(c)}
                     className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-white/5 transition-colors"
                   >
-                    {c.name} <span className="text-gray-500">({c.external_id ?? 'sem ID'})</span>
+                    {c.name} <span className="text-gray-500">({c.external_id ?? t('agente_modal.sem_id')})</span>
                   </button>
                 ))}
               </div>
@@ -348,16 +350,16 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
 
           {clubesSelecionados.map(c => {
             const v = vinculos.find(x => x.plataforma_id === c.plataforma_id && x.external_id)
-            const plataformaNome = plataformas.find(p => p.id === c.plataforma_id)?.nome ?? '— sem plataforma —'
+            const plataformaNome = plataformas.find(p => p.id === c.plataforma_id)?.nome ?? t('agente_modal.sem_plataforma')
             return (
               <div key={c.id} className="p-3 rounded-lg border border-white/10 bg-surface2 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-white font-medium">{c.name}</span>
                   <button type="button" onClick={() => removeClube(c.id)} className="text-gray-500 hover:text-alert transition-colors"><Trash2 size={13} /></button>
                 </div>
-                <p className="text-xs text-gray-500">Liga: {c.leagueName ?? '— sem liga —'} · Plataforma: {plataformaNome}</p>
+                <p className="text-xs text-gray-500">{t('agente_modal.liga_plataforma_line', { liga: c.leagueName ?? t('agente_modal.sem_liga'), plataforma: plataformaNome })}</p>
                 <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-500 shrink-0">Rakeback nesse clube</label>
+                  <label className="text-xs text-gray-500 shrink-0">{t('agente_modal.rakeback_nesse_clube')}</label>
                   <input
                     type="number" step="any" placeholder="0"
                     value={c.rakeback_pct ?? ''}
@@ -367,10 +369,10 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
                   <span className="text-xs text-gray-500">%</span>
                 </div>
                 {v ? (
-                  <p className="text-xs text-gold/80">ID do agente nesse clube: {v.external_id} {v.nickname ? `(${v.nickname})` : ''}</p>
+                  <p className="text-xs text-gold/80">{t('agente_modal.id_agente_nesse_clube', { id: v.external_id, nickname: v.nickname ? `(${v.nickname})` : '' })}</p>
                 ) : (
                   <p className="text-xs text-alert flex items-center gap-1.5">
-                    <AlertTriangle size={12} />Cadastre o ID do agente na plataforma "{plataformaNome}" na etapa "Plataformas".
+                    <AlertTriangle size={12} />{t('agente_modal.cadastre_id_desc', { plataforma: plataformaNome })}
                   </p>
                 )}
               </div>
@@ -381,7 +383,7 @@ export function AgenteModal({ open, editing, vinculosIniciais, clubesVinculadosI
 
       {step === 'rakeback' && (
         <>
-          <p className="text-xs text-gray-500">Rakeback aplicado aos jogadores desse agente.</p>
+          <p className="text-xs text-gray-500">{t('agente_modal.rakeback_step_desc')}</p>
           <RegrasAplicadas entidadeTipo="agente" entidadeId={editing?.id ?? null} />
         </>
       )}

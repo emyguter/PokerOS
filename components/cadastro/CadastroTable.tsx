@@ -41,11 +41,11 @@ export function CadastroTable({ columns, data, loading, onEdit, onDelete, isInac
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-2">
                     {onDuplicate && (
-                      <button onClick={() => onDuplicate(row)} title="Duplicar" className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><Copy size={14} /></button>
+                      <button onClick={() => onDuplicate(row)} title={t('common.duplicar')} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><Copy size={14} /></button>
                     )}
                     <button onClick={() => onEdit(row)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><Pencil size={14} /></button>
                     {inativa ? (
-                      <button onClick={() => onDelete(row)} title="Reativar" className="p-1.5 rounded-lg text-gray-400 hover:text-success hover:bg-success/10 transition-colors"><RotateCcw size={14} /></button>
+                      <button onClick={() => onDelete(row)} title={t('common.reativar')} className="p-1.5 rounded-lg text-gray-400 hover:text-success hover:bg-success/10 transition-colors"><RotateCcw size={14} /></button>
                     ) : (
                       <button onClick={() => onDelete(row)} className="p-1.5 rounded-lg text-gray-400 hover:text-alert hover:bg-alert/10 transition-colors"><Trash2 size={14} /></button>
                     )}

@@ -10,6 +10,7 @@ import { BuscaSelect } from '@/components/BuscaSelect'
 import { getStoplossAtual } from '@/lib/stoploss'
 import { getIndicacoes, addIndicacao, atualizarPercentualIndicacao, removeIndicacao, type IndicacaoRow, getVinculosAcerto, addVinculoAcerto, removeVinculoAcerto, type VinculoAcertoRow, getRegrasDaEntidade } from '@/lib/cadastro-api'
 import { errMsg } from '@/lib/errors'
+import { useI18n } from '@/lib/i18n'
 
 interface Props {
   open: boolean
@@ -32,14 +33,6 @@ const EMPTY: ClubForm = {
   plataforma_id: null, operador_ext_id: null, operador_nickname: null, rebate_ativo: false, crypto_rebate_ativo: false,
   wtr4_semanas_manual: null, termos_especiais: null,
 }
-
-const STEPS: ModalStep[] = [
-  { key: 'identificacao', label: 'Identificação' },
-  { key: 'plataforma', label: 'Plataforma' },
-  { key: 'taxas', label: 'Taxas' },
-  { key: 'regras', label: 'Regras' },
-  { key: 'garantias', label: 'Garantias & Limites' },
-]
 
 const inputCls = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20'
 const inputLockedCls = 'w-full bg-surface/50 border border-white/5 rounded-lg px-3 py-2.5 text-gray-400 text-sm cursor-not-allowed'
@@ -75,10 +68,19 @@ function NumInput({ value, onChange, placeholder }: { value: number | null; onCh
 // digitado aqui nunca seria usado nesse caso (a Regra sempre manda pro
 // campo dela), então mostra travado em vez de deixar preencher à toa.
 function CampoSeguindoRegra() {
-  return <div className={`${inputLockedCls} italic`}>Campo seguindo regra vinculada</div>
+  const { t } = useI18n()
+  return <div className={`${inputLockedCls} italic`}>{t('club_modal.campo_seguindo_regra')}</div>
 }
 
 export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave, saving, error }: Props) {
+  const { t } = useI18n()
+  const STEPS: ModalStep[] = [
+    { key: 'identificacao', label: t('club_modal.step_identificacao') },
+    { key: 'plataforma', label: t('club_modal.step_plataforma') },
+    { key: 'taxas', label: t('club_modal.step_taxas') },
+    { key: 'regras', label: t('club_modal.step_regras') },
+    { key: 'garantias', label: t('club_modal.step_garantias') },
+  ]
   const [form, setForm] = useState<ClubForm>(EMPTY)
   const [step, setStep] = useState('identificacao')
   const [indicacoes, setIndicacoes] = useState<IndicacaoRow[]>([])
@@ -293,7 +295,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   return (
     <StepModal
       open={open}
-      title={editing ? 'Editar Clube' : 'Novo Clube'}
+      title={editing ? t('club_modal.title_edit') : t('club_modal.title_new')}
       steps={STEPS}
       active={step}
       onStepChange={setStep}
@@ -311,40 +313,40 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       }}
       saving={saving}
       error={error}
-      submitLabel="Salvar Clube"
+      submitLabel={t('club_modal.submit_label')}
     >
       {step === 'identificacao' && (
         <div className="grid grid-cols-2 gap-4">
-          <Fld label="ID do Clube" required>
+          <Fld label={t('club_modal.id_do_clube')} required>
             <div className="relative">
-              <input type="text" value={form.external_id ?? ''} onChange={e => handleClubeIdChange(e.target.value)} placeholder="Ex: 1548056" className={inputCls} />
+              <input type="text" value={form.external_id ?? ''} onChange={e => handleClubeIdChange(e.target.value)} placeholder={t('club_modal.id_placeholder')} className={inputCls} />
               {searchingClube && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
             </div>
           </Fld>
-          <Fld label="Nome do Clube" required>
+          <Fld label={t('club_modal.nome_do_clube')} required>
             <input
               type="text"
               value={form.name}
               onChange={e => { set('name', e.target.value); setClubeLocked(false) }}
-              placeholder="Preenchido automaticamente"
+              placeholder={t('club_modal.nome_placeholder')}
               disabled={clubeLocked}
               className={clubeLocked ? inputLockedCls : inputCls}
             />
             {clubeNaoEncontrado && !clubeLocked && (
-              <p className="text-xs text-gold/80 mt-1.5">⚠ Clube não encontrado. Preencha o nome para cadastrá-lo.</p>
+              <p className="text-xs text-gold/80 mt-1.5">{t('club_modal.clube_nao_encontrado')}</p>
             )}
           </Fld>
-          <Fld label="Liga (opcional)">
+          <Fld label={t('club_modal.liga_opcional')}>
             <BuscaSelect
               value={form.league_id ?? ''}
               onChange={v => set('league_id', v || null)}
               opcoes={leagues.map(l => ({ id: l.id, nome: l.name }))}
-              vazio="— Nenhuma —"
+              vazio={t('club_modal.liga_vazio')}
               className={inputCls}
             />
           </Fld>
-          <Fld label="Projeto (opcional)">
-            <input type="text" value={form.projeto ?? ''} onChange={e => set('projeto', e.target.value || null)} placeholder="Ex: Sul HG — só se esse clube não herdar de nenhuma liga" className={inputCls} />
+          <Fld label={t('club_modal.projeto_opcional')}>
+            <input type="text" value={form.projeto ?? ''} onChange={e => set('projeto', e.target.value || null)} placeholder={t('club_modal.projeto_placeholder')} className={inputCls} />
           </Fld>
         </div>
       )}
@@ -352,12 +354,12 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       {step === 'identificacao' && (
         <div className="grid grid-cols-2 gap-4 mt-4">
           <div className="space-y-3">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">Clube Vinculado</h3>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">{t('club_modal.clube_vinculado_titulo')}</h3>
             <p className="text-xs text-gray-500">
-              Mesmo clube em mais de uma plataforma (ex: ClubGG + Sul HG) — quem estiver vinculado aqui vira 1 conta só no Resumo de Acertos, com os valores somados.
+              {t('club_modal.clube_vinculado_desc')}
             </p>
             {!editing ? (
-              <p className="text-xs text-gray-500 italic">Salve o cadastro primeiro pra poder vincular outro clube.</p>
+              <p className="text-xs text-gray-500 italic">{t('club_modal.salve_primeiro_vincular')}</p>
             ) : (
               <>
                 {erroVinculo && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroVinculo}</div>}
@@ -365,7 +367,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                   <input
                     type="text" value={buscaVinculoClub} onChange={e => setBuscaVinculoClub(e.target.value)}
                     disabled={salvandoVinculo}
-                    placeholder="Buscar clube por ID ou nome..." className={inputCls}
+                    placeholder={t('club_modal.buscar_clube_placeholder')} className={inputCls}
                   />
                   {(buscandoVinculoClub || salvandoVinculo) && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
                   {resultadosVinculoClub.length > 0 && (
@@ -394,12 +396,12 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">Indicações</h3>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">{t('club_modal.indicacoes_titulo')}</h3>
             <p className="text-xs text-gray-500">
-              Clube que esse clube indicou, com a % do rake dele que vira bônus — sai sozinho no Acerto, sobre o próprio rake de quem indicou.
+              {t('club_modal.indicacoes_desc')}
             </p>
             {!editing ? (
-              <p className="text-xs text-gray-500 italic">Salve o cadastro primeiro pra poder indicar outro clube.</p>
+              <p className="text-xs text-gray-500 italic">{t('club_modal.salve_primeiro_indicar')}</p>
             ) : (
               <>
                 {erroIndicacao && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroIndicacao}</div>}
@@ -427,7 +429,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                   <div className="relative">
                     <input
                       type="text" value={buscaIndClub} onChange={e => setBuscaIndClub(e.target.value)}
-                      placeholder="Buscar clube por ID ou nome..." className={inputCls}
+                      placeholder={t('club_modal.buscar_clube_placeholder')} className={inputCls}
                     />
                     {buscandoIndClub && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
                     {resultadosIndClub.length > 0 && (
@@ -468,39 +470,37 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
 
       {step === 'plataforma' && (
         <>
-          <p className="text-xs text-gray-500">Cada plataforma é um clube diferente. IDs já cadastrados são preenchidos automaticamente.</p>
-          <Fld label="Plataforma (App)">
+          <p className="text-xs text-gray-500">{t('club_modal.plataforma_desc')}</p>
+          <Fld label={t('club_modal.plataforma_app')}>
             <select value={form.plataforma_id ?? ''} onChange={e => set('plataforma_id', e.target.value || null)} className={inputCls}>
-              <option value="">— Selecione —</option>
+              <option value="">{t('club_modal.selecione')}</option>
               {plataformas.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </Fld>
           <div className="grid grid-cols-2 gap-4">
-            <Fld label="Moeda">
+            <Fld label={t('club_modal.moeda')}>
               <select value={form.moeda ?? 'BRL'} onChange={e => set('moeda', e.target.value)} className={inputCls}>
                 {MOEDAS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
               </select>
             </Fld>
-            <Fld label="Converter para (opcional)">
+            <Fld label={t('club_modal.converter_para_opcional')}>
               <select
                 value={form.moeda_conversao ?? ''}
                 onChange={e => { const v = e.target.value || null; set('moeda_conversao', v); if (!v) set('cotacao', null) }}
                 className={inputCls}
               >
-                <option value="">— Sem conversão —</option>
+                <option value="">{t('club_modal.sem_conversao')}</option>
                 {MOEDAS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
               </select>
             </Fld>
           </div>
           {form.moeda_conversao && (
-            <Fld label={`Cotação — 1 ${form.moeda_conversao} vale quantos ${form.moeda ?? 'BRL'}?`}>
-              <NumInput value={form.cotacao} onChange={v => set('cotacao', v)} placeholder="Ex: 5.20" />
+            <Fld label={t('club_modal.cotacao_label', { moedaConv: form.moeda_conversao, moeda: form.moeda ?? 'BRL' })}>
+              <NumInput value={form.cotacao} onChange={v => set('cotacao', v)} placeholder={t('club_modal.cotacao_placeholder')} />
             </Fld>
           )}
           <p className="text-xs text-gray-500 -mt-2">
-            Deixando &ldquo;Converter para&rdquo; vazio, o Acerto desse clube fica só na Moeda cadastrada, sem
-            nenhuma conversão extra. Selecionando uma moeda ali (ex: USD) e preenchendo a Cotação,
-            o card do Acerto passa a mostrar um Total extra já convertido pra essa moeda.
+            {t('club_modal.conversao_desc')}
           </p>
         </>
       )}
@@ -509,24 +509,24 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
         <>
           {!isRkb && (
             <div className="grid grid-cols-2 gap-4">
-              <Fld label={isDin ? 'Fee MTT (%)' : 'Taxa sobre Rake Total (%)'}>
+              <Fld label={isDin ? t('club_modal.fee_mtt_label') : t('club_modal.taxa_rake_total_label')}>
                 {/* Taxa Dinâmica: Regra vinculada em Rake Total serve de fallback
                     pro campo quando ele não tem regra própria (ver
                     lib/acertos-engine.ts) — trava igual uma regra direta. */}
                 {camposComRegra.has(isDin ? 'fee_mtt' : 'rake_total') || (isDin && camposComRegra.has('rake_total'))
                   ? <CampoSeguindoRegra />
-                  : <NumInput value={form.fee_mtt_pct} onChange={v => set('fee_mtt_pct', v)} placeholder="Ex: 8.5" />}
+                  : <NumInput value={form.fee_mtt_pct} onChange={v => set('fee_mtt_pct', v)} placeholder={t('club_modal.fee_mtt_placeholder')} />}
               </Fld>
               {isDin && (
-                <Fld label="Fee Cash (%)">
+                <Fld label={t('club_modal.fee_cash_label')}>
                   {camposComRegra.has('fee_cash') || camposComRegra.has('rake_total')
                     ? <CampoSeguindoRegra />
-                    : <NumInput value={form.fee_cash_pct} onChange={v => set('fee_cash_pct', v)} placeholder="Ex: 8.5" />}
+                    : <NumInput value={form.fee_cash_pct} onChange={v => set('fee_cash_pct', v)} placeholder={t('club_modal.fee_cash_placeholder')} />}
                 </Fld>
               )}
             </div>
           )}
-          {isRkb && <Fld label="Rakeback (%)"><NumInput value={form.rakeback_pct} onChange={v => set('rakeback_pct', v)} placeholder="Ex: 72" /></Fld>}
+          {isRkb && <Fld label={t('club_modal.rakeback_label')}><NumInput value={form.rakeback_pct} onChange={v => set('rakeback_pct', v)} placeholder={t('club_modal.rakeback_placeholder')} /></Fld>}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -537,7 +537,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                 >
                   <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${form.taxa_op_ativo ? 'translate-x-5' : 'translate-x-1'}`} />
                 </div>
-                <span className="text-sm text-gray-300">Taxa Operacional</span>
+                <span className="text-sm text-gray-300">{t('club_modal.taxa_operacional')}</span>
               </label>
               {/* Ao contrário do toggle de Rebate, desligar aqui não apaga o %
                   guardado — com taxa_op_ativo=false o motor já ignora esse
@@ -546,20 +546,20 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               {form.taxa_op_ativo && (
                 camposComRegra.has('taxa_op')
                   ? <CampoSeguindoRegra />
-                  : <NumInput value={form.taxa_op_pct} onChange={v => set('taxa_op_pct', v)} placeholder="Ex: 9" />
+                  : <NumInput value={form.taxa_op_pct} onChange={v => set('taxa_op_pct', v)} placeholder={t('club_modal.taxa_op_placeholder')} />
               )}
             </div>
             {isDin && (
-              <Fld label="SpinUp (%)">
+              <Fld label={t('club_modal.spinup_label')}>
                 {camposComRegra.has('spinup')
                   ? <CampoSeguindoRegra />
-                  : <NumInput value={form.spinup_pct} onChange={v => set('spinup_pct', v)} placeholder="Ex: 3" />}
+                  : <NumInput value={form.spinup_pct} onChange={v => set('spinup_pct', v)} placeholder={t('club_modal.spinup_placeholder')} />}
               </Fld>
             )}
           </div>
           {!isRkb && isDin && (
             <p className="text-xs text-gray-500">
-              Fee MTT, Fee Cash, Taxa Operacional (quando ligada) e SpinUp acima só valem pro campo que <strong>não</strong> tiver regra variável vinculada — campo com regra vinculada aparece travado, mostrando “Campo seguindo regra vinculada” no lugar do número. Confira/altere o vínculo na etapa “Regras”.
+              {t('club_modal.regra_vinculada_desc')}
             </p>
           )}
           <div className="space-y-2">
@@ -570,10 +570,10 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               >
                 <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${form.rebate_ativo ? 'translate-x-5' : 'translate-x-1'}`} />
               </div>
-              <span className="text-sm text-gray-300">Rebate</span>
+              <span className="text-sm text-gray-300">{t('club_modal.rebate_label')}</span>
             </label>
             {form.rebate_ativo && (
-              <Fld label="Valor do Rebate (%)"><NumInput value={form.rebate_pct} onChange={v => set('rebate_pct', v)} placeholder="Ex: 10" /></Fld>
+              <Fld label={t('club_modal.rebate_valor_label')}><NumInput value={form.rebate_pct} onChange={v => set('rebate_pct', v)} placeholder={t('club_modal.rebate_placeholder')} /></Fld>
             )}
           </div>
 
@@ -585,19 +585,19 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               >
                 <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${form.crypto_rebate_ativo ? 'translate-x-5' : 'translate-x-1'}`} />
               </div>
-              <span className="text-sm text-gray-300">Crypto Rebate</span>
+              <span className="text-sm text-gray-300">{t('club_modal.crypto_rebate_label')}</span>
             </label>
             {form.crypto_rebate_ativo && (
-              <Fld label="Crypto Rebate (%)"><NumInput value={form.crypto_rebate_pct} onChange={v => set('crypto_rebate_pct', v)} placeholder="Ex: 5" /></Fld>
+              <Fld label={t('club_modal.crypto_rebate_pct_label')}><NumInput value={form.crypto_rebate_pct} onChange={v => set('crypto_rebate_pct', v)} placeholder={t('club_modal.crypto_rebate_placeholder')} /></Fld>
             )}
           </div>
 
           <div className="space-y-2 pt-2 border-t border-white/10">
-            <Fld label="Termos especiais">
+            <Fld label={t('club_modal.termos_especiais_label')}>
               <textarea
                 value={form.termos_especiais ?? ''}
                 onChange={e => set('termos_especiais', e.target.value === '' ? null : e.target.value)}
-                placeholder="Ex: 5% de desconto na Taxa Operacional até dez/2026"
+                placeholder={t('club_modal.termos_especiais_placeholder')}
                 rows={2}
                 className={inputCls}
               />
@@ -605,7 +605,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
             {/* Texto livre, não calculado — aparece direto na coluna Termos
                 Especiais do Resumo de Taxas (Relatórios). Não afeta cálculo
                 de Acerto nenhum. */}
-            <p className="text-xs text-gray-500">Aparece direto no Resumo de Taxas — não afeta nenhum cálculo. Vazio = sem termos especiais.</p>
+            <p className="text-xs text-gray-500">{t('club_modal.termos_especiais_desc')}</p>
           </div>
         </>
       )}
@@ -625,27 +625,27 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       {step === 'garantias' && (
         <>
           <div className="grid grid-cols-2 gap-4">
-            <Fld label="Caução Atual"><NumInput value={form.caucao_atual} onChange={v => set('caucao_atual', v)} placeholder="Ex: 1000" /></Fld>
-            <Fld label="Stoploss Inicial">
+            <Fld label={t('club_modal.caucao_atual_label')}><NumInput value={form.caucao_atual} onChange={v => set('caucao_atual', v)} placeholder={t('club_modal.caucao_atual_placeholder')} /></Fld>
+            <Fld label={t('club_modal.stoploss_inicial_label')}>
               {stoplossTravado ? (
                 <input type="text" value={form.stoploss_inicial ?? ''} disabled className={inputLockedCls} />
               ) : (
-                <NumInput value={form.stoploss_inicial} onChange={v => set('stoploss_inicial', v)} placeholder="Ex: 5000" />
+                <NumInput value={form.stoploss_inicial} onChange={v => set('stoploss_inicial', v)} placeholder={t('club_modal.stoploss_inicial_placeholder')} />
               )}
-              {stoplossTravado && <p className="text-xs text-gray-500 mt-1.5">Travado depois de definido — o histórico do clube parte daqui.</p>}
+              {stoplossTravado && <p className="text-xs text-gray-500 mt-1.5">{t('club_modal.stoploss_travado_desc')}</p>}
             </Fld>
             {stoplossAtual != null && (
-              <div className="col-span-2 text-sm text-gray-400">Stoploss Atual: <span className="text-gold font-medium">{stoplossAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> <span className="text-xs text-gray-600">(calculado ao vivo — Inicial + Caução×Ratio + ajustes)</span></div>
+              <div className="col-span-2 text-sm text-gray-400">{t('club_modal.stoploss_atual_label')} <span className="text-gold font-medium">{stoplossAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> <span className="text-xs text-gray-600">{t('club_modal.stoploss_atual_desc')}</span></div>
             )}
-            <Fld label="Ratio Caução → Stoploss">
-              <NumInput value={form.ratio_caucao_stoploss} onChange={v => set('ratio_caucao_stoploss', v)} placeholder="Ex: 2" />
-              <p className="text-xs text-gray-500 mt-1.5">Quanto soma no Stoploss pra cada real de Caução confirmada. Ex: 2 = ratio 1:2 (R$1 de caução vira R$2 de Stoploss). Vazio = ratio 1:1 (R$1 de caução vira R$1 de Stoploss).</p>
+            <Fld label={t('club_modal.ratio_label')}>
+              <NumInput value={form.ratio_caucao_stoploss} onChange={v => set('ratio_caucao_stoploss', v)} placeholder={t('club_modal.ratio_placeholder')} />
+              <p className="text-xs text-gray-500 mt-1.5">{t('club_modal.ratio_desc')}</p>
             </Fld>
-            <Fld label="Hora de virada da semana">
+            <Fld label={t('club_modal.hora_virada_label')}>
               <select value={form.hora_virada_semana} onChange={e => set('hora_virada_semana', Number(e.target.value))} className={inputCls}>
                 {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>)}
               </select>
-              <p className="text-xs text-gray-500 mt-1.5">Horário de Brasília em que a semana desse clube vira segunda-feira — define até quando um ajuste “Só essa semana” continua contando no Stoploss. Padrão: 02:00.</p>
+              <p className="text-xs text-gray-500 mt-1.5">{t('club_modal.hora_virada_desc')}</p>
             </Fld>
           </div>
         </>

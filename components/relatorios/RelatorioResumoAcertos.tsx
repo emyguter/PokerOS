@@ -4,6 +4,7 @@ import { Search } from 'lucide-react'
 import { buscarResumoAcertos, buscarPeriodosAcerto, type LinhaResumoAcerto, type PeriodoAcerto } from '@/lib/relatorio-resumo-acertos'
 import { LABEL_SETTLEMENT } from '@/lib/types'
 import { errMsg } from '@/lib/errors'
+import { useI18n } from '@/lib/i18n'
 
 function formatPeriodo(p: PeriodoAcerto): string {
   const fmtD = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
@@ -20,6 +21,7 @@ function Valor({ v, corNeutraSeZero }: { v: number; corNeutraSeZero?: boolean })
 }
 
 export function RelatorioResumoAcertos() {
+  const { t } = useI18n()
   const [linhas, setLinhas] = useState<LinhaResumoAcerto[]>([])
   const [periodos, setPeriodos] = useState<PeriodoAcerto[]>([])
   const [periodoFiltro, setPeriodoFiltro] = useState('')
@@ -79,7 +81,7 @@ export function RelatorioResumoAcertos() {
   return (
     <div className="space-y-4">
       <p className="text-xs text-gray-500">
-        Uma linha por clube, cruzando todas as Ligas da semana escolhida — mesmos valores que já aparecem em Acertos, só lado a lado. Peso é a fatia desse clube sobre o Fee total cobrado na semana. Clube com Vínculo de Acerto (cadastro do clube) some numa linha só, com os valores de todas as plataformas vinculadas somados.
+        {t('relatorio_resumo_acertos.desc')}
       </p>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -89,7 +91,7 @@ export function RelatorioResumoAcertos() {
             type="text"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar clube..."
+            placeholder={t('relatorio_resumo_acertos.buscar_clube_placeholder')}
             className="w-full bg-surface border border-white/10 rounded-lg pl-9 pr-3 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50"
           />
         </div>
@@ -98,7 +100,7 @@ export function RelatorioResumoAcertos() {
           onChange={(e) => setProjetoFiltro(e.target.value)}
           className="bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50"
         >
-          <option value="">Todos os projetos</option>
+          <option value="">{t('relatorio_resumo_acertos.todos_projetos')}</option>
           {projetos.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
         {periodos.length > 0 && (
@@ -107,7 +109,7 @@ export function RelatorioResumoAcertos() {
             onChange={(e) => setPeriodoFiltro(e.target.value)}
             className="bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50"
           >
-            {periodos.map((p) => <option key={p.fim} value={p.fim}>Semana: {formatPeriodo(p)}</option>)}
+            {periodos.map((p) => <option key={p.fim} value={p.fim}>{t('relatorio_resumo_acertos.semana_label', { periodo: formatPeriodo(p) })}</option>)}
           </select>
         )}
       </div>
@@ -119,29 +121,29 @@ export function RelatorioResumoAcertos() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 bg-surface2">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Projeto</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Clube</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Liga</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Modelo</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Rake</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Fee</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">% Fee</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Peso</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Operacional</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Ganhos/Perdas</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Bilhetes</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Segurança</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Extras</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Multas</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">SpinUp PnL</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Indicação</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_resumo_acertos.col_projeto')}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_resumo_acertos.col_clube')}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_resumo_acertos.col_liga')}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_resumo_acertos.col_modelo')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_resumo_acertos.col_rake')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_resumo_acertos.col_fee')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_resumo_acertos.col_pct_fee')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_resumo_acertos.col_peso')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_resumo_acertos.col_operacional')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_resumo_acertos.col_ganhos_perdas')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('club_acerto_card.bilhetes_label')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('club_acerto_card.seguranca_label')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_resumo_acertos.col_extras')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_resumo_acertos.col_multas')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_resumo_acertos.col_spinup_pnl')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('relatorio_resumo_acertos.col_indicacao')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={16} className="px-4 py-8 text-center text-gray-500 text-sm">Carregando...</td></tr>
+                <tr><td colSpan={16} className="px-4 py-8 text-center text-gray-500 text-sm">{t('common.carregando')}</td></tr>
               ) : filtradas.length === 0 ? (
-                <tr><td colSpan={16} className="px-4 py-8 text-center text-gray-500 text-sm">Nenhum acerto calculado nessa semana ainda.</td></tr>
+                <tr><td colSpan={16} className="px-4 py-8 text-center text-gray-500 text-sm">{t('relatorio_resumo_acertos.nenhum_acerto')}</td></tr>
               ) : (
                 filtradas.map((l) => (
                   <tr key={l.clubId || l.clubExternalId} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
@@ -177,7 +179,7 @@ export function RelatorioResumoAcertos() {
             {filtradas.length > 0 && (
               <tfoot>
                 <tr className="border-t border-white/10 bg-surface2">
-                  <td className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider" colSpan={4}>Total ({filtradas.length})</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider" colSpan={4}>{t('relatorio_resumo_acertos.total_label', { n: filtradas.length })}</td>
                   <td className="px-4 py-3 text-right text-gray-300 font-semibold">{fmt(totais.rake)}</td>
                   <td className="px-4 py-3 text-right text-gold font-semibold">{fmt(totais.fee)}</td>
                   <td colSpan={2}></td>

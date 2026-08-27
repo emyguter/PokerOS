@@ -108,9 +108,9 @@ export function RelatorioLancamentos() {
           <label className="block text-xs text-gray-500 mb-1.5">{t('relatorios.origem')}</label>
           <select value={origemFiltro} onChange={e => setOrigemFiltro(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
             <option value="">{t('extrato.todos')}</option>
-            <option value="suporte">Suporte</option>
-            <option value="genia">Financeiro</option>
-            <option value="seguranca">Segurança</option>
+            <option value="suporte">{t('conciliacao.col_suporte')}</option>
+            <option value="genia">{t('conciliacao.col_financeiro')}</option>
+            <option value="seguranca">{t('nav.seguranca')}</option>
           </select>
         </div>
         <div>

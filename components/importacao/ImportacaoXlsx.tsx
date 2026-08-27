@@ -7,15 +7,18 @@ import { supabase } from "@/lib/supabase";
 import { errMsg } from "@/lib/errors";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { MapeamentoColunasModal } from "./MapeamentoColunasModal";
+import { useI18n } from "@/lib/i18n";
+
+type T = (path: string, vars?: Record<string, string | number>) => string;
 
 // Mesmo rótulo em todo lugar que mostra harmonization_status — card ao vivo e
 // tabela de histórico usavam palavras diferentes pro mesmo estado, dando a
 // impressão de serem coisas diferentes acontecendo ao mesmo tempo.
-function harmonizationLabel(status: string): string {
-  if (status === "harmonizado") return "✓ Harmonizado";
-  if (status === "erro") return "✗ Erro";
-  if (status === "processando") return "⏳ Processando";
-  return "⏳ Pendente";
+function harmonizationLabel(status: string, t: T): string {
+  if (status === "harmonizado") return t("importacao_xlsx.harmon_harmonizado");
+  if (status === "erro") return t("importacao_xlsx.harmon_erro");
+  if (status === "processando") return t("importacao_xlsx.harmon_processando");
+  return t("importacao_xlsx.harmon_pendente");
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -180,7 +183,7 @@ function parseJogadoresSheet(
 
 // ─── Parsers ──────────────────────────────────────────────────────────────────
 
-function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "plataforma"> {
+function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFile, "plataforma"> {
   const period = parsePeriodFromFileName(fileName);
   const warnings: string[] = [];
   const rows: ImportRow[] = [];
@@ -191,9 +194,9 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "pl
 
   if (!ligaSheetName && !clubeSheetName) {
     throw {
-      titulo: "Sheet não encontrada",
-      detalhe: `O arquivo "${fileName}" não contém abas reconhecidas.`,
-      acao: "Verifique se exportou o arquivo correto do PPPoker.",
+      titulo: t("importacao_xlsx.err_sheet_nao_encontrada_titulo"),
+      detalhe: t("importacao_xlsx.err_pppoker_sem_abas", { fileName }),
+      acao: t("importacao_xlsx.err_pppoker_acao"),
     };
   }
 
@@ -206,9 +209,9 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "pl
     const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
     if (raw.length < 5) throw {
-      titulo: "Arquivo vazio ou inválido",
-      detalhe: `A aba "Geral da liga" tem menos de 5 linhas.`,
-      acao: "Confirme que o arquivo foi exportado corretamente.",
+      titulo: t("importacao_xlsx.err_arquivo_vazio_titulo"),
+      detalhe: t("importacao_xlsx.err_geral_liga_poucas_linhas"),
+      acao: t("importacao_xlsx.err_confirme_exportado"),
     };
 
     for (let i = 4; i < raw.length; i++) {
@@ -276,14 +279,14 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "pl
       liga_nome = clubeNome;
       liga_id_ext = clubeIdExt;
 
-      if (!clubeMatch) warnings.push(`Não foi possível extrair o ID do clube. Valor: "${clubeHeader}"`);
+      if (!clubeMatch) warnings.push(t("importacao_xlsx.warn_id_clube_nao_extraido", { clubeHeader }));
     }
 
     // Lê jogadores (header na linha 1, sub-header na linha 2, dados a partir da linha 3)
     jogadores = parseJogadoresSheet(ws, clubeNome, clubeIdExt, 1);
 
     if (jogadores.length === 0) {
-      warnings.push("Nenhum jogador encontrado na aba de clube.");
+      warnings.push(t("importacao_xlsx.warn_nenhum_jogador_aba_clube"));
     }
 
     // Se não tem Geral da liga, gera row de clube a partir dos jogadores
@@ -310,30 +313,30 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string): Omit<ParsedFile, "pl
   }
 
   if (rows.length === 0) throw {
-    titulo: "Nenhum dado encontrado",
-    detalhe: "O arquivo foi lido mas não contém linhas válidas.",
-    acao: "Verifique se o arquivo possui dados no período selecionado.",
+    titulo: t("importacao_xlsx.err_nenhum_dado_titulo"),
+    detalhe: t("importacao_xlsx.err_arquivo_sem_linhas_validas"),
+    acao: t("importacao_xlsx.err_verifique_dados_periodo"),
   };
 
-  if (!period.start) warnings.push("Período não encontrado no nome do arquivo. Esperado: AAAAMMDD-AAAAMMDD.");
+  if (!period.start) warnings.push(t("importacao_xlsx.warn_periodo_nao_encontrado_nome"));
 
   return { liga_nome, liga_id_ext, period_start: period.start, period_end: period.end, rows, jogadores, warnings };
 }
 
-function parseGGPoker(wb: XLSX.WorkBook): Omit<ParsedFile, "plataforma"> {
+function parseGGPoker(wb: XLSX.WorkBook, t: T): Omit<ParsedFile, "plataforma"> {
   const warnings: string[] = [];
   const rows: ImportRow[] = [];
   const ws = wb.Sheets["Union Overview"];
 
   if (!ws) throw {
-    titulo: "Sheet não encontrada",
-    detalhe: 'A aba "Union Overview" não foi encontrada.',
-    acao: "Confirme que exportou o relatório correto do GGPoker.",
+    titulo: t("importacao_xlsx.err_sheet_nao_encontrada_titulo"),
+    detalhe: t("importacao_xlsx.err_union_overview_nao_encontrada"),
+    acao: t("importacao_xlsx.err_confirme_ggpoker"),
   };
 
   const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
   const period = parsePeriodFromGG(raw);
-  if (!period.start) warnings.push("Período não encontrado no arquivo GGPoker.");
+  if (!period.start) warnings.push(t("importacao_xlsx.warn_periodo_nao_encontrado_gg"));
 
   let headerRow = -1;
   for (let i = 0; i < raw.length; i++) {
@@ -342,9 +345,9 @@ function parseGGPoker(wb: XLSX.WorkBook): Omit<ParsedFile, "plataforma"> {
   }
 
   if (headerRow === -1) throw {
-    titulo: "Estrutura inválida",
-    detalhe: "Cabeçalho não encontrado no arquivo GGPoker.",
-    acao: "Verifique se o arquivo é um relatório Union Overview válido.",
+    titulo: t("importacao_xlsx.err_estrutura_invalida_titulo"),
+    detalhe: t("importacao_xlsx.err_cabecalho_nao_encontrado_gg"),
+    acao: t("importacao_xlsx.err_verifique_union_overview"),
   };
 
   let liga_nome: string | undefined;
@@ -364,8 +367,8 @@ function parseGGPoker(wb: XLSX.WorkBook): Omit<ParsedFile, "plataforma"> {
   const idxFee = headers.findIndex(h => h === "Total Fee");
   const idxPL = headers.findIndex(h => h === "P&L");
 
-  if (idxClubId === -1) throw { titulo: "Coluna não encontrada", detalhe: "Coluna 'ID' não encontrada.", acao: "Verifique se o arquivo foi exportado corretamente." };
-  if (idxFee === -1) throw { titulo: "Coluna não encontrada", detalhe: "Coluna 'Total Fee' não encontrada.", acao: "Verifique se o arquivo foi exportado corretamente." };
+  if (idxClubId === -1) throw { titulo: t("importacao_xlsx.err_coluna_nao_encontrada_titulo"), detalhe: t("importacao_xlsx.err_coluna_id_nao_encontrada"), acao: t("importacao_xlsx.err_verifique_exportado_corretamente") };
+  if (idxFee === -1) throw { titulo: t("importacao_xlsx.err_coluna_nao_encontrada_titulo"), detalhe: t("importacao_xlsx.err_coluna_total_fee_nao_encontrada"), acao: t("importacao_xlsx.err_verifique_exportado_corretamente") };
 
   for (let i = headerRow + 1; i < raw.length; i++) {
     const row = raw[i] as unknown[];
@@ -392,15 +395,15 @@ function parseGGPoker(wb: XLSX.WorkBook): Omit<ParsedFile, "plataforma"> {
   }
 
   if (rows.length === 0) throw {
-    titulo: "Nenhum clube encontrado",
-    detalhe: "O arquivo GGPoker não contém linhas de clubes válidas.",
-    acao: "Verifique se o período tem dados.",
+    titulo: t("importacao_xlsx.err_nenhum_clube_titulo"),
+    detalhe: t("importacao_xlsx.err_ggpoker_sem_linhas"),
+    acao: t("importacao_xlsx.err_verifique_periodo_dados"),
   };
 
   return { liga_nome, liga_id_ext, period_start: period.start, period_end: period.end, rows, jogadores: [], warnings };
 }
 
-function parseXlsx(file: File): Promise<ParsedFile> {
+function parseXlsx(file: File, t: T): Promise<ParsedFile> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -408,13 +411,13 @@ function parseXlsx(file: File): Promise<ParsedFile> {
         const data = new Uint8Array(e.target!.result as ArrayBuffer);
         const wb = XLSX.read(data, { type: "array" });
         if (wb.SheetNames.length === 0) {
-          reject({ titulo: "Arquivo inválido", detalhe: "O arquivo não contém nenhuma aba.", acao: "Verifique se o arquivo .xlsx está correto." });
+          reject({ titulo: t("importacao_xlsx.err_arquivo_invalido_titulo"), detalhe: t("importacao_xlsx.err_arquivo_sem_abas"), acao: t("importacao_xlsx.err_verifique_xlsx_correto") });
           return;
         }
         const plataforma = detectPlataforma(wb);
         if (plataforma === "PPPoker" || plataforma === "GGPoker") {
           try {
-            resolve(plataforma === "PPPoker" ? { plataforma, ...parsePPPoker(wb, file.name) } : { plataforma, ...parseGGPoker(wb) });
+            resolve(plataforma === "PPPoker" ? { plataforma, ...parsePPPoker(wb, file.name, t) } : { plataforma, ...parseGGPoker(wb, t) });
             return;
           } catch (parseErr) {
             // A aba bateu com um formato conhecido (ex: outra plataforma que
@@ -429,15 +432,15 @@ function parseXlsx(file: File): Promise<ParsedFile> {
               : String(parseErr);
             resolve({
               plataforma: "unknown", period_start: "", period_end: "", rows: [], jogadores: [],
-              warnings: [`Não foi possível extrair os dados automaticamente (${detalhe}). O arquivo original vai ser guardado mesmo assim — peça pro time técnico revisar o formato.`],
+              warnings: [t("importacao_xlsx.warn_extracao_automatica_falhou", { detalhe })],
             });
             return;
           }
         }
-        resolve({ plataforma: "unknown", period_start: "", period_end: "", rows: [], jogadores: [], warnings: [`Abas encontradas: ${wb.SheetNames.join(", ")}.`] });
+        resolve({ plataforma: "unknown", period_start: "", period_end: "", rows: [], jogadores: [], warnings: [t("importacao_xlsx.warn_abas_encontradas", { abas: wb.SheetNames.join(", ") })] });
       } catch (err) { reject(err); }
     };
-    reader.onerror = () => reject({ titulo: "Falha na leitura", detalhe: "Não foi possível ler o arquivo.", acao: "Tente novamente." });
+    reader.onerror = () => reject({ titulo: t("importacao_xlsx.err_falha_leitura_titulo"), detalhe: t("importacao_xlsx.err_nao_foi_possivel_ler"), acao: t("importacao_xlsx.err_tente_novamente") });
     reader.readAsArrayBuffer(file);
   });
 }
@@ -445,7 +448,7 @@ function parseXlsx(file: File): Promise<ParsedFile> {
 // Reabre o mesmo arquivo já escolhido pelo usuário — usado depois que a
 // plataforma é resolvida (pra aplicar um mapeamento salvo) ou quando o
 // popup de mapeamento precisa ler as abas/colunas de verdade.
-function readWorkbook(file: File): Promise<XLSX.WorkBook> {
+function readWorkbook(file: File, t: T): Promise<XLSX.WorkBook> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -454,7 +457,7 @@ function readWorkbook(file: File): Promise<XLSX.WorkBook> {
         resolve(XLSX.read(data, { type: "array" }));
       } catch (err) { reject(err); }
     };
-    reader.onerror = () => reject({ titulo: "Falha na leitura", detalhe: "Não foi possível ler o arquivo.", acao: "Tente novamente." });
+    reader.onerror = () => reject({ titulo: t("importacao_xlsx.err_falha_leitura_titulo"), detalhe: t("importacao_xlsx.err_nao_foi_possivel_ler"), acao: t("importacao_xlsx.err_tente_novamente") });
     reader.readAsArrayBuffer(file);
   });
 }
@@ -465,11 +468,12 @@ function readWorkbook(file: File): Promise<XLSX.WorkBook> {
 function parseGenerico(
   wb: XLSX.WorkBook,
   mapeamento: MapeamentoColunas,
-  fileName: string
+  fileName: string,
+  t: T
 ): { rows: ImportRow[]; period_start: string; period_end: string; warnings: string[] } {
   const warnings: string[] = [];
   const ws = wb.Sheets[mapeamento.sheet];
-  if (!ws) throw { titulo: "Aba não encontrada", detalhe: `A aba "${mapeamento.sheet}" não existe nesse arquivo.`, acao: "Confirme se é o mesmo tipo de relatório de antes, ou reconfigure o mapeamento dessa plataforma." };
+  if (!ws) throw { titulo: t("importacao_xlsx.err_aba_nao_encontrada_titulo"), detalhe: t("importacao_xlsx.err_aba_nao_existe", { sheet: mapeamento.sheet }), acao: t("importacao_xlsx.err_confirme_mapeamento") };
 
   const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
   const headerIdx = mapeamento.headerRow - 1;
@@ -513,18 +517,18 @@ function parseGenerico(
     });
   }
 
-  if (rows.length === 0) warnings.push("Nenhuma linha válida encontrada com esse mapeamento — confira se a aba e a linha de cabeçalho ainda batem com o arquivo.");
+  if (rows.length === 0) warnings.push(t("importacao_xlsx.warn_nenhuma_linha_com_mapeamento"));
 
   const period = parsePeriodFromFileName(fileName);
-  if (!period.start) warnings.push("Período não encontrado no nome do arquivo. Esperado: AAAAMMDD-AAAAMMDD.");
+  if (!period.start) warnings.push(t("importacao_xlsx.warn_periodo_nao_encontrado_nome"));
 
   return { rows, period_start: period.start, period_end: period.end, warnings };
 }
 
-function formatError(err: unknown): ImportError {
+function formatError(err: unknown, t: T): ImportError {
   if (err && typeof err === "object" && "titulo" in err) return err as ImportError;
   const msg = errMsg(err);
-  return { titulo: "Erro inesperado", detalhe: msg, acao: "Se o problema persistir, contate o suporte." };
+  return { titulo: t("importacao_xlsx.err_inesperado_titulo"), detalhe: msg, acao: t("importacao_xlsx.err_contate_suporte") };
 }
 
 // A cascata de upsert de jogadores/agentes/clubes (que antes rodava aqui,
@@ -535,6 +539,7 @@ function formatError(err: unknown): ImportError {
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 export default function ImportacaoXlsx() {
+  const { t } = useI18n();
   const [plataformas, setPlataformas] = useState<Plataforma[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [parsed, setParsed] = useState<ParsedFile | null>(null);
@@ -579,9 +584,9 @@ export default function ImportacaoXlsx() {
           if (row.harmonization_status === "harmonizado") {
             setStep("done");
             setImportError(row.harmonization_error ? {
-              titulo: "Concluído com avisos",
+              titulo: t("importacao_xlsx.concluido_com_avisos_titulo"),
               detalhe: row.harmonization_error,
-              acao: "O aviso costuma ser sobre uma linha específica — confira os dados em Acertos, o restante da importação não foi afetado.",
+              acao: t("importacao_xlsx.aviso_linha_especifica"),
             } : null);
             setJogadorStats(row.jogadores_ok != null ? { ok: row.jogadores_ok, erros: [] } : null);
             setImportingId(null);
@@ -589,9 +594,9 @@ export default function ImportacaoXlsx() {
           } else if (row.harmonization_status === "erro") {
             setStep("error");
             setImportError({
-              titulo: "Erro ao processar",
-              detalhe: row.harmonization_error ?? "Erro desconhecido durante a harmonização.",
-              acao: "Confira se a planilha segue o formato esperado (colunas e abas do relatório da plataforma). Se persistir, chame o time técnico com o nome do arquivo e a mensagem acima — os dados originais continuam guardados, não precisa reimportar do zero.",
+              titulo: t("importacao_xlsx.erro_ao_processar_titulo"),
+              detalhe: row.harmonization_error ?? t("importacao_xlsx.erro_harmonizacao_desconhecido"),
+              acao: t("importacao_xlsx.erro_harmonizacao_acao"),
             });
             setImportingId(null);
             loadHistory();
@@ -600,7 +605,7 @@ export default function ImportacaoXlsx() {
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [importingId]);
+  }, [importingId, t]);
 
   async function loadPlataformas() {
     const { data } = await supabase.from("plataformas").select("id, nome, moeda, mapeamento_colunas").order("nome");
@@ -616,20 +621,20 @@ export default function ImportacaoXlsx() {
 
   const handleFile = useCallback(async (f: File) => {
     if (!f.name.endsWith(".xlsx")) {
-      setImportError({ titulo: "Formato inválido", detalhe: `"${f.name}" não é um .xlsx.`, acao: "Selecione um arquivo .xlsx exportado do PPPoker ou GGPoker." });
+      setImportError({ titulo: t("importacao_xlsx.err_formato_invalido_titulo"), detalhe: t("importacao_xlsx.err_nao_e_xlsx", { nome: f.name }), acao: t("importacao_xlsx.err_selecione_xlsx") });
       setStep("error"); return;
     }
     setFile(f); setStep("parsing"); setImportError(null); setParsed(null);
     setResolvedPlatformId(null); setPlatformAction(null); setNewPlatformName(""); setSelectedExistingPlatform(""); setJogadorStats(null);
     try {
-      const result = await parseXlsx(f);
+      const result = await parseXlsx(f, t);
       setParsed(result);
       if (result.plataforma === "unknown") { setStep("confirm_platform"); return; }
       const match = plataformas.find(p => p.nome.toLowerCase() === result.plataforma.toLowerCase());
       if (match) { setResolvedPlatformId(match.id); setStep("parsed"); }
       else { setNewPlatformName(result.plataforma); setStep("confirm_platform"); }
-    } catch (err) { setImportError(formatError(err)); setStep("error"); }
-  }, [plataformas]);
+    } catch (err) { setImportError(formatError(err, t)); setStep("error"); }
+  }, [plataformas, t]);
 
   async function handleResolvePlatform() {
     let plataformaId: string;
@@ -639,13 +644,13 @@ export default function ImportacaoXlsx() {
     if (platformAction === "new") {
       if (!newPlatformName.trim()) return;
       const { data, error } = await supabase.from("plataformas").insert({ nome: newPlatformName.trim(), moeda: "USD" }).select().single();
-      if (error) { setImportError({ titulo: "Erro ao criar plataforma", detalhe: error.message, acao: "Verifique se o nome já está cadastrado." }); setStep("error"); return; }
+      if (error) { setImportError({ titulo: t("importacao_xlsx.err_criar_plataforma_titulo"), detalhe: error.message, acao: t("importacao_xlsx.err_nome_ja_cadastrado") }); setStep("error"); return; }
       plataformaId = data.id; nome = data.nome; mapeamento = (data as Plataforma).mapeamento_colunas ?? null;
       await loadPlataformas();
     } else {
       if (!selectedExistingPlatform) return;
       const existente = plataformas.find(p => p.id === selectedExistingPlatform);
-      plataformaId = selectedExistingPlatform; nome = existente?.nome ?? "Plataforma"; mapeamento = existente?.mapeamento_colunas ?? null;
+      plataformaId = selectedExistingPlatform; nome = existente?.nome ?? t("importacao_xlsx.plataforma_generica"); mapeamento = existente?.mapeamento_colunas ?? null;
     }
 
     setResolvedPlatformId(plataformaId);
@@ -669,19 +674,19 @@ export default function ImportacaoXlsx() {
     if (!file) return;
     setStep("parsing");
     try {
-      const wb = await readWorkbook(file);
-      const resultado = parseGenerico(wb, mapeamento, file.name);
+      const wb = await readWorkbook(file, t);
+      const resultado = parseGenerico(wb, mapeamento, file.name, t);
       setParsed({ plataforma: nome, jogadores: [], ...resultado });
       setStep("parsed");
     } catch (err) {
-      setImportError(formatError(err)); setStep("error");
+      setImportError(formatError(err, t)); setStep("error");
     }
   }
 
   async function handleMapeamentoSalvo(mapeamento: MapeamentoColunas) {
     if (!resolvedPlatformId) return;
     const { error } = await supabase.from("plataformas").update({ mapeamento_colunas: mapeamento }).eq("id", resolvedPlatformId);
-    if (error) { setImportError({ titulo: "Erro ao salvar mapeamento", detalhe: error.message }); setStep("error"); return; }
+    if (error) { setImportError({ titulo: t("importacao_xlsx.err_salvar_mapeamento_titulo"), detalhe: error.message }); setStep("error"); return; }
     await loadPlataformas();
     await aplicarMapeamento(mapeamento, resolvedPlatformNome);
   }
@@ -717,7 +722,7 @@ export default function ImportacaoXlsx() {
       }
 
       await salvarImportacao(leagueId, null);
-    } catch (err) { setImportError(formatError(err)); setStep("error"); }
+    } catch (err) { setImportError(formatError(err, t)); setStep("error"); }
   }
 
   // Substituição confirmada no popup de duplicidade: limpa os dados antigos
@@ -732,16 +737,16 @@ export default function ImportacaoXlsx() {
     setSubstituindo(true);
     try {
       const { error: acertosErr } = await supabase.from("acertos").delete().eq("import_id", duplicado.id);
-      if (acertosErr) throw { titulo: "Não deu pra substituir", detalhe: `Essa importação antiga já tem Acerto com Pagamento vinculado — desvincule o Pagamento antes de reimportar essa semana. (${acertosErr.message})` };
+      if (acertosErr) throw { titulo: t("importacao_xlsx.err_nao_deu_substituir_titulo"), detalhe: t("importacao_xlsx.err_pagamento_vinculado", { msg: acertosErr.message }) };
       await supabase.from("acertos_agentes").delete().eq("import_id", duplicado.id);
       const { error: rowsErr } = await supabase.from("import_rows").delete().eq("import_id", duplicado.id);
-      if (rowsErr) throw { titulo: "Não deu pra substituir", detalhe: rowsErr.message };
+      if (rowsErr) throw { titulo: t("importacao_xlsx.err_nao_deu_substituir_titulo"), detalhe: rowsErr.message };
 
       const leagueId = duplicado.leagueId
       const importIdExistente = duplicado.id
       setDuplicado(null)
       await salvarImportacao(leagueId, importIdExistente)
-    } catch (err) { setDuplicado(null); setImportError(formatError(err)); setStep("error"); }
+    } catch (err) { setDuplicado(null); setImportError(formatError(err, t)); setStep("error"); }
     finally { setSubstituindo(false); }
   }
 
@@ -772,13 +777,13 @@ export default function ImportacaoXlsx() {
       ? await supabase.from("imports").update(camposImport).eq("id", reutilizarImportId).select().single()
       : await supabase.from("imports").insert(camposImport).select().single();
 
-    if (importErr) throw { titulo: "Erro ao registrar importação", detalhe: importErr.message };
+    if (importErr) throw { titulo: t("importacao_xlsx.err_registrar_importacao_titulo"), detalhe: importErr.message };
 
     // 2) Sobe o arquivo original pro Storage (guardado só por alguns dias,
     // suficiente pra reprocessar se algo mudar na harmonização).
     const storagePath = `${importData.id}/${file.name}`;
     const { error: uploadErr } = await supabase.storage.from("bronze-uploads").upload(storagePath, file, { upsert: true });
-    if (uploadErr) throw { titulo: "Erro ao guardar o arquivo original", detalhe: uploadErr.message };
+    if (uploadErr) throw { titulo: t("importacao_xlsx.err_guardar_arquivo_titulo"), detalhe: uploadErr.message };
     await supabase.from("imports").update({ storage_path: storagePath }).eq("id", importData.id);
 
     // 3) Grava o payload cru na bronze. Isso dispara o Database Webhook
@@ -788,7 +793,7 @@ export default function ImportacaoXlsx() {
       import_id: importData.id,
       payload: { plataforma: parsed.plataforma, rows: parsed.rows, jogadores: parsed.jogadores },
     });
-    if (bronzeErr) throw { titulo: "Erro ao registrar dados brutos", detalhe: bronzeErr.message };
+    if (bronzeErr) throw { titulo: t("importacao_xlsx.err_registrar_dados_brutos_titulo"), detalhe: bronzeErr.message };
 
     setJogadorStats(null);
     setHarmonStatus("pendente");
@@ -841,9 +846,9 @@ export default function ImportacaoXlsx() {
       `}</style>
 
       <div style={{ marginBottom: 32 }}>
-        <p style={{ color: "#C9A84C", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>PokerOS · Importação</p>
-        <h1 style={{ fontFamily: "var(--font-display), serif", fontSize: 28, fontWeight: 600, margin: 0 }}>Importar Arquivo .xlsx</h1>
-        <p style={{ color: "#6a6a62", fontSize: 14, marginTop: 6 }}>PPPoker · GGPoker · Detecção automática de plataforma</p>
+        <p style={{ color: "#C9A84C", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>{t("importacao_xlsx.titulo_pagina")}</p>
+        <h1 style={{ fontFamily: "var(--font-display), serif", fontSize: 28, fontWeight: 600, margin: 0 }}>{t("importacao_xlsx.h1")}</h1>
+        <p style={{ color: "#6a6a62", fontSize: 14, marginTop: 6 }}>{t("importacao_xlsx.subtitulo")}</p>
       </div>
 
       <div style={{ maxWidth: 1100, display: "flex", flexDirection: "column", gap: 16 }}>
@@ -857,23 +862,23 @@ export default function ImportacaoXlsx() {
           <input ref={inputRef} type="file" accept=".xlsx" style={{ display: "none" }}
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
           <div style={{ fontSize: 28, marginBottom: 10, color: "#C9A84C" }}>♦</div>
-          <p style={{ fontFamily: "var(--font-display), serif", fontSize: 15, color: "#C9A84C", marginBottom: 4 }}>Arraste ou clique para selecionar</p>
-          <p style={{ fontSize: 12, color: "#5a5a52" }}>Um arquivo .xlsx por vez</p>
+          <p style={{ fontFamily: "var(--font-display), serif", fontSize: 15, color: "#C9A84C", marginBottom: 4 }}>{t("importacao_xlsx.arraste_ou_clique")}</p>
+          <p style={{ fontSize: 12, color: "#5a5a52" }}>{t("importacao_xlsx.um_arquivo_por_vez")}</p>
         </div>
 
         {step === "parsing" && (
           <div className="card" style={{ padding: 14 }}>
-            <span style={{ color: "#C9A84C", fontSize: 13 }}>⏳ Analisando arquivo...</span>
+            <span style={{ color: "#C9A84C", fontSize: 13 }}>{t("importacao_xlsx.analisando_arquivo")}</span>
           </div>
         )}
 
         {step === "confirm_platform" && parsed && (
           <div className="card" style={{ padding: 20 }}>
             <p style={{ color: "#C9A84C", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
-              {parsed.plataforma === "unknown" ? "⚠ Plataforma não reconhecida" : `⚠ Plataforma detectada: ${parsed.plataforma}`}
+              {parsed.plataforma === "unknown" ? t("importacao_xlsx.plataforma_nao_reconhecida") : t("importacao_xlsx.plataforma_detectada", { nome: parsed.plataforma })}
             </p>
             <p style={{ color: "#7a7a70", fontSize: 12, marginBottom: 16 }}>
-              {parsed.plataforma === "unknown" ? `Abas: ${parsed.warnings[0] ?? "—"}` : `"${parsed.plataforma}" não está cadastrada.`}
+              {parsed.plataforma === "unknown" ? t("importacao_xlsx.abas_label", { abas: parsed.warnings[0] ?? "—" }) : t("importacao_xlsx.plataforma_nao_cadastrada", { nome: parsed.plataforma })}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
               {["new", "existing"].map(opt => (
@@ -881,21 +886,21 @@ export default function ImportacaoXlsx() {
                   <div style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${platformAction === opt ? "#C9A84C" : "#3D6E3D"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     {platformAction === opt && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#C9A84C" }} />}
                   </div>
-                  <span style={{ fontSize: 13 }}>{opt === "new" ? "É uma nova plataforma" : "É uma plataforma existente"}</span>
+                  <span style={{ fontSize: 13 }}>{opt === "new" ? t("importacao_xlsx.opt_nova_plataforma") : t("importacao_xlsx.opt_plataforma_existente")}</span>
                 </div>
               ))}
             </div>
             {platformAction === "new" && (
               <div style={{ marginBottom: 16 }}>
-                <p className="label">Nome da nova plataforma</p>
-                <input className="input-field" value={newPlatformName} onChange={e => setNewPlatformName(e.target.value)} placeholder="Ex: PokerBros" />
+                <p className="label">{t("importacao_xlsx.nome_nova_plataforma_label")}</p>
+                <input className="input-field" value={newPlatformName} onChange={e => setNewPlatformName(e.target.value)} placeholder={t("importacao_xlsx.nome_nova_plataforma_placeholder")} />
               </div>
             )}
             {platformAction === "existing" && (
               <div style={{ marginBottom: 16 }}>
-                <p className="label">Selecione a plataforma</p>
+                <p className="label">{t("importacao_xlsx.selecione_plataforma_label")}</p>
                 <select className="select-field" value={selectedExistingPlatform} onChange={e => setSelectedExistingPlatform(e.target.value)}>
-                  <option value="">Selecione...</option>
+                  <option value="">{t("importacao_xlsx.selecione_reticencias")}</option>
                   {plataformas.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                 </select>
               </div>
@@ -903,46 +908,46 @@ export default function ImportacaoXlsx() {
             <div style={{ display: "flex", gap: 10 }}>
               <button className="btn-gold"
                 disabled={!platformAction || (platformAction === "new" && !newPlatformName.trim()) || (platformAction === "existing" && !selectedExistingPlatform)}
-                onClick={handleResolvePlatform}>Continuar</button>
-              <button className="btn-ghost" onClick={reset}>Cancelar</button>
+                onClick={handleResolvePlatform}>{t("importacao_xlsx.continuar")}</button>
+              <button className="btn-ghost" onClick={reset}>{t("common.cancelar")}</button>
             </div>
           </div>
         )}
 
         {step === "parsed" && parsed && file && (
           <div className="card" style={{ padding: 16, borderColor: "#2a5a2a" }}>
-            <p style={{ color: "#7DC97D", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>✓ Arquivo válido</p>
+            <p style={{ color: "#7DC97D", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{t("importacao_xlsx.arquivo_valido")}</p>
             <p style={{ color: "#5a5a52", fontSize: 12, marginBottom: 2 }}>{file.name}</p>
             <p style={{ color: "#5a5a52", fontSize: 12, marginBottom: 2 }}>
               <span style={{ color: "#C9A84C" }}>{parsed.plataforma}</span>
               {parsed.liga_nome && <> · {parsed.liga_nome}</>}
             </p>
             <p style={{ color: "#5a5a52", fontSize: 12 }}>
-              {parsed.rows.length} clube{parsed.rows.length !== 1 ? "s" : ""}
-              {parsed.jogadores.length > 0 && ` · ${parsed.jogadores.length} jogadores detectados`}
+              {t(parsed.rows.length === 1 ? "importacao_xlsx.clube_singular" : "importacao_xlsx.clube_plural", { n: parsed.rows.length })}
+              {parsed.jogadores.length > 0 && ` · ${t("importacao_xlsx.jogadores_detectados", { n: parsed.jogadores.length })}`}
               {parsed.period_start && ` · ${parsed.period_start} → ${parsed.period_end}`}
             </p>
             {parsed.warnings.map((w, i) => (
               <p key={i} style={{ color: "#C9A84C", fontSize: 12, marginTop: 4 }}>⚠ {w}</p>
             ))}
             <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-              <button className="btn-gold" onClick={handleConfirmImport}>Confirmar importação</button>
-              <button className="btn-ghost" onClick={reset}>Cancelar</button>
+              <button className="btn-gold" onClick={handleConfirmImport}>{t("importacao_xlsx.confirmar_importacao")}</button>
+              <button className="btn-ghost" onClick={reset}>{t("common.cancelar")}</button>
             </div>
           </div>
         )}
 
         {step === "saving" && (
           <div className="card" style={{ padding: 14 }}>
-            <span style={{ color: "#C9A84C", fontSize: 13 }}>⏳ Enviando arquivo...</span>
+            <span style={{ color: "#C9A84C", fontSize: 13 }}>{t("importacao_xlsx.enviando_arquivo")}</span>
           </div>
         )}
 
         {step === "sent" && (
           <div className="card" style={{ padding: 16, borderColor: "#C9A84C" }}>
-            <p style={{ color: "#C9A84C", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{harmonizationLabel(harmonStatus)}</p>
+            <p style={{ color: "#C9A84C", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{harmonizationLabel(harmonStatus, t)}</p>
             <p style={{ color: "#7a7a70", fontSize: 12 }}>
-              Isso normalmente leva alguns segundos. Esta tela atualiza sozinha quando terminar — não precisa recarregar a página.
+              {t("importacao_xlsx.atualiza_sozinha_desc")}
             </p>
           </div>
         )}
@@ -950,7 +955,7 @@ export default function ImportacaoXlsx() {
         {step === "done" && (
           <div className="card" style={{ padding: 16, borderColor: importError ? "#5a4a20" : "#2a5a2a" }}>
             <p style={{ color: importError ? "#C9A84C" : "#7DC97D", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
-              {importError ? "⚠ Concluído com avisos" : "✓ Importação concluída"}
+              {importError ? t("importacao_xlsx.concluido_com_avisos_titulo") : t("importacao_xlsx.importacao_concluida")}
             </p>
             {importError && <p style={{ color: "#7a7a70", fontSize: 12, marginBottom: importError.acao ? 4 : 8 }}>{importError.detalhe}</p>}
             {importError?.acao && (
@@ -960,14 +965,14 @@ export default function ImportacaoXlsx() {
             )}
             {jogadorStats && (
               <p style={{ color: "#5a5a52", fontSize: 12, marginBottom: 4 }}>
-                Jogadores: <span style={{ color: "#7DC97D" }}>{jogadorStats.ok} processados</span>
-                {jogadorStats.erros.length > 0 && <span style={{ color: "#E07070" }}> · {jogadorStats.erros.length} com erro</span>}
+                {t("importacao_xlsx.jogadores_prefix")} <span style={{ color: "#7DC97D" }}>{t("importacao_xlsx.jogadores_processados", { n: jogadorStats.ok })}</span>
+                {jogadorStats.erros.length > 0 && <span style={{ color: "#E07070" }}> · {t("importacao_xlsx.jogadores_com_erro", { n: jogadorStats.erros.length })}</span>}
               </p>
             )}
             {jogadorStats?.erros.map((e, i) => (
               <p key={i} style={{ color: "#E07070", fontSize: 11, marginTop: 2 }}>✗ {e}</p>
             ))}
-            <button className="btn-ghost" style={{ marginTop: 12 }} onClick={reset}>Importar outro arquivo</button>
+            <button className="btn-ghost" style={{ marginTop: 12 }} onClick={reset}>{t("importacao_xlsx.importar_outro")}</button>
           </div>
         )}
 
@@ -980,26 +985,26 @@ export default function ImportacaoXlsx() {
                 💡 {importError.acao}
               </p>
             )}
-            <button className="btn-ghost" onClick={reset}>Tentar novamente</button>
+            <button className="btn-ghost" onClick={reset}>{t("importacao_xlsx.tentar_novamente")}</button>
           </div>
         )}
       </div>
 
       <div style={{ maxWidth: 1100, marginTop: 48 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 16 }}>
-          <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: 20, fontWeight: 500, margin: 0 }}>Histórico de importações</h2>
-          <span style={{ fontSize: 12, color: "#5a5a52" }}>{history.length} registros</span>
+          <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: 20, fontWeight: 500, margin: 0 }}>{t("importacao_xlsx.historico_titulo")}</h2>
+          <span style={{ fontSize: 12, color: "#5a5a52" }}>{t("importacao_xlsx.registros_count", { n: history.length })}</span>
         </div>
         <div className="card" style={{ overflow: "hidden" }}>
           {loadingHistory ? (
-            <div style={{ padding: 24, textAlign: "center", color: "#5a5a52", fontSize: 13 }}>Carregando...</div>
+            <div style={{ padding: 24, textAlign: "center", color: "#5a5a52", fontSize: 13 }}>{t("common.carregando")}</div>
           ) : history.length === 0 ? (
-            <div style={{ padding: 24, textAlign: "center", color: "#3a3a32", fontSize: 13 }}>Nenhuma importação ainda</div>
+            <div style={{ padding: 24, textAlign: "center", color: "#3a3a32", fontSize: 13 }}>{t("importacao_xlsx.nenhuma_importacao")}</div>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table>
                 <thead>
-                  <tr><th>Arquivo</th><th>Plataforma</th><th>Período</th><th>Status</th><th>Data</th></tr>
+                  <tr><th>{t("importacao_xlsx.col_arquivo")}</th><th>{t("importacao_xlsx.col_plataforma")}</th><th>{t("importacao_xlsx.col_periodo")}</th><th>{t("importacao_xlsx.col_status")}</th><th>{t("importacao_xlsx.col_data")}</th></tr>
                 </thead>
                 <tbody>
                   {history.map(entry => (
@@ -1009,7 +1014,7 @@ export default function ImportacaoXlsx() {
                       <td style={{ color: "#7a7a70", fontSize: 12 }}>{entry.period_start ? `${entry.period_start} → ${entry.period_end}` : "—"}</td>
                       <td>
                         <span className={`badge ${entry.harmonization_status === "harmonizado" ? "badge-ok" : entry.harmonization_status === "erro" ? "badge-error" : "badge-processing"}`}>
-                          {harmonizationLabel(entry.harmonization_status)}
+                          {harmonizationLabel(entry.harmonization_status, t)}
                         </span>
                       </td>
                       <td style={{ fontSize: 12, color: "#7a7a70" }}>{new Date(entry.created_at).toLocaleString("pt-BR")}</td>
@@ -1032,12 +1037,15 @@ export default function ImportacaoXlsx() {
 
       <ConfirmModal
         open={!!duplicado}
-        title="Já existe importação dessa semana"
-        description={duplicado && `Essa Liga já tem uma importação pra ${parsed?.period_start} → ${parsed?.period_end} (arquivo "${duplicado.fileName}", importado em ${new Date(duplicado.createdAt).toLocaleString("pt-BR")}). Substituir pelos dados desse novo arquivo? Os Acertos já calculados dessa semana serão apagados — recalcule de novo depois de concluir.`}
+        title={t("importacao_xlsx.duplicado_titulo")}
+        description={duplicado && t("importacao_xlsx.duplicado_desc", {
+          inicio: parsed?.period_start ?? "", fim: parsed?.period_end ?? "",
+          arquivo: duplicado.fileName, data: new Date(duplicado.createdAt).toLocaleString("pt-BR"),
+        })}
         tone="amber"
         icon={AlertTriangle}
         saving={substituindo}
-        confirmLabel={substituindo ? "Substituindo..." : "Substituir"}
+        confirmLabel={substituindo ? t("importacao_xlsx.substituindo") : t("importacao_xlsx.substituir")}
         onConfirm={confirmarSubstituicao}
         onCancel={() => setDuplicado(null)}
       />

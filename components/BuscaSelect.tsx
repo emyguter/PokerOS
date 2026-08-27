@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useI18n } from '@/lib/i18n'
 
 interface Opcao { id: string; nome: string }
 
@@ -17,6 +18,7 @@ interface Props {
 const DEFAULT_CLS = 'w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20'
 
 export function BuscaSelect({ value, onChange, opcoes, placeholder, vazio, className, disabled }: Props) {
+  const { t } = useI18n()
   const [aberto, setAberto] = useState(false)
   const [busca, setBusca] = useState('')
 
@@ -55,7 +57,7 @@ export function BuscaSelect({ value, onChange, opcoes, placeholder, vazio, class
             </button>
           )}
           {filtradas.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-gray-500 italic">Nenhum resultado.</p>
+            <p className="px-3 py-2 text-sm text-gray-500 italic">{t('vinculos_panel.nenhum_resultado')}</p>
           ) : (
             filtradas.map(o => (
               <button

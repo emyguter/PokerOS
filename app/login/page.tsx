@@ -11,7 +11,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  const { locale, toggleLocale, t } = useI18n();
+  const { locale, setLocale, t } = useI18n();
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -83,20 +83,20 @@ export default function LoginPage() {
         .btn-login:disabled { opacity: 0.4; cursor: not-allowed; }
       `}</style>
 
-      <button
-        onClick={toggleLocale}
-        title={locale === "pt" ? "Switch to English" : "Mudar para Português"}
+      <div
         style={{
           position: "absolute", top: 20, right: 20,
           background: "#111510", border: "1px solid #2a2c20", borderRadius: 6,
           padding: "6px 10px", fontSize: 12, fontWeight: 600, color: "#8a8a80",
-          cursor: "pointer", display: "flex", gap: 6, alignItems: "center",
+          display: "flex", gap: 6, alignItems: "center",
         }}
       >
-        <span style={{ color: locale === "pt" ? "#C9A84C" : "#8a8a80" }}>PT</span>
+        <button type="button" onClick={() => setLocale("pt")} title="Português" style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 12, fontWeight: 600, color: locale === "pt" ? "#C9A84C" : "#8a8a80" }}>PT</button>
         <span style={{ color: "#4a4a44" }}>/</span>
-        <span style={{ color: locale === "en" ? "#C9A84C" : "#8a8a80" }}>EN</span>
-      </button>
+        <button type="button" onClick={() => setLocale("en")} title="English" style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 12, fontWeight: 600, color: locale === "en" ? "#C9A84C" : "#8a8a80" }}>EN</button>
+        <span style={{ color: "#4a4a44" }}>/</span>
+        <button type="button" onClick={() => setLocale("es")} title="Español" style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 12, fontWeight: 600, color: locale === "es" ? "#C9A84C" : "#8a8a80" }}>ES</button>
+      </div>
 
       <div style={{ width: "100%", maxWidth: 400, padding: "0 24px" }}>
 

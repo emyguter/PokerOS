@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import { BuscaSelect } from '@/components/BuscaSelect'
+import { useI18n } from '@/lib/i18n'
 interface FieldOption { value: string; label: string }
 // 'select' é pra opções fixas (enum, ex: moeda). 'busca' é pra listas de
 // entidades nomeadas (ex: Mega Liga) — vira busca com sugestão em vez de
@@ -9,6 +10,7 @@ interface FieldOption { value: string; label: string }
 interface Field { key: string; label: string; type: 'text' | 'number' | 'select' | 'busca'; required?: boolean; placeholder?: string; options?: FieldOption[] }
 interface Props { open: boolean; title: string; onClose: () => void; onSave: (data: any) => void; saving: boolean; initialData: Record<string, any>; fields: Field[] }
 export function CadastroModal({ open, title, onClose, onSave, saving, initialData, fields }: Props) {
+  const { t } = useI18n()
   const [form, setForm] = useState<Record<string, any>>(initialData)
   useEffect(() => { setForm(initialData) }, [initialData, open])
   if (!open) return null
@@ -45,9 +47,9 @@ export function CadastroModal({ open, title, onClose, onSave, saving, initialDat
             </div>
           ))}
           <div className="flex items-center justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">{t('common.cancelar')}</button>
             <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
-              {saving && <Loader2 size={14} className="animate-spin" />}Salvar
+              {saving && <Loader2 size={14} className="animate-spin" />}{t('common.salvar')}
             </button>
           </div>
         </form>

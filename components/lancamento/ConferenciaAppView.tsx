@@ -27,6 +27,7 @@ function toNumero(v: string): number | null {
 // desse import, e a tela compara na hora com o que foi calculado — não
 // libera nada sozinho, é só o checklist visual de bateu/não bateu.
 function LinhaConferencia({ label, calculado, visto, onChange }: { label: string; calculado: number; visto: string; onChange: (v: string) => void }) {
+  const { t } = useI18n()
   const num = toNumero(visto)
   const bate = num != null ? valoresBatem(num, calculado) : null
   return (
@@ -41,7 +42,7 @@ function LinhaConferencia({ label, calculado, visto, onChange }: { label: string
         inputMode="decimal"
         value={visto}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Visto no app"
+        placeholder={t('conferencia.visto_no_app_placeholder')}
         className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50"
       />
       <div className="w-5">

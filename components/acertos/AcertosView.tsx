@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Inbox, Copy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { useI18n } from "@/lib/i18n";
 import { processarAcertos, processarAcertosAgentes, type ClubeNovo } from "@/lib/acertos-engine";
 import { calcularTotalAcerto, corrigirValorCrypto, buscarSecurityEDividasPorClube } from "@/lib/relatorio-acerto";
 import * as XLSX from "xlsx";
@@ -57,14 +58,6 @@ const LABELS: Record<string, string> = {
   sem_regra: "Sem Regra",
 };
 
-const LABELS_LANCAMENTO: Record<string, string> = {
-  bonus: "Bônus",
-  promocao: "Promoção",
-  caucao: "Caução",
-  pagamento: "Pagamento",
-  outro: "Outro",
-};
-
 interface Lancamento {
   clube_id: string;
   tipo: string;
@@ -95,6 +88,7 @@ function categoriaStatus(status: string): "calculado" | "parcial" | "aguardando"
 }
 
 export default function AcertosView() {
+  const { t } = useI18n();
   const [aba, setAba] = useState<"clube" | "agente">("clube");
   const [imports, setImports] = useState<Import[]>([]);
   const [selected, setSelected] = useState<Import | null>(null);
@@ -213,8 +207,8 @@ export default function AcertosView() {
   // além de Bilhetes/Pendências/Indicação/Taxa AA (que já vêm direto na
   // linha de `acertos`) e Lançamentos (acima).
   const [extrasPorClube, setExtrasPorClube] = useState<Map<string, { security: number; dividasTotal: number }>>(new Map());
-  const loadExtras = useCallback(async (clubIds: string[], periodEnd: string) => {
-    setExtrasPorClube(await buscarSecurityEDividasPorClube(clubIds, periodEnd));
+  const loadExtras = useCallback(async (clubIds: string[], periodEnd: string, rakeTotalPorClube: Map<string, number>) => {
+    setExtrasPorClube(await buscarSecurityEDividasPorClube(clubIds, periodEnd, rakeTotalPorClube));
   }, []);
 
   // % de Crypto Rebate cadastrado por clube — só pro "Total Crypto Rebate"
@@ -260,8 +254,9 @@ export default function AcertosView() {
   useEffect(() => {
     if (!selected || acertos.length === 0) { setLancamentos([]); setExtrasPorClube(new Map()); setCryptoPctPorClube(new Map()); return; }
     const clubIds = [...new Set(acertos.map((a) => a.club_id).filter((id): id is string => !!id))];
+    const rakeTotalPorClube = new Map(acertos.filter((a) => a.club_id).map((a) => [a.club_id as string, a.rake_total]));
     loadLancamentos(clubIds, selected.period_start, selected.period_end);
-    loadExtras(clubIds, selected.period_end || selected.period_start);
+    loadExtras(clubIds, selected.period_end || selected.period_start, rakeTotalPorClube);
     loadCryptoPct(clubIds);
   }, [acertos, selected, loadLancamentos, loadExtras, loadCryptoPct]);
 
@@ -506,16 +501,16 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
       `}</style>
 
       <div style={{ marginBottom: 24 }}>
-        <p style={{ color: "#C9A84C", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>PokerOS · Acertos</p>
-        <h1 style={{ fontFamily: "var(--font-display), serif", fontSize: 28, fontWeight: 600, margin: 0 }}>Resumo de Acertos</h1>
+        <p style={{ color: "#C9A84C", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>{t('acertos_view.kicker')}</p>
+        <h1 style={{ fontFamily: "var(--font-display), serif", fontSize: 28, fontWeight: 600, margin: 0 }}>{t('acertos_view.titulo')}</h1>
         <p style={{ color: "#6a6a62", fontSize: 14, marginTop: 6 }}>
-          {aba === "clube" ? "Selecione um import para calcular e conferir os acertos por clube" : "Rakeback consolidado por agente, somando todos os clubes que atende"}
+          {aba === "clube" ? t('acertos_view.subtitulo_clube') : t('acertos_view.subtitulo_agente')}
         </p>
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 24, maxWidth: 1300 }}>
-        <button className={`btn-ghost${aba === "clube" ? " active" : ""}`} onClick={() => setAba("clube")}>Por Clube</button>
-        <button className={`btn-ghost${aba === "agente" ? " active" : ""}`} onClick={() => setAba("agente")}>Por Agente</button>
+        <button className={`btn-ghost${aba === "clube" ? " active" : ""}`} onClick={() => setAba("clube")}>{t('acertos_view.aba_clube')}</button>
+        <button className={`btn-ghost${aba === "agente" ? " active" : ""}`} onClick={() => setAba("agente")}>{t('acertos_view.aba_agente')}</button>
       </div>
 
       {aba === "agente" ? (
@@ -527,22 +522,22 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
         <div className="card" style={{ overflow: "hidden", alignSelf: "start" }}>
           <div style={{ padding: "12px 16px", borderBottom: "1px solid #1e2018", display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <p style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "#5a5a52", margin: 0 }}>Imports</p>
+              <p style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "#5a5a52", margin: 0 }}>{t('acertos_view.imports_titulo')}</p>
               <select
                 value={ordenacaoImports}
                 onChange={(e) => setOrdenacaoImports(e.target.value as "importacao" | "periodo" | "nome")}
                 style={{ background: "#111410", color: "#8a8a80", border: "1px solid #2a2c20", borderRadius: 6, padding: "3px 6px", fontFamily: "'DM Sans',sans-serif", fontSize: 11, outline: "none", cursor: "pointer" }}
               >
-                <option value="importacao">Data de importação</option>
-                <option value="periodo">Período do arquivo</option>
-                <option value="nome">Nome</option>
+                <option value="importacao">{t('acertos_view.ordenar_importacao')}</option>
+                <option value="periodo">{t('acertos_view.ordenar_periodo')}</option>
+                <option value="nome">{t('acertos_view.ordenar_nome')}</option>
               </select>
             </div>
             <input
               type="text"
               value={buscaImports}
               onChange={(e) => setBuscaImports(e.target.value)}
-              placeholder="Buscar por arquivo, liga ou clube..."
+              placeholder={t('acertos_view.buscar_import_placeholder')}
               style={{ background: "#111410", color: "#F0EDE4", border: "1px solid #2a2c20", borderRadius: 6, padding: "5px 8px", fontFamily: "'DM Sans',sans-serif", fontSize: 12, outline: "none", width: "100%", boxSizing: "border-box" }}
             />
             <select
@@ -550,23 +545,23 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
               onChange={(e) => setStatusImports(e.target.value as "todos" | "calculado" | "parcial" | "aguardando" | "erro")}
               style={{ background: "#111410", color: "#8a8a80", border: "1px solid #2a2c20", borderRadius: 6, padding: "3px 6px", fontFamily: "'DM Sans',sans-serif", fontSize: 11, outline: "none", cursor: "pointer", width: "100%" }}
             >
-              <option value="todos">Todos os status</option>
-              <option value="calculado">✓ Calculado</option>
-              <option value="parcial">⚠ Parcial</option>
-              <option value="aguardando">Aguardando</option>
-              <option value="erro">Erro</option>
+              <option value="todos">{t('acertos_view.status_todos')}</option>
+              <option value="calculado">{t('acertos_view.status_calculado')}</option>
+              <option value="parcial">{t('acertos_view.status_parcial')}</option>
+              <option value="aguardando">{t('acertos_view.status_aguardando')}</option>
+              <option value="erro">{t('acertos_view.status_erro')}</option>
             </select>
           </div>
           {importsOrdenados.length === 0 ? (
-            <p style={{ padding: "16px", fontSize: 12, color: "#5a5a52", fontStyle: "italic" }}>Nenhum import bate com os filtros.</p>
+            <p style={{ padding: "16px", fontSize: 12, color: "#5a5a52", fontStyle: "italic" }}>{t('acertos_view.nenhum_import_filtro')}</p>
           ) : importsOrdenados.map((imp) => {
             const cat = categoriaStatus(imp.status);
             return (
               <div key={imp.id} className={`imp${selected?.id === imp.id ? " sel" : ""}`} onClick={() => handleSelect(imp)}>
                 <p style={{ color: "#C9A84C", fontSize: 13, margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{imp.file_name}</p>
-                <p style={{ color: "#5a5a52", fontSize: 11, margin: "0 0 4px" }}>{imp.leagues?.name ?? "—"} · {imp.period_start ?? "s/período"}</p>
+                <p style={{ color: "#5a5a52", fontSize: 11, margin: "0 0 4px" }}>{imp.leagues?.name ?? "—"} · {imp.period_start ?? t('acertos_view.sem_periodo')}</p>
                 <span className={`badge ${cat === "calculado" ? "bok" : cat === "erro" ? "berr" : "bwarn"}`}>
-                  {cat === "calculado" ? "✓ Calculado" : cat === "parcial" ? "⚠ Parcial" : cat === "aguardando" ? "Aguardando" : imp.status}
+                  {cat === "calculado" ? t('acertos_view.status_calculado') : cat === "parcial" ? t('acertos_view.status_parcial') : cat === "aguardando" ? t('acertos_view.status_aguardando') : imp.status}
                 </span>
               </div>
             );
@@ -578,7 +573,7 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
           {!selected ? (
             <div className="card" style={{ padding: "64px 32px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
               <Inbox size={32} color="#3a3a32" />
-              <p style={{ color: "#8a8a80", fontSize: 15, fontWeight: 500, margin: 0 }}>Selecione um import ao lado</p>
+              <p style={{ color: "#8a8a80", fontSize: 15, fontWeight: 500, margin: 0 }}>{t('acertos_view.selecione_import')}</p>
             </div>
           ) : (
             <>
@@ -589,47 +584,47 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button className="btn-gold" onClick={handleCalcular} disabled={calculating}>
-                    {calculating ? "⏳ Calculando..." : acertos.length > 0 ? "↺ Recalcular" : "▶ Calcular Acertos"}
+                    {calculating ? t('acertos_view.calculando') : acertos.length > 0 ? t('acertos_view.recalcular') : t('acertos_view.calcular')}
                   </button>
-                  {acertos.length > 0 && <button className="btn-ghost" onClick={handleExport}>↓ Exportar xlsx</button>}
+                  {acertos.length > 0 && <button className="btn-ghost" onClick={handleExport}>{t('acertos_view.exportar')}</button>}
                 </div>
               </div>
 
               {clubesNovos.length > 0 && (
                 <div style={{ background: "#1a150a", border: "1px solid #E07070", borderRadius: 8, padding: "10px 14px", marginBottom: 16 }}>
                   <p style={{ color: "#E07070", fontSize: 13, margin: "0 0 4px" }}>
-                    ⚠ {clubesNovos.length} clube{clubesNovos.length > 1 ? "s" : ""} novo{clubesNovos.length > 1 ? "s" : ""} nesse import, cadastrado{clubesNovos.length > 1 ? "s" : ""} automático sem taxa/regra — acerto {clubesNovos.length > 1 ? "deles saiu" : "dele saiu"} zerado até alguém completar o cadastro:
+                    {clubesNovos.length > 1 ? t('acertos_view.clubes_novos_aviso_plural', { n: clubesNovos.length }) : t('acertos_view.clubes_novos_aviso_singular')}
                   </p>
                   <p style={{ color: "#C9A84C", fontSize: 13, margin: "0 0 4px" }}>
                     {clubesNovos.map((c) => `${c.name} (${c.external_id})`).join(", ")}
                   </p>
-                  <Link href="/admin/cadastro/clubes" style={{ color: "#E07070", fontSize: 12, textDecoration: "underline" }}>Arrumar cadastro em Clubes →</Link>
+                  <Link href="/admin/cadastro/clubes" style={{ color: "#E07070", fontSize: 12, textDecoration: "underline" }}>{t('acertos_view.clubes_novos_link')}</Link>
                 </div>
               )}
 
               {semRegra > 0 && (
                 <div style={{ background: "#1a150a", border: "1px solid #5a3a0a", borderRadius: 8, padding: "10px 14px", marginBottom: 16 }}>
-                  <p style={{ color: "#C9A84C", fontSize: 13, margin: 0 }}>⚠ {semRegra} clube{semRegra > 1 ? "s" : ""} sem regra cadastrada — acerto zerado. Cadastre em Clubes.</p>
+                  <p style={{ color: "#C9A84C", fontSize: 13, margin: 0 }}>{semRegra > 1 ? t('acertos_view.sem_regra_plural', { n: semRegra }) : t('acertos_view.sem_regra_singular')}</p>
                 </div>
               )}
 
               {acertos.length > 0 && (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 20 }}>
                   {[
-                    { label: "Rake Total", value: totais.rake_total, color: "#F0EDE4" },
-                    { label: "Fee Calculado", value: totais.fee_calculado, color: "#C9A84C" },
-                    { label: "Rebate", value: totais.rebate, color: "#E07070" },
-                    { label: "Lançamentos", value: totais.lancamentos, color: totais.lancamentos >= 0 ? "#7DC97D" : "#E07070" },
-                    { label: "Valor Acerto", value: totais.valor_acerto, color: totais.valor_acerto >= 0 ? "#7DC97D" : "#E07070" },
+                    { id: "rake", label: t('acertos_view.col_rake_total'), value: totais.rake_total, color: "#F0EDE4" },
+                    { id: "fee", label: t('acertos_view.stat_fee_calculado'), value: totais.fee_calculado, color: "#C9A84C" },
+                    { id: "rebate", label: t('acertos_view.col_rebate'), value: totais.rebate, color: "#E07070" },
+                    { id: "lancamentos", label: t('acertos_view.col_lancamentos'), value: totais.lancamentos, color: totais.lancamentos >= 0 ? "#7DC97D" : "#E07070" },
+                    { id: "valor_acerto", label: t('acertos_view.col_valor_acerto'), value: totais.valor_acerto, color: totais.valor_acerto >= 0 ? "#7DC97D" : "#E07070" },
                   ].map((s) => (
-                    <div key={s.label} className="stat">
+                    <div key={s.id} className="stat">
                       <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".08em", color: "#5a5a52", margin: "0 0 4px" }}>{s.label}</p>
                       <p style={{ fontSize: 20, fontWeight: 600, color: s.color, margin: 0 }}>{fmt(s.value)}</p>
                       {/* Total Crypto Rebate = Valor Acerto ÷ (1 + % Crypto Rebate) por
                           clube, somado — só aparece embaixo do Valor Acerto quando algum
                           clube tem Crypto Rebate ligado (senão bate igual, redundante). */}
-                      {s.label === "Valor Acerto" && Math.abs(totais.total_crypto - totais.valor_acerto) >= 0.005 && (
-                        <p style={{ fontSize: 12, color: "#C9A84C", margin: "4px 0 0" }}>Total Crypto Rebate: {fmt(totais.total_crypto)}</p>
+                      {s.id === "valor_acerto" && Math.abs(totais.total_crypto - totais.valor_acerto) >= 0.005 && (
+                        <p style={{ fontSize: 12, color: "#C9A84C", margin: "4px 0 0" }}>{t('acertos_view.stat_total_crypto', { valor: fmt(totais.total_crypto) })}</p>
                       )}
                     </div>
                   ))}
@@ -638,22 +633,22 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
 
               {acertos.length > 0 && (
                 <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-                  <input type="text" placeholder="Buscar clube..." value={search} onChange={(e) => setSearch(e.target.value)} />
-                  <button className={`btn-ghost${filterType === "todos" ? " active" : ""}`} onClick={() => setFilterType("todos")}>Todos ({acertos.length})</button>
-                  {tipos.map((t) => (
-                    <button key={t} className={`btn-ghost${filterType === t ? " active" : ""}`} onClick={() => setFilterType(t)}>
-                      {LABELS[t] ?? t} ({acertos.filter((a) => a.settlement_type === t).length})
+                  <input type="text" placeholder={t('acertos_view.buscar_clube_placeholder')} value={search} onChange={(e) => setSearch(e.target.value)} />
+                  <button className={`btn-ghost${filterType === "todos" ? " active" : ""}`} onClick={() => setFilterType("todos")}>{t('acertos_view.todos_n', { n: acertos.length })}</button>
+                  {tipos.map((tipo) => (
+                    <button key={tipo} className={`btn-ghost${filterType === tipo ? " active" : ""}`} onClick={() => setFilterType(tipo)}>
+                      {LABELS[tipo] ?? tipo} ({acertos.filter((a) => a.settlement_type === tipo).length})
                     </button>
                   ))}
                 </div>
               )}
 
               {loading ? (
-                <div className="card" style={{ padding: 24, textAlign: "center", color: "#5a5a52" }}>Carregando...</div>
+                <div className="card" style={{ padding: 24, textAlign: "center", color: "#5a5a52" }}>{t('common.carregando')}</div>
               ) : acertos.length === 0 ? (
                 <div className="card" style={{ padding: 32, textAlign: "center" }}>
-                  <p style={{ color: "#5a5a52", fontSize: 13, marginBottom: 16 }}>Nenhum acerto calculado ainda</p>
-                  <button className="btn-gold" onClick={handleCalcular} disabled={calculating}>{calculating ? "⏳ Calculando..." : "▶ Calcular Acertos"}</button>
+                  <p style={{ color: "#5a5a52", fontSize: 13, marginBottom: 16 }}>{t('acertos_view.nenhum_acerto')}</p>
+                  <button className="btn-gold" onClick={handleCalcular} disabled={calculating}>{calculating ? t('acertos_view.calculando') : t('acertos_view.calcular')}</button>
                 </div>
               ) : (
                 <div className="card" style={{ overflow: "hidden" }}>
@@ -661,17 +656,17 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                     <table>
                       <thead>
                         <tr>
-                          <th>Clube</th><th>Modelo</th>
-                          <th style={{ textAlign: "right" }}>Rake MTT</th>
-                          <th style={{ textAlign: "right" }}>Rake Cash</th>
-                          <th style={{ textAlign: "right" }}>Rake Total</th>
-                          <th style={{ textAlign: "right" }}>Ganhos</th>
-                          <th style={{ textAlign: "right" }}>Fee</th>
-                          <th style={{ textAlign: "right" }}>Rebate</th>
-                          <th style={{ textAlign: "right" }} title="Só o cálculo automático em cima do rake importado — não inclui bônus, caução, pagamentos etc. lançados à parte.">Acerto (Rake)</th>
-                          <th style={{ textAlign: "right" }}>Lançamentos</th>
-                          <th style={{ textAlign: "right" }} title="Acerto (Rake) + Bilhetes + Pendências/Antecipação + Segurança + Taxa A-A Home Game + Indicação + Lançamentos do período − Dívidas/Acordos. Nada fica de fora — esse é o número final a cobrar/pagar do clube.">Valor Acerto</th>
-                          <th>Status</th>
+                          <th>{t('acertos_view.col_clube')}</th><th>{t('acertos_view.col_modelo')}</th>
+                          <th style={{ textAlign: "right" }}>{t('acertos_view.col_rake_total')}</th>
+                          <th style={{ textAlign: "right" }}>{t('acertos_view.col_ganhos')}</th>
+                          <th style={{ textAlign: "right" }}>{t('acertos_view.col_fee')}</th>
+                          <th style={{ textAlign: "right" }}>{t('acertos_view.col_rebate')}</th>
+                          <th style={{ textAlign: "right" }}>{t('acertos_view.col_bilhetes')}</th>
+                          <th style={{ textAlign: "right" }}>{t('acertos_view.col_seguranca')}</th>
+                          <th style={{ textAlign: "right" }}>{t('acertos_view.col_spinup_rake')}</th>
+                          <th style={{ textAlign: "right" }}>{t('acertos_view.col_lancamentos')}</th>
+                          <th style={{ textAlign: "right" }} title={t('acertos_view.col_valor_acerto_title')}>{t('acertos_view.col_valor_acerto')}</th>
+                          <th>{t('acertos_view.col_status')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -681,7 +676,7 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                               <button
                                 onClick={() => setCardAberto(a)}
                                 style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}
-                                title="Ver acerto no formato tradicional"
+                                title={t('acertos_view.ver_acerto_title')}
                               >
                                 <p style={{ color: "#C9A84C", margin: "0 0 1px", fontSize: 13, textDecoration: "underline", textDecorationColor: "transparent" }}
                                    onMouseEnter={(e) => (e.currentTarget.style.textDecorationColor = "#C9A84C")}
@@ -691,14 +686,14 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                               </button>
                             </td>
                             <td><span style={{ fontSize: 11, color: "#7a7a70" }}>{LABELS[a.settlement_type] ?? a.settlement_type}</span></td>
-                            <td style={{ textAlign: "right" }}>{fmt(a.rake_mtt)}</td>
-                            <td style={{ textAlign: "right" }}>{fmt(a.rake_cash)}</td>
                             <td style={{ textAlign: "right" }}>{fmt(a.rake_total)}</td>
                             <td style={{ textAlign: "right", color: a.player_result >= 0 ? "#7DC97D" : "#E07070" }}>{fmt(a.player_result)}</td>
                             <td style={{ textAlign: "right", color: "#C9A84C" }}>{fmt(feeDisplay(a))}</td>
                             <td style={{ textAlign: "right", color: "#E07070" }}>{a.rebate_calculado > 0 ? fmt(a.rebate_calculado) : "—"}</td>
-                            <td style={{ textAlign: "right", color: "#7a7a70" }}>{fmt(valorDisplay(a))}</td>
-                            <td style={{ textAlign: "right" }} title={(lancamentosPorClube.get(a.club_id ?? "")?.itens ?? []).map((l) => `${LABELS_LANCAMENTO[l.tipo] ?? l.tipo}: ${l.natureza === "credito" ? "+" : "−"}${fmt(l.valor)}`).join(" · ") || undefined}>
+                            <td style={{ textAlign: "right" }}>{a.bilhetes ? fmt(a.bilhetes) : "—"}</td>
+                            <td style={{ textAlign: "right" }}>{(a.club_id ? extrasPorClube.get(a.club_id)?.security ?? 0 : 0) ? fmt(extrasPorClube.get(a.club_id ?? "")?.security ?? 0) : "—"}</td>
+                            <td style={{ textAlign: "right" }}>{a.fee_spinup_valor ? fmt(a.fee_spinup_valor) : "—"}</td>
+                            <td style={{ textAlign: "right" }} title={(lancamentosPorClube.get(a.club_id ?? "")?.itens ?? []).map((l) => `${t(`lancamento.tipos.${l.tipo}`)}: ${l.natureza === "credito" ? "+" : "−"}${fmt(l.valor)}`).join(" · ") || undefined}>
                               {lancamentosDoClube(a.club_id) === 0 ? "—" : (
                                 <span className={lancamentosDoClube(a.club_id) > 0 ? "vpos" : "vneg"}>{fmt(lancamentosDoClube(a.club_id))}</span>
                               )}
@@ -706,17 +701,17 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                             <td style={{ textAlign: "right" }}>
                               <strong className={totalFinal(a) > 0 ? "vpos" : totalFinal(a) < 0 ? "vneg" : "vzero"}>{fmt(totalFinal(a))}</strong>
                             </td>
-                            <td><span className={`badge ${a.status === "calculado" ? "bok" : a.status === "sem_regra" ? "berr" : "bwarn"}`}>{a.status === "calculado" ? "✓" : a.status === "sem_regra" ? "Sem regra" : a.status}</span></td>
+                            <td><span className={`badge ${a.status === "calculado" ? "bok" : a.status === "sem_regra" ? "berr" : "bwarn"}`}>{a.status === "calculado" ? "✓" : a.status === "sem_regra" ? t('acertos_view.status_sem_regra') : a.status}</span></td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                   <div style={{ padding: "12px 16px", borderTop: "1px solid #1e2018", display: "flex", justifyContent: "flex-end", gap: 32 }}>
-                    <span style={{ fontSize: 12, color: "#5a5a52" }}>Rake: <strong style={{ color: "#F0EDE4" }}>{fmt(totais.rake_total)}</strong></span>
-                    <span style={{ fontSize: 12, color: "#5a5a52" }}>Fee: <strong style={{ color: "#C9A84C" }}>{fmt(totais.fee_calculado)}</strong></span>
-                    <span style={{ fontSize: 12, color: "#5a5a52" }}>Lançamentos: <strong style={{ color: totais.lancamentos >= 0 ? "#7DC97D" : "#E07070" }}>{fmt(totais.lancamentos)}</strong></span>
-                    <span style={{ fontSize: 12, color: "#5a5a52" }}>Acerto total: <strong style={{ color: totais.valor_acerto >= 0 ? "#7DC97D" : "#E07070", fontSize: 14 }}>{fmt(totais.valor_acerto)}</strong></span>
+                    <span style={{ fontSize: 12, color: "#5a5a52" }}>{t('acertos_view.rodape_rake')}: <strong style={{ color: "#F0EDE4" }}>{fmt(totais.rake_total)}</strong></span>
+                    <span style={{ fontSize: 12, color: "#5a5a52" }}>{t('acertos_view.rodape_fee')}: <strong style={{ color: "#C9A84C" }}>{fmt(totais.fee_calculado)}</strong></span>
+                    <span style={{ fontSize: 12, color: "#5a5a52" }}>{t('acertos_view.rodape_lancamentos')}: <strong style={{ color: totais.lancamentos >= 0 ? "#7DC97D" : "#E07070" }}>{fmt(totais.lancamentos)}</strong></span>
+                    <span style={{ fontSize: 12, color: "#5a5a52" }}>{t('acertos_view.rodape_acerto_total')}: <strong style={{ color: totais.valor_acerto >= 0 ? "#7DC97D" : "#E07070", fontSize: 14 }}>{fmt(totais.valor_acerto)}</strong></span>
                   </div>
                 </div>
               )}
@@ -754,24 +749,24 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
 
       <ConfirmModal
         open={confirmReplicar?.passo === 1}
-        title="Replicar cotação"
-        description={confirmReplicar && `Usar essa mesma cotação (${confirmReplicar.valor}) para os outros ${confirmReplicar.resto.length} clube${confirmReplicar.resto.length > 1 ? "s" : ""} dessa fila?`}
+        title={t('acertos_view.replicar_titulo')}
+        description={confirmReplicar && t('acertos_view.replicar_desc', { valor: confirmReplicar.valor, n: confirmReplicar.resto.length })}
         tone="gold"
         icon={Copy}
-        confirmLabel="Sim, usar pra todos"
-        cancelLabel="Não, um por um"
+        confirmLabel={t('acertos_view.replicar_sim')}
+        cancelLabel={t('acertos_view.replicar_nao')}
         onConfirm={handleConfirmarReplicarPasso1}
         onCancel={handleCancelarReplicar}
       />
       <ConfirmModal
         open={confirmReplicar?.passo === 2}
-        title="Confirmar replicação"
-        description="Tem certeza que nenhum desses clubes tem uma cotação diferente?"
+        title={t('acertos_view.confirmar_replicacao_titulo')}
+        description={t('acertos_view.confirmar_replicacao_desc')}
         tone="alert"
         icon={Copy}
         saving={calculating}
-        confirmLabel="Tenho certeza"
-        cancelLabel="Voltar"
+        confirmLabel={t('acertos_view.confirmar_replicacao_sim')}
+        cancelLabel={t('acertos_view.confirmar_replicacao_voltar')}
         onConfirm={handleConfirmarReplicarPasso2}
         onCancel={handleCancelarReplicar}
       />

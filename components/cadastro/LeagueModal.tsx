@@ -6,6 +6,7 @@ import { MOEDAS } from '@/lib/moedas'
 import { supabase } from '@/lib/supabase'
 import { RegrasAplicadas } from './RegrasAplicadas'
 import { BuscaSelect } from '@/components/BuscaSelect'
+import { useI18n } from '@/lib/i18n'
 
 interface Props {
   open: boolean
@@ -48,6 +49,7 @@ function Fld({ label, required, children }: { label: string; required?: boolean;
 }
 
 export function LeagueModal({ open, editing, superLeagues, plataformas, onClose, onSave, saving, error }: Props) {
+  const { t } = useI18n()
   const [form, setForm] = useState<LeagueForm>(EMPTY)
   // Só pra decidir o placeholder do campo abaixo — não trava o input (ao
   // contrário do Cadastro de Clube): aqui o cadastro manda sempre que
@@ -85,78 +87,78 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-2xl mx-4 shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
-          <h2 className="text-lg font-semibold text-white">{editing ? 'Editar Liga' : 'Nova Liga'}</h2>
+          <h2 className="text-lg font-semibold text-white">{editing ? t('league_modal.title_edit') : t('league_modal.title_new')}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><X size={18} /></button>
         </div>
 
         <form onSubmit={e => { e.preventDefault(); onSave(form) }} className="flex flex-col flex-1 min-h-0">
           <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6">
 
-            <Sec title="Identificação">
-              <Fld label="Nome" required>
-                <input type="text" value={form.name} onChange={e => set('name', e.target.value)} required placeholder="Ex: LP, ORION, SUL_HG" className={inputCls} />
+            <Sec title={t('league_modal.identificacao_titulo')}>
+              <Fld label={t('league_modal.nome_label')} required>
+                <input type="text" value={form.name} onChange={e => set('name', e.target.value)} required placeholder={t('league_modal.nome_placeholder')} className={inputCls} />
               </Fld>
               <div className="grid grid-cols-2 gap-4">
-                <Fld label="Superliga">
+                <Fld label={t('league_modal.superliga_label')}>
                   <BuscaSelect
                     value={form.super_league_id ?? ''}
                     onChange={v => set('super_league_id', v || null)}
                     opcoes={superLeagues.map(sl => ({ id: sl.id, nome: sl.name }))}
-                    vazio="— Nenhuma —"
+                    vazio={t('league_modal.superliga_vazio')}
                     className={inputCls}
                   />
                 </Fld>
-                <Fld label="Moeda">
+                <Fld label={t('league_modal.moeda_label')}>
                   <select value={form.moeda ?? 'BRL'} onChange={e => set('moeda', e.target.value)} className={inputCls}>
                     {MOEDAS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                   </select>
                 </Fld>
               </div>
-              <Fld label="Projeto (opcional)">
-                <input type="text" value={form.projeto ?? ''} onChange={e => set('projeto', e.target.value || null)} placeholder="Ex: Órion — deixe em branco se já herda da Superliga/Mega Liga" className={inputCls} />
+              <Fld label={t('league_modal.projeto_opcional')}>
+                <input type="text" value={form.projeto ?? ''} onChange={e => set('projeto', e.target.value || null)} placeholder={t('league_modal.projeto_placeholder')} className={inputCls} />
               </Fld>
             </Sec>
 
-            <Sec title="Identificação pra Importação">
-              <p className="text-xs text-gray-500">Usado pra reconhecer automaticamente qual liga é a planilha na hora de importar (PPPoker/GGPoker trazem esse ID no nome do arquivo ou no cabeçalho).</p>
-              <Fld label="Plataforma (App)">
+            <Sec title={t('league_modal.identificacao_importacao_titulo')}>
+              <p className="text-xs text-gray-500">{t('league_modal.identificacao_importacao_desc')}</p>
+              <Fld label={t('league_modal.plataforma_app_label')}>
                 <select value={form.plataforma_id ?? ''} onChange={e => set('plataforma_id', e.target.value || null)} className={inputCls}>
-                  <option value="">— Selecione —</option>
+                  <option value="">{t('league_modal.selecione')}</option>
                   {plataformas.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                 </select>
               </Fld>
               <div className="grid grid-cols-2 gap-3">
-                <Fld label="ID da Liga">
+                <Fld label={t('league_modal.id_liga_label')}>
                   <input
                     type="text"
                     value={form.clube_ext_id ?? ''}
                     onChange={e => set('clube_ext_id', e.target.value || null)}
-                    placeholder="Ex: 2136"
+                    placeholder={t('league_modal.id_liga_placeholder')}
                     className={inputCls}
                   />
                 </Fld>
-                <Fld label="Nome da Liga (no arquivo)">
+                <Fld label={t('league_modal.nome_liga_arquivo_label')}>
                   <input
                     type="text"
                     value={form.clube_nickname ?? ''}
                     onChange={e => set('clube_nickname', e.target.value || null)}
-                    placeholder="Como aparece na planilha"
+                    placeholder={t('league_modal.nome_liga_arquivo_placeholder')}
                     className={inputCls}
                   />
                 </Fld>
               </div>
             </Sec>
 
-            <Sec title="Taxa da Liga">
-              <Fld label="Taxa da Liga (%)">
+            <Sec title={t('league_modal.taxa_liga_titulo')}>
+              <Fld label={t('league_modal.taxa_liga_pct_label')}>
                 <input
                   type="number" step="any" value={form.taxa_app_pct ?? ''}
                   onChange={e => set('taxa_app_pct', e.target.value === '' ? null : Number(e.target.value))}
-                  placeholder={temRegraTaxaLiga ? 'Campo seguindo regra vinculada' : 'Ex: 2'} className={inputCls}
+                  placeholder={temRegraTaxaLiga ? t('league_modal.taxa_liga_placeholder_regra') : t('league_modal.taxa_liga_placeholder_livre')} className={inputCls}
                 />
               </Fld>
               <p className="text-xs text-gray-500">
-                Incide sobre Rake Total + SpinUp Rake do clube (todo o rake do período, os 3 tipos de jogo somados) — desconta do Valor do Acerto, em cima de qualquer taxa que o clube já tenha. Esse % fixo manda sempre que preenchido; deixando em branco, a Regra de Faixa vinculada (abaixo) decide, se tiver uma.
+                {t('league_modal.taxa_liga_desc')}
               </p>
               <RegrasAplicadas entidadeTipo="liga" entidadeId={editing?.id ?? null} />
             </Sec>
@@ -168,9 +170,9 @@ export function LeagueModal({ open, editing, superLeagues, plataformas, onClose,
           )}
 
           <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
-            <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">Cancelar</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">{t('common.cancelar')}</button>
             <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-gold text-surface rounded-lg text-sm font-semibold hover:bg-gold/90 disabled:opacity-50 transition-colors">
-              {saving && <Loader2 size={14} className="animate-spin" />}Salvar Liga
+              {saving && <Loader2 size={14} className="animate-spin" />}{t('league_modal.submit_label')}
             </button>
           </div>
         </form>

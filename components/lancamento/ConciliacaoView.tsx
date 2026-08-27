@@ -55,9 +55,9 @@ export function ConciliacaoView() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('extrato.col_data')}</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('lancamento.clube')}</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('lancamento.tipo')}</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Suporte</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Financeiro</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('conciliacao.col_suporte')}</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('conciliacao.col_financeiro')}</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('conciliacao.col_status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -74,9 +74,9 @@ export function ConciliacaoView() {
                   </td>
                   <td className="px-4 py-3 text-center">
                     {l.status === 'conciliado' && <span className="text-xs px-2 py-0.5 rounded-full border border-success/30 bg-success/10 text-success">OK</span>}
-                    {l.status === 'divergente' && <span className="text-xs px-2 py-0.5 rounded-full border border-alert/30 bg-alert/10 text-alert">Valores diferentes</span>}
-                    {l.status === 'sem_par_genia' && <span className="text-xs px-2 py-0.5 rounded-full border border-gold/30 bg-gold/10 text-gold">Falta Financeiro</span>}
-                    {l.status === 'sem_par_suporte' && <span className="text-xs px-2 py-0.5 rounded-full border border-gold/30 bg-gold/10 text-gold">Falta Suporte</span>}
+                    {l.status === 'divergente' && <span className="text-xs px-2 py-0.5 rounded-full border border-alert/30 bg-alert/10 text-alert">{t('conciliacao.status_divergente')}</span>}
+                    {l.status === 'sem_par_genia' && <span className="text-xs px-2 py-0.5 rounded-full border border-gold/30 bg-gold/10 text-gold">{t('conciliacao.status_falta_financeiro')}</span>}
+                    {l.status === 'sem_par_suporte' && <span className="text-xs px-2 py-0.5 rounded-full border border-gold/30 bg-gold/10 text-gold">{t('conciliacao.status_falta_suporte')}</span>}
                   </td>
                 </tr>
               ))}

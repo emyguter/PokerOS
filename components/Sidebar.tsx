@@ -159,7 +159,7 @@ export default function Sidebar() {
   const path = usePathname()
   const router = useRouter()
   const { loading, profile, isSuperAdmin, hasPermission } = usePermissions()
-  const { locale, toggleLocale, t } = useI18n()
+  const { locale, setLocale, t } = useI18n()
   const [collapsed, setCollapsed] = useState(false)
   // Menu vira gaveta (drawer) sobreposta no celular — fechada por padrão,
   // e fecha sozinha assim que o usuário navega pra outra tela.
@@ -304,15 +304,13 @@ export default function Sidebar() {
   const navBody = (
     <>
       <div className="px-4 pt-3">
-        <button
-          onClick={toggleLocale}
-          title={locale === 'pt' ? 'Switch to English' : 'Mudar para Português'}
-          className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-md border border-white/10 text-xs font-semibold text-gray-400 hover:text-white hover:border-white/20 transition-colors"
-        >
-          <span className={locale === 'pt' ? 'text-gold' : ''}>PT</span>
+        <div className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-md border border-white/10 text-xs font-semibold text-gray-400">
+          <button type="button" onClick={() => setLocale('pt')} title="Português" className={`px-1 hover:text-white transition-colors ${locale === 'pt' ? 'text-gold' : ''}`}>PT</button>
           <span className="text-gray-600">/</span>
-          <span className={locale === 'en' ? 'text-gold' : ''}>EN</span>
-        </button>
+          <button type="button" onClick={() => setLocale('en')} title="English" className={`px-1 hover:text-white transition-colors ${locale === 'en' ? 'text-gold' : ''}`}>EN</button>
+          <span className="text-gray-600">/</span>
+          <button type="button" onClick={() => setLocale('es')} title="Español" className={`px-1 hover:text-white transition-colors ${locale === 'es' ? 'text-gold' : ''}`}>ES</button>
+        </div>
       </div>
 
       {/* Nav — overflow-y-auto + min-h-0 pra rolar quando vários submenus

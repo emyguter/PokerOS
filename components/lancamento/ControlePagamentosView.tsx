@@ -155,11 +155,11 @@ export function ControlePagamentosView() {
               <tr className="bg-surface2 text-xs text-gray-500 uppercase tracking-wide">
                 <th className="text-left px-3 py-2 whitespace-nowrap">{t('pagamentos.col_club_id')}</th>
                 <th className="text-left px-3 py-2 whitespace-nowrap">{t('pagamentos.col_club_name')}</th>
-                <th className="text-right px-3 py-2 whitespace-nowrap" title="Do ponto de vista do clube: positivo = o clube vai receber; negativo = o clube precisa pagar.">{t('pagamentos.col_diferenca')}</th>
-                <th className="text-right px-3 py-2 whitespace-nowrap" title="Valor do Acerto — o que precisa ser quitado.">{t('pagamentos.col_valor_acerto')}</th>
-                <th className="text-right px-3 py-2 whitespace-nowrap" title="Soma dos Envios pagos até agora.">{t('pagamentos.col_valor_pago')}</th>
+                <th className="text-right px-3 py-2 whitespace-nowrap" title={t('pagamentos.title_diferenca')}>{t('pagamentos.col_diferenca')}</th>
+                <th className="text-right px-3 py-2 whitespace-nowrap" title={t('pagamentos.title_valor_acerto')}>{t('pagamentos.col_valor_acerto')}</th>
+                <th className="text-right px-3 py-2 whitespace-nowrap" title={t('pagamentos.title_valor_pago')}>{t('pagamentos.col_valor_pago')}</th>
                 <th className="text-right px-3 py-2 whitespace-nowrap"></th>
-                <th className="text-right px-3 py-2 whitespace-nowrap" title="Caução lançada no período — só referência, não entra na Diferença (vive na própria conta dela).">Caução</th>
+                <th className="text-right px-3 py-2 whitespace-nowrap" title={t('pagamentos.title_caucao')}>{t('pagamentos.col_caucao')}</th>
                 {Array.from({ length: maxEnvios }).map((_, i) => (
                   <th key={i} className="text-right px-3 py-2 whitespace-nowrap">{t('pagamentos.col_envio', { n: String(i + 1) })}</th>
                 ))}
@@ -181,10 +181,10 @@ export function ControlePagamentosView() {
                           type="button"
                           onClick={() => { setConfirmarDesconto(l); setTipoDesconto('total'); setValorParcial('') }}
                           disabled={descontando === l.acerto_id || !temCaucao}
-                          title={temCaucao ? 'Descontar a Diferença (total ou parcial) da Caução do clube — quita o Acerto e reduz o Stoploss Atual na hora.' : 'Esse clube não tem mais Caução disponível.'}
+                          title={temCaucao ? t('pagamentos.title_descontar_com_caucao') : t('pagamentos.title_sem_caucao')}
                           className="flex items-center gap-1.5 px-2.5 py-1.5 border border-gold/30 text-gold rounded-lg text-xs font-medium hover:bg-gold/10 disabled:opacity-50 disabled:hover:bg-transparent transition-colors ml-auto"
                         >
-                          {descontando === l.acerto_id && <Loader2 size={12} className="animate-spin" />}Descontar da Caução
+                          {descontando === l.acerto_id && <Loader2 size={12} className="animate-spin" />}{t('pagamentos.descontar_da_caucao')}
                         </button>
                       )
                     })()}
@@ -194,7 +194,7 @@ export function ControlePagamentosView() {
                     <td key={i} className="px-3 py-2 text-right text-gray-300 whitespace-nowrap">
                       {l.envios[i] ? (
                         <>
-                          {l.envios[i].pago_crypto && <span title="Pago em crypto" className="text-gold mr-1">₿</span>}
+                          {l.envios[i].pago_crypto && <span title={t('pagamentos.pago_crypto')} className="text-gold mr-1">₿</span>}
                           {fmt(l.envios[i].valor_assinado)}
                         </>
                       ) : '—'}
@@ -209,25 +209,25 @@ export function ControlePagamentosView() {
 
       <ConfirmModal
         open={!!confirmarDesconto}
-        title="Descontar da Caução"
+        title={t('pagamentos.descontar_da_caucao')}
         description={confirmarDesconto && (
           <div className="space-y-3">
-            <p>Descontar da Caução de {confirmarDesconto.club_name}? Isso quita (total ou parcialmente) a Diferença do Acerto e reduz o Stoploss Atual do clube na hora.</p>
-            <p className="text-xs text-gray-500">Caução disponível: <span className="text-gray-300 font-medium">{fmt(caucaoDisponivel)}</span></p>
+            <p>{t('pagamentos.descontar_caucao_desc', { nome: confirmarDesconto.club_name })}</p>
+            <p className="text-xs text-gray-500">{t('pagamentos.caucao_disponivel_label')} <span className="text-gray-300 font-medium">{fmt(caucaoDisponivel)}</span></p>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setTipoDesconto('total')}
                 className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${tipoDesconto === 'total' ? 'border-gold/50 bg-gold/10 text-gold' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
               >
-                Total ({fmt(maximoDescontavel)})
+                {t('pagamentos.total_com_valor', { v: fmt(maximoDescontavel) })}
               </button>
               <button
                 type="button"
                 onClick={() => setTipoDesconto('parcial')}
                 className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${tipoDesconto === 'parcial' ? 'border-gold/50 bg-gold/10 text-gold' : 'border-white/10 text-gray-400 hover:border-white/20'}`}
               >
-                Parcial
+                {t('pagamentos.parcial')}
               </button>
             </div>
             {tipoDesconto === 'parcial' && (
@@ -241,7 +241,7 @@ export function ControlePagamentosView() {
                   placeholder="0,00"
                   className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50"
                 />
-                <p className="text-xs text-gray-500 mt-1.5">Máximo {fmt(maximoDescontavel)} (o menor entre a Diferença e a Caução disponível).</p>
+                <p className="text-xs text-gray-500 mt-1.5">{t('pagamentos.maximo_descontavel_desc', { v: fmt(maximoDescontavel) })}</p>
               </div>
             )}
           </div>
@@ -250,7 +250,7 @@ export function ControlePagamentosView() {
         icon={PiggyBank}
         saving={!!descontando}
         confirmDisabled={!valorDescontoValido}
-        confirmLabel="Descontar"
+        confirmLabel={t('pagamentos.descontar_confirm')}
         onConfirm={handleDescontarCaucao}
         onCancel={() => setConfirmarDesconto(null)}
       />

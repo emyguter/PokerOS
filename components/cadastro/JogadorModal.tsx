@@ -4,6 +4,7 @@ import { Loader2, Search, AlertTriangle, Building2 } from 'lucide-react'
 import type { Jogador, JogadorForm, Plataforma } from '@/lib/types'
 import { supabase } from '@/lib/supabase'
 import { StepModal, type ModalStep } from './StepModal'
+import { useI18n } from '@/lib/i18n'
 
 interface Props {
   open: boolean
@@ -27,6 +28,7 @@ function Fld({ label, required, children }: { label: string; required?: boolean;
 interface ClubeJogado { id: string; name: string; external_id: string | null }
 
 export function JogadorModal({ open, editing, plataformas, onClose, onSave, saving, error }: Props) {
+  const { t } = useI18n()
   const [form, setForm] = useState<JogadorForm>(EMPTY)
   const [step, setStep] = useState('plataforma')
   const [nomeLocked, setNomeLocked] = useState(false)
@@ -66,9 +68,9 @@ export function JogadorModal({ open, editing, plataformas, onClose, onSave, savi
   }, [jogadorIdParaClubes, open])
 
   const STEPS: ModalStep[] = [
-    { key: 'plataforma', label: 'Plataforma' },
-    { key: 'identificacao', label: 'Identificação' },
-    ...(jogadorIdParaClubes ? [{ key: 'clubes', label: 'Clubes' }] : []),
+    { key: 'plataforma', label: t('jogador_modal.step_plataforma') },
+    { key: 'identificacao', label: t('jogador_modal.step_identificacao') },
+    ...(jogadorIdParaClubes ? [{ key: 'clubes', label: t('jogador_modal.step_clubes') }] : []),
   ]
 
   if (!open) return null
@@ -122,7 +124,7 @@ export function JogadorModal({ open, editing, plataformas, onClose, onSave, savi
   return (
     <StepModal
       open={open}
-      title={editing ? 'Editar Jogador' : 'Novo Jogador'}
+      title={editing ? t('jogador_modal.title_edit') : t('jogador_modal.title_new')}
       steps={STEPS}
       active={step}
       onStepChange={setStep}
@@ -130,23 +132,23 @@ export function JogadorModal({ open, editing, plataformas, onClose, onSave, savi
       onSubmit={e => { e.preventDefault(); if (podeSalvar) onSave(form) }}
       saving={saving}
       error={error}
-      submitLabel="Salvar Jogador"
+      submitLabel={t('jogador_modal.submit_label')}
       maxWidth="max-w-lg"
     >
       {step === 'plataforma' && (
         <>
-          <Fld label="Plataforma" required>
+          <Fld label={t('jogador_modal.plataforma_label')} required>
             <select value={form.plataforma_id ?? ''} onChange={e => handlePlataformaChange(e.target.value)} className={inputCls}>
-              <option value="">— Selecione —</option>
+              <option value="">{t('jogador_modal.selecione')}</option>
               {plataformas.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </Fld>
-          <Fld label="ID nessa plataforma" required>
+          <Fld label={t('jogador_modal.id_plataforma_label')} required>
             <div className="relative">
               <input
                 type="text" value={form.external_id}
                 onChange={e => handleIdChange(e.target.value)}
-                placeholder="Ex: 12034210" disabled={!form.plataforma_id} className={inputCls}
+                placeholder={t('jogador_modal.id_placeholder')} disabled={!form.plataforma_id} className={inputCls}
               />
               {searching && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
             </div>
@@ -156,35 +158,35 @@ export function JogadorModal({ open, editing, plataformas, onClose, onSave, savi
 
       {step === 'identificacao' && (
         <>
-          <Fld label="Nome" required>
+          <Fld label={t('jogador_modal.nome_label')} required>
             <input
               type="text" value={form.nome}
               onChange={e => { set('nome', e.target.value); setNomeLocked(false) }}
-              placeholder="Preenchido automaticamente se já cadastrado"
+              placeholder={t('jogador_modal.nome_placeholder')}
               disabled={nomeLocked}
               className={nomeLocked ? inputLockedCls : inputCls}
             />
             {naoEncontrado && !nomeLocked && (
-              <p className="text-xs text-gold/80 mt-1.5">⚠ Jogador novo nessa plataforma. Preencha o nome para cadastrar.</p>
+              <p className="text-xs text-gold/80 mt-1.5">{t('jogador_modal.nao_encontrado')}</p>
             )}
             {conflito && (
               <p className="text-xs text-alert mt-1.5 flex items-center gap-1.5">
-                <AlertTriangle size={12} />Esse ID já pertence a {conflito.nome}. Edite o jogador existente em vez de criar outro.
+                <AlertTriangle size={12} />{t('jogador_modal.conflito_desc', { nome: conflito.nome })}
               </p>
             )}
           </Fld>
-          <Fld label="Telefone">
-            <input type="text" value={form.telefone ?? ''} onChange={e => set('telefone', e.target.value || null)} placeholder="opcional" className={inputCls} />
+          <Fld label={t('jogador_modal.telefone_label')}>
+            <input type="text" value={form.telefone ?? ''} onChange={e => set('telefone', e.target.value || null)} placeholder={t('jogador_modal.opcional_placeholder')} className={inputCls} />
           </Fld>
         </>
       )}
 
       {step === 'clubes' && jogadorIdParaClubes && (
         <>
-          <p className="text-xs text-gray-500">{conflito ? `Clubes onde ${conflito.nome} já jogou` : 'Clubes onde já jogou'}</p>
+          <p className="text-xs text-gray-500">{conflito ? t('jogador_modal.clubes_de_conflito', { nome: conflito.nome }) : t('jogador_modal.clubes_onde_jogou')}</p>
           {carregandoClubes ? (
             <div className="flex items-center gap-2 text-xs text-gray-500">
-              <Loader2 size={13} className="animate-spin" />Carregando...
+              <Loader2 size={13} className="animate-spin" />{t('common.carregando')}
             </div>
           ) : clubesJogados.length > 0 ? (
             <div className="flex flex-wrap gap-2">
@@ -202,7 +204,7 @@ export function JogadorModal({ open, editing, plataformas, onClose, onSave, savi
               ))}
             </div>
           ) : (
-            <p className="text-xs text-gray-500 italic">Nenhum clube registrado ainda pra esse jogador.</p>
+            <p className="text-xs text-gray-500 italic">{t('jogador_modal.nenhum_clube')}</p>
           )}
         </>
       )}

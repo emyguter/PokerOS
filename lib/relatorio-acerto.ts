@@ -163,12 +163,12 @@ export function corrigirValorCrypto(valor: number, pct: number): number {
 // completar calcularTotalAcerto e que cada tela buscava (ou não buscava)
 // separado. Lançamentos do período fica de fora de propósito: cada tela já
 // busca isso do jeito que precisa (algumas mostram item a item).
-export async function buscarSecurityEDividasPorClube(clubIds: string[], periodoFim: string): Promise<Map<string, { security: number; dividasTotal: number }>> {
+export async function buscarSecurityEDividasPorClube(clubIds: string[], periodoFim: string, rakeTotalPorClube: Map<string, number>): Promise<Map<string, { security: number; dividasTotal: number }>> {
   const mapa = new Map<string, { security: number; dividasTotal: number }>()
   if (clubIds.length === 0) return mapa
   const [{ data: clubes }, dividasPorClube] = await Promise.all([
     supabase.from('clubs').select('id, security').in('id', clubIds),
-    Promise.all(clubIds.map(async (id) => [id, await getDividasAcertoDoClube(id, periodoFim)] as const)),
+    Promise.all(clubIds.map(async (id) => [id, await getDividasAcertoDoClube(id, periodoFim, rakeTotalPorClube.get(id) ?? 0)] as const)),
   ])
   const securityPorId = new Map((clubes ?? []).map((c) => [c.id as string, (c.security as number | null) ?? 0]))
   const dividasTotalPorId = new Map(dividasPorClube.map(([id, itens]) => [id, itens.reduce((s, d) => s + d.valor, 0)]))

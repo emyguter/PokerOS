@@ -125,8 +125,9 @@ export async function buscarResumoAcertos(periodoFim: string): Promise<LinhaResu
   if (linhasBase.length === 0) return []
 
   const clubIds = [...new Set(linhasBase.map((a) => a.club_id).filter((id): id is string => !!id))]
+  const rakeTotalPorClube = new Map(linhasBase.filter((a) => a.club_id).map((a) => [a.club_id as string, a.rake_total]))
   const [extrasPorClube, multaPares] = await Promise.all([
-    buscarSecurityEDividasPorClube(clubIds, periodoFim),
+    buscarSecurityEDividasPorClube(clubIds, periodoFim, rakeTotalPorClube),
     Promise.all(clubIds.map(async (id) => [id, await getMultaAplicadaDoClube(id, periodoFim)] as const)),
   ])
   const multaPorClube = new Map(multaPares)

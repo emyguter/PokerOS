@@ -1132,6 +1132,89 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   puxava os DOIS lados de um Pagamento já conciliado (o lançamento do Suporte e o par da Genia, cada
   um com o mesmo `acerto_id`) como se fossem dois pagamentos diferentes. Agora conta só o lado
   Suporte — mesma regra já usada em Pendências/Antecipação (`pagamentos.ts`)
+- [x] **Dívida Simples "Pagar com Rake" ganha modo gradual (% Rakeback + Pagamento Mínimo)**: pedido
+  do Cássio — antes, "Pagar com Rake" numa Dívida Simples só descontava o Valor Integral inteiro de
+  uma vez no próximo Acerto. Agora, com "% Rakeback" preenchido, desconta só esse % do Rake do clube
+  a cada semana (`dividas.saldo_restante` cai aos poucos até zerar, quitando sozinha) — Pagamento
+  Mínimo (reaproveita o campo que já existia só pro Acordo) é o piso: numa semana em que o % render
+  menos que o Mínimo, não desconta nada, espera uma semana melhor (comportamento confirmado com a
+  planilha de referência do Sevens Pkr House — "Complemento Pgto Mínimo"). Vazio, continua exatamente
+  como sempre foi (`DividaModal.tsx`, `DividasView.tsx`, `dividas.ts`,
+  `20260826040000_divida_rakeback_pct.sql`)
+- [x] **Lista de Acertos: colunas Rake MTT/Rake Cash/Acerto (Rake) trocadas por Bilhetes/Segurança/
+  SpinUp Rake**: pedido do Cássio — a tabela principal de Acertos tinha colunas de detalhe do rake
+  bruto (MTT/Cash separado, e o "Acerto (Rake)" só com o cálculo automático) que não ajudavam tanto
+  quanto ver Bilhetes, Segurança e SpinUp Rake ali direto, sem precisar abrir o card de cada clube
+  (`AcertosView.tsx`)
+- [x] **Espanhol (fase 1 — infraestrutura + as ~280 frases já traduzíveis hoje)**: pedido do Cássio.
+  O seletor de idioma (Sidebar + tela de Login) virou PT/EN/ES em vez do toggle PT/EN de antes, e o
+  dicionário `lib/locales/es.ts` traduz palavra por palavra o mesmo conteúdo que já existe em inglês
+  (`en.ts`) — checado por tipo (`typeof pt`), garante que nenhuma chave fica faltando. **Importante**:
+  isso cobre só as ~49 telas que já passavam pelo sistema de tradução — outras ~40 telas (Cadastro de
+  Clube, Dívidas, a lista de Acertos, entre outras) têm texto em português direto no código, sem
+  passar pelo `t()` nenhum, então continuam em português mesmo com EN/ES selecionado. Destravar essas
+  telas (ligar cada texto no `t()` + escrever a tradução) é trabalho grande, vem em fases seguintes
+  (`i18n.tsx`, `es.ts`, `Sidebar.tsx`, `login/page.tsx`)
+- [x] **Espanhol (fase 2 — telas de Dívidas)**: destrava as 3 telas de Dívidas e Acordos
+  (`DividaModal.tsx`, `DividasView.tsx`, `InterromperAcordoModal.tsx`), que até agora tinham texto
+  100% em português direto no código, sem passar pelo sistema de tradução — agora trocam para
+  EN/ES normalmente junto com o resto do sistema. ~55 frases novas nos três dicionários
+  (`pt.ts`, `en.ts`, `es.ts`)
+- [x] **Espanhol (fase 3 — tela de Acertos)**: destrava a tela principal de Acertos (`AcertosView.tsx`)
+  e os modais de Recalcular/Cotação (`ConfirmRecalcularModal.tsx`, `ConfirmCotacaoModal.tsx`) — a
+  maior tela do sistema, tinha texto 100% em português direto no código desde sempre. ~65 frases
+  novas nos três dicionários
+- [x] **Espanhol (fase 4 — card de detalhe do Acerto)**: destrava o card "Common Settlement / Acerto
+  Geral" (`ClubAcertoCard.tsx`) — abre toda vez que alguém clica num clube na lista de Acertos, era
+  100% português direto no código. ~25 frases novas nos três dicionários
+- [x] **Espanhol (fase 5 — modal de Clube)**: destrava o `ClubModal.tsx` (maior modal de Cadastro do
+  sistema, 5 etapas — Identificação, Plataforma, Taxas, Regras, Garantias & Limites) e o `StepModal.tsx`
+  compartilhado (usado por todos os modais em etapas — "Cancelar"/"Salvar" agora traduzidos globalmente).
+  ~50 frases novas nos três dicionários
+- [x] **Espanhol (fase 6 — modal de Regras)**: destrava o `RegraModal.tsx` (Cálculo de Acerto SE/ENTÃO,
+  Multa por atraso e Layout do card de Acerto) — era 100% português direto no código. ~50 frases novas
+  nos três dicionários
+- [x] **Espanhol (fase 7 — modais de Jogador e Agente)**: destrava `JogadorModal.tsx` e `AgenteModal.tsx`
+  (identificação, plataformas, clubes vinculados, hierarquia de Super Agente, Rakeback). ~60 frases novas
+  nos três dicionários
+- [x] **Espanhol (fase 8 — modal de Liga + painel de Regras Aplicadas)**: destrava `LeagueModal.tsx` e o
+  `RegrasAplicadas.tsx` compartilhado (painel usado em Clube, Regra, Agente e Liga — traduzido uma vez,
+  vale pros quatro cadastros). ~40 frases novas nos três dicionários
+- [x] **Espanhol (fase 9 — painel de Vínculos)**: destrava `VinculosPanel.tsx` (tela /admin/regras — de
+  quem pra quem cada Regra vale, com busca De/Para, seleção múltipla e aviso de incompatibilidade).
+  ~30 frases novas nos três dicionários
+- [x] **Espanhol (fase 10 — modais de confirmação genéricos)**: destrava `ConfirmDelete.tsx`,
+  `CadastroModal.tsx` e o `ConfirmModal.tsx` compartilhado (usados em excluir/confirmar em telas por
+  todo o sistema — Cadastro, Segurança, Stoploss, etc). ~5 frases novas + 1 chave nova em `common`
+- [x] **Espanhol (fase 11 — buscas com dropdown)**: destrava `BuscaSelect.tsx` e `BuscaSelectMulti.tsx`
+  (usados em quase toda tela de Cadastro e Relatórios pra escolher Liga/Clube/Agente etc) — reaproveitou
+  chaves já existentes, sem frases novas. `Footer.tsx` conferido — já era 100% em inglês, sem mudança
+- [x] **Espanhol (fase 12 — Relatórios de Taxas e Resumo de Acertos)**: destrava `RelatorioTaxas.tsx`
+  e `RelatorioResumoAcertos.tsx` (visão executiva das taxas de todos os clubes, e resumo semanal
+  cruzando todas as Ligas). ~30 frases novas nos três dicionários
+- [x] **Espanhol (fase 13 — Acertos de Agentes)**: destrava `AgentesAcertosView.tsx` (Rakeback por
+  agente, com o detalhe por clube). ~15 frases novas nos três dicionários
+- [x] **Espanhol (fase 14 — mapeamento de colunas da Importação)**: destrava `MapeamentoColunasModal.tsx`
+  (popup que ensina o sistema a ler uma plataforma nova sem precisar de código). ~20 frases novas nos
+  três dicionários
+- [x] **Espanhol (fase 15 — tela principal de Importação)**: destrava `ImportacaoXlsx.tsx` (1045 linhas —
+  a maior fase até agora), incluindo as ~35 mensagens de erro/aviso dos parsers de PPPoker/GGPoker/
+  genérico (que precisaram de `t` passado por parâmetro, já que os parsers não são componentes React) e
+  toda a UI de upload/histórico. ~70 frases novas nos três dicionários
+- [x] **Espanhol (fase 16 — telas de Cadastro/Regras e acessos restritos)**: destrava
+  `app/admin/regras/page.tsx`, `app/admin/cadastro/clubes/page.tsx`, `app/extrato/page.tsx`,
+  `app/agente/extrato/page.tsx`, `app/admin/permissoes/page.tsx` e os 2 títulos que faltavam no
+  `CadastroTable.tsx` compartilhado. ~25 frases novas nos três dicionários
+- [x] **Espanhol (fase 17 — últimos retoques, tradução completa)**: última leva de textos soltos
+  encontrados numa varredura ampla do repositório inteiro — tooltips e coluna "Caução"/"Descontar da
+  Caução" no Controle de Pagamentos, colunas e badges de status na Conciliação, tooltips de Bug
+  PPPoker/Liberado pela Gerência/Margem de Monitoria no Relatório de Stoploss, opções de filtro no
+  Relatório de Lançamentos, tooltips de Rollover no Relatório de Acertos Pendentes, aria-label de Super
+  Admin nos modais de usuário, e o placeholder "Visto no app" na Conferência do App. Varredura final
+  confirma: **nenhum texto em português direto no código sobrou no sistema** (só ficaram de propósito os
+  nomes dos idiomas no seletor PT/EN/ES e a marca "PokerOS · League Platform", que não devem ser
+  traduzidos). Tradução Espanhol **completa** — 17 fases, ~280 frases originais + ~600 novas nos três
+  dicionários (pt.ts, en.ts, es.ts)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)

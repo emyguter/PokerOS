@@ -1,6 +1,7 @@
 'use client'
 import { Loader2 } from 'lucide-react'
 import type { ReactNode, ComponentType } from 'react'
+import { useI18n } from '@/lib/i18n'
 
 interface Props {
   open: boolean
@@ -27,6 +28,7 @@ const TONE_CLS: Record<NonNullable<Props['tone']>, { badge: string; btn: string 
 // blur) — substitui window.confirm() nativo, que mostra a URL do app
 // ("poker-os.vercel.app diz") e não segue o visual do resto do sistema.
 export function ConfirmModal({ open, title, description, onConfirm, onCancel, saving, confirmDisabled, confirmLabel, cancelLabel, tone = 'gold', icon: Icon, error }: Props) {
+  const { t } = useI18n()
   if (!open) return null
   const cls = TONE_CLS[tone]
   return (
@@ -40,9 +42,9 @@ export function ConfirmModal({ open, title, description, onConfirm, onCancel, sa
         <div className="text-sm text-gray-400 mb-6">{description}</div>
         {error && <div className="mb-4 p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
         <div className="flex items-center justify-end gap-3">
-          <button onClick={onCancel} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">{cancelLabel ?? 'Cancelar'}</button>
+          <button onClick={onCancel} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">{cancelLabel ?? t('common.cancelar')}</button>
           <button onClick={onConfirm} disabled={saving || confirmDisabled} className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors ${cls.btn}`}>
-            {saving && <Loader2 size={14} className="animate-spin" />}{confirmLabel ?? 'Confirmar'}
+            {saving && <Loader2 size={14} className="animate-spin" />}{confirmLabel ?? t('common.confirmar')}
           </button>
         </div>
       </div>

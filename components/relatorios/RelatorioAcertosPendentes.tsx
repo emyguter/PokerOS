@@ -113,10 +113,10 @@ export function RelatorioAcertosPendentes() {
                             type="button"
                             onClick={() => { setConfirmarRollover(l); setErroRollover(null) }}
                             disabled={fazendoRollover === l.acertoId}
-                            title="Rollover — sai das Pendências e aparece de novo como Pendência/Antecipação no próximo Acerto desse clube. Sem cobrar, sem multa, sem mexer na Caução."
+                            title={t('acertos_pendentes.title_rollover')}
                             className="flex items-center gap-1.5 px-2.5 py-1.5 border border-gold/30 text-gold rounded-lg text-xs font-medium hover:bg-gold/10 disabled:opacity-50 transition-colors ml-auto"
                           >
-                            {fazendoRollover === l.acertoId ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}Rollover
+                            {fazendoRollover === l.acertoId ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}{t('acertos_pendentes.rollover')}
                           </button>
                         )}
                       </td>
@@ -145,12 +145,12 @@ export function RelatorioAcertosPendentes() {
 
       <ConfirmModal
         open={!!confirmarRollover}
-        title="Rollover"
-        description={confirmarRollover && `Rolar ${fmt(confirmarRollover.diferenca)} de ${confirmarRollover.clubName} pra próxima semana? Some das Pendências agora e volta como Pendência/Antecipação no próximo Acerto desse clube — sem cobrar, sem multa, sem mexer na Caução.`}
+        title={t('acertos_pendentes.rollover')}
+        description={confirmarRollover && t('acertos_pendentes.confirm_rollover_desc', { valor: fmt(confirmarRollover.diferenca), nome: confirmarRollover.clubName })}
         tone="gold"
         icon={RotateCcw}
         saving={!!fazendoRollover}
-        confirmLabel="Rollover"
+        confirmLabel={t('acertos_pendentes.rollover')}
         error={erroRollover}
         onConfirm={handleRollover}
         onCancel={() => setConfirmarRollover(null)}

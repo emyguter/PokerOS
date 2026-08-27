@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useI18n } from '@/lib/i18n'
 
 interface AcertoAgenteRow {
   id: string
@@ -18,6 +19,7 @@ interface AcertoAgenteRow {
 const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export function AgentesAcertosView({ agenteIdFixo }: { agenteIdFixo?: string } = {}) {
+  const { t } = useI18n()
   const [rows, setRows] = useState<AcertoAgenteRow[]>([])
   const [loading, setLoading] = useState(true)
   const [dataInicio, setDataInicio] = useState('')
@@ -55,14 +57,14 @@ export function AgentesAcertosView({ agenteIdFixo }: { agenteIdFixo?: string } =
       ag.rake_total += r.rake_total
       ag.valor_rakeback += r.valor_rakeback
       const chaveClube = r.clube_id ?? 'sem_clube'
-      const cl = ag.clubes.get(chaveClube) ?? { clube_nome: r.clube_nome ?? '— sem clube —', rake_total: 0, rakeback_pct: r.rakeback_pct, valor_rakeback: 0 }
+      const cl = ag.clubes.get(chaveClube) ?? { clube_nome: r.clube_nome ?? t('agentes_acertos_view.sem_clube'), rake_total: 0, rakeback_pct: r.rakeback_pct, valor_rakeback: 0 }
       cl.rake_total += r.rake_total
       cl.valor_rakeback += r.valor_rakeback
       ag.clubes.set(chaveClube, cl)
       mapa.set(r.agente_id, ag)
     }
     return [...mapa.values()].sort((a, b) => b.valor_rakeback - a.valor_rakeback)
-  }, [filtradas])
+  }, [filtradas, t])
 
   const totalGeral = porAgente.reduce((s, a) => s + a.valor_rakeback, 0)
 
@@ -79,20 +81,20 @@ export function AgentesAcertosView({ agenteIdFixo }: { agenteIdFixo?: string } =
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         {!agenteIdFixo && (
           <div>
-            <p style={{ fontSize: 11, color: '#5a5a52', marginBottom: 4 }}>Buscar agente</p>
-            <input type="text" placeholder="Nome do agente..." value={busca} onChange={(e) => setBusca(e.target.value)} />
+            <p style={{ fontSize: 11, color: '#5a5a52', marginBottom: 4 }}>{t('agentes_acertos_view.buscar_agente_label')}</p>
+            <input type="text" placeholder={t('agentes_acertos_view.buscar_agente_placeholder')} value={busca} onChange={(e) => setBusca(e.target.value)} />
           </div>
         )}
         <div>
-          <p style={{ fontSize: 11, color: '#5a5a52', marginBottom: 4 }}>De</p>
+          <p style={{ fontSize: 11, color: '#5a5a52', marginBottom: 4 }}>{t('agentes_acertos_view.de_label')}</p>
           <input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="date-input" />
         </div>
         <div>
-          <p style={{ fontSize: 11, color: '#5a5a52', marginBottom: 4 }}>Até</p>
+          <p style={{ fontSize: 11, color: '#5a5a52', marginBottom: 4 }}>{t('agentes_acertos_view.ate_label')}</p>
           <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="date-input" />
         </div>
         <div className="stat" style={{ padding: '10px 20px' }}>
-          <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.08em', color: '#5a5a52', margin: '0 0 4px' }}>Total Rakeback</p>
+          <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.08em', color: '#5a5a52', margin: '0 0 4px' }}>{t('agentes_acertos_view.total_rakeback_label')}</p>
           <p style={{ fontSize: 20, fontWeight: 600, color: '#C9A84C', margin: 0 }}>{fmt(totalGeral)}</p>
         </div>
       </div>
@@ -100,10 +102,10 @@ export function AgentesAcertosView({ agenteIdFixo }: { agenteIdFixo?: string } =
       <style>{`.date-input{background:#111410;color:#F0EDE4;border:1px solid #2a2c20;border-radius:8px;padding:8px 12px;font-family:var(--font-sans),sans-serif;font-size:13px;outline:none}.date-input:focus{border-color:#C9A84C}`}</style>
 
       {loading ? (
-        <div className="card" style={{ padding: 24, textAlign: 'center', color: '#5a5a52' }}>Carregando...</div>
+        <div className="card" style={{ padding: 24, textAlign: 'center', color: '#5a5a52' }}>{t('common.carregando')}</div>
       ) : porAgente.length === 0 ? (
         <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-          <p style={{ color: '#5a5a52', fontSize: 13 }}>Nenhum acerto de agente calculado ainda nesse período. Calcule os acertos de um import na aba &quot;Por Clube&quot; primeiro.</p>
+          <p style={{ color: '#5a5a52', fontSize: 13 }}>{t('agentes_acertos_view.nenhum_acerto_desc')}</p>
         </div>
       ) : (
         <div className="card" style={{ overflow: 'hidden' }}>
@@ -119,7 +121,9 @@ export function AgentesAcertosView({ agenteIdFixo }: { agenteIdFixo?: string } =
                     {aberto ? <ChevronUp size={14} color="#7a7a70" /> : <ChevronDown size={14} color="#7a7a70" />}
                     <div>
                       <p style={{ color: '#C9A84C', fontSize: 14, margin: 0 }}>{a.agente_nome}</p>
-                      <p style={{ color: '#5a5a52', fontSize: 11, margin: '2px 0 0' }}>{a.clubes.size} clube{a.clubes.size !== 1 ? 's' : ''} · Rake {fmt(a.rake_total)}</p>
+                      <p style={{ color: '#5a5a52', fontSize: 11, margin: '2px 0 0' }}>
+                        {t(a.clubes.size === 1 ? 'agentes_acertos_view.clubes_count_singular' : 'agentes_acertos_view.clubes_count_plural', { n: a.clubes.size })} · {t('agentes_acertos_view.rake_inline', { v: fmt(a.rake_total) })}
+                      </p>
                     </div>
                   </div>
                   <p style={{ color: '#7DC97D', fontSize: 16, fontWeight: 600, margin: 0 }}>{fmt(a.valor_rakeback)}</p>
@@ -129,10 +133,10 @@ export function AgentesAcertosView({ agenteIdFixo }: { agenteIdFixo?: string } =
                     <table style={{ marginBottom: 4 }}>
                       <thead>
                         <tr>
-                          <th style={{ paddingLeft: 40 }}>Clube</th>
-                          <th style={{ textAlign: 'right' }}>Rake</th>
+                          <th style={{ paddingLeft: 40 }}>{t('agentes_acertos_view.col_clube')}</th>
+                          <th style={{ textAlign: 'right' }}>{t('agentes_acertos_view.col_rake')}</th>
                           <th style={{ textAlign: 'right' }}>%</th>
-                          <th style={{ textAlign: 'right' }}>Rakeback</th>
+                          <th style={{ textAlign: 'right' }}>{t('agentes_acertos_view.col_rakeback')}</th>
                         </tr>
                       </thead>
                       <tbody>
