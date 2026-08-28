@@ -10,8 +10,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [mode, setMode] = useState<"login" | "forgot" | "sent">("login");
+  const [mode, setMode] = useState<"login" | "forgot" | "trocada">("login");
   const [forgotEmail, setForgotEmail] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotError, setForgotError] = useState("");
   const router = useRouter();
@@ -19,22 +21,34 @@ export default function LoginPage() {
 
   async function handleForgotPassword(e: React.FormEvent) {
     e.preventDefault();
-    setForgotLoading(true);
     setForgotError("");
 
-    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-
-    setForgotLoading(false);
-    // Não revela se o email existe ou não (evita vazar quais emails têm
-    // conta) — Supabase só retorna erro de verdade em falhas de envio
-    // (rate limit, SMTP fora do ar etc), não por email desconhecido.
-    if (error) {
-      setForgotError(t("login.erro_enviar_link"));
+    if (novaSenha.length < 6) {
+      setForgotError(t("login.senha_curta"));
       return;
     }
-    setMode("sent");
+    if (novaSenha !== confirmarSenha) {
+      setForgotError(t("login.senhas_diferentes"));
+      return;
+    }
+
+    setForgotLoading(true);
+    const { data, error } = await supabase.rpc("redefinir_senha_direta", {
+      p_email: forgotEmail,
+      p_nova_senha: novaSenha,
+    });
+    setForgotLoading(false);
+
+    if (error || data === false) {
+      // Mesma mensagem tanto pra erro real quanto pra email sem conta —
+      // evita revelar quais emails têm cadastro no sistema.
+      setForgotError(t("login.erro_redefinir"));
+      return;
+    }
+
+    setEmail(forgotEmail);
+    setPassword("");
+    setMode("trocada");
   }
 
   async function handleLogin(e: React.FormEvent) {
@@ -188,7 +202,7 @@ export default function LoginPage() {
 
                 <button
                   type="button"
-                  onClick={() => { setMode("forgot"); setForgotEmail(email); setForgotError(""); }}
+                  onClick={() => { setMode("forgot"); setForgotEmail(email); setNovaSenha(""); setConfirmarSenha(""); setForgotError(""); }}
                   style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, color: "#8a8a80", textAlign: "center" }}
                 >
                   {t("login.esqueci_senha")}
@@ -216,6 +230,30 @@ export default function LoginPage() {
                   />
                 </div>
 
+                <div>
+                  <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#5a5a52", margin: "0 0 6px" }}>{t("login.nova_senha_label")}</p>
+                  <input
+                    className="input-field"
+                    type="password"
+                    placeholder="••••••••"
+                    value={novaSenha}
+                    onChange={(e) => setNovaSenha(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#5a5a52", margin: "0 0 6px" }}>{t("login.confirmar_senha_label")}</p>
+                  <input
+                    className="input-field"
+                    type="password"
+                    placeholder="••••••••"
+                    value={confirmarSenha}
+                    onChange={(e) => setConfirmarSenha(e.target.value)}
+                    required
+                  />
+                </div>
+
                 {forgotError && (
                   <div style={{ background: "#1a0f0f", border: "1px solid #5a2020", borderRadius: 8, padding: "10px 14px" }}>
                     <p style={{ color: "#E07070", fontSize: 13, margin: 0 }}>{forgotError}</p>
@@ -223,7 +261,7 @@ export default function LoginPage() {
                 )}
 
                 <button className="btn-login" type="submit" disabled={forgotLoading}>
-                  {forgotLoading ? t("login.enviando_link") : t("login.enviar_link")}
+                  {forgotLoading ? t("login.redefinindo") : t("login.redefinir_senha_button")}
                 </button>
 
                 <button
@@ -237,17 +275,17 @@ export default function LoginPage() {
             </>
           )}
 
-          {mode === "sent" && (
+          {mode === "trocada" && (
             <>
-              <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: 20, fontWeight: 500, margin: "0 0 8px" }}>{t("login.link_enviado_titulo")}</h2>
-              <p style={{ color: "#8a8a80", fontSize: 13, margin: "0 0 24px" }}>{t("login.link_enviado_desc", { email: forgotEmail })}</p>
+              <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: 20, fontWeight: 500, margin: "0 0 8px" }}>{t("login.senha_alterada_titulo")}</h2>
+              <p style={{ color: "#8a8a80", fontSize: 13, margin: "0 0 24px" }}>{t("login.senha_alterada_desc")}</p>
 
               <button
                 type="button"
+                className="btn-login"
                 onClick={() => setMode("login")}
-                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, color: "#8a8a80", textAlign: "center" }}
               >
-                {t("login.voltar_login")}
+                {t("login.senha_alterada_botao")}
               </button>
             </>
           )}
