@@ -1215,11 +1215,15 @@ que precisa dela — ver `supabase/migrations/README.md` pra convenção de nome
   nomes dos idiomas no seletor PT/EN/ES e a marca "PokerOS · League Platform", que não devem ser
   traduzidos). Tradução Espanhol **completa** — 17 fases, ~280 frases originais + ~600 novas nos três
   dicionários (pt.ts, en.ts, es.ts)
-- [x] **"Esqueci minha senha"**: login manda pra um fluxo de redefinição de senha por email (Supabase
-  Auth `resetPasswordForEmail`) — link "Esqueci minha senha" na tela de login abre um formulário de
-  email, envia um link de recuperação, e a nova tela `/reset-password` deixa a pessoa escolher uma senha
-  nova (com validação de tamanho mínimo e confirmação). Link expirado/já usado mostra aviso claro em vez
-  de travar a tela. Traduzido nos três idiomas (pt/en/es)
+- [x] **"Esqueci minha senha"**: link "Esqueci minha senha" na tela de login abre um formulário de
+  email + senha nova + confirmação, e troca a senha na hora — sem depender de envio de email (que ainda
+  não está configurado no projeto). Implementado via função Postgres `redefinir_senha_direta` (SQL
+  `security definer`, migration `20260828010000_redefinir_senha_direta.sql`) chamada pelo front com
+  `supabase.rpc(...)`, usando a mesma criptografia (`pgcrypto`/bcrypt) que o Supabase Auth já usa pra
+  validar login. Decisão consciente: sem confirmação por email, quem souber o email de alguém consegue
+  trocar a senha dessa conta — aceito por enquanto por não termos infra de email; migrar para o fluxo por
+  link assim que tivermos. Mensagem de erro genérica (não revela se o email tem conta ou não). Traduzido
+  nos três idiomas (pt/en/es)
 
 ### Próximas fases
 - [ ] RLS por permissão (hoje o controle de acesso é só client-side)
