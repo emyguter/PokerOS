@@ -40,6 +40,15 @@ export function BuscaSelect({ value, onChange, opcoes, placeholder, vazio, class
         disabled={disabled}
         value={aberto ? busca : (selecionada?.nome ?? vazio ?? '')}
         onFocus={() => setAberto(true)}
+        // Selecionar uma opção não desfoca o campo de propósito (o
+        // onMouseDown do dropdown abaixo já evita isso, pra o clique na
+        // opção não fechar tudo antes de registrar) — então clicar de novo
+        // no campo, já focado, nunca dispara onFocus de novo, e o campo
+        // ficava "travado" mostrando só o nome selecionado pra sempre,
+        // ignorando qualquer tecla (achado pelo Cássio: dava pra escolher um
+        // clube, mas não dava pra apagar/digitar de novo pra trocar). Clique
+        // sempre reabre, focado ou não.
+        onClick={() => setAberto(true)}
         onChange={e => setBusca(e.target.value)}
         onBlur={() => setAberto(false)}
         onKeyDown={e => { if (e.key === 'Escape') { setBusca(''); setAberto(false); (e.target as HTMLInputElement).blur() } }}
