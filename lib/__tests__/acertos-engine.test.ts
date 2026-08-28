@@ -43,6 +43,7 @@ function row(overrides: Partial<ImportRow> = {}): ImportRow {
     rake_cash: 500,
     rake_spinup: 100,
     player_result: -200,
+    player_result_cash: -100,
     bilhetes: 0,
     ...overrides,
   }
@@ -72,11 +73,14 @@ describe('valorIndicador', () => {
   it('resultado_jogador NÃO usa valor absoluto (prejuízo do jogador precisa continuar negativo)', () => {
     expect(valorIndicador('resultado_jogador', row({ player_result: -200 }), null)).toBe(-200)
   })
-  it('wtr é a razão bruta Ganhos/Rake, sem multiplicar por 100', () => {
-    expect(valorIndicador('wtr', row({ player_result: -250, rake_total: 1000 }), null)).toBeCloseTo(-0.25)
+  it('wtr é a razão bruta Ganhos de Cash/Rake Cash, sem multiplicar por 100 (métrica de cash game, não usa os totais)', () => {
+    expect(valorIndicador('wtr', row({ player_result_cash: -250, rake_cash: 1000 }), null)).toBeCloseTo(-0.25)
   })
-  it('wtr é 0 quando rake_total é 0 (evita divisão por zero)', () => {
-    expect(valorIndicador('wtr', row({ rake_total: 0 }), null)).toBe(0)
+  it('wtr ignora player_result/rake_total (só usa os valores de cash)', () => {
+    expect(valorIndicador('wtr', row({ player_result: -9999, rake_total: 9999, player_result_cash: -250, rake_cash: 1000 }), null)).toBeCloseTo(-0.25)
+  })
+  it('wtr é 0 quando rake_cash é 0 (evita divisão por zero)', () => {
+    expect(valorIndicador('wtr', row({ rake_cash: 0 }), null)).toBe(0)
   })
   it('wtr_4_semanas usa o valor já calculado passado por parâmetro', () => {
     expect(valorIndicador('wtr_4_semanas', row(), -0.42)).toBe(-0.42)
@@ -164,26 +168,31 @@ describe('calcularIndicacao', () => {
 })
 
 describe('calcularWtr4Semanas', () => {
-  it('razão das somas: soma Ganhos e soma Rake das semanas, divide uma vez só — não é média das razões semanais', () => {
+  it('razão das somas: soma Ganhos de Cash e soma Rake Cash das semanas, divide uma vez só — não é média das razões semanais', () => {
     // Exemplo real conferido com o Cássio: W1 1000/-500, W2 250/-500, W3 700/200, W4 100/-230
     // Soma Rake = 2050, soma Ganhos = -1030 → -1030/2050 = -0,50244 (não -1,12857, que seria a média das razões)
-    const atual = { player_result: -230, rake_total: 100 }
+    const atual = { player_result_cash: -230, rake_cash: 100 }
     const historico = [
-      { player_result: 200, rake_total: 700 },
-      { player_result: -500, rake_total: 250 },
-      { player_result: -500, rake_total: 1000 },
+      { player_result_cash: 200, rake_cash: 700 },
+      { player_result_cash: -500, rake_cash: 250 },
+      { player_result_cash: -500, rake_cash: 1000 },
     ]
     expect(calcularWtr4Semanas(row(atual), historico)).toBeCloseTo(-0.50244, 5)
   })
 
-  it('ignora semana com rake zero, sem null nem divisão por zero', () => {
-    const atual = { player_result: 100, rake_total: 500 }
-    const historico = [{ player_result: 999, rake_total: 0 }]
+  it('ignora player_result/rake_total (só usa os valores de cash)', () => {
+    const atual = { player_result: 99999, rake_total: 99999, player_result_cash: 100, rake_cash: 500 }
+    expect(calcularWtr4Semanas(row(atual), [])).toBe(0.2)
+  })
+
+  it('ignora semana com rake_cash zero, sem null nem divisão por zero', () => {
+    const atual = { player_result_cash: 100, rake_cash: 500 }
+    const historico = [{ player_result_cash: 999, rake_cash: 0 }]
     expect(calcularWtr4Semanas(row(atual), historico)).toBe(0.2) // só a semana atual conta: 100/500
   })
 
-  it('sem nenhuma semana com rake, dá null', () => {
-    expect(calcularWtr4Semanas(row({ player_result: 0, rake_total: 0 }), [])).toBeNull()
+  it('sem nenhuma semana com rake_cash, dá null', () => {
+    expect(calcularWtr4Semanas(row({ player_result_cash: 0, rake_cash: 0 }), [])).toBeNull()
   })
 })
 

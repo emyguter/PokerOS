@@ -38,6 +38,12 @@ export interface ImportRow {
   rake_cash: number;
   rake_spinup: number;
   player_result: number;
+  // Ganhos só do cash game (coluna "Ring Games" do PPPoker) — usado pro WtR,
+  // que é uma métrica de cash game (confirmado pelo Cássio). Fica 0 em
+  // plataformas/imports sem essa quebra (GGPoker, mapeamento genérico), o
+  // que naturalmente tira essas linhas da média de WtR (mesmo filtro que já
+  // existia pra rake zero).
+  player_result_cash: number;
   bilhetes: number;
 }
 
@@ -52,6 +58,9 @@ export interface AcertoCalculado {
   rake_spinup: number;
   rake_total: number;
   player_result: number;
+  // Ganhos só do cash game — guardado no Acerto pra alimentar o histórico de
+  // WtR das próximas semanas (ver buscarHistoricoWtr/calcularWtr4Semanas).
+  player_result_cash: number;
   fee_calculado: number;
   rebate_calculado: number;
   valor_acerto: number;
@@ -125,7 +134,9 @@ export function valorIndicador(nome: string, row: ImportRow, wtr4Semanas: number
     case "resultado_jogador":
       return row.player_result ?? 0;
     case "wtr":
-      return row.rake_total ? (row.player_result ?? 0) / row.rake_total : 0;
+      // WtR é uma métrica de cash game (confirmado pelo Cássio) — usa
+      // Ganhos de Cash / Rake Cash, não os totais (que misturam MTT/SpinUp).
+      return row.rake_cash ? (row.player_result_cash ?? 0) / row.rake_cash : 0;
     case "wtr_4_semanas":
       return wtr4Semanas ?? 0;
     default:
@@ -325,6 +336,7 @@ export function calcularAcerto(
     settlement_type:  club.settlement_type,
     rake_mtt, rake_cash, rake_spinup, rake_total,
     player_result:    row.player_result ?? 0,
+    player_result_cash: row.player_result_cash ?? 0,
     fee_calculado:    Math.round(fee_calculado    * 100) / 100,
     rebate_calculado: Math.round(rebate_calculado * 100) / 100,
     valor_acerto:     Math.round(valor_acerto     * 100) / 100,
@@ -411,18 +423,18 @@ async function buscarCondicoesTaxaLigaPorLiga(leagueIds: string[]): Promise<Map<
 // pra compor o WtR 4 Semanas junto com a linha sendo calculada agora — mesma
 // lógica já usada no card de Acerto (ClubAcertoCard: média de Ganhos/Rake dos
 // últimos 4 acertos, incluindo o período atual).
-async function buscarHistoricoWtr(clubExternalIds: string[], importIdAtual: string): Promise<Map<string, { player_result: number; rake_total: number }[]>> {
-  const mapa = new Map<string, { player_result: number; rake_total: number }[]>();
+async function buscarHistoricoWtr(clubExternalIds: string[], importIdAtual: string): Promise<Map<string, { player_result_cash: number; rake_cash: number }[]>> {
+  const mapa = new Map<string, { player_result_cash: number; rake_cash: number }[]>();
   if (clubExternalIds.length === 0) return mapa;
 
   const { data } = await supabase
     .from("acertos")
-    .select("club_external_id, player_result, rake_total, imports(period_start)")
+    .select("club_external_id, player_result_cash, rake_cash, imports(period_start)")
     .in("club_external_id", clubExternalIds)
     .neq("import_id", importIdAtual)
     .order("imports(period_start)", { ascending: false });
 
-  for (const row of (data ?? []) as unknown as { club_external_id: string; player_result: number; rake_total: number }[]) {
+  for (const row of (data ?? []) as unknown as { club_external_id: string; player_result_cash: number; rake_cash: number }[]) {
     const lista = mapa.get(row.club_external_id) ?? [];
     if (lista.length < 3) { lista.push(row); mapa.set(row.club_external_id, lista); }
   }
@@ -432,12 +444,17 @@ async function buscarHistoricoWtr(clubExternalIds: string[], importIdAtual: stri
 // Razão das somas — confirmado com o Cássio: soma o Ganhos e soma o Rake das
 // até-4 semanas primeiro, divide os totais uma vez só no final. NÃO é a
 // média de cada razão semanal (essas duas contas dão resultados bem
-// diferentes quando o Rake varia muito de semana pra semana).
-export function calcularWtr4Semanas(row: ImportRow, historico: { player_result: number; rake_total: number }[]): number | null {
-  const candidatos = [{ player_result: row.player_result ?? 0, rake_total: row.rake_total ?? 0 }, ...historico].filter((r) => r.rake_total);
+// diferentes quando o Rake varia muito de semana pra semana). WtR é uma
+// métrica de cash game — usa Ganhos de Cash / Rake Cash, não os totais
+// (confirmado pelo Cássio: o WtR não batia porque estava misturando
+// MTT/SpinUp na conta). Semana sem Rake Cash (plataforma sem essa quebra,
+// ou clube que não jogou cash naquele período) simplesmente não entra na
+// média, mesmo filtro que já existia pra rake zero.
+export function calcularWtr4Semanas(row: ImportRow, historico: { player_result_cash: number; rake_cash: number }[]): number | null {
+  const candidatos = [{ player_result_cash: row.player_result_cash ?? 0, rake_cash: row.rake_cash ?? 0 }, ...historico].filter((r) => r.rake_cash);
   if (candidatos.length === 0) return null;
-  const somaGanhos = candidatos.reduce((s, r) => s + r.player_result, 0);
-  const somaRake = candidatos.reduce((s, r) => s + r.rake_total, 0);
+  const somaGanhos = candidatos.reduce((s, r) => s + r.player_result_cash, 0);
+  const somaRake = candidatos.reduce((s, r) => s + r.rake_cash, 0);
   return somaRake ? somaGanhos / somaRake : null;
 }
 
@@ -618,6 +635,7 @@ export async function processarAcertos(importId: string): Promise<{
             rake_spinup: Math.abs(row.rake_spinup ?? 0),
             rake_total: Math.abs(row.rake_total ?? 0),
             player_result: row.player_result ?? 0,
+            player_result_cash: row.player_result_cash ?? 0,
             fee_calculado: 0, rebate_calculado: 0, valor_acerto: 0,
             fee_mtt_valor: 0, fee_cash_valor: 0, fee_operacional_valor: 0, fee_spinup_valor: 0, taxa_liga_valor: 0,
             taxa_cash_pct_aplicada: null,

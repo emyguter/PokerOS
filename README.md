@@ -86,6 +86,16 @@ reimportadas: `bronze_rows`/`import_rows.raw_data` já guarda os valores origina
 coluna, então um `UPDATE` retroativo em `import_rows` + clicar "Recalcular" no import (na tela de
 Relatórios) já refaz as contas certas em cima do que já foi importado.
 
+**WtR (Win to Rake) é métrica de cash game, não do total (`lib/acertos-engine.ts`):** o WtR não
+batia com a conta manual do Cássio porque usava Ganhos/Rake **totais** (MTT+Cash+SpinUp
+misturados). Corrigido pra usar só cash: **Ganhos de Cash** (coluna "Ring Games" isolada, não a
+soma das 9 colunas de Ganhos) ÷ **Rake Cash** (Taxa PPSR + Taxa não-PPSR, igual já era). Novo campo
+`player_result_cash` em `import_rows` e `acertos` (migration
+`20260828020000_wtr_cash_ganhos.sql`) guarda esse valor; fica 0 em imports sem essa quebra
+(GGPoker, mapeamento genérico), o que tira essas linhas da média de WtR — mesmo tratamento que
+rake zero já recebia. Afeta o indicador `wtr` (razão do período atual) e `wtr_4_semanas`
+(`calcularWtr4Semanas`), usados nas condições SE/ENTÃO de faixa de taxa variável.
+
 **Bilhetes e Pendências/Antecipação no card do Acerto (`ClubAcertoCard.tsx`):** os dois eram campos
 manuais, digitados à mão toda semana. Confirmado com o Cássio: **Bilhetes** = Valor do ticket ganho
 (coluna S, índice 18) − Buy-in de ticket (coluna T, índice 19) da aba "Geral da liga" do PPPoker —
