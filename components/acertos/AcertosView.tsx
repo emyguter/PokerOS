@@ -662,9 +662,12 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                           <th style={{ textAlign: "right" }}>{t('acertos_view.col_fee')}</th>
                           <th style={{ textAlign: "right" }}>{t('acertos_view.col_rebate')}</th>
                           <th style={{ textAlign: "right" }}>{t('acertos_view.col_bilhetes')}</th>
+                          <th style={{ textAlign: "right" }}>{t('acertos_view.col_pendencias')}</th>
                           <th style={{ textAlign: "right" }}>{t('acertos_view.col_seguranca')}</th>
                           <th style={{ textAlign: "right" }}>{t('acertos_view.col_spinup_rake')}</th>
+                          <th style={{ textAlign: "right" }}>{t('acertos_view.col_indicacao')}</th>
                           <th style={{ textAlign: "right" }}>{t('acertos_view.col_lancamentos')}</th>
+                          <th style={{ textAlign: "right" }}>{t('acertos_view.col_dividas')}</th>
                           <th style={{ textAlign: "right" }} title={t('acertos_view.col_valor_acerto_title')}>{t('acertos_view.col_valor_acerto')}</th>
                           <th>{t('acertos_view.col_status')}</th>
                         </tr>
@@ -691,13 +694,16 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                             <td style={{ textAlign: "right", color: "#C9A84C" }}>{fmt(feeDisplay(a))}</td>
                             <td style={{ textAlign: "right", color: "#E07070" }}>{a.rebate_calculado > 0 ? fmt(a.rebate_calculado) : "—"}</td>
                             <td style={{ textAlign: "right" }}>{a.bilhetes ? fmt(a.bilhetes) : "—"}</td>
+                            <td style={{ textAlign: "right" }}>{a.pendencias_antecipacao ? fmt(a.pendencias_antecipacao) : "—"}</td>
                             <td style={{ textAlign: "right" }}>{(a.club_id ? extrasPorClube.get(a.club_id)?.security ?? 0 : 0) ? fmt(extrasPorClube.get(a.club_id ?? "")?.security ?? 0) : "—"}</td>
                             <td style={{ textAlign: "right" }}>{a.fee_spinup_valor ? fmt(a.fee_spinup_valor) : "—"}</td>
+                            <td style={{ textAlign: "right" }}>{a.indicacao_valor ? fmt(a.indicacao_valor) : "—"}</td>
                             <td style={{ textAlign: "right" }} title={(lancamentosPorClube.get(a.club_id ?? "")?.itens ?? []).map((l) => `${t(`lancamento.tipos.${l.tipo}`)}: ${l.natureza === "credito" ? "+" : "−"}${fmt(l.valor)}`).join(" · ") || undefined}>
                               {lancamentosDoClube(a.club_id) === 0 ? "—" : (
                                 <span className={lancamentosDoClube(a.club_id) > 0 ? "vpos" : "vneg"}>{fmt(lancamentosDoClube(a.club_id))}</span>
                               )}
                             </td>
+                            <td style={{ textAlign: "right" }}>{(a.club_id ? extrasPorClube.get(a.club_id)?.dividasTotal ?? 0 : 0) ? <span className="vneg">−{fmt(extrasPorClube.get(a.club_id ?? "")?.dividasTotal ?? 0)}</span> : "—"}</td>
                             <td style={{ textAlign: "right" }}>
                               <strong className={totalFinal(a) > 0 ? "vpos" : totalFinal(a) < 0 ? "vneg" : "vzero"}>{fmt(totalFinal(a))}</strong>
                             </td>
