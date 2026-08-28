@@ -12,6 +12,11 @@ export function LancarFinanceiroTab() {
 
   return (
     <div className="rounded-2xl border border-white/10 bg-surface2/50 p-5 space-y-5">
+      {/* O que espera aprovação vem antes do histórico passivo (dentro de
+          LancarForm) — pedido do Cássio: é a parte que exige ação, não faz
+          sentido enterrada embaixo de tudo. */}
+      <FilaValidacao refreshKey={refreshKey} />
+
       <div>
         <button
           type="button"
@@ -27,8 +32,6 @@ export function LancarFinanceiroTab() {
           </div>
         )}
       </div>
-
-      <FilaValidacao refreshKey={refreshKey} />
     </div>
   )
 }

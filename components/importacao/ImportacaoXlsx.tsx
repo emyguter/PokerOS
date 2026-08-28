@@ -52,6 +52,10 @@ interface ImportRow {
   rake_spinup: number;
   fee_total: number;
   player_result: number;
+  // Ganhos só do cash game (coluna "Ring Games" do PPPoker) — usado pro WtR,
+  // que é métrica de cash game (confirmado pelo Cássio). 0 quando a
+  // plataforma/mapeamento não distingue cash de MTT.
+  player_result_cash: number;
   bilhetes: number;
   agente_nome: string;
   agente_id_ext: string;
@@ -235,6 +239,9 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
       const ganhos =
         safeNum(row[9]) + safeNum(row[10]) + safeNum(row[11]) + safeNum(row[12]) +
         safeNum(row[13]) + safeNum(row[14]) + safeNum(row[15]) + safeNum(row[16]) + safeNum(row[17]);
+      // Ganhos só de Ring Games (cash) — primeira das 9 colunas somadas acima
+      // (confirmado pelo Cássio). Usado só pro WtR, que é métrica de cash.
+      const ganhosCash = safeNum(row[9]);
       const rakeMtt = safeNum(row[23]) + safeNum(row[24]);
       const rakeCash = safeNum(row[25]) + safeNum(row[26]);
       const rakeSpinup = safeNum(row[27]) + safeNum(row[28]);
@@ -248,6 +255,7 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
         club_name: clubName,
         club_external_id: clubId,
         player_result: ganhos,
+        player_result_cash: ganhosCash,
         rake_total: rakeMtt + rakeCash,
         rake_mtt: rakeMtt,
         rake_cash: rakeCash,
@@ -297,6 +305,10 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
         club_name: clubeNome,
         club_external_id: clubeIdExt,
         player_result: totalResult,
+        // Aba de jogadores não quebra ganhos por tipo de jogo (só total) —
+        // sem dado de cash aqui, então esse clube fica de fora da média de
+        // WtR (mesmo tratamento que rake zero já recebe).
+        player_result_cash: 0,
         rake_total: totalRake,
         rake_mtt: 0,
         rake_cash: 0,
@@ -385,6 +397,7 @@ function parseGGPoker(wb: XLSX.WorkBook, t: T): Omit<ParsedFile, "plataforma"> {
       rake_spinup: 0,
       fee_total: safeNum(row[idxFee]),
       player_result: safeNum(row[idxPL]),
+      player_result_cash: 0, // GGPoker não distingue cash de MTT nesse relatório
       bilhetes: 0,
       agente_nome: "",
       agente_id_ext: "",
@@ -506,6 +519,7 @@ function parseGenerico(
       club_name: clubName,
       club_external_id: safeStr(idxExtId >= 0 ? row[idxExtId] : ""),
       player_result: idxGanhos >= 0 ? safeNum(row[idxGanhos]) : 0,
+      player_result_cash: 0, // mapeamento genérico ainda não configura ganhos de cash separado
       rake_total: rakeTotal,
       rake_mtt: rakeMtt,
       rake_cash: rakeCash,

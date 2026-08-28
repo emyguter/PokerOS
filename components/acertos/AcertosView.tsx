@@ -6,7 +6,7 @@ import { Inbox, Copy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useI18n } from "@/lib/i18n";
-import { processarAcertos, processarAcertosAgentes, type ClubeNovo } from "@/lib/acertos-engine";
+import { processarAcertos, processarAcertosAgentes, buscarPendenciasAntecipacao, type ClubeNovo } from "@/lib/acertos-engine";
 import { calcularTotalAcerto, corrigirValorCrypto, buscarSecurityEDividasPorClube } from "@/lib/relatorio-acerto";
 import * as XLSX from "xlsx";
 import { ClubAcertoCard } from "./ClubAcertoCard";
@@ -46,7 +46,6 @@ interface Acerto {
   taxa_liga_valor: number;
   taxa_cash_pct_aplicada: number | null;
   bilhetes: number;
-  pendencias_antecipacao: number;
   indicacao_valor: number;
 }
 
@@ -204,11 +203,21 @@ export default function AcertosView() {
 
   // Segurança (cadastro do clube) + Dívidas/Acordos em aberto (com multa se
   // atrasada) — as duas peças que faltavam pra completar o Valor Acerto
-  // além de Bilhetes/Pendências/Indicação/Taxa AA (que já vêm direto na
-  // linha de `acertos`) e Lançamentos (acima).
+  // além de Bilhetes/Indicação/Taxa AA (que já vêm direto na linha de
+  // `acertos`) e Lançamentos (acima).
   const [extrasPorClube, setExtrasPorClube] = useState<Map<string, { security: number; dividasTotal: number }>>(new Map());
   const loadExtras = useCallback(async (clubIds: string[], periodEnd: string, rakeTotalPorClube: Map<string, number>) => {
     setExtrasPorClube(await buscarSecurityEDividasPorClube(clubIds, periodEnd, rakeTotalPorClube));
+  }, []);
+
+  // Pendências/Antecipação ao vivo, não a foto gravada em
+  // acertos.pendencias_antecipacao (só reflete o que existia quando o
+  // Acerto foi calculado/recalculado pela última vez) — achado pelo Cássio
+  // no caso AMORIM PLUS: Antecipação lançada e conciliada depois do último
+  // cálculo não aparecia até clicar em "Recalcular".
+  const [pendenciasPorClube, setPendenciasPorClube] = useState<Map<string, number>>(new Map());
+  const loadPendencias = useCallback(async (clubIds: string[], periodStart: string, periodEnd: string) => {
+    setPendenciasPorClube(await buscarPendenciasAntecipacao(clubIds, periodStart, periodEnd));
   }, []);
 
   // % de Crypto Rebate cadastrado por clube — só pro "Total Crypto Rebate"
@@ -252,13 +261,14 @@ export default function AcertosView() {
   useEffect(() => { loadImports(); }, []);
 
   useEffect(() => {
-    if (!selected || acertos.length === 0) { setLancamentos([]); setExtrasPorClube(new Map()); setCryptoPctPorClube(new Map()); return; }
+    if (!selected || acertos.length === 0) { setLancamentos([]); setExtrasPorClube(new Map()); setCryptoPctPorClube(new Map()); setPendenciasPorClube(new Map()); return; }
     const clubIds = [...new Set(acertos.map((a) => a.club_id).filter((id): id is string => !!id))];
     const rakeTotalPorClube = new Map(acertos.filter((a) => a.club_id).map((a) => [a.club_id as string, a.rake_total]));
     loadLancamentos(clubIds, selected.period_start, selected.period_end);
     loadExtras(clubIds, selected.period_end || selected.period_start, rakeTotalPorClube);
     loadCryptoPct(clubIds);
-  }, [acertos, selected, loadLancamentos, loadExtras, loadCryptoPct]);
+    loadPendencias(clubIds, selected.period_start, selected.period_end || selected.period_start);
+  }, [acertos, selected, loadLancamentos, loadExtras, loadCryptoPct, loadPendencias]);
 
   // Líquido de lançamentos (créditos − débitos) por clube, no período do import selecionado.
   const lancamentosPorClube = useMemo(() => {
@@ -288,14 +298,14 @@ export default function AcertosView() {
       const extras = a.club_id ? extrasPorClube.get(a.club_id) : undefined;
       return calcularTotalAcerto(a.valor_acerto, {
         bilhetes: a.bilhetes,
-        pendenciasAntecipacao: a.pendencias_antecipacao,
+        pendenciasAntecipacao: a.club_id ? pendenciasPorClube.get(a.club_id) ?? 0 : 0,
         security: extras?.security ?? 0,
         indicacaoValor: a.indicacao_valor,
         lancamentosLiquido: lancamentosDoClube(a.club_id),
         dividasTotal: extras?.dividasTotal ?? 0,
       });
     },
-    [lancamentosDoClube, extrasPorClube]
+    [lancamentosDoClube, extrasPorClube, pendenciasPorClube]
   );
 
   // Total Crypto Rebate — ver corrigirValorCrypto (lib/relatorio-acerto.ts).
@@ -437,7 +447,7 @@ export default function AcertosView() {
       "Taxa da Liga": a.taxa_liga_valor,
       "Acerto (Rake)": valorDisplay(a),
       Bilhetes: a.bilhetes,
-      "Pendências/Antecipação": a.pendencias_antecipacao,
+      "Pendências/Antecipação": a.club_id ? pendenciasPorClube.get(a.club_id) ?? 0 : 0,
       Segurança: a.club_id ? extrasPorClube.get(a.club_id)?.security ?? 0 : 0,
       Indicação: a.indicacao_valor,
       Lançamentos: lancamentosDoClube(a.club_id),
@@ -662,9 +672,12 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                           <th style={{ textAlign: "right" }}>{t('acertos_view.col_fee')}</th>
                           <th style={{ textAlign: "right" }}>{t('acertos_view.col_rebate')}</th>
                           <th style={{ textAlign: "right" }}>{t('acertos_view.col_bilhetes')}</th>
+                          <th style={{ textAlign: "right" }}>{t('acertos_view.col_pendencias')}</th>
                           <th style={{ textAlign: "right" }}>{t('acertos_view.col_seguranca')}</th>
                           <th style={{ textAlign: "right" }}>{t('acertos_view.col_spinup_rake')}</th>
+                          <th style={{ textAlign: "right" }}>{t('acertos_view.col_indicacao')}</th>
                           <th style={{ textAlign: "right" }}>{t('acertos_view.col_lancamentos')}</th>
+                          <th style={{ textAlign: "right" }}>{t('acertos_view.col_dividas')}</th>
                           <th style={{ textAlign: "right" }} title={t('acertos_view.col_valor_acerto_title')}>{t('acertos_view.col_valor_acerto')}</th>
                           <th>{t('acertos_view.col_status')}</th>
                         </tr>
@@ -691,13 +704,16 @@ XLSX.writeFile(wb, `acertos_${liga}${period}.xlsx`);
                             <td style={{ textAlign: "right", color: "#C9A84C" }}>{fmt(feeDisplay(a))}</td>
                             <td style={{ textAlign: "right", color: "#E07070" }}>{a.rebate_calculado > 0 ? fmt(a.rebate_calculado) : "—"}</td>
                             <td style={{ textAlign: "right" }}>{a.bilhetes ? fmt(a.bilhetes) : "—"}</td>
+                            <td style={{ textAlign: "right" }}>{(a.club_id ? pendenciasPorClube.get(a.club_id) ?? 0 : 0) ? fmt(pendenciasPorClube.get(a.club_id ?? "") ?? 0) : "—"}</td>
                             <td style={{ textAlign: "right" }}>{(a.club_id ? extrasPorClube.get(a.club_id)?.security ?? 0 : 0) ? fmt(extrasPorClube.get(a.club_id ?? "")?.security ?? 0) : "—"}</td>
                             <td style={{ textAlign: "right" }}>{a.fee_spinup_valor ? fmt(a.fee_spinup_valor) : "—"}</td>
+                            <td style={{ textAlign: "right" }}>{a.indicacao_valor ? fmt(a.indicacao_valor) : "—"}</td>
                             <td style={{ textAlign: "right" }} title={(lancamentosPorClube.get(a.club_id ?? "")?.itens ?? []).map((l) => `${t(`lancamento.tipos.${l.tipo}`)}: ${l.natureza === "credito" ? "+" : "−"}${fmt(l.valor)}`).join(" · ") || undefined}>
                               {lancamentosDoClube(a.club_id) === 0 ? "—" : (
                                 <span className={lancamentosDoClube(a.club_id) > 0 ? "vpos" : "vneg"}>{fmt(lancamentosDoClube(a.club_id))}</span>
                               )}
                             </td>
+                            <td style={{ textAlign: "right" }}>{(a.club_id ? extrasPorClube.get(a.club_id)?.dividasTotal ?? 0 : 0) ? <span className="vneg">−{fmt(extrasPorClube.get(a.club_id ?? "")?.dividasTotal ?? 0)}</span> : "—"}</td>
                             <td style={{ textAlign: "right" }}>
                               <strong className={totalFinal(a) > 0 ? "vpos" : totalFinal(a) < 0 ? "vneg" : "vzero"}>{fmt(totalFinal(a))}</strong>
                             </td>

@@ -6,7 +6,7 @@ import { useI18n } from '@/lib/i18n'
 import { getLayoutDoClube, resolverLayout, calcularTotalAcerto, corrigirValorCrypto, type CampoAcerto, type CampoResolvido } from '@/lib/relatorio-acerto'
 import { getDividasAcertoDoClube, type ItemDividaAcerto } from '@/lib/dividas'
 import { getVinculosAcerto, getIndicacoes } from '@/lib/cadastro-api'
-import { calcularIndicacao } from '@/lib/acertos-engine'
+import { calcularIndicacao, buscarPendenciasAntecipacao } from '@/lib/acertos-engine'
 
 export interface AcertoCard {
   id: string
@@ -28,7 +28,6 @@ export interface AcertoCard {
   taxa_cash_pct_aplicada: number | null
   rebate_calculado: number
   bilhetes: number
-  pendencias_antecipacao: number
   indicacao_valor: number
 }
 
@@ -78,7 +77,6 @@ interface AcertoGrupoRow {
   fee_spinup_valor: number
   taxa_liga_valor: number
   bilhetes: number
-  pendencias_antecipacao: number
   indicacao_valor: number
   rebate_calculado: number
   valor_acerto: number
@@ -88,6 +86,7 @@ interface ExtrasClube {
   security: number
   lancamentos: LancamentoCard[]
   dividasItens: ItemDividaAcerto[]
+  pendenciasAntecipacao: number
 }
 
 const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -122,7 +121,7 @@ function Linha({ label, value, editable, onCommit }: { label: string; value: num
 }
 
 async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd: string, rakeTotal: number): Promise<ExtrasClube> {
-  const [{ data: clubeData }, { data: lancData }, dividasItens] = await Promise.all([
+  const [{ data: clubeData }, { data: lancData }, dividasItens, pendenciasPorClube] = await Promise.all([
     supabase.from('clubs').select('security').eq('id', clubeId).maybeSingle(),
     supabase
       .from('lancamentos')
@@ -139,11 +138,13 @@ async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd
       .gte('data_lancamento', periodStart)
       .lte('data_lancamento', periodEnd || periodStart),
     getDividasAcertoDoClube(clubeId, periodEnd || periodStart, rakeTotal),
+    buscarPendenciasAntecipacao([clubeId], periodStart, periodEnd || periodStart),
   ])
   return {
     security: (clubeData?.security as number | null) ?? 0,
     lancamentos: (lancData ?? []) as LancamentoCard[],
     dividasItens,
+    pendenciasAntecipacao: pendenciasPorClube.get(clubeId) ?? 0,
   }
 }
 
@@ -153,6 +154,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const [wtr, setWtr] = useState<number | null>(null)
   const [lancamentos, setLancamentos] = useState<LancamentoCard[]>([])
   const [dividasItens, setDividasItens] = useState<ItemDividaAcerto[]>([])
+  const [pendenciasLive, setPendenciasLive] = useState(0)
   const [layout, setLayout] = useState<CampoResolvido[]>(() => resolverLayout(null))
   // Clube Vinculado (mesmo clube em outra plataforma, ex: ClubGG + Sul HG) —
   // esse card ("Common Settlement / Acerto Geral") é o único lugar que soma
@@ -172,29 +174,31 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   }, [acerto.club_id])
 
   useEffect(() => {
-    // Win to Rake das últimas 4 semanas: média de (Ganhos / Rake Total) dos
-    // últimos 4 acertos desse clube, incluindo o período atual. Mesma regra
-    // de prioridade do motor (lib/acertos-engine.ts): o WtR 4 Semanas manual
-    // só entra como tapa-buraco enquanto não tem 4 acertos reais — assim o
-    // card nunca mostra um número diferente do que decidiu a faixa de taxa.
-    // Não soma com o clube vinculado — WtR é uma razão, não um valor em R$,
-    // e cada plataforma tem o rake dela própria.
+    // Win to Rake das últimas 4 semanas: média de (Ganhos de Cash / Rake
+    // Cash) dos últimos 4 acertos desse clube, incluindo o período atual —
+    // WtR é métrica de cash game (confirmado pelo Cássio), não usa os totais
+    // (que misturam MTT/SpinUp). Mesma regra de prioridade do motor
+    // (lib/acertos-engine.ts): o WtR 4 Semanas manual só entra como
+    // tapa-buraco enquanto não tem 4 acertos reais — assim o card nunca
+    // mostra um número diferente do que decidiu a faixa de taxa. Não soma
+    // com o clube vinculado — WtR é uma razão, não um valor em R$, e cada
+    // plataforma tem o rake dela própria.
     supabase
       .from('acertos')
-      .select('player_result, rake_total, imports(period_start)')
+      .select('player_result_cash, rake_cash, imports(period_start)')
       .eq('club_external_id', acerto.club_external_id)
       .order('imports(period_start)', { ascending: false })
       .limit(4)
       .then(({ data }) => {
-        const rows = (data ?? []) as unknown as { player_result: number; rake_total: number }[]
-        const validos = rows.filter((r) => r.rake_total)
+        const rows = (data ?? []) as unknown as { player_result_cash: number; rake_cash: number }[]
+        const validos = rows.filter((r) => r.rake_cash)
         if (validos.length < 4 && club?.wtr4_semanas_manual != null) { setWtr(club.wtr4_semanas_manual); return }
         if (validos.length === 0) { setWtr(null); return }
         // Razão das somas (mesma fórmula de lib/acertos-engine.ts): soma
         // Ganhos e soma Rake das semanas primeiro, divide os totais uma vez
         // só — não é a média de cada razão semanal.
-        const somaGanhos = validos.reduce((s, r) => s + r.player_result, 0)
-        const somaRake = validos.reduce((s, r) => s + r.rake_total, 0)
+        const somaGanhos = validos.reduce((s, r) => s + r.player_result_cash, 0)
+        const somaRake = validos.reduce((s, r) => s + r.rake_cash, 0)
         setWtr(somaRake ? somaGanhos / somaRake : null)
       })
   }, [acerto.club_external_id, club])
@@ -226,6 +230,18 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       .gte('data_lancamento', periodStart)
       .lte('data_lancamento', periodEnd || periodStart)
       .then(({ data }) => setLancamentos(data ?? []))
+  }, [acerto.club_id, periodStart, periodEnd])
+
+  useEffect(() => {
+    // Ao vivo, não a foto gravada em acerto.pendencias_antecipacao (que só
+    // reflete o que existia quando o Acerto foi calculado/recalculado pela
+    // última vez) — achado pelo Cássio no caso AMORIM PLUS: uma Antecipação
+    // lançada e conciliada DEPOIS do último cálculo não aparecia aqui até
+    // alguém clicar em "Recalcular". Mesma query de buscarPendenciasAntecipacao
+    // (lib/acertos-engine.ts), só que reconsultada toda vez que o card abre.
+    if (!acerto.club_id || !periodStart) return
+    buscarPendenciasAntecipacao([acerto.club_id], periodStart, periodEnd || periodStart)
+      .then((mapa) => setPendenciasLive(mapa.get(acerto.club_id as string) ?? 0))
   }, [acerto.club_id, periodStart, periodEnd])
 
   useEffect(() => {
@@ -290,7 +306,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       if (importIds.length === 0) { if (!cancelado) { setAcertosGrupo([]); setExtrasPorClube(new Map()) }; return }
       const { data } = await supabase
         .from('acertos')
-        .select('club_id, club_name, rake_mtt, rake_cash, rake_total, player_result, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, bilhetes, pendencias_antecipacao, indicacao_valor, rebate_calculado, valor_acerto')
+        .select('club_id, club_name, rake_mtt, rake_cash, rake_total, player_result, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, bilhetes, indicacao_valor, rebate_calculado, valor_acerto')
         .in('club_id', idsGrupo)
         .in('import_id', importIds)
       const linhas = (data ?? []) as AcertoGrupoRow[]
@@ -326,7 +342,9 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const feeSpinupValor = agrupado ? somaGrupo('fee_spinup_valor') : acerto.fee_spinup_valor
   const taxaLigaValor = agrupado ? somaGrupo('taxa_liga_valor') : acerto.taxa_liga_valor
   const bilhetesValor = agrupado ? somaGrupo('bilhetes') : acerto.bilhetes
-  const pendenciasValor = agrupado ? somaGrupo('pendencias_antecipacao') : acerto.pendencias_antecipacao
+  const pendenciasValor = agrupado
+    ? acertosGrupo.reduce((s, r) => s + (extrasPorClube.get(r.club_id)?.pendenciasAntecipacao ?? 0), 0)
+    : pendenciasLive
   const rebateCalculado = agrupado ? somaGrupo('rebate_calculado') : acerto.rebate_calculado
   const clubNameDisplay = agrupado ? [...new Set(acertosGrupo.map((r) => r.club_name))].join(' + ') : acerto.club_name
 
@@ -362,7 +380,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           nome: r.club_name,
           total: calcularTotalAcerto(r.valor_acerto, {
             bilhetes: r.bilhetes,
-            pendenciasAntecipacao: r.pendencias_antecipacao,
+            pendenciasAntecipacao: extras?.pendenciasAntecipacao ?? 0,
             security: extras?.security ?? 0,
             indicacaoValor: r.indicacao_valor,
             lancamentosLiquido: lancLiquido,
@@ -383,7 +401,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
     ? totaisPorMembro.reduce((s, m) => s + m.total, 0)
     : calcularTotalAcerto(acerto.valor_acerto, {
         bilhetes: acerto.bilhetes,
-        pendenciasAntecipacao: acerto.pendencias_antecipacao,
+        pendenciasAntecipacao: pendenciasLive,
         security,
         indicacaoValor: acerto.indicacao_valor,
         lancamentosLiquido,

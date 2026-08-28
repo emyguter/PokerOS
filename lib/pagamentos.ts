@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { calcularTotalAcerto, buscarSecurityEDividasPorClube } from './relatorio-acerto'
+import { buscarPendenciasAntecipacao } from './acertos-engine'
 
 export interface EnvioPagamento {
   id: string
@@ -39,7 +40,6 @@ interface AcertoRow {
 interface AcertoCompletoRow extends AcertoRow {
   club_id: string | null
   bilhetes: number
-  pendencias_antecipacao: number
   indicacao_valor: number
   rake_total: number
 }
@@ -101,7 +101,7 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
   const clubIds = [...new Set(lista.map((a) => a.club_id).filter((id): id is string => !!id))]
   const rakeTotalPorClube = new Map(lista.filter((a) => a.club_id).map((a) => [a.club_id as string, a.rake_total]))
 
-  const [{ data: lancamentosData }, extrasPorClube] = await Promise.all([
+  const [{ data: lancamentosData }, extrasPorClube, pendenciasPorClube] = await Promise.all([
     clubIds.length > 0 && periodStart
       ? supabase
           .from('lancamentos')
@@ -121,6 +121,12 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
           .lte('data_lancamento', periodEnd || periodStart)
       : Promise.resolve({ data: [] as { clube_id: string; natureza: 'credito' | 'debito'; valor: number }[] }),
     buscarSecurityEDividasPorClube(clubIds, periodEnd || periodStart, rakeTotalPorClube),
+    // Ao vivo, não a foto gravada em acertos.pendencias_antecipacao (só
+    // reflete o que existia quando o Acerto foi calculado/recalculado pela
+    // última vez) — achado pelo Cássio no caso AMORIM PLUS: Antecipação
+    // lançada e conciliada depois do último cálculo não aparecia na
+    // Diferença de Cobrança/Controle de Pagamentos até clicar em "Recalcular".
+    buscarPendenciasAntecipacao(clubIds, periodStart, periodEnd || periodStart),
   ])
 
   const lancamentosPorClube = new Map<string, number>()
@@ -133,7 +139,7 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
     const extras = a.club_id ? extrasPorClube.get(a.club_id) : undefined
     mapa.set(a.id, calcularTotalAcerto(a.valor_acerto, {
       bilhetes: a.bilhetes,
-      pendenciasAntecipacao: a.pendencias_antecipacao,
+      pendenciasAntecipacao: a.club_id ? pendenciasPorClube.get(a.club_id) ?? 0 : 0,
       security: extras?.security ?? 0,
       indicacaoValor: a.indicacao_valor,
       lancamentosLiquido: a.club_id ? lancamentosPorClube.get(a.club_id) ?? 0 : 0,
@@ -165,7 +171,7 @@ async function caucaoPorClube(clubIds: string[], periodStart: string, periodEnd:
 export async function buscarPagamentosPorImport(importId: string): Promise<AcertoPagamento[]> {
   const { data: acertos } = await supabase
     .from('acertos')
-    .select('id, club_id, club_external_id, club_name, valor_acerto, bilhetes, pendencias_antecipacao, indicacao_valor, rake_total')
+    .select('id, club_id, club_external_id, club_name, valor_acerto, bilhetes, indicacao_valor, rake_total')
     .eq('import_id', importId)
     .order('club_name')
 
@@ -369,7 +375,7 @@ export async function buscarPagamentosPorPeriodo(periodoInicio: string, periodoF
 
   const { data: acertos } = await supabase
     .from('acertos')
-    .select('id, club_id, club_external_id, club_name, valor_acerto, bilhetes, pendencias_antecipacao, indicacao_valor, rake_total')
+    .select('id, club_id, club_external_id, club_name, valor_acerto, bilhetes, indicacao_valor, rake_total')
     .in('import_id', importIds)
     .order('club_name')
 
