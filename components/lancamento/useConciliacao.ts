@@ -116,7 +116,15 @@ export function useConciliacao() {
         // Suporte, sem dinheiro de verdade se movendo — não tem "lado da
         // Genia" pra confirmar, então nunca teria par e ficaria pendurado
         // pra sempre em "Falta Financeiro" (achado no INTERLAGOS CLUB).
-        .neq('descricao', 'Rollover')
+        // IMPORTANTE: .neq('descricao', 'Rollover') sozinho excluía TAMBÉM
+        // todo lançamento com descrição em branco (a maioria — é campo
+        // opcional no formulário) — em SQL, `coluna <> valor` nunca é
+        // verdadeiro quando a coluna é NULL, então a linha inteira sumia da
+        // Conciliação/Pendências sem avisar nada. Achado no caso AMORIM
+        // PLUS (reportado pelo Cássio): Antecipação de R$1.999,60 dos dois
+        // lados (Suporte e Financeiro), sem descrição, nunca aparecia pra
+        // casar. .or() com .is.null explícito garante que NULL passa.
+        .or('descricao.neq.Rollover,descricao.is.null')
         .gte('data_lancamento', dataInicio)
         .order('data_lancamento', { ascending: true })
       if (dataFim) query = query.lte('data_lancamento', dataFim)
