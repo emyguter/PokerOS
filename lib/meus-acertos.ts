@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { buscarSecurityEDividasPorClube, calcularTotalAcerto } from './relatorio-acerto'
+import { buscarPendenciasAntecipacao } from './acertos-engine'
 import type { AcertoCard } from '@/components/acertos/ClubAcertoCard'
 
 export interface LinhaMeuAcerto {
@@ -30,7 +31,7 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
 
   let query = supabase
     .from('acertos')
-    .select('id, club_id, club_name, club_external_id, settlement_type, valor_acerto, rake_mtt, rake_cash, rake_total, player_result, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, taxa_cash_pct_aplicada, rebate_calculado, bilhetes, pendencias_antecipacao, indicacao_valor, import_id, imports(period_start, period_end), clubs(leagues(name))')
+    .select('id, club_id, club_name, club_external_id, settlement_type, valor_acerto, rake_mtt, rake_cash, rake_total, player_result, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, taxa_cash_pct_aplicada, rebate_calculado, bilhetes, indicacao_valor, import_id, imports(period_start, period_end), clubs(leagues(name))')
     .in('import_id', importIds)
   if (clubeIdsVisiveis) query = query.in('club_id', clubeIdsVisiveis)
   const { data, error } = await query
@@ -40,7 +41,23 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
 
   const clubIds = [...new Set(linhasBase.map((a) => a.club_id).filter((id): id is string => !!id))]
   const rakeTotalPorClube = new Map(linhasBase.filter((a) => a.club_id).map((a) => [a.club_id as string, a.rake_total]))
-  const [extrasPorClube, { data: lancData }] = await Promise.all([
+  // Pendências/Antecipação ao vivo, não a foto gravada em
+  // acertos.pendencias_antecipacao — mesmo ajuste feito no AcertosView/
+  // ClubAcertoCard/Controle de Pagamentos (achado pelo Cássio no caso
+  // AMORIM PLUS). Agrupa por período (period_start/period_end) porque
+  // imports de Ligas diferentes com o mesmo period_end podem, em teoria,
+  // ter period_start diferente.
+  const gruposPorPeriodo = new Map<string, { periodStart: string; periodEnd: string; clubIds: string[] }>()
+  for (const a of linhasBase) {
+    if (!a.club_id) continue
+    const periodStart = a.imports?.period_start ?? periodoFim
+    const periodEnd = a.imports?.period_end ?? periodoFim
+    const chave = `${periodStart}|${periodEnd}`
+    const grupo = gruposPorPeriodo.get(chave) ?? { periodStart, periodEnd, clubIds: [] }
+    grupo.clubIds.push(a.club_id)
+    gruposPorPeriodo.set(chave, grupo)
+  }
+  const [extrasPorClube, { data: lancData }, ...mapasPendencias] = await Promise.all([
     buscarSecurityEDividasPorClube(clubIds, periodoFim, rakeTotalPorClube),
     supabase
       .from('lancamentos')
@@ -54,18 +71,21 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
       // o valor (mesmo ajuste feito no AcertosView/ClubAcertoCard).
       .neq('tipo', 'pagamento')
       .lte('data_lancamento', periodoFim),
+    ...[...gruposPorPeriodo.values()].map((g) => buscarPendenciasAntecipacao(g.clubIds, g.periodStart, g.periodEnd)),
   ])
   const lancPorClube = new Map<string, number>()
   for (const l of (lancData ?? []) as { clube_id: string; natureza: string; valor: number }[]) {
     lancPorClube.set(l.clube_id, (lancPorClube.get(l.clube_id) ?? 0) + (l.natureza === 'credito' ? l.valor : -l.valor))
   }
+  const pendenciasPorClube = new Map<string, number>()
+  for (const mapa of mapasPendencias) for (const [id, v] of mapa) pendenciasPorClube.set(id, v)
 
   return linhasBase
     .map((a) => {
       const extras = a.club_id ? extrasPorClube.get(a.club_id) : undefined
       const valorFinal = calcularTotalAcerto(a.valor_acerto, {
         bilhetes: a.bilhetes,
-        pendenciasAntecipacao: a.pendencias_antecipacao,
+        pendenciasAntecipacao: a.club_id ? pendenciasPorClube.get(a.club_id) ?? 0 : 0,
         security: extras?.security ?? 0,
         indicacaoValor: a.indicacao_valor,
         lancamentosLiquido: a.club_id ? lancPorClube.get(a.club_id) ?? 0 : 0,

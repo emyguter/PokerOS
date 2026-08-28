@@ -462,8 +462,13 @@ export function calcularWtr4Semanas(row: ImportRow, historico: { player_result_c
 // conciliados (conciliado_com preenchido = já casou com o par da Genia),
 // dentro do período do acerto — confirmado com o Cássio. Soma só o lado
 // Suporte (o real) e não o par da Genia, senão dobra o valor (mesma regra de
-// origem já usada em Acertos/Extrato/ClubAcertoCard).
-async function buscarPendenciasAntecipacao(clubIds: string[], periodStart: string, periodEnd: string): Promise<Map<string, number>> {
+// origem já usada em Acertos/Extrato/ClubAcertoCard). Exportada porque
+// AcertosView/ClubAcertoCard também chamam direto, ao vivo, em vez de
+// confiar só no valor gravado em `acertos.pendencias_antecipacao` (que é
+// uma foto de quando o Acerto foi calculado/recalculado pela última vez —
+// achado pelo Cássio: uma Antecipação lançada/conciliada DEPOIS disso não
+// aparecia até alguém clicar em "Recalcular").
+export async function buscarPendenciasAntecipacao(clubIds: string[], periodStart: string, periodEnd: string): Promise<Map<string, number>> {
   const mapa = new Map<string, number>();
   if (clubIds.length === 0 || !periodStart) return mapa;
 

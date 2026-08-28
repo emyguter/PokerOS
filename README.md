@@ -96,6 +96,20 @@ soma das 9 colunas de Ganhos) ÷ **Rake Cash** (Taxa PPSR + Taxa não-PPSR, igua
 rake zero já recebia. Afeta o indicador `wtr` (razão do período atual) e `wtr_4_semanas`
 (`calcularWtr4Semanas`), usados nas condições SE/ENTÃO de faixa de taxa variável.
 
+**Pendências/Antecipação vira ao vivo, não a foto do último cálculo:** achado pelo Cássio no caso
+AMORIM PLUS — uma Antecipação lançada e conciliada DEPOIS do Acerto ser calculado/recalculado não
+aparecia em lugar nenhum até alguém clicar em "Recalcular", porque todo mundo lia direto de
+`acertos.pendencias_antecipacao` (uma coluna gravada uma vez só, na hora do cálculo). Corrigido em
+5 lugares — `ClubAcertoCard`, `AcertosView`, Controle de Pagamentos/Cobrança (`lib/pagamentos.ts`)
+e Meus Acertos (`lib/meus-acertos.ts`) — pra consultar `lancamentos` ao vivo toda vez que a tela
+abre, via `buscarPendenciasAntecipacao` (agora exportada de `lib/acertos-engine.ts`). A coluna
+`acertos.pendencias_antecipacao` continua existindo e sendo gravada (ainda serve de valor inicial
+até a primeira consulta ao vivo, e outras partes do sistema podem usá-la), só parou de ser a fonte
+de verdade nesses 5 lugares. Um 6º lugar com o mesmo problema (relatório de Acertos
+Pendentes/Atrasados, `lib/acertos-pendentes.ts`) fica de fora de propósito — ele varre até ~1 ano
+de histórico de uma vez, então precisa de uma query única pro período inteiro (bucketed por
+clube/semana) em vez de uma por semana, senão multiplica demais; ver task sugerida separada.
+
 **Bilhetes e Pendências/Antecipação no card do Acerto (`ClubAcertoCard.tsx`):** os dois eram campos
 manuais, digitados à mão toda semana. Confirmado com o Cássio: **Bilhetes** = Valor do ticket ganho
 (coluna S, índice 18) − Buy-in de ticket (coluna T, índice 19) da aba "Geral da liga" do PPPoker —
