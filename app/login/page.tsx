@@ -10,8 +10,32 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [mode, setMode] = useState<"login" | "forgot" | "sent">("login");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState("");
   const router = useRouter();
   const { locale, setLocale, t } = useI18n();
+
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setForgotLoading(true);
+    setForgotError("");
+
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    setForgotLoading(false);
+    // Não revela se o email existe ou não (evita vazar quais emails têm
+    // conta) — Supabase só retorna erro de verdade em falhas de envio
+    // (rate limit, SMTP fora do ar etc), não por email desconhecido.
+    if (error) {
+      setForgotError(t("login.erro_enviar_link"));
+      return;
+    }
+    setMode("sent");
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -122,44 +146,111 @@ export default function LoginPage() {
           borderRadius: 14,
           padding: 32,
         }}>
-          <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: 20, fontWeight: 500, margin: "0 0 24px" }}>{t("login.entrar")}</h2>
+          {mode === "login" && (
+            <>
+              <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: 20, fontWeight: 500, margin: "0 0 24px" }}>{t("login.entrar")}</h2>
 
-          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#5a5a52", margin: "0 0 6px" }}>{t("login.email")}</p>
-              <input
-                className="input-field"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoFocus
-              />
-            </div>
+              <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div>
+                  <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#5a5a52", margin: "0 0 6px" }}>{t("login.email")}</p>
+                  <input
+                    className="input-field"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
 
-            <div>
-              <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#5a5a52", margin: "0 0 6px" }}>{t("login.senha")}</p>
-              <input
-                className="input-field"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
+                <div>
+                  <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#5a5a52", margin: "0 0 6px" }}>{t("login.senha")}</p>
+                  <input
+                    className="input-field"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
 
-            {error && (
-              <div style={{ background: "#1a0f0f", border: "1px solid #5a2020", borderRadius: 8, padding: "10px 14px" }}>
-                <p style={{ color: "#E07070", fontSize: 13, margin: 0 }}>{error}</p>
-              </div>
-            )}
+                {error && (
+                  <div style={{ background: "#1a0f0f", border: "1px solid #5a2020", borderRadius: 8, padding: "10px 14px" }}>
+                    <p style={{ color: "#E07070", fontSize: 13, margin: 0 }}>{error}</p>
+                  </div>
+                )}
 
-            <button className="btn-login" type="submit" disabled={loading}>
-              {loading ? t("login.entrando") : t("login.entrar")}
-            </button>
-          </form>
+                <button className="btn-login" type="submit" disabled={loading}>
+                  {loading ? t("login.entrando") : t("login.entrar")}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setMode("forgot"); setForgotEmail(email); setForgotError(""); }}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, color: "#8a8a80", textAlign: "center" }}
+                >
+                  {t("login.esqueci_senha")}
+                </button>
+              </form>
+            </>
+          )}
+
+          {mode === "forgot" && (
+            <>
+              <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: 20, fontWeight: 500, margin: "0 0 8px" }}>{t("login.redefinir_titulo")}</h2>
+              <p style={{ color: "#8a8a80", fontSize: 13, margin: "0 0 24px" }}>{t("login.redefinir_desc")}</p>
+
+              <form onSubmit={handleForgotPassword} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div>
+                  <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#5a5a52", margin: "0 0 6px" }}>{t("login.email")}</p>
+                  <input
+                    className="input-field"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                {forgotError && (
+                  <div style={{ background: "#1a0f0f", border: "1px solid #5a2020", borderRadius: 8, padding: "10px 14px" }}>
+                    <p style={{ color: "#E07070", fontSize: 13, margin: 0 }}>{forgotError}</p>
+                  </div>
+                )}
+
+                <button className="btn-login" type="submit" disabled={forgotLoading}>
+                  {forgotLoading ? t("login.enviando_link") : t("login.enviar_link")}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMode("login")}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, color: "#8a8a80", textAlign: "center" }}
+                >
+                  {t("login.voltar_login")}
+                </button>
+              </form>
+            </>
+          )}
+
+          {mode === "sent" && (
+            <>
+              <h2 style={{ fontFamily: "var(--font-display), serif", fontSize: 20, fontWeight: 500, margin: "0 0 8px" }}>{t("login.link_enviado_titulo")}</h2>
+              <p style={{ color: "#8a8a80", fontSize: 13, margin: "0 0 24px" }}>{t("login.link_enviado_desc", { email: forgotEmail })}</p>
+
+              <button
+                type="button"
+                onClick={() => setMode("login")}
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, color: "#8a8a80", textAlign: "center" }}
+              >
+                {t("login.voltar_login")}
+              </button>
+            </>
+          )}
         </div>
 
         <p style={{ textAlign: "center", color: "#3a3a32", fontSize: 12, marginTop: 24 }}>
