@@ -95,6 +95,14 @@ export function useConciliacao() {
       let query = supabase
         .from('lancamentos')
         .select('id, tipo, natureza, valor, descricao, data_lancamento, origem, status, clube_id, conciliado_com, clubs(name)')
+        // Caução não usa esse tipo de Conciliação (par Suporte×Genia) — ela
+        // tem o próprio fluxo de mão única: Suporte lança, entra direto em
+        // "em_validacao" (LancarForm), e a Genia confirma clicando Validar
+        // na Fila de Validação (FilaValidacao.tsx), que atualiza
+        // clubs.caucao_atual na hora. Nunca existe um segundo lançamento
+        // (origem 'genia') pra parear — incluir Caução aqui faria ela
+        // aparecer pra sempre como "Falta Financeiro", mesmo depois de já
+        // validada (Validar não seta conciliado_com).
         .neq('tipo', 'caucao')
         // Bônus/Promoção/Outro não passam por Conciliação — vão direto pro
         // fluxo "Liberar para Acerto" (ver TIPOS_LIBERAVEIS em

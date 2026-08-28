@@ -104,6 +104,7 @@ export function CobrancaView() {
                 <th className="text-right px-3 py-2 whitespace-nowrap" title="Do ponto de vista da liga: positivo = a liga vai receber do clube; negativo = a liga precisa pagar ao clube.">{t('pagamentos.col_valor_acerto')}</th>
                 <th className="text-right px-3 py-2 whitespace-nowrap">{t('pagamentos.col_valor_pago')}</th>
                 <th className="text-right px-3 py-2 whitespace-nowrap" title="Do ponto de vista da liga: positivo = a liga vai receber do clube; negativo = a liga precisa pagar ao clube.">{t('pagamentos.col_diferenca')}</th>
+                <th className="text-right px-3 py-2 whitespace-nowrap" title={t('pagamentos.title_caucao')}>{t('pagamentos.col_caucao')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -114,6 +115,7 @@ export function CobrancaView() {
                   <td className="px-3 py-2 text-right text-gray-300 whitespace-nowrap">{fmt(diferencaDaLiga(l.valor_acerto))}</td>
                   <td className="px-3 py-2 text-right text-gray-300 whitespace-nowrap">{fmt(l.valor_pago)}</td>
                   <td className={`px-3 py-2 text-right font-semibold whitespace-nowrap ${COR_CLASSE[corDiferenca(diferencaDaLiga(l.diferenca))]}`}>{fmt(diferencaDaLiga(l.diferenca))}</td>
+                  <td className="px-3 py-2 text-right text-gray-500 whitespace-nowrap">{l.caucao === 0 ? '—' : fmt(l.caucao)}</td>
                 </tr>
               ))}
             </tbody>
