@@ -74,6 +74,11 @@ interface JogadorRow {
   superagente_id_ext: string;
   player_result: number;
   rake_clube: number;
+  // Mesma conta de components/importacao/ImportacaoXlsx.tsx (Geral da liga):
+  // Valor do ticket ganho (coluna S, índice 18) − Buy-in de ticket (coluna
+  // T, índice 19) — usado pra somar Bilhetes quando o clube não tem aba
+  // "Geral da liga" (arquivo de clube direto, ver parsePPPoker).
+  bilhetes: number;
   clube_nome: string;
   clube_id_ext: string;
 }
@@ -177,6 +182,7 @@ function parseJogadoresSheet(
       superagente_id_ext: safeStr(row[8]),
       player_result: safeNum(row[15]),
       rake_clube: safeNum(row[28]),
+      bilhetes: safeNum(row[18]) - safeNum(row[19]),
       clube_nome: clubeNome,
       clube_id_ext: clubeIdExt,
     });
@@ -301,6 +307,7 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
     if (!ligaSheetName && jogadores.length > 0) {
       const totalResult = jogadores.reduce((s, j) => s + j.player_result, 0);
       const totalRake = jogadores.reduce((s, j) => s + j.rake_clube, 0);
+      const totalBilhetes = jogadores.reduce((s, j) => s + j.bilhetes, 0);
       rows.push({
         club_name: clubeNome,
         club_external_id: clubeIdExt,
@@ -314,7 +321,7 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
         rake_cash: 0,
         rake_spinup: 0,
         fee_total: 0,
-        bilhetes: 0,
+        bilhetes: totalBilhetes,
         agente_nome: "",
         agente_id_ext: "",
         superagente_nome: "",

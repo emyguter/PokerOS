@@ -678,9 +678,14 @@ export async function processarAcertos(importId: string): Promise<{
       acertos.push(calcularAcerto(row as ImportRow, club, condicoesPorClube.get(club.id) ?? CONDICOES_VAZIAS, wtr4Semanas, taxaLigaDoClube(club)));
     }
 
-    const bilhetesPorClube = new Map<string, number>(
-      (rows as ImportRow[]).map((r) => [r.club_external_id, r.bilhetes ?? 0])
-    );
+    // Soma, não sobrescreve — um import pode ter mais de uma linha pro
+    // mesmo club_external_id (ex: mapeamento genérico configurado por
+    // jogador em vez de por clube); um Map construído direto do array
+    // ficaria só com a última linha de cada clube, jogando fora as outras.
+    const bilhetesPorClube = new Map<string, number>();
+    for (const r of rows as ImportRow[]) {
+      bilhetesPorClube.set(r.club_external_id, (bilhetesPorClube.get(r.club_external_id) ?? 0) + (r.bilhetes ?? 0));
+    }
     const clubIdsResolvidos = [...new Set(acertos.map((a) => a.club_id).filter((id): id is string => !!id))];
     const pendenciasPorClube = await buscarPendenciasAntecipacao(
       clubIdsResolvidos,
