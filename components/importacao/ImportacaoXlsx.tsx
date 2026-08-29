@@ -182,7 +182,12 @@ function parseJogadoresSheet(
       superagente_id_ext: safeStr(row[8]),
       player_result: safeNum(row[15]),
       rake_clube: safeNum(row[28]),
-      bilhetes: safeNum(row[18]) - safeNum(row[19]),
+      // Valor do ticket ganho (coluna 25) − Buy-in de ticket (coluna 26)
+      // NESSA aba — confirmado célula a célula num arquivo real (Passa
+      // Amanhã PC). Índices diferentes dos da aba "Geral da liga" (18/19
+      // lá): essa aba tem 7 colunas de ID/agente do jogador a mais antes do
+      // mesmo bloco de Ganhos, empurrando tudo pra frente.
+      bilhetes: safeNum(row[25]) - safeNum(row[26]),
       clube_nome: clubeNome,
       clube_id_ext: clubeIdExt,
     });
