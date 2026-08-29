@@ -101,8 +101,9 @@ type RegraCondicaoRow = {
 
 // Duplicado de lib/types.ts (evita import circular) — se mudar aqui, muda lá
 // também, junto com CAMPOS_POR_SETTLEMENT (que precisa bater com o switch de
-// club.settlement_type abaixo). taxa_liga é o único campo daqui vinculado a
-// uma Liga, não a um Clube — ver buscarCondicoesTaxaLigaPorLiga.
+// club.settlement_type abaixo). taxa_liga é o único campo daqui que também
+// pode vir vinculado à Liga (fonte principal — buscarCondicoesTaxaLigaPorLiga),
+// além de poder vir vinculado ao Clube (fallback — buscarCondicoesPorClube).
 export type CampoClube = "fee_mtt" | "fee_cash" | "taxa_op" | "spinup" | "rake_total" | "taxa_liga";
 
 type RegraEntidadeRow = {
@@ -311,16 +312,25 @@ export function calcularAcerto(
   // cadastro da Liga manda sempre que estiver preenchido; a Regra vinculada
   // à Liga (campo taxa_liga) só entra como fallback quando o cadastro está
   // vazio (confirmado com o Cássio — mudou de "Regra manda" pra "cadastro
-  // manda, Regra é o reserva"). Não se aplica quando o clube nem tem tipo de
-  // cobrança reconhecido (fallback "sem_regra" — nada mais é cobrado ali
-  // também).
+  // manda, Regra é o reserva"). Liga sem NADA configurado (nem % fixo, nem
+  // Regra vinculada à Liga) cai pra Regra vinculada ao CLUBE no campo Taxa
+  // da Liga, se tiver uma — confirmado de novo com o Cássio no caso MTS
+  // POKER (Liga ORION sem nada preenchido em "Taxa da Liga"): antes disso
+  // simplesmente virava 0%, o motor nunca olhava pro que tava atrelado ao
+  // clube nesse campo específico (só fee_mtt/fee_cash/taxa_op/spinup/
+  // rake_total olhavam pro clube — taxa_liga sempre foi só-Liga). Não se
+  // aplica quando o clube nem tem tipo de cobrança reconhecido (fallback
+  // "sem_regra" — nada mais é cobrado ali também).
   if (tipoReconhecido) {
     const baseTaxaLiga = rake_total + rake_spinup;
-    const pctTaxaLiga = taxaLiga.pctFixo != null
+    const pctTaxaLigaDaLiga = taxaLiga.pctFixo != null
       ? taxaLiga.pctFixo
       : taxaLiga.condicoes.length > 0
       ? avaliarCondicoes(taxaLiga.condicoes, row, wtr4Semanas)
       : null;
+    const pctTaxaLiga = pctTaxaLigaDaLiga ?? (condicoesPorCampo.taxa_liga.length > 0
+      ? avaliarCondicoes(condicoesPorCampo.taxa_liga, row, wtr4Semanas)
+      : null);
     taxa_liga_valor = baseTaxaLiga * ((pctTaxaLiga ?? 0) / 100);
     valor_acerto -= taxa_liga_valor;
   }

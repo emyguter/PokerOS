@@ -612,7 +612,7 @@ export const pt = {
     nome_liga_arquivo_label: 'Nome da Liga (no arquivo)', nome_liga_arquivo_placeholder: 'Como aparece na planilha',
     taxa_liga_titulo: 'Taxa da Liga', taxa_liga_pct_label: 'Taxa da Liga (%)',
     taxa_liga_placeholder_regra: 'Campo seguindo regra vinculada', taxa_liga_placeholder_livre: 'Ex: 2',
-    taxa_liga_desc: 'Incide sobre Rake Total + SpinUp Rake do clube (todo o rake do período, os 3 tipos de jogo somados) — desconta do Valor do Acerto, em cima de qualquer taxa que o clube já tenha. Esse % fixo manda sempre que preenchido; deixando em branco, a Regra de Faixa vinculada (abaixo) decide, se tiver uma.',
+    taxa_liga_desc: 'Incide sobre Rake Total + SpinUp Rake do clube (todo o rake do período, os 3 tipos de jogo somados) — desconta do Valor do Acerto, em cima de qualquer taxa que o clube já tenha. Esse % fixo manda sempre que preenchido; deixando em branco, a Regra de Faixa vinculada à Liga (abaixo) decide, se tiver uma; e se a Liga não tiver nada configurado, cai pra Regra de Faixa vinculada ao Clube nesse mesmo campo, se tiver uma.',
   },
   regras_aplicadas: {
     entidade_plataforma: 'App', entidade_mega_liga: 'Mega Liga', entidade_superliga: 'Superliga',

@@ -406,4 +406,29 @@ describe('calcularAcerto — Taxa da Liga', () => {
     expect(resultado.taxa_liga_valor).toBe(0)
     expect(resultado.valor_acerto).toBe(0)
   })
+
+  it('Liga sem NADA configurado (nem % fixo, nem Regra própria): cai pra Regra vinculada ao Clube no campo Taxa da Liga', () => {
+    const r = row({ rake_total: 1000, rake_mtt: 0, rake_cash: 0, rake_spinup: 0, player_result: 0 })
+    const c = club({ settlement_type: 'taxa_dinamica', fee_mtt_pct: 0, fee_cash_pct: 0, taxa_op_ativo: false, spinup_pct: 0 })
+    const condicoesPorCampo = { ...CONDICOES_VAZIAS, taxa_liga: [condicao({ operador: '>', valor: 0, resultado_pct: 7 })] }
+    const resultado = calcularAcerto(r, c, condicoesPorCampo, null, { pctFixo: null, condicoes: [] })
+    expect(resultado.taxa_liga_valor).toBe(70) // 1000 * 7%, Liga vazia cai pra Regra do Clube
+  })
+
+  it('% fixo do cadastro da Liga manda mesmo com Regra vinculada ao Clube no campo Taxa da Liga', () => {
+    const r = row({ rake_total: 1000, rake_mtt: 0, rake_cash: 0, rake_spinup: 0, player_result: 0 })
+    const c = club({ settlement_type: 'taxa_dinamica', fee_mtt_pct: 0, fee_cash_pct: 0, taxa_op_ativo: false, spinup_pct: 0 })
+    const condicoesPorCampo = { ...CONDICOES_VAZIAS, taxa_liga: [condicao({ operador: '>', valor: 0, resultado_pct: 7 })] }
+    const resultado = calcularAcerto(r, c, condicoesPorCampo, null, { pctFixo: 10, condicoes: [] })
+    expect(resultado.taxa_liga_valor).toBe(100) // 1000 * 10% (cadastro da Liga), não os 7% do Clube
+  })
+
+  it('Regra vinculada à Liga manda mesmo com Regra vinculada ao Clube no campo Taxa da Liga', () => {
+    const r = row({ rake_total: 1000, rake_mtt: 0, rake_cash: 0, rake_spinup: 0, player_result: 0 })
+    const c = club({ settlement_type: 'taxa_dinamica', fee_mtt_pct: 0, fee_cash_pct: 0, taxa_op_ativo: false, spinup_pct: 0 })
+    const condicoesLiga = [condicao({ operador: '>', valor: 0, resultado_pct: 5 })]
+    const condicoesPorCampo = { ...CONDICOES_VAZIAS, taxa_liga: [condicao({ operador: '>', valor: 0, resultado_pct: 7 })] }
+    const resultado = calcularAcerto(r, c, condicoesPorCampo, null, { pctFixo: null, condicoes: condicoesLiga })
+    expect(resultado.taxa_liga_valor).toBe(50) // 1000 * 5% (Regra da Liga), não os 7% do Clube
+  })
 })

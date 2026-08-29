@@ -614,7 +614,7 @@ export const en: typeof pt = {
     nome_liga_arquivo_label: 'League Name (in the file)', nome_liga_arquivo_placeholder: 'As it appears in the spreadsheet',
     taxa_liga_titulo: 'League Fee', taxa_liga_pct_label: 'League Fee (%)',
     taxa_liga_placeholder_regra: 'Field following linked rule', taxa_liga_placeholder_livre: 'E.g.: 2',
-    taxa_liga_desc: "Applies to Total Rake + SpinUp Rake of the club (all the period's rake, all 3 game types combined) — deducted from the Settlement Amount, on top of any fee the club already has. This fixed % takes over whenever filled in; leaving it blank, the linked Tier Rule (below) decides, if there is one.",
+    taxa_liga_desc: "Applies to Total Rake + SpinUp Rake of the club (all the period's rake, all 3 game types combined) — deducted from the Settlement Amount, on top of any fee the club already has. This fixed % takes over whenever filled in; leaving it blank, the League's linked Tier Rule (below) decides, if there is one; and if the League has nothing configured, it falls back to the Club's linked Tier Rule on this same field, if there is one.",
   },
   regras_aplicadas: {
     entidade_plataforma: 'App', entidade_mega_liga: 'Mega League', entidade_superliga: 'Super League',

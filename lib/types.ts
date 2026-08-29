@@ -315,22 +315,25 @@ export type CampoClube = 'fee_mtt' | 'fee_cash' | 'taxa_op' | 'spinup' | 'rake_t
 // club.settlement_type) realmente lê pra cada tipo de cobrança — precisa
 // ficar em sync manual com aquele switch. Um vínculo de Regra num campo fora
 // dessa lista pro settlement_type do clube fica salvo, mas sem efeito nenhum
-// no cálculo (usado pra avisar isso na tela de Vínculos). taxa_liga fica de
-// fora — não é campo de clube, ver campoAplicavelAoTipo.
+// no cálculo (usado pra avisar isso na tela de Vínculos). taxa_liga entra em
+// TODOS os tipos — o motor sempre olha pra ela, como fallback quando a Liga
+// não tem % fixo nem Regra própria vinculada (confirmado com o Cássio).
 export const CAMPOS_POR_SETTLEMENT: Record<string, CampoClube[]> = {
   // rake_total: fallback pra Fee MTT/Fee Cash quando eles não têm regra
   // própria (ver calcularAcerto, case "taxa_dinamica").
-  taxa_dinamica: ['fee_mtt', 'fee_cash', 'taxa_op', 'spinup', 'rake_total'],
-  taxa_fixa_variavel: ['rake_total'],
-  weekly_usd: ['rake_total'],
-  rakeback: [],
+  taxa_dinamica: ['fee_mtt', 'fee_cash', 'taxa_op', 'spinup', 'rake_total', 'taxa_liga'],
+  taxa_fixa_variavel: ['rake_total', 'taxa_liga'],
+  weekly_usd: ['rake_total', 'taxa_liga'],
+  rakeback: ['taxa_liga'],
 }
 
-// taxa_liga só faz sentido vinculada a uma Liga; os outros campos só fazem
-// sentido vinculados a um Clube (aí sim, checar CAMPOS_POR_SETTLEMENT pra
-// saber se o settlement_type daquele clube específico realmente usa).
+// taxa_liga vale tanto numa Liga (fonte principal) quanto num Clube (fallback
+// quando a Liga não tem nada configurado — nem % fixo, nem Regra vinculada a
+// ela nesse campo; ver calcularAcerto). Os outros campos só fazem sentido
+// vinculados a um Clube (aí sim, checar CAMPOS_POR_SETTLEMENT pra saber se o
+// settlement_type daquele clube específico realmente usa).
 export function campoAplicavelAoTipo(campo: CampoClube, entidadeTipo: EntidadeTipo): boolean {
-  return campo === 'taxa_liga' ? entidadeTipo === 'liga' : entidadeTipo === 'clube'
+  return campo === 'taxa_liga' ? entidadeTipo === 'liga' || entidadeTipo === 'clube' : entidadeTipo === 'clube'
 }
 
 export const LABEL_SETTLEMENT: Record<string, string> = {

@@ -209,8 +209,9 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
 
   if (!open || !regra) return null
 
-  // taxa_liga só tem efeito vinculado a uma Liga; os outros campos só tem
-  // efeito vinculados a um Clube — e mesmo aí, só se o settlement_type
+  // taxa_liga tem efeito numa Liga (fonte principal) ou num Clube (fallback
+  // quando a Liga não tem nada configurado nesse campo); os outros campos só
+  // tem efeito vinculados a um Clube — e mesmo aí, só se o settlement_type
   // daquele clube usar aquele campo de verdade (CAMPOS_POR_SETTLEMENT).
   function campoTemEfeito(tipo: EntidadeTipo, entidadeId: string, campo: CampoClube): boolean | null {
     if (!campoAplicavelAoTipo(campo, tipo)) return false

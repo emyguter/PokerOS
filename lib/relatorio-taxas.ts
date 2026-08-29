@@ -40,13 +40,16 @@ function faixaTexto(faixa: { min: number; max: number }): string {
 }
 
 // Taxa da Liga tem prioridade invertida em relação aos outros campos: o %
-// fixo do cadastro da Liga manda sempre que estiver preenchido, a Regra de
-// Faixa vinculada só entra como fallback quando o cadastro está vazio
+// fixo do cadastro da Liga manda sempre que estiver preenchido; a Regra de
+// Faixa vinculada à Liga só entra como fallback quando o cadastro está
+// vazio; e se a Liga não tiver NADA configurado (nem % fixo, nem Regra),
+// cai pra Regra de Faixa vinculada ao CLUBE nesse mesmo campo, se tiver uma
 // (confirmado com o Cássio, mesma regra usada em lib/acertos-engine.ts —
 // tem que bater com o que o Acerto realmente calcula).
-function formatTaxaLiga(fixo: number | null, faixa: { min: number; max: number } | undefined): TaxaCampoResumo {
+function formatTaxaLiga(fixo: number | null, faixaLiga: { min: number; max: number } | undefined, faixaClube: { min: number; max: number } | undefined): TaxaCampoResumo {
   if (fixo != null) return { valor: `${fixo}%`, variavel: false }
-  if (faixa) return { valor: faixaTexto(faixa), variavel: true }
+  if (faixaLiga) return { valor: faixaTexto(faixaLiga), variavel: true }
+  if (faixaClube) return { valor: faixaTexto(faixaClube), variavel: true }
   return { valor: '—', variavel: false }
 }
 
@@ -142,7 +145,11 @@ export async function buscarResumoTaxas(): Promise<ResumoTaxaClube[]> {
       feeCash: campo('fee_cash', c.fee_cash_pct),
       taxaOperacional,
       spinup: campo('spinup', c.spinup_pct),
-      taxaLiga: c.league_id ? formatTaxaLiga(c.leagues?.taxa_app_pct ?? null, faixasLiga.get(c.league_id as string)) : null,
+      taxaLiga: formatTaxaLiga(
+        c.league_id ? (c.leagues?.taxa_app_pct ?? null) : null,
+        c.league_id ? faixasLiga.get(c.league_id as string) : undefined,
+        faixaClube.taxa_liga,
+      ),
       rebatePct: c.settlement_type === 'weekly_usd' && c.rebate_ativo ? (c.rebate_pct as number | null) : null,
       cryptoRebatePct: c.settlement_type === 'weekly_usd' ? (c.crypto_rebate_pct as number | null) : null,
       rakebackPct: c.settlement_type === 'rakeback' ? (c.rakeback_pct as number | null) : null,
