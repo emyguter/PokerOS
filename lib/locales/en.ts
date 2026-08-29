@@ -240,7 +240,7 @@ export const en: typeof pt = {
     nenhum_acerto_do_clube: "This club doesn't have a calculated Settlement yet.",
     title_diferenca: "From the club's perspective: positive = the club will receive; negative = the club needs to pay.",
     title_valor_acerto: 'Settlement Amount — what needs to be settled.',
-    title_valor_pago: 'Sum of the shipments paid so far.',
+    title_valor_pago: 'Sum of the shipments paid so far + Advance already reconciled for the period.',
     col_caucao: 'Deposit',
     title_caucao: "Deposit entered for the period — reference only, doesn't count toward the Difference (it lives in its own account).",
     title_descontar_com_caucao: "Deduct the Difference (in full or partially) from the club's Deposit — settles it and reduces the Current Stoploss immediately.",

@@ -93,11 +93,18 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
 
 // Valor do Acerto usado aqui pra calcular a Diferença é o COMPLETO — igual
 // ao card "Common Settlement" e a lista de Acertos (lib/relatorio-acerto.ts,
-// calcularTotalAcerto): Bilhetes, Pendências/Antecipação, Segurança, Taxa
-// A-A Home Game, Indicação, Lançamentos do período (Bônus/Promoção/Outro) e
-// Dívidas/Acordos entram todos — confirmado pelo Cássio, nada pode ficar de
-// fora, senão a Diferença de Cobrança/Controle de Pagamentos fica errada.
-async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart: string, periodEnd: string): Promise<Map<string, number>> {
+// calcularTotalAcerto): Bilhetes, Segurança, Taxa A-A Home Game, Indicação,
+// Lançamentos do período (Bônus/Promoção/Outro) e Dívidas/Acordos entram
+// todos — confirmado pelo Cássio, nada pode ficar de fora, senão a Diferença
+// de Cobrança/Controle de Pagamentos fica errada. Pendências/Antecipação FICA
+// DE FORA daqui de propósito (diferente do card/AcertosView) — corrigido a
+// pedido do Cássio no caso AMORIM PLUS: aqui ela conta como um PAGAMENTO
+// (soma em "Valor Pago", junto dos Envios), não escondida dentro de "Valor
+// do Acerto" — mesma lógica de "o que devia" vs "o que já foi adiantado" que
+// a coluna Valor Pago já usa pra Envio de verdade. Devolve os dois mapas
+// (valor completo sem pendência + pendência isolada por clube) pro chamador
+// somar a pendência em "Valor Pago"/Diferença, não em "Valor do Acerto".
+async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart: string, periodEnd: string): Promise<{ valorAcertoPorId: Map<string, number>; pendenciasPorClube: Map<string, number> }> {
   const clubIds = [...new Set(lista.map((a) => a.club_id).filter((id): id is string => !!id))]
   const rakeTotalPorClube = new Map(lista.filter((a) => a.club_id).map((a) => [a.club_id as string, a.rake_total]))
 
@@ -109,7 +116,7 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
           .in('clube_id', clubIds)
           .in('origem', ['suporte', 'seguranca'])
           .neq('tipo', 'caucao')
-          // Antecipação já entra separado (pendencias_antecipacao) e
+          // Antecipação já entra separado (Valor Pago, ver acima) e
           // Pagamento já quita o Acerto certo pelo acerto_id vinculado (ver
           // agregarPagamentos) — contar os dois de novo aqui dobra o valor
           // (mesmo bug do ClubAcertoCard/AcertosView, achado no CHIP COIN:
@@ -124,8 +131,8 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
     // Ao vivo, não a foto gravada em acertos.pendencias_antecipacao (só
     // reflete o que existia quando o Acerto foi calculado/recalculado pela
     // última vez) — achado pelo Cássio no caso AMORIM PLUS: Antecipação
-    // lançada e conciliada depois do último cálculo não aparecia na
-    // Diferença de Cobrança/Controle de Pagamentos até clicar em "Recalcular".
+    // lançada e conciliada depois do último cálculo não aparecia até
+    // clicar em "Recalcular".
     buscarPendenciasAntecipacao(clubIds, periodStart, periodEnd || periodStart),
   ])
 
@@ -134,19 +141,19 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
     lancamentosPorClube.set(l.clube_id, (lancamentosPorClube.get(l.clube_id) ?? 0) + (l.natureza === 'credito' ? l.valor : -l.valor))
   }
 
-  const mapa = new Map<string, number>()
+  const valorAcertoPorId = new Map<string, number>()
   for (const a of lista) {
     const extras = a.club_id ? extrasPorClube.get(a.club_id) : undefined
-    mapa.set(a.id, calcularTotalAcerto(a.valor_acerto, {
+    valorAcertoPorId.set(a.id, calcularTotalAcerto(a.valor_acerto, {
       bilhetes: a.bilhetes,
-      pendenciasAntecipacao: a.club_id ? pendenciasPorClube.get(a.club_id) ?? 0 : 0,
+      pendenciasAntecipacao: 0,
       security: extras?.security ?? 0,
       indicacaoValor: a.indicacao_valor,
       lancamentosLiquido: a.club_id ? lancamentosPorClube.get(a.club_id) ?? 0 : 0,
       dividasTotal: extras?.dividasTotal ?? 0,
     }))
   }
-  return mapa
+  return { valorAcertoPorId, pendenciasPorClube }
 }
 
 // Caução lançada no clube dentro do período do Acerto — só pra referência
@@ -181,12 +188,16 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
   const { data: importInfo } = await supabase.from('imports').select('period_start, period_end').eq('id', importId).single()
   const clubIds = [...new Set(lista.map((a) => a.club_id).filter((id): id is string => !!id))]
 
-  const [{ data: pagamentos }, valorCompletoPorId, caucaoPorId, { data: clubesData }] = await Promise.all([
+  const [{ data: pagamentos }, { valorAcertoPorId, pendenciasPorClube }, caucaoPorId, { data: clubesData }] = await Promise.all([
     supabase
       .from('lancamentos')
       .select('id, acerto_id, natureza, valor, data_lancamento, pago_crypto')
       .in('acerto_id', lista.map((a) => a.id))
-      .in('tipo', ['pagamento', 'antecipacao'])
+      // Só Pagamento (Envio de verdade) — Antecipação conta à parte, por
+      // clube+período conciliado (ver pendenciasPorClube acima), não por
+      // acerto_id vinculado (que é opcional pra Antecipação e normalmente
+      // fica em branco — contar só quando preenchido perdia a maioria).
+      .eq('tipo', 'pagamento')
       // Conta só o lado Suporte, não o par da Genia — senão um Pagamento já
       // conciliado (que tem os dois lados com o mesmo acerto_id) dobra o
       // Valor Pago (achado no CHIP COIN: 2 Envios de -677,97 pro mesmo
@@ -199,15 +210,18 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
   ])
   const projetoPorClube = new Map((clubesData ?? []).map((c) => [c.id as string, c.projeto as string | null]))
 
-  const listaCompleta: AcertoRow[] = lista.map((a) => ({ ...a, valor_acerto: valorCompletoPorId.get(a.id) ?? a.valor_acerto }))
+  const listaCompleta: AcertoRow[] = lista.map((a) => ({ ...a, valor_acerto: valorAcertoPorId.get(a.id) ?? a.valor_acerto }))
   const clubIdPorAcertoId = new Map(lista.map((a) => [a.id, a.club_id]))
 
   const resultado = agregarPagamentos(listaCompleta, (pagamentos ?? []) as PagamentoRow[])
   return resultado.map((r) => {
     const clubId = clubIdPorAcertoId.get(r.acerto_id)
+    const pendencia = clubId ? pendenciasPorClube.get(clubId) ?? 0 : 0
     return {
       ...r,
       club_id: clubId ?? null,
+      valor_pago: Math.round((r.valor_pago + pendencia) * 100) / 100,
+      diferenca: Math.round((r.diferenca + pendencia) * 100) / 100,
       caucao: clubId ? caucaoPorId.get(clubId) ?? 0 : 0,
       projeto: clubId ? projetoPorClube.get(clubId) ?? null : null,
     }
@@ -384,12 +398,16 @@ export async function buscarPagamentosPorPeriodo(periodoInicio: string, periodoF
 
   const clubIds = [...new Set(lista.map((a) => a.club_id).filter((id): id is string => !!id))]
 
-  const [{ data: pagamentos }, valorCompletoPorId, caucaoPorId, { data: clubesData }] = await Promise.all([
+  const [{ data: pagamentos }, { valorAcertoPorId, pendenciasPorClube }, caucaoPorId, { data: clubesData }] = await Promise.all([
     supabase
       .from('lancamentos')
       .select('id, acerto_id, natureza, valor, data_lancamento, pago_crypto')
       .in('acerto_id', lista.map((a) => a.id))
-      .in('tipo', ['pagamento', 'antecipacao'])
+      // Só Pagamento (Envio de verdade) — Antecipação conta à parte, por
+      // clube+período conciliado (ver pendenciasPorClube acima), não por
+      // acerto_id vinculado (que é opcional pra Antecipação e normalmente
+      // fica em branco — contar só quando preenchido perdia a maioria).
+      .eq('tipo', 'pagamento')
       // Conta só o lado Suporte, não o par da Genia — senão um Pagamento já
       // conciliado (que tem os dois lados com o mesmo acerto_id) dobra o
       // Valor Pago (achado no CHIP COIN: 2 Envios de -677,97 pro mesmo
@@ -402,15 +420,18 @@ export async function buscarPagamentosPorPeriodo(periodoInicio: string, periodoF
   ])
   const projetoPorClube = new Map((clubesData ?? []).map((c) => [c.id as string, c.projeto as string | null]))
 
-  const listaCompleta: AcertoRow[] = lista.map((a) => ({ ...a, valor_acerto: valorCompletoPorId.get(a.id) ?? a.valor_acerto }))
+  const listaCompleta: AcertoRow[] = lista.map((a) => ({ ...a, valor_acerto: valorAcertoPorId.get(a.id) ?? a.valor_acerto }))
   const clubIdPorAcertoId = new Map(lista.map((a) => [a.id, a.club_id]))
 
   const resultado = agregarPagamentos(listaCompleta, (pagamentos ?? []) as PagamentoRow[])
   return resultado.map((r) => {
     const clubId = clubIdPorAcertoId.get(r.acerto_id)
+    const pendencia = clubId ? pendenciasPorClube.get(clubId) ?? 0 : 0
     return {
       ...r,
       club_id: clubId ?? null,
+      valor_pago: Math.round((r.valor_pago + pendencia) * 100) / 100,
+      diferenca: Math.round((r.diferenca + pendencia) * 100) / 100,
       caucao: clubId ? caucaoPorId.get(clubId) ?? 0 : 0,
       projeto: clubId ? projetoPorClube.get(clubId) ?? null : null,
     }

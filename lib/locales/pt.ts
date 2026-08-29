@@ -238,7 +238,7 @@ export const pt = {
     nenhum_acerto_do_clube: 'Esse clube ainda não tem Acerto calculado.',
     title_diferenca: 'Do ponto de vista do clube: positivo = o clube vai receber; negativo = o clube precisa pagar.',
     title_valor_acerto: 'Valor do Acerto — o que precisa ser quitado.',
-    title_valor_pago: 'Soma dos Envios pagos até agora.',
+    title_valor_pago: 'Soma dos Envios pagos até agora + Antecipação já conciliada do período.',
     col_caucao: 'Caução',
     title_caucao: 'Caução lançada no período — só referência, não entra na Diferença (vive na própria conta dela).',
     title_descontar_com_caucao: 'Descontar a Diferença (total ou parcial) da Caução do clube — quita o Acerto e reduz o Stoploss Atual na hora.',
