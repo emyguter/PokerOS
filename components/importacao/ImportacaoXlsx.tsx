@@ -596,7 +596,7 @@ export default function ImportacaoXlsx() {
   // period_end) — em vez de duplicar, pergunta se quer substituir pelos
   // dados do arquivo novo (mesma importação, sem duplicar Acerto por Acerto
   // no Controle de Pagamentos/Cobrança).
-  const [duplicado, setDuplicado] = useState<{ id: string; fileName: string; createdAt: string; leagueId: string } | null>(null);
+  const [duplicado, setDuplicado] = useState<{ id: string; fileName: string; createdAt: string; leagueId: string | null } | null>(null);
   const [substituindo, setSubstituindo] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -733,41 +733,37 @@ export default function ImportacaoXlsx() {
         const { data: existing } = await supabase.from("leagues").select("id").eq("clube_ext_id", parsed.liga_id_ext).maybeSingle();
         leagueId = existing?.id ?? null;
       }
-      // Nenhum clube_ext_id de Liga bateu — comum num arquivo com "Geral da
-      // liga" exportado por um clube que não é o "clube-âncora" configurado
-      // na Liga (cada Liga só tem UM clube_ext_id fixo, mas qualquer clube
-      // dela pode ser quem exporta o arquivo). Cai pra achar a Liga através
-      // de qualquer clube já cadastrado que apareça nas linhas do próprio
-      // arquivo — mais confiável que depender de sempre ser o mesmo
-      // exportador (achado no caso Passa Amanhã PC/BrotherhOOd_).
-      if (!leagueId && parsed.rows.length > 0) {
-        const extIds = [...new Set(parsed.rows.map((r) => r.club_external_id).filter(Boolean))];
-        if (extIds.length > 0) {
-          const { data: clubesConhecidos } = await supabase
-            .from("clubs")
-            .select("league_id")
-            .in("external_id", extIds)
-            .not("league_id", "is", null)
-            .limit(1);
-          leagueId = (clubesConhecidos?.[0]?.league_id as string | null | undefined) ?? null;
-        }
-      }
 
-      // Já existe uma importação dessa mesma Liga pra essa mesma semana
-      // (mesmo period_start/period_end)? Pergunta antes de duplicar — se
-      // confirmar, substitui os dados (mesma importação, mesmo id) em vez
-      // de criar uma segunda igual: sem isso, cada clube contava 2x no
-      // Controle de Pagamentos/Cobrança e no Resumo de Acertos.
-      if (leagueId && parsed.period_start && parsed.period_end) {
-        const { data: existenteMesmaSemana } = await supabase
-          .from("imports")
-          .select("id, file_name, created_at")
-          .eq("league_id", leagueId)
-          .eq("period_start", parsed.period_start)
-          .eq("period_end", parsed.period_end)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+      // Já existe uma importação pra essa mesma semana (mesmo period_start/
+      // period_end)? Pergunta antes de duplicar — se confirmar, substitui os
+      // dados (mesma importação, mesmo id) em vez de criar uma segunda
+      // igual: sem isso, cada clube contava 2x no Controle de Pagamentos/
+      // Cobrança e no Resumo de Acertos. Prioriza achar pela Liga quando
+      // ela foi identificada; sem isso (comum quando o clube_ext_id do
+      // exportador não é o clube-âncora configurado na Liga — achado no
+      // caso Passa Amanhã PC/BrotherhOOd_), cai pra achar pelo nome do
+      // arquivo + período, que pega o caso mais comum de verdade
+      // (reimportar o MESMO arquivo) sem arriscar casar com a Liga errada.
+      if (parsed.period_start && parsed.period_end) {
+        const { data: existenteMesmaSemana } = leagueId
+          ? await supabase
+              .from("imports")
+              .select("id, file_name, created_at")
+              .eq("league_id", leagueId)
+              .eq("period_start", parsed.period_start)
+              .eq("period_end", parsed.period_end)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle()
+          : await supabase
+              .from("imports")
+              .select("id, file_name, created_at")
+              .eq("file_name", file.name)
+              .eq("period_start", parsed.period_start)
+              .eq("period_end", parsed.period_end)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
         if (existenteMesmaSemana) {
           setDuplicado({ id: existenteMesmaSemana.id, fileName: existenteMesmaSemana.file_name, createdAt: existenteMesmaSemana.created_at, leagueId });
           return;
