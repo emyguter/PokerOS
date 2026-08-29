@@ -293,13 +293,18 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
     const clubeNome = clubeMatch ? clubeMatch[1].replace(/\n/g, " ").trim() : fileName.replace(".xlsx", "");
     const clubeIdExt = clubeMatch ? clubeMatch[2] : "";
 
-    if (!ligaSheetName) {
-      // É um arquivo só de clube (SUL_HG style) — gera a row agregada também
-      liga_nome = clubeNome;
-      liga_id_ext = clubeIdExt;
+    // O clube que exporta o arquivo identifica a Liga (leagues.clube_ext_id)
+    // — vale tanto pro arquivo de clube isolado (SUL_HG style) quanto
+    // quando o arquivo também tem "Geral da liga" junto (o próprio clube
+    // exportando, com a Liga toda de referência). Sem isso nesse segundo
+    // caso, o import nunca reconhecia a Liga nem detectava reimportação
+    // duplicada da mesma semana — reimportar criava uma importação NOVA em
+    // vez de perguntar se queria substituir a existente (achado no caso
+    // Passa Amanhã PC/BrotherhOOd_).
+    liga_nome = clubeNome;
+    liga_id_ext = clubeIdExt;
 
-      if (!clubeMatch) warnings.push(t("importacao_xlsx.warn_id_clube_nao_extraido", { clubeHeader }));
-    }
+    if (!clubeMatch) warnings.push(t("importacao_xlsx.warn_id_clube_nao_extraido", { clubeHeader }));
 
     // Lê jogadores (header na linha 1, sub-header na linha 2, dados a partir da linha 3)
     jogadores = parseJogadoresSheet(ws, clubeNome, clubeIdExt, 1);
