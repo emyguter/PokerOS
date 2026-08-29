@@ -614,7 +614,7 @@ export const es: typeof pt = {
     nome_liga_arquivo_label: 'Nombre de la Liga (en el archivo)', nome_liga_arquivo_placeholder: 'Como aparece en la planilla',
     taxa_liga_titulo: 'Tasa de la Liga', taxa_liga_pct_label: 'Tasa de la Liga (%)',
     taxa_liga_placeholder_regra: 'Campo siguiendo regla vinculada', taxa_liga_placeholder_livre: 'Ej: 2',
-    taxa_liga_desc: 'Incide sobre el Rake Total + SpinUp Rake del club (todo el rake del período, los 3 tipos de juego sumados) — se descuenta del Valor de la Liquidación, encima de cualquier tasa que el club ya tenga. Este % fijo manda siempre que esté completado; si se deja en blanco, decide la Regla de Escalón vinculada (abajo), si tiene una.',
+    taxa_liga_desc: 'Incide sobre el Rake Total + SpinUp Rake del club (todo el rake del período, los 3 tipos de juego sumados) — se descuenta del Valor de la Liquidación, encima de cualquier tasa que el club ya tenga. Este % fijo manda siempre que esté completado; si se deja en blanco, decide la Regla de Escalón vinculada a la Liga (abajo), si tiene una; y si la Liga no tiene nada configurado, cae a la Regla de Escalón vinculada al Club en ese mismo campo, si tiene una.',
   },
   regras_aplicadas: {
     entidade_plataforma: 'App', entidade_mega_liga: 'Mega Liga', entidade_superliga: 'Superliga',
