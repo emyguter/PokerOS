@@ -733,6 +733,25 @@ export default function ImportacaoXlsx() {
         const { data: existing } = await supabase.from("leagues").select("id").eq("clube_ext_id", parsed.liga_id_ext).maybeSingle();
         leagueId = existing?.id ?? null;
       }
+      // Nenhum clube_ext_id de Liga bateu — comum num arquivo com "Geral da
+      // liga" exportado por um clube que não é o "clube-âncora" configurado
+      // na Liga (cada Liga só tem UM clube_ext_id fixo, mas qualquer clube
+      // dela pode ser quem exporta o arquivo). Cai pra achar a Liga através
+      // de qualquer clube já cadastrado que apareça nas linhas do próprio
+      // arquivo — mais confiável que depender de sempre ser o mesmo
+      // exportador (achado no caso Passa Amanhã PC/BrotherhOOd_).
+      if (!leagueId && parsed.rows.length > 0) {
+        const extIds = [...new Set(parsed.rows.map((r) => r.club_external_id).filter(Boolean))];
+        if (extIds.length > 0) {
+          const { data: clubesConhecidos } = await supabase
+            .from("clubs")
+            .select("league_id")
+            .in("external_id", extIds)
+            .not("league_id", "is", null)
+            .limit(1);
+          leagueId = (clubesConhecidos?.[0]?.league_id as string | null | undefined) ?? null;
+        }
+      }
 
       // Já existe uma importação dessa mesma Liga pra essa mesma semana
       // (mesmo period_start/period_end)? Pergunta antes de duplicar — se
