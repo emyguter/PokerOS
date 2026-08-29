@@ -308,12 +308,14 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
       warnings.push(t("importacao_xlsx.warn_nenhum_jogador_aba_clube"));
     }
 
-    const totalBilhetesJogadores = jogadores.reduce((s, j) => s + j.bilhetes, 0);
-
-    // Se não tem Geral da liga, gera row de clube a partir dos jogadores
+    // Se não tem Geral da liga, gera row de clube a partir dos jogadores —
+    // Geral da liga, quando existe, é sempre a fonte de verdade (pra
+    // Bilhetes e pro resto) pra TODOS os clubes ali, incluindo o clube que
+    // exportou o arquivo; a aba de jogadores não sobrescreve nada dela.
     if (!ligaSheetName && jogadores.length > 0) {
       const totalResult = jogadores.reduce((s, j) => s + j.player_result, 0);
       const totalRake = jogadores.reduce((s, j) => s + j.rake_clube, 0);
+      const totalBilhetes = jogadores.reduce((s, j) => s + j.bilhetes, 0);
       rows.push({
         club_name: clubeNome,
         club_external_id: clubeIdExt,
@@ -327,22 +329,13 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
         rake_cash: 0,
         rake_spinup: 0,
         fee_total: 0,
-        bilhetes: totalBilhetesJogadores,
+        bilhetes: totalBilhetes,
         agente_nome: "",
         agente_id_ext: "",
         superagente_nome: "",
         superagente_id_ext: "",
         raw_data: { source: "clube_direto", file: fileName },
       });
-    } else if (ligaSheetName && jogadores.length > 0) {
-      // Arquivo tem as duas abas juntas — é o export do próprio clube, que
-      // inclui a "Geral da liga" (todos os clubes) só de referência. Bilhetes
-      // por clube na "Geral da liga" vem zerado nesse caso mesmo quando a aba
-      // de jogadores tem ticket de verdade (achado no caso BrotherhOOd_,
-      // confirmado pelo Cássio) — a soma por jogador é a fonte confiável pra
-      // esse campo, então substitui o que veio da linha desse clube ali.
-      const rowDoClube = rows.find((r) => r.club_external_id === clubeIdExt);
-      if (rowDoClube) rowDoClube.bilhetes = totalBilhetesJogadores;
     }
   }
 
