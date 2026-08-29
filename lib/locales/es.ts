@@ -240,7 +240,7 @@ export const es: typeof pt = {
     nenhum_acerto_do_clube: 'Este club todavía no tiene una Liquidación calculada.',
     title_diferenca: 'Desde el punto de vista del club: positivo = el club va a recibir; negativo = el club necesita pagar.',
     title_valor_acerto: 'Valor de la Liquidación — lo que hay que saldar.',
-    title_valor_pago: 'Suma de los Envíos pagados hasta ahora.',
+    title_valor_pago: 'Suma de los Envíos pagados hasta ahora + Anticipo ya conciliado del período.',
     col_caucao: 'Depósito',
     title_caucao: 'Depósito registrado en el período — solo referencia, no entra en la Diferencia (vive en su propia cuenta).',
     title_descontar_com_caucao: 'Descontar la Diferencia (total o parcial) del Depósito del club — salda la Liquidación y reduce el Stoploss Actual al instante.',
