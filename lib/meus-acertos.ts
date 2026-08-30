@@ -5,8 +5,6 @@ import type { AcertoCard } from '@/components/acertos/ClubAcertoCard'
 
 export interface LinhaMeuAcerto {
   acerto: AcertoCard
-  importId: string
-  ligaId: string | null
   ligaNome: string
   valorFinal: number
   periodStart: string
@@ -16,7 +14,7 @@ export interface LinhaMeuAcerto {
 interface AcertoRow extends AcertoCard {
   import_id: string
   imports: { period_start: string | null; period_end: string } | null
-  clubs: { league_id: string | null; leagues: { name: string } | null } | null
+  clubs: { leagues: { name: string } | null } | null
 }
 
 // Mesma fonte de verdade do Valor do Acerto (calcularTotalAcerto, ver
@@ -33,7 +31,7 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
 
   let query = supabase
     .from('acertos')
-    .select('id, club_id, club_name, club_external_id, settlement_type, valor_acerto, rake_mtt, rake_cash, rake_total, player_result, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, taxa_cash_pct_aplicada, rebate_calculado, bilhetes, indicacao_valor, import_id, imports(period_start, period_end), clubs(league_id, leagues(name))')
+    .select('id, club_id, club_name, club_external_id, settlement_type, valor_acerto, rake_mtt, rake_cash, rake_total, player_result, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, taxa_cash_pct_aplicada, rebate_calculado, bilhetes, indicacao_valor, import_id, imports(period_start, period_end), clubs(leagues(name))')
     .in('import_id', importIds)
   if (clubeIdsVisiveis) query = query.in('club_id', clubeIdsVisiveis)
   const { data, error } = await query
@@ -95,8 +93,6 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
       })
       return {
         acerto: a,
-        importId: a.import_id,
-        ligaId: a.clubs?.league_id ?? null,
         ligaNome: a.clubs?.leagues?.name ?? '—',
         valorFinal,
         periodStart: a.imports?.period_start ?? periodoFim,
