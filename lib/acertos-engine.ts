@@ -439,14 +439,27 @@ async function buscarHistoricoWtr(clubExternalIds: string[], importIdAtual: stri
 
   const { data } = await supabase
     .from("acertos")
-    .select("club_external_id, player_result_cash, rake_cash, imports(period_start)")
+    .select("club_external_id, player_result_cash, rake_cash, created_at, imports(period_start)")
     .in("club_external_id", clubExternalIds)
     .neq("import_id", importIdAtual)
-    .order("imports(period_start)", { ascending: false });
+    .order("imports(period_start)", { ascending: false })
+    .order("created_at", { ascending: false });
 
-  for (const row of (data ?? []) as unknown as { club_external_id: string; player_result_cash: number; rake_cash: number }[]) {
+  // Um clube pode ter mais de um Acerto pra MESMA semana (import duplicado,
+  // reimportação que não substituiu a existente) — sem isso, o WtR 4
+  // Semanas contava a mesma semana várias vezes em vez de 4 semanas de
+  // verdade (achado no caso Liga H&H). Mantém só o Acerto mais recente
+  // (created_at) de cada semana, uma vez por clube.
+  const semanasVistasPorClube = new Map<string, Set<string>>();
+  for (const row of (data ?? []) as unknown as { club_external_id: string; player_result_cash: number; rake_cash: number; imports: { period_start: string | null } | null }[]) {
+    const periodo = row.imports?.period_start ?? "";
+    const semanasVistas = semanasVistasPorClube.get(row.club_external_id) ?? new Set<string>();
+    if (semanasVistas.has(periodo)) continue;
+    semanasVistas.add(periodo);
+    semanasVistasPorClube.set(row.club_external_id, semanasVistas);
+
     const lista = mapa.get(row.club_external_id) ?? [];
-    if (lista.length < 3) { lista.push(row); mapa.set(row.club_external_id, lista); }
+    if (lista.length < 3) { lista.push({ player_result_cash: row.player_result_cash, rake_cash: row.rake_cash }); mapa.set(row.club_external_id, lista); }
   }
   return mapa;
 }
