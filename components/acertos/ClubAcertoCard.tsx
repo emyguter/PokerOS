@@ -185,13 +185,27 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
     // plataforma tem o rake dela própria.
     supabase
       .from('acertos')
-      .select('player_result_cash, rake_cash, imports(period_start)')
+      .select('player_result_cash, rake_cash, created_at, imports(period_start)')
       .eq('club_external_id', acerto.club_external_id)
       .order('imports(period_start)', { ascending: false })
-      .limit(4)
+      .order('created_at', { ascending: false })
       .then(({ data }) => {
-        const rows = (data ?? []) as unknown as { player_result_cash: number; rake_cash: number }[]
-        const validos = rows.filter((r) => r.rake_cash)
+        const rows = (data ?? []) as unknown as { player_result_cash: number; rake_cash: number; imports: { period_start: string | null } | null }[]
+        // Um clube pode ter mais de um Acerto pra MESMA semana (import
+        // duplicado, reimportação que não substituiu a existente) — sem
+        // isso, contava a mesma semana várias vezes em vez de 4 semanas de
+        // verdade (achado no caso Liga H&H). Mantém só o mais recente
+        // (created_at) de cada semana, até 4 semanas distintas.
+        const semanasVistas = new Set<string>()
+        const deduped: { player_result_cash: number; rake_cash: number }[] = []
+        for (const r of rows) {
+          const periodo = r.imports?.period_start ?? ''
+          if (semanasVistas.has(periodo)) continue
+          semanasVistas.add(periodo)
+          deduped.push(r)
+          if (deduped.length === 4) break
+        }
+        const validos = deduped.filter((r) => r.rake_cash)
         if (validos.length < 4 && club?.wtr4_semanas_manual != null) { setWtr(club.wtr4_semanas_manual); return }
         if (validos.length === 0) { setWtr(null); return }
         // Razão das somas (mesma fórmula de lib/acertos-engine.ts): soma
