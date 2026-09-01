@@ -568,8 +568,15 @@ export async function processarAcertos(importId: string): Promise<{
       .eq("import_id", importId);
 
     if (rowsError) throw new Error(rowsError.message);
+    // Arquivo só-Geral (Superagente/Agente/Jogador, sem Liga — ver
+    // parsePPPoker) não gera linha nenhuma aqui de propósito (não é Acerto
+    // de clube, só alimenta o rateio de Agentes) — antes isso caía nesse
+    // guard e travava com "Nenhuma linha encontrada", impedindo até
+    // processarAcertosAgentes de rodar (AcertosView só chama ele quando
+    // processarAcertos retorna success). Sucesso com 0 clubes é o resultado
+    // certo pra esse tipo de import, não um erro.
     if (!rows || rows.length === 0)
-      return { success: false, count: 0, error: "Nenhuma linha encontrada.", clubesNovos: [] };
+      return { success: true, count: 0, clubesNovos: [] };
 
     const { data: clubs, error: clubsError } = await supabase
       .from("clubs")
