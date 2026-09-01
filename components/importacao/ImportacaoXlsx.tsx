@@ -222,39 +222,116 @@ function detectPlataforma(wb: XLSX.WorkBook): "PPPoker" | "GGPoker" | "unknown" 
 
 // ─── Parser de jogadores (Geral de clube / Geral) ─────────────────────────────
 
+// Acha o índice da próxima célula não vazia do cabeçalho a partir de
+// `from` (exclusive) — usado pra descobrir onde um bloco mesclado (ex:
+// "Ganhos do jogador", que cobre várias sub-colunas de tipo de jogo) termina,
+// sem precisar assumir quantas sub-colunas ele tem.
+function proximoCabecalho(header: unknown[], from: number): number {
+  for (let i = from + 1; i < header.length; i++) {
+    if (String(header[i] ?? "").trim() !== "") return i;
+  }
+  return header.length;
+}
+
+function somaIntervalo(row: unknown[], inicio: number, fim: number): number {
+  let total = 0;
+  for (let i = inicio; i < fim; i++) total += safeNum(row[i]);
+  return total;
+}
+
+// Header/índices de coluna variam entre exportações PPPoker — o relatório
+// Superagente/Agente/Jogador (sem "Geral da liga") não tem a coluna
+// "Classificação PPSR" que o "Geral de clube" normal tem, empurrando todo o
+// resto (inclusive os blocos de Ganhos do jogador/clube) uma coluna pra trás
+// (achado comparando célula a célula dois arquivos reais). Índices fixos
+// quebravam num dos dois formatos sempre — acha as colunas pelo texto do
+// cabeçalho em vez de supor posição fixa.
+//
+// Quando o arquivo tem "Geral da liga" (Liga com vários clubes), essa aba
+// não é um clube só: é uma seção por clube, cada uma com seu próprio
+// cabeçalho "NomeDoClube (ID)\nperíodo" + linha "Total" fechando — achado
+// com um arquivo real de 24 clubes (22 seções, cada clube com seu
+// cabeçalho repetido). Ler tudo com um clube_id_ext fixo (o do primeiro)
+// atribuía TODO jogador de TODOS os clubes da Liga ao clube errado — só não
+// aparecia porque até agora nada lia clube_id de import_jogadores de
+// verdade. Agora detecta cada início de seção e reatribui o clube certo.
 function parseJogadoresSheet(
   ws: XLSX.WorkSheet,
-  clubeNome: string,
-  clubeIdExt: string,
-  headerRow: number // 0-based
+  clubeNomeFallback: string,
+  clubeIdExtFallback: string
 ): JogadorRow[] {
   const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
   const jogadores: JogadorRow[] = [];
 
-  for (let i = headerRow + 2; i < raw.length; i++) {
-    const row = raw[i] as unknown[];
-    const jogadorId = safeStr(row[1]);
-    if (!jogadorId || jogadorId === "Total") continue;
+  const achar = (h: unknown[], texto: string) => h.findIndex((c) => String(c ?? "").trim() === texto);
 
-    jogadores.push({
-      jogador_id_ext: jogadorId,
-      jogador_apelido: safeStr(row[3]),
-      jogador_memo: safeStr(row[4]),
-      agente_nome: safeStr(row[5]),
-      agente_id_ext: safeStr(row[6]),
-      superagente_nome: safeStr(row[7]),
-      superagente_id_ext: safeStr(row[8]),
-      player_result: safeNum(row[15]),
-      rake_clube: safeNum(row[28]),
-      // Valor do ticket ganho (coluna 25) − Buy-in de ticket (coluna 26)
-      // NESSA aba — confirmado célula a célula num arquivo real (Passa
-      // Amanhã PC). Índices diferentes dos da aba "Geral da liga" (18/19
-      // lá): essa aba tem 7 colunas de ID/agente do jogador a mais antes do
-      // mesmo bloco de Ganhos, empurrando tudo pra frente.
-      bilhetes: safeNum(row[25]) - safeNum(row[26]),
-      clube_nome: clubeNome,
-      clube_id_ext: clubeIdExt,
-    });
+  // Uma linha de cabeçalho por seção/clube (arquivo de clube único ou
+  // Superagente só tem uma).
+  const headerRows: number[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    if (achar(raw[i] as unknown[], "ID do jogador") !== -1) headerRows.push(i);
+  }
+  if (headerRows.length === 0) return jogadores;
+
+  // Layout de coluna (mesmo em todas as seções da mesma planilha) vem da
+  // primeira seção.
+  const header = raw[headerRows[0]] as unknown[];
+  const idxId = achar(header, "ID do jogador");
+  const idxApelido = achar(header, "Apelido");
+  const idxMemo = achar(header, "Nome de memorando");
+  const idxAgenteNome = achar(header, "Agente");
+  const idxAgenteId = achar(header, "ID do agente");
+  const idxSuperNome = achar(header, "Superagente");
+  const idxSuperId = achar(header, "ID do superagente");
+  const idxGanhosJogador = achar(header, "Ganhos do jogador");
+  const idxGanhosClube = achar(header, "Ganhos do clube");
+  // Sub-colunas de tipo de jogo (Ring Games, MTT/SitNGo, SPINUP...) somadas
+  // porque a coluna "Geral" (total) do bloco vem sempre vazia nesse relatório
+  // do PPPoker — mesma situação já tratada na aba "Geral da liga" acima.
+  const fimGanhosJogador = proximoCabecalho(header, idxGanhosJogador);
+  const fimGanhosClube = proximoCabecalho(header, idxGanhosClube);
+  // "Valor do ticket ganho" é sempre a primeira coluna logo depois do bloco
+  // de Ganhos do jogador, com "Buy-in de ticket" na seguinte.
+  const idxTicketGanho = fimGanhosJogador;
+  const idxTicketBuyin = fimGanhosJogador + 1;
+
+  for (let s = 0; s < headerRows.length; s++) {
+    const headerRowIdx = headerRows[s];
+    // Cabeçalho de duas linhas (categoria + sub-rótulo) — dados começam 2
+    // linhas depois da linha de categoria; termina onde começa a próxima
+    // seção (ou no fim da planilha, na última).
+    const dataStart = headerRowIdx + 2;
+    const dataEnd = s + 1 < headerRows.length ? headerRows[s + 1] : raw.length;
+
+    // Cada seção tem seu próprio "NomeDoClube (ID)" na primeira célula do
+    // cabeçalho — mesmo padrão usado lá em cima pra achar nome/ID do clube
+    // que exportou o arquivo. Sem bater esse padrão (caso Superagente, que
+    // não tem), usa o clube resolvido fora (Transações/nome do arquivo).
+    const cabecalho = String((raw[headerRowIdx] as unknown[])?.[0] ?? "").replace(/\n/g, " ");
+    const match = cabecalho.match(/^(.*?)\s*\((\d+)\)/);
+    const clubeNome = match ? match[1].trim() : clubeNomeFallback;
+    const clubeIdExt = match ? match[2] : clubeIdExtFallback;
+
+    for (let i = dataStart; i < dataEnd; i++) {
+      const row = raw[i] as unknown[];
+      const jogadorId = safeStr(row[idxId]);
+      if (!jogadorId || jogadorId === "Total") continue;
+
+      jogadores.push({
+        jogador_id_ext: jogadorId,
+        jogador_apelido: safeStr(row[idxApelido]),
+        jogador_memo: safeStr(row[idxMemo]),
+        agente_nome: safeStr(row[idxAgenteNome]),
+        agente_id_ext: safeStr(row[idxAgenteId]),
+        superagente_nome: safeStr(row[idxSuperNome]),
+        superagente_id_ext: safeStr(row[idxSuperId]),
+        player_result: somaIntervalo(row, idxGanhosJogador, fimGanhosJogador),
+        rake_clube: somaIntervalo(row, idxGanhosClube, fimGanhosClube),
+        bilhetes: safeNum(row[idxTicketGanho]) - safeNum(row[idxTicketBuyin]),
+        clube_nome: clubeNome,
+        clube_id_ext: clubeIdExt,
+      });
+    }
   }
 
   return jogadores;
@@ -373,8 +450,8 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
 
     if (!clubeIdExt) warnings.push(t("importacao_xlsx.warn_id_clube_nao_extraido", { clubeHeader }));
 
-    // Lê jogadores (header na linha 1, sub-header na linha 2, dados a partir da linha 3)
-    jogadores = parseJogadoresSheet(ws, clubeNome, clubeIdExt, 1);
+    // Lê jogadores (acha a linha de cabeçalho sozinho — ver parseJogadoresSheet)
+    jogadores = parseJogadoresSheet(ws, clubeNome, clubeIdExt);
 
     if (jogadores.length === 0) {
       warnings.push(t("importacao_xlsx.warn_nenhum_jogador_aba_clube"));
