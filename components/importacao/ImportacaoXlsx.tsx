@@ -7,6 +7,9 @@ import { supabase } from "@/lib/supabase";
 import { errMsg } from "@/lib/errors";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { MapeamentoColunasModal } from "./MapeamentoColunasModal";
+import { ClubModal } from "@/components/cadastro/ClubModal";
+import { getLeagues, getPlataformas as getPlataformasCadastro, createClub } from "@/lib/cadastro-api";
+import type { ClubForm, League, Plataforma as PlataformaCadastro } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 
 type T = (path: string, vars?: Record<string, string | number>) => string;
@@ -661,6 +664,20 @@ export default function ImportacaoXlsx() {
   const [duplicado, setDuplicado] = useState<{ id: string; fileName: string; createdAt: string; leagueId: string | null } | null>(null);
   const [substituindo, setSubstituindo] = useState(false);
 
+  // Arquivo só-Geral (sem Liga, ver parsePPPoker) com o ID do clube achado
+  // (Transações/nome do arquivo) mas que ainda não existe em Cadastro >
+  // Clubes — abre o popup de Identificação já preenchido em vez de deixar
+  // criar sozinho sem ninguém saber (pedido do Cássio). "clubCheckDone"
+  // evita perguntar de novo se a pessoa fechar o popup sem salvar e clicar
+  // Confirmar de novo.
+  const [clubModalOpen, setClubModalOpen] = useState(false);
+  const [clubPrefill, setClubPrefill] = useState<{ name: string; external_id: string } | null>(null);
+  const [clubCheckDone, setClubCheckDone] = useState(false);
+  const [savingClub, setSavingClub] = useState(false);
+  const [clubModalError, setClubModalError] = useState<string | null>(null);
+  const [cadastroLeagues, setCadastroLeagues] = useState<League[]>([]);
+  const [cadastroPlataformas, setCadastroPlataformas] = useState<PlataformaCadastro[]>([]);
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadPlataformas(); loadHistory(); }, []);
@@ -722,6 +739,7 @@ export default function ImportacaoXlsx() {
     }
     setFile(f); setStep("parsing"); setImportError(null); setParsed(null);
     setResolvedPlatformId(null); setPlatformAction(null); setNewPlatformName(""); setSelectedExistingPlatform(""); setJogadorStats(null);
+    setClubCheckDone(false); setClubModalOpen(false); setClubPrefill(null);
     try {
       const result = await parseXlsx(f, t);
       setParsed(result);
@@ -788,6 +806,42 @@ export default function ImportacaoXlsx() {
   }
 
   async function handleConfirmImport() {
+    if (!file || !parsed || !resolvedPlatformId) return;
+
+    // Arquivo só-Geral (sem Liga): parsed.liga_id_ext aqui é o ID do clube
+    // detectado (ver parsePPPoker) — se ainda não existe cadastrado, oferece
+    // o popup de Identificação antes de seguir. Só pergunta uma vez por
+    // arquivo (clubCheckDone).
+    if (!clubCheckDone && parsed.rows.length === 0 && parsed.jogadores.length > 0 && parsed.liga_id_ext) {
+      const { data: clubeExistente } = await supabase.from("clubs").select("id").eq("external_id", parsed.liga_id_ext).maybeSingle();
+      setClubCheckDone(true);
+      if (!clubeExistente) {
+        const [leagues, plats] = await Promise.all([getLeagues(), getPlataformasCadastro()]);
+        setCadastroLeagues(leagues);
+        setCadastroPlataformas(plats);
+        setClubPrefill({ name: parsed.liga_nome || file.name.replace(".xlsx", ""), external_id: parsed.liga_id_ext });
+        setClubModalOpen(true);
+        return;
+      }
+    }
+
+    await confirmarImportacao();
+  }
+
+  async function handleClubModalSave(form: ClubForm) {
+    setSavingClub(true); setClubModalError(null);
+    try {
+      await createClub(form);
+      setClubModalOpen(false);
+      await confirmarImportacao();
+    } catch (e) {
+      setClubModalError(errMsg(e));
+    } finally {
+      setSavingClub(false);
+    }
+  }
+
+  async function confirmarImportacao() {
     if (!file || !parsed || !resolvedPlatformId) return;
     try {
       let leagueId: string | null = null;
@@ -917,6 +971,7 @@ export default function ImportacaoXlsx() {
   function reset() {
     setStep("idle"); setFile(null); setParsed(null); setImportError(null); setImportingId(null);
     setResolvedPlatformId(null); setPlatformAction(null); setNewPlatformName(""); setSelectedExistingPlatform(""); setJogadorStats(null);
+    setClubCheckDone(false); setClubModalOpen(false); setClubPrefill(null);
   }
 
   const onDrop = useCallback((e: React.DragEvent) => {
@@ -1147,6 +1202,18 @@ export default function ImportacaoXlsx() {
         plataformaNome={resolvedPlatformNome}
         onCancel={reset}
         onSave={handleMapeamentoSalvo}
+      />
+
+      <ClubModal
+        open={clubModalOpen}
+        editing={null}
+        leagues={cadastroLeagues}
+        plataformas={cadastroPlataformas}
+        prefill={clubPrefill ?? undefined}
+        onClose={() => setClubModalOpen(false)}
+        onSave={handleClubModalSave}
+        saving={savingClub}
+        error={clubModalError}
       />
 
       <ConfirmModal
