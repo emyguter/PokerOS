@@ -470,10 +470,19 @@ function parseGGPoker(wb: XLSX.WorkBook, t: T): Omit<ParsedFile, "plataforma"> {
     const clubName = String(row[idxClubName] ?? "").trim();
     if (!clubId || clubName === "TOTAL" || clubName === "") continue;
 
+    // "Total Fee" é o Rake do clube — a linha de categoria bem acima da
+    // coluna, no arquivo real, tem literalmente escrito "Rake" (mesma linha
+    // que tem "ganhos" em cima de "P&L") — confirmado com o Cássio olhando
+    // o arquivo original. Sem isso, rake_total ficava sempre 0 e o motor de
+    // Acerto (calcularAcerto) nunca calculava Taxa nenhuma — Valor do
+    // Acerto saía igual a Ganhos, sem descontar nada (achado no caso ŌRION,
+    // primeiro arquivo Union importado até o fim). Só dá pra separar
+    // Cash/MTT/SpinUp quando o relatório traz essa quebra — "Union
+    // Overview" não traz, só o total.
     rows.push({
       club_name: clubName,
       club_external_id: clubId,
-      rake_total: 0,
+      rake_total: safeNum(row[idxFee]),
       rake_mtt: 0,
       rake_cash: 0,
       rake_spinup: 0,
