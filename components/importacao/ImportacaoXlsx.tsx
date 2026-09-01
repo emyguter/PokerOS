@@ -393,7 +393,22 @@ function parseGGPoker(wb: XLSX.WorkBook, t: T): Omit<ParsedFile, "plataforma"> {
     }
   }
 
-  const headers = (raw[headerRow] as unknown[]).map(h => String(h ?? "").trim());
+  // Formato "Union" do GGPoker às vezes vem com cabeçalho em DUAS linhas —
+  // uma linha de categoria (ex: "Club" cobrindo ID+Club Name, "Rake"
+  // cobrindo Total Fee+Insurance+...) e a linha logo abaixo com os rótulos
+  // de verdade (ID, Club Name, Nickname). A busca acima acha a linha certa
+  // pela categoria, mas "ID" só existe na sub-linha — sem isso a
+  // importação travava com "coluna ID não encontrada" (achado num arquivo
+  // real da união ŌRION). Só ativa esse merge quando a linha de baixo tem
+  // cara de sub-cabeçalho (ID/Club Name/Nickname) — arquivo com cabeçalho
+  // de uma linha só (formato antigo) nunca bate nisso, cai no fallback de
+  // sempre.
+  const categoriaRow = (raw[headerRow] as unknown[]).map(h => String(h ?? "").trim());
+  const subRow = (raw[headerRow + 1] as unknown[] | undefined)?.map(h => String(h ?? "").trim()) ?? [];
+  const temSubHeader = subRow.some(h => h === "ID" || h === "Club Name" || h === "Nickname");
+  const headers = temSubHeader ? categoriaRow.map((h, idx) => subRow[idx] || h) : categoriaRow;
+  const dataStartRow = temSubHeader ? headerRow + 2 : headerRow + 1;
+
   const idxClubId = headers.findIndex(h => h === "ID" || h === "Club ID");
   const idxClubName = headers.findIndex(h => h.toLowerCase().includes("club name") || h === "Club");
   const idxFee = headers.findIndex(h => h === "Total Fee");
@@ -402,7 +417,7 @@ function parseGGPoker(wb: XLSX.WorkBook, t: T): Omit<ParsedFile, "plataforma"> {
   if (idxClubId === -1) throw { titulo: t("importacao_xlsx.err_coluna_nao_encontrada_titulo"), detalhe: t("importacao_xlsx.err_coluna_id_nao_encontrada"), acao: t("importacao_xlsx.err_verifique_exportado_corretamente") };
   if (idxFee === -1) throw { titulo: t("importacao_xlsx.err_coluna_nao_encontrada_titulo"), detalhe: t("importacao_xlsx.err_coluna_total_fee_nao_encontrada"), acao: t("importacao_xlsx.err_verifique_exportado_corretamente") };
 
-  for (let i = headerRow + 1; i < raw.length; i++) {
+  for (let i = dataStartRow; i < raw.length; i++) {
     const row = raw[i] as unknown[];
     const clubId = String(row[idxClubId] ?? "").trim();
     const clubName = String(row[idxClubName] ?? "").trim();
