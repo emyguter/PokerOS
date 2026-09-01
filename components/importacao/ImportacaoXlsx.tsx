@@ -30,6 +30,14 @@ function harmonizationLabel(status: string, t: T): string {
 export interface MapeamentoColunas {
   sheet: string;
   headerRow: number; // 1-based
+  // Formato com cabeçalho em duas linhas (categoria + rótulo, ex: "Club"
+  // cobrindo ID+Club Name) — comum no relatório "Union" do GGPoker. Quando
+  // true, headerRow é a linha de categoria e a linha de baixo (headerRow+1)
+  // fornece o rótulo específico de cada coluna quando ela tiver um; dados
+  // começam 2 linhas depois de headerRow em vez de 1. Campo opcional pra não
+  // quebrar mapeamentos já salvos antes dessa mudança (undefined = cabeçalho
+  // de uma linha só, comportamento de sempre).
+  duasLinhasCabecalho?: boolean;
   campos: {
     club_name: string;
     club_external_id: string;
@@ -143,6 +151,26 @@ function parsePeriodFromGG(raw: unknown[][]): { start: string; end: string } {
 function safeNum(v: unknown): number {
   const n = parseFloat(String(v ?? "0").replace(",", "."));
   return isNaN(n) ? 0 : n;
+}
+
+// Junta duas linhas de cabeçalho (uma de categoria + a de baixo com o
+// rótulo específico de cada coluna, ex: "Club" cobrindo ID+Club Name) num
+// só array de nomes de coluna — célula da linha de baixo tem prioridade
+// quando preenchida, senão mantém a categoria. Usado pelo mapeamento
+// genérico (`parseGenerico`) e pelo popup de configuração
+// (`MapeamentoColunasModal`) pra reconhecer plataformas novas que também
+// vêm com esse layout de cabeçalho duplo (mesma ideia do fix aplicado em
+// `parseGGPoker` pro formato "Union", só que sem depender de palavras
+// específicas em inglês).
+export function mesclarCabecalhoDuasLinhas(categoriaRow: unknown[], subRow: unknown[]): string[] {
+  const max = Math.max(categoriaRow.length, subRow.length);
+  const mesclado: string[] = [];
+  for (let i = 0; i < max; i++) {
+    const sub = String(subRow[i] ?? "").trim();
+    const cat = String(categoriaRow[i] ?? "").trim();
+    mesclado.push(sub || cat);
+  }
+  return mesclado;
 }
 
 function safeStr(v: unknown): string {
@@ -525,7 +553,10 @@ function parseGenerico(
 
   const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
   const headerIdx = mapeamento.headerRow - 1;
-  const headers = ((raw[headerIdx] as unknown[]) ?? []).map(h => String(h ?? "").trim());
+  const headers = mapeamento.duasLinhasCabecalho
+    ? mesclarCabecalhoDuasLinhas((raw[headerIdx] as unknown[]) ?? [], (raw[headerIdx + 1] as unknown[]) ?? [])
+    : ((raw[headerIdx] as unknown[]) ?? []).map(h => String(h ?? "").trim());
+  const dataStartIdx = mapeamento.duasLinhasCabecalho ? headerIdx + 2 : headerIdx + 1;
   const colIndex = (nome: string) => (nome ? headers.indexOf(nome) : -1);
 
   const idxNome = colIndex(mapeamento.campos.club_name);
@@ -537,7 +568,7 @@ function parseGenerico(
   const idxSpinup = colIndex(mapeamento.campos.rake_spinup);
 
   const rows: ImportRow[] = [];
-  for (let i = headerIdx + 1; i < raw.length; i++) {
+  for (let i = dataStartIdx; i < raw.length; i++) {
     const row = raw[i] as unknown[];
     const clubName = safeStr(idxNome >= 0 ? row[idxNome] : "");
     if (!clubName || clubName.toLowerCase() === "total") continue;

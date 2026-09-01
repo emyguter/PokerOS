@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import * as XLSX from "xlsx";
 import { X, Loader2 } from "lucide-react";
 import type { MapeamentoColunas } from "./ImportacaoXlsx";
+import { mesclarCabecalhoDuasLinhas } from "./ImportacaoXlsx";
 import { useI18n } from "@/lib/i18n";
 
 interface Props {
@@ -17,6 +18,76 @@ const CAMPOS_VAZIOS: MapeamentoColunas["campos"] = {
   club_name: "", club_external_id: "", player_result: "",
   rake_mtt: "", rake_cash: "", rake_total: "", rake_spinup: "",
 };
+
+// Sinônimos conhecidos de cada campo (PT/EN, juntando o que já apareceu em
+// PPPoker, GGPoker e planilhas manuais) — em ordem de prioridade, o primeiro
+// que bater exato (sem diferenciar maiúscula/minúscula) com uma coluna real
+// do arquivo vence. Só confirma automático quando bate EXATO — sem match
+// parcial, pra não arriscar sugerir a coluna errada; campo sem sinônimo
+// batendo fica em branco mesmo, pra pessoa escolher na mão.
+const SINONIMOS: Record<keyof MapeamentoColunas["campos"], string[]> = {
+  club_name: ["Club Name", "Nome do Clube", "Clube", "Club"],
+  club_external_id: ["Club ID", "ID do Clube", "ID"],
+  player_result: ["P&L", "Ganhos do jogador", "Ganhos", "Resultado do Jogador", "Player Result", "Resultado"],
+  rake_mtt: ["Rake MTT", "MTT", "Taxa MTT"],
+  rake_cash: ["Rake Cash", "Ring Games", "Cash", "Taxa Cash"],
+  rake_total: ["Rake Total", "Total Fee", "Total Rake", "Rake", "Taxa Total"],
+  rake_spinup: ["Rake SpinUp", "SPINUP", "Spin&Gold", "SpinUp"],
+};
+
+// Sugere qual coluna real do arquivo é cada campo, pra pessoa só conferir e
+// ajustar em vez de montar o mapeamento do zero — pedido do Cássio: "o
+// ideal seria o sistema achar sozinho... e o usuário confirma ou ajusta".
+function sugerirCampos(headers: string[]): MapeamentoColunas["campos"] {
+  const porNomeMinusculo = new Map(headers.map(h => [h.toLowerCase(), h]));
+  const sugestao = { ...CAMPOS_VAZIOS };
+  for (const campo of Object.keys(SINONIMOS) as (keyof MapeamentoColunas["campos"])[]) {
+    for (const candidato of SINONIMOS[campo]) {
+      const achado = porNomeMinusculo.get(candidato.toLowerCase());
+      if (achado) { sugestao[campo] = achado; break; }
+    }
+  }
+  return sugestao;
+}
+
+const TODOS_SINONIMOS = Object.values(SINONIMOS).flat().map(s => s.toLowerCase());
+
+// Sugere em qual linha fica o cabeçalho de verdade — conta, pra cada uma das
+// primeiras linhas do arquivo, quantas células batem exato com algum
+// sinônimo conhecido; a linha com mais acertos vence. Evita cair sempre na
+// linha 1 (que costuma ser aviso legal/título, não cabeçalho de verdade).
+function pontuar(headers: string[]): number {
+  return headers.filter(h => TODOS_SINONIMOS.includes(h.toLowerCase())).length;
+}
+
+// Sugere em qual linha fica o cabeçalho de verdade e se ele ocupa duas
+// linhas (categoria + rótulo, comum no formato "Union" do GGPoker e talvez
+// em outros apps ainda não vistos) — testa, pra cada uma das primeiras
+// linhas do arquivo, tanto ela sozinha quanto ela mesclada com a linha de
+// baixo, e fica com a combinação que bate mais sinônimo conhecido. Evita
+// cair sempre na linha 1 (que costuma ser aviso legal/título).
+function sugerirLinhaCabecalho(linhas: unknown[][]): { headerRow: number; duasLinhas: boolean } {
+  let melhor = { headerRow: 1, duasLinhas: false };
+  let melhorPontuacao = 0;
+  for (let i = 0; i < Math.min(15, linhas.length); i++) {
+    const linhaAtual = (linhas[i] as unknown[]) ?? [];
+    const linhaAbaixo = (linhas[i + 1] as unknown[]) ?? [];
+
+    const pontuacaoSimples = pontuar(linhaAtual.map(c => String(c ?? "").trim()));
+    if (pontuacaoSimples > melhorPontuacao) { melhorPontuacao = pontuacaoSimples; melhor = { headerRow: i + 1, duasLinhas: false }; }
+
+    const pontuacaoMesclada = pontuar(mesclarCabecalhoDuasLinhas(linhaAtual, linhaAbaixo));
+    if (pontuacaoMesclada > melhorPontuacao) { melhorPontuacao = pontuacaoMesclada; melhor = { headerRow: i + 1, duasLinhas: true }; }
+  }
+  return melhor;
+}
+
+function extrairHeaders(linhas: unknown[][], headerRow: number, duasLinhas: boolean): string[] {
+  const categoriaRow = (linhas[headerRow - 1] as unknown[]) ?? [];
+  if (!duasLinhas) return categoriaRow.map(h => String(h ?? "").trim()).filter(Boolean);
+  const subRow = (linhas[headerRow] as unknown[]) ?? [];
+  return mesclarCabecalhoDuasLinhas(categoriaRow, subRow).filter(Boolean);
+}
 
 // Popup pra ensinar o sistema a ler uma plataforma nova (ex: ClubGG) sem
 // precisar de código novo — configura uma vez qual coluna é o quê, e o
@@ -38,6 +109,7 @@ export function MapeamentoColunasModal({ open, file, plataformaNome, onCancel, o
   const [error, setError] = useState<string | null>(null);
   const [sheet, setSheet] = useState("");
   const [headerRow, setHeaderRow] = useState(1);
+  const [duasLinhas, setDuasLinhas] = useState(false);
   const [campos, setCampos] = useState<MapeamentoColunas["campos"]>(CAMPOS_VAZIOS);
 
   useEffect(() => {
@@ -52,12 +124,16 @@ export function MapeamentoColunasModal({ open, file, plataformaNome, onCancel, o
         // Sugestão inicial: a aba com mais linhas costuma ser a de dados.
         let melhor = workbook.SheetNames[0] ?? "";
         let maisLinhas = 0;
+        let linhasDaMelhor: unknown[][] = [];
         for (const nome of workbook.SheetNames) {
-          const linhas: unknown[][] = XLSX.utils.sheet_to_json(workbook.Sheets[nome], { header: 1 });
-          if (linhas.length > maisLinhas) { maisLinhas = linhas.length; melhor = nome; }
+          const linhas: unknown[][] = XLSX.utils.sheet_to_json(workbook.Sheets[nome], { header: 1, defval: "" });
+          if (linhas.length > maisLinhas) { maisLinhas = linhas.length; melhor = nome; linhasDaMelhor = linhas; }
         }
         setSheet(melhor);
-        setHeaderRow(1);
+        const sugestaoLinha = sugerirLinhaCabecalho(linhasDaMelhor);
+        setHeaderRow(sugestaoLinha.headerRow);
+        setDuasLinhas(sugestaoLinha.duasLinhas);
+        setCampos(sugerirCampos(extrairHeaders(linhasDaMelhor, sugestaoLinha.headerRow, sugestaoLinha.duasLinhas)));
       } catch {
         setError(t("mapeamento_colunas_modal.erro_ler_arquivo"));
       } finally {
@@ -73,20 +149,27 @@ export function MapeamentoColunasModal({ open, file, plataformaNome, onCancel, o
     return XLSX.utils.sheet_to_json(wb.Sheets[sheet], { header: 1, defval: "" }) as unknown[][];
   }, [wb, sheet]);
 
-  const headers = useMemo(() => {
-    const row = (linhasAba[headerRow - 1] as unknown[]) ?? [];
-    return row.map(h => String(h ?? "").trim()).filter(Boolean);
-  }, [linhasAba, headerRow]);
+  const headers = useMemo(() => extrairHeaders(linhasAba, headerRow, duasLinhas), [linhasAba, headerRow, duasLinhas]);
 
-  const preview = useMemo(() => linhasAba.slice(headerRow, headerRow + 2), [linhasAba, headerRow]);
+  const preview = useMemo(() => {
+    const inicio = duasLinhas ? headerRow + 1 : headerRow;
+    return linhasAba.slice(inicio, inicio + 2);
+  }, [linhasAba, headerRow, duasLinhas]);
 
   if (!open) return null;
+
+  // Sugere de novo pra aba/linha/modo ATUAL — usado na carga inicial e no
+  // botão "Sugerir automaticamente" quando a pessoa ajusta algo na mão e
+  // quer reaproveitar a sugestão pros campos em vez de escolher um por um.
+  function sugerirNovamente() {
+    setCampos(sugerirCampos(headers));
+  }
 
   const podeSalvar = !!campos.club_name && headers.length > 0;
 
   async function handleSave() {
     setSaving(true);
-    try { await onSave({ sheet, headerRow, campos }); }
+    try { await onSave({ sheet, headerRow, duasLinhasCabecalho: duasLinhas, campos }); }
     finally { setSaving(false); }
   }
 
@@ -126,6 +209,11 @@ export function MapeamentoColunasModal({ open, file, plataformaNome, onCancel, o
                 </div>
               </div>
 
+              <label className="flex items-center gap-2 text-xs text-gray-400">
+                <input type="checkbox" checked={duasLinhas} onChange={e => setDuasLinhas(e.target.checked)} className="rounded border-white/20" />
+                {t("mapeamento_colunas_modal.duas_linhas_label")}
+              </label>
+
               {headers.length === 0 ? (
                 <p className="text-xs text-alert">{t("mapeamento_colunas_modal.nenhuma_coluna_desc")}</p>
               ) : (
@@ -147,7 +235,11 @@ export function MapeamentoColunasModal({ open, file, plataformaNome, onCancel, o
                   </div>
 
                   <div>
-                    <p className="text-xs text-gray-500 mb-2">{t("mapeamento_colunas_modal.qual_coluna_desc")}</p>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs text-gray-500">{t("mapeamento_colunas_modal.qual_coluna_desc")}</p>
+                      <button type="button" onClick={sugerirNovamente} className="text-xs text-gold hover:underline">{t("mapeamento_colunas_modal.sugerir_novamente")}</button>
+                    </div>
+                    <p className="text-xs text-gray-600 mb-2">{t("mapeamento_colunas_modal.sugestao_desc")}</p>
                     <div className="grid grid-cols-2 gap-3">
                       {CAMPOS.map(({ key, label, obrigatorio }) => (
                         <div key={key}>
