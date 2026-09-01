@@ -7,6 +7,9 @@ import { supabase } from "@/lib/supabase";
 import { errMsg } from "@/lib/errors";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { MapeamentoColunasModal } from "./MapeamentoColunasModal";
+import { ClubModal } from "@/components/cadastro/ClubModal";
+import { getLeagues, getPlataformas as getPlataformasCadastro, createClub } from "@/lib/cadastro-api";
+import type { ClubForm, League, Plataforma as PlataformaCadastro } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 
 type T = (path: string, vars?: Record<string, string | number>) => string;
@@ -30,6 +33,14 @@ function harmonizationLabel(status: string, t: T): string {
 export interface MapeamentoColunas {
   sheet: string;
   headerRow: number; // 1-based
+  // Formato com cabeçalho em duas linhas (categoria + rótulo, ex: "Club"
+  // cobrindo ID+Club Name) — comum no relatório "Union" do GGPoker. Quando
+  // true, headerRow é a linha de categoria e a linha de baixo (headerRow+1)
+  // fornece o rótulo específico de cada coluna quando ela tiver um; dados
+  // começam 2 linhas depois de headerRow em vez de 1. Campo opcional pra não
+  // quebrar mapeamentos já salvos antes dessa mudança (undefined = cabeçalho
+  // de uma linha só, comportamento de sempre).
+  duasLinhasCabecalho?: boolean;
   campos: {
     club_name: string;
     club_external_id: string;
@@ -143,6 +154,59 @@ function parsePeriodFromGG(raw: unknown[][]): { start: string; end: string } {
 function safeNum(v: unknown): number {
   const n = parseFloat(String(v ?? "0").replace(",", "."));
   return isNaN(n) ? 0 : n;
+}
+
+// Junta duas linhas de cabeçalho (uma de categoria + a de baixo com o
+// rótulo específico de cada coluna, ex: "Club" cobrindo ID+Club Name) num
+// só array de nomes de coluna — célula da linha de baixo tem prioridade
+// quando preenchida, senão mantém a categoria. Usado pelo mapeamento
+// genérico (`parseGenerico`) e pelo popup de configuração
+// (`MapeamentoColunasModal`) pra reconhecer plataformas novas que também
+// vêm com esse layout de cabeçalho duplo (mesma ideia do fix aplicado em
+// `parseGGPoker` pro formato "Union", só que sem depender de palavras
+// específicas em inglês).
+export function mesclarCabecalhoDuasLinhas(categoriaRow: unknown[], subRow: unknown[]): string[] {
+  const max = Math.max(categoriaRow.length, subRow.length);
+  const mesclado: string[] = [];
+  for (let i = 0; i < max; i++) {
+    const sub = String(subRow[i] ?? "").trim();
+    const cat = String(categoriaRow[i] ?? "").trim();
+    mesclado.push(sub || cat);
+  }
+  return mesclado;
+}
+
+// Aba "Transações" tem uma coluna "ID de clube" com o ID de verdade — fonte
+// mais confiável que tentar casar "Nome (ID)" no cabeçalho da aba
+// Geral/Geral de clube, que o formato Superagente/Agente/Jogador (relatório
+// voltado pra rateio de agente, não pro Acerto do clube) não tem (achado
+// num arquivo real sem esse padrão, caso Totis Poker).
+function extrairClubeIdDeTransacoes(wb: XLSX.WorkBook): string {
+  const ws = wb.Sheets["Transações"];
+  if (!ws) return "";
+  const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  let idxClube = -1;
+  let headerRowIdx = -1;
+  for (let i = 0; i < Math.min(5, raw.length); i++) {
+    const row = raw[i] as unknown[];
+    const idx = row.findIndex(c => String(c ?? "").trim() === "ID de clube");
+    if (idx !== -1) { idxClube = idx; headerRowIdx = i; break; }
+  }
+  if (idxClube === -1) return "";
+  for (let i = headerRowIdx + 1; i < raw.length; i++) {
+    const valor = String((raw[i] as unknown[])[idxClube] ?? "").trim();
+    if (valor) return valor;
+  }
+  return "";
+}
+
+// Último recurso, só quando o ID não apareceu em lugar nenhum do conteúdo
+// do arquivo: nome de clube isolado costuma vir como
+// <prefixo>-<ID do clube>-<período>.xlsx (4 ou 5 dígitos de prefixo, ID do
+// clube logo depois, separados por hífen).
+function extrairClubeIdDoNomeArquivo(fileName: string): string {
+  const m = fileName.match(/^\d{4,5}-(\d+)-/);
+  return m ? m[1] : "";
 }
 
 function safeStr(v: unknown): string {
@@ -287,11 +351,14 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
     const ws = wb.Sheets[clubeSheetName];
     const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
-    // Header está na linha 1 (index 1) — extrair nome e ID do clube
+    // Header está na linha 1 (index 1) — extrair nome e ID do clube. Nem
+    // todo formato tem esse padrão "Nome (ID)" no cabeçalho (o relatório
+    // Superagente/Agente/Jogador não tem) — sem bater ali, tenta achar o ID
+    // na aba Transações e, por último, no nome do arquivo.
     const clubeHeader = String((raw[1] as unknown[])?.[0] ?? "");
     const clubeMatch = clubeHeader.replace(/\n/g, " ").match(/^(.*?)\s*\((\d+)\)/);
     const clubeNome = clubeMatch ? clubeMatch[1].replace(/\n/g, " ").trim() : fileName.replace(".xlsx", "");
-    const clubeIdExt = clubeMatch ? clubeMatch[2] : "";
+    const clubeIdExt = clubeMatch ? clubeMatch[2] : (extrairClubeIdDeTransacoes(wb) || extrairClubeIdDoNomeArquivo(fileName));
 
     // O clube que exporta o arquivo identifica a Liga (leagues.clube_ext_id)
     // — vale tanto pro arquivo de clube isolado (SUL_HG style) quanto
@@ -304,7 +371,7 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
     liga_nome = clubeNome;
     liga_id_ext = clubeIdExt;
 
-    if (!clubeMatch) warnings.push(t("importacao_xlsx.warn_id_clube_nao_extraido", { clubeHeader }));
+    if (!clubeIdExt) warnings.push(t("importacao_xlsx.warn_id_clube_nao_extraido", { clubeHeader }));
 
     // Lê jogadores (header na linha 1, sub-header na linha 2, dados a partir da linha 3)
     jogadores = parseJogadoresSheet(ws, clubeNome, clubeIdExt, 1);
@@ -313,38 +380,18 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
       warnings.push(t("importacao_xlsx.warn_nenhum_jogador_aba_clube"));
     }
 
-    // Se não tem Geral da liga, gera row de clube a partir dos jogadores —
-    // Geral da liga, quando existe, é sempre a fonte de verdade (pra
-    // Bilhetes e pro resto) pra TODOS os clubes ali, incluindo o clube que
-    // exportou o arquivo; a aba de jogadores não sobrescreve nada dela.
-    if (!ligaSheetName && jogadores.length > 0) {
-      const totalResult = jogadores.reduce((s, j) => s + j.player_result, 0);
-      const totalRake = jogadores.reduce((s, j) => s + j.rake_clube, 0);
-      const totalBilhetes = jogadores.reduce((s, j) => s + j.bilhetes, 0);
-      rows.push({
-        club_name: clubeNome,
-        club_external_id: clubeIdExt,
-        player_result: totalResult,
-        // Aba de jogadores não quebra ganhos por tipo de jogo (só total) —
-        // sem dado de cash aqui, então esse clube fica de fora da média de
-        // WtR (mesmo tratamento que rake zero já recebe).
-        player_result_cash: 0,
-        rake_total: totalRake,
-        rake_mtt: 0,
-        rake_cash: 0,
-        rake_spinup: 0,
-        fee_total: 0,
-        bilhetes: totalBilhetes,
-        agente_nome: "",
-        agente_id_ext: "",
-        superagente_nome: "",
-        superagente_id_ext: "",
-        raw_data: { source: "clube_direto", file: fileName },
-      });
-    }
+    // Arquivo só-Geral (sem Liga) é o relatório Superagente/Agente/Jogador —
+    // só serve pra calcular o rateio de rakeback dos Agentes (acertos_agentes,
+    // a partir de `jogadores` abaixo), NÃO representa o Acerto de verdade do
+    // clube (pedido do Cássio: "esse acerto se trata apenas de superagents
+    // pra baixo... não deve constar como acerto do clube"). Por isso não gera
+    // linha em `rows` aqui — antes gerava uma linha de Acerto agregada só
+    // com os totais dos jogadores, que ficava sem quebra de Rake/Ganhos por
+    // tipo de jogo e sem Ganhos de Cash, distorcendo o Acerto e o WtR do
+    // clube com dado que não é dele.
   }
 
-  if (rows.length === 0) throw {
+  if (rows.length === 0 && jogadores.length === 0) throw {
     titulo: t("importacao_xlsx.err_nenhum_dado_titulo"),
     detalhe: t("importacao_xlsx.err_arquivo_sem_linhas_validas"),
     acao: t("importacao_xlsx.err_verifique_dados_periodo"),
@@ -393,7 +440,22 @@ function parseGGPoker(wb: XLSX.WorkBook, t: T): Omit<ParsedFile, "plataforma"> {
     }
   }
 
-  const headers = (raw[headerRow] as unknown[]).map(h => String(h ?? "").trim());
+  // Formato "Union" do GGPoker às vezes vem com cabeçalho em DUAS linhas —
+  // uma linha de categoria (ex: "Club" cobrindo ID+Club Name, "Rake"
+  // cobrindo Total Fee+Insurance+...) e a linha logo abaixo com os rótulos
+  // de verdade (ID, Club Name, Nickname). A busca acima acha a linha certa
+  // pela categoria, mas "ID" só existe na sub-linha — sem isso a
+  // importação travava com "coluna ID não encontrada" (achado num arquivo
+  // real da união ŌRION). Só ativa esse merge quando a linha de baixo tem
+  // cara de sub-cabeçalho (ID/Club Name/Nickname) — arquivo com cabeçalho
+  // de uma linha só (formato antigo) nunca bate nisso, cai no fallback de
+  // sempre.
+  const categoriaRow = (raw[headerRow] as unknown[]).map(h => String(h ?? "").trim());
+  const subRow = (raw[headerRow + 1] as unknown[] | undefined)?.map(h => String(h ?? "").trim()) ?? [];
+  const temSubHeader = subRow.some(h => h === "ID" || h === "Club Name" || h === "Nickname");
+  const headers = temSubHeader ? categoriaRow.map((h, idx) => subRow[idx] || h) : categoriaRow;
+  const dataStartRow = temSubHeader ? headerRow + 2 : headerRow + 1;
+
   const idxClubId = headers.findIndex(h => h === "ID" || h === "Club ID");
   const idxClubName = headers.findIndex(h => h.toLowerCase().includes("club name") || h === "Club");
   const idxFee = headers.findIndex(h => h === "Total Fee");
@@ -402,7 +464,7 @@ function parseGGPoker(wb: XLSX.WorkBook, t: T): Omit<ParsedFile, "plataforma"> {
   if (idxClubId === -1) throw { titulo: t("importacao_xlsx.err_coluna_nao_encontrada_titulo"), detalhe: t("importacao_xlsx.err_coluna_id_nao_encontrada"), acao: t("importacao_xlsx.err_verifique_exportado_corretamente") };
   if (idxFee === -1) throw { titulo: t("importacao_xlsx.err_coluna_nao_encontrada_titulo"), detalhe: t("importacao_xlsx.err_coluna_total_fee_nao_encontrada"), acao: t("importacao_xlsx.err_verifique_exportado_corretamente") };
 
-  for (let i = headerRow + 1; i < raw.length; i++) {
+  for (let i = dataStartRow; i < raw.length; i++) {
     const row = raw[i] as unknown[];
     const clubId = String(row[idxClubId] ?? "").trim();
     const clubName = String(row[idxClubName] ?? "").trim();
@@ -510,7 +572,10 @@ function parseGenerico(
 
   const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
   const headerIdx = mapeamento.headerRow - 1;
-  const headers = ((raw[headerIdx] as unknown[]) ?? []).map(h => String(h ?? "").trim());
+  const headers = mapeamento.duasLinhasCabecalho
+    ? mesclarCabecalhoDuasLinhas((raw[headerIdx] as unknown[]) ?? [], (raw[headerIdx + 1] as unknown[]) ?? [])
+    : ((raw[headerIdx] as unknown[]) ?? []).map(h => String(h ?? "").trim());
+  const dataStartIdx = mapeamento.duasLinhasCabecalho ? headerIdx + 2 : headerIdx + 1;
   const colIndex = (nome: string) => (nome ? headers.indexOf(nome) : -1);
 
   const idxNome = colIndex(mapeamento.campos.club_name);
@@ -522,7 +587,7 @@ function parseGenerico(
   const idxSpinup = colIndex(mapeamento.campos.rake_spinup);
 
   const rows: ImportRow[] = [];
-  for (let i = headerIdx + 1; i < raw.length; i++) {
+  for (let i = dataStartIdx; i < raw.length; i++) {
     const row = raw[i] as unknown[];
     const clubName = safeStr(idxNome >= 0 ? row[idxNome] : "");
     if (!clubName || clubName.toLowerCase() === "total") continue;
@@ -599,6 +664,20 @@ export default function ImportacaoXlsx() {
   const [duplicado, setDuplicado] = useState<{ id: string; fileName: string; createdAt: string; leagueId: string | null } | null>(null);
   const [substituindo, setSubstituindo] = useState(false);
 
+  // Arquivo só-Geral (sem Liga, ver parsePPPoker) com o ID do clube achado
+  // (Transações/nome do arquivo) mas que ainda não existe em Cadastro >
+  // Clubes — abre o popup de Identificação já preenchido em vez de deixar
+  // criar sozinho sem ninguém saber (pedido do Cássio). "clubCheckDone"
+  // evita perguntar de novo se a pessoa fechar o popup sem salvar e clicar
+  // Confirmar de novo.
+  const [clubModalOpen, setClubModalOpen] = useState(false);
+  const [clubPrefill, setClubPrefill] = useState<{ name: string; external_id: string } | null>(null);
+  const [clubCheckDone, setClubCheckDone] = useState(false);
+  const [savingClub, setSavingClub] = useState(false);
+  const [clubModalError, setClubModalError] = useState<string | null>(null);
+  const [cadastroLeagues, setCadastroLeagues] = useState<League[]>([]);
+  const [cadastroPlataformas, setCadastroPlataformas] = useState<PlataformaCadastro[]>([]);
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadPlataformas(); loadHistory(); }, []);
@@ -660,6 +739,7 @@ export default function ImportacaoXlsx() {
     }
     setFile(f); setStep("parsing"); setImportError(null); setParsed(null);
     setResolvedPlatformId(null); setPlatformAction(null); setNewPlatformName(""); setSelectedExistingPlatform(""); setJogadorStats(null);
+    setClubCheckDone(false); setClubModalOpen(false); setClubPrefill(null);
     try {
       const result = await parseXlsx(f, t);
       setParsed(result);
@@ -726,6 +806,42 @@ export default function ImportacaoXlsx() {
   }
 
   async function handleConfirmImport() {
+    if (!file || !parsed || !resolvedPlatformId) return;
+
+    // Arquivo só-Geral (sem Liga): parsed.liga_id_ext aqui é o ID do clube
+    // detectado (ver parsePPPoker) — se ainda não existe cadastrado, oferece
+    // o popup de Identificação antes de seguir. Só pergunta uma vez por
+    // arquivo (clubCheckDone).
+    if (!clubCheckDone && parsed.rows.length === 0 && parsed.jogadores.length > 0 && parsed.liga_id_ext) {
+      const { data: clubeExistente } = await supabase.from("clubs").select("id").eq("external_id", parsed.liga_id_ext).maybeSingle();
+      setClubCheckDone(true);
+      if (!clubeExistente) {
+        const [leagues, plats] = await Promise.all([getLeagues(), getPlataformasCadastro()]);
+        setCadastroLeagues(leagues);
+        setCadastroPlataformas(plats);
+        setClubPrefill({ name: parsed.liga_nome || file.name.replace(".xlsx", ""), external_id: parsed.liga_id_ext });
+        setClubModalOpen(true);
+        return;
+      }
+    }
+
+    await confirmarImportacao();
+  }
+
+  async function handleClubModalSave(form: ClubForm) {
+    setSavingClub(true); setClubModalError(null);
+    try {
+      await createClub(form);
+      setClubModalOpen(false);
+      await confirmarImportacao();
+    } catch (e) {
+      setClubModalError(errMsg(e));
+    } finally {
+      setSavingClub(false);
+    }
+  }
+
+  async function confirmarImportacao() {
     if (!file || !parsed || !resolvedPlatformId) return;
     try {
       let leagueId: string | null = null;
@@ -855,6 +971,7 @@ export default function ImportacaoXlsx() {
   function reset() {
     setStep("idle"); setFile(null); setParsed(null); setImportError(null); setImportingId(null);
     setResolvedPlatformId(null); setPlatformAction(null); setNewPlatformName(""); setSelectedExistingPlatform(""); setJogadorStats(null);
+    setClubCheckDone(false); setClubModalOpen(false); setClubPrefill(null);
   }
 
   const onDrop = useCallback((e: React.DragEvent) => {
@@ -976,6 +1093,9 @@ export default function ImportacaoXlsx() {
               {parsed.jogadores.length > 0 && ` · ${t("importacao_xlsx.jogadores_detectados", { n: parsed.jogadores.length })}`}
               {parsed.period_start && ` · ${parsed.period_start} → ${parsed.period_end}`}
             </p>
+            {parsed.rows.length === 0 && parsed.jogadores.length > 0 && (
+              <p style={{ color: "#5a5a52", fontSize: 12, marginTop: 4 }}>ℹ {t("importacao_xlsx.info_so_rateio_agentes")}</p>
+            )}
             {parsed.warnings.map((w, i) => (
               <p key={i} style={{ color: "#C9A84C", fontSize: 12, marginTop: 4 }}>⚠ {w}</p>
             ))}
@@ -1082,6 +1202,18 @@ export default function ImportacaoXlsx() {
         plataformaNome={resolvedPlatformNome}
         onCancel={reset}
         onSave={handleMapeamentoSalvo}
+      />
+
+      <ClubModal
+        open={clubModalOpen}
+        editing={null}
+        leagues={cadastroLeagues}
+        plataformas={cadastroPlataformas}
+        prefill={clubPrefill ?? undefined}
+        onClose={() => setClubModalOpen(false)}
+        onSave={handleClubModalSave}
+        saving={savingClub}
+        error={clubModalError}
       />
 
       <ConfirmModal

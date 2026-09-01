@@ -21,6 +21,12 @@ interface Props {
   onSave: (form: ClubForm) => void
   saving: boolean
   error?: string | null
+  // Pré-preenche nome/ID ao abrir pra um clube NOVO (editing null) — usado
+  // pela Importação quando já sabe o ID do clube (aba Transações/nome do
+  // arquivo) mas ele ainda não existe no cadastro: abre aqui direto na
+  // etapa Identificação já preenchida, em vez da pessoa digitar tudo de
+  // novo. Ignorado quando editing não é null (edição usa toForm(editing)).
+  prefill?: { name: string; external_id: string }
 }
 
 const EMPTY: ClubForm = {
@@ -72,7 +78,7 @@ function CampoSeguindoRegra() {
   return <div className={`${inputLockedCls} italic`}>{t('club_modal.campo_seguindo_regra')}</div>
 }
 
-export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave, saving, error }: Props) {
+export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave, saving, error, prefill }: Props) {
   const { t } = useI18n()
   const STEPS: ModalStep[] = [
     { key: 'identificacao', label: t('club_modal.step_identificacao') },
@@ -113,7 +119,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   const [camposComRegra, setCamposComRegra] = useState<Set<CampoClube>>(new Set())
 
   useEffect(() => {
-    setForm(editing ? toForm(editing) : EMPTY)
+    setForm(editing ? toForm(editing) : (prefill ? { ...EMPTY, name: prefill.name, external_id: prefill.external_id } : EMPTY))
     setStep('identificacao')
     setIndicacoes([])
     setErroIndicacao(null)
@@ -136,6 +142,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
         setCamposComRegra(new Set(regras.map((r) => r.campo).filter((c): c is CampoClube => !!c)))
       }).catch(() => setCamposComRegra(new Set()))
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing, open])
 
   async function adicionarIndicacao() {

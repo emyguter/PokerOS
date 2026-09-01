@@ -125,9 +125,18 @@ async function processarJogadores(
 
       const clubeId = await getOrNullClube(supabase, j.clube_id_ext);
 
-      if (agenteId) {
+      // Jogador que reporta direto pro Superagente, sem Agente no meio (a
+      // planilha traz "None" no Agente mas o Superagente preenchido) — sem
+      // isso, agenteId ficava null e o jogador desaparecia inteiro do
+      // rateio de rakeback (import_jogadores.agente_id null é excluído em
+      // processarAcertosAgentes). Superagente vira o "agente efetivo" desse
+      // jogador; acertos_agentes trata Superagente igual Agente normal (é a
+      // mesma tabela `agentes`, só sem superagente_id).
+      const agenteEfetivoId = agenteId ?? superagenteId;
+
+      if (agenteEfetivoId) {
         await supabase.from("agente_jogadores").upsert(
-          { agente_id: agenteId, jogador_id: jogadorId },
+          { agente_id: agenteEfetivoId, jogador_id: jogadorId },
           { onConflict: "agente_id,jogador_id", ignoreDuplicates: true }
         );
       }
@@ -137,9 +146,9 @@ async function processarJogadores(
           { clube_id: clubeId, jogador_id: jogadorId },
           { onConflict: "clube_id,jogador_id", ignoreDuplicates: true }
         );
-        if (agenteId) {
+        if (agenteEfetivoId) {
           await supabase.from("clube_agentes").upsert(
-            { clube_id: clubeId, agente_id: agenteId },
+            { clube_id: clubeId, agente_id: agenteEfetivoId },
             { onConflict: "clube_id,agente_id", ignoreDuplicates: true }
           );
         }
@@ -150,7 +159,7 @@ async function processarJogadores(
           import_id: importId,
           jogador_id: jogadorId,
           clube_id: clubeId,
-          agente_id: agenteId,
+          agente_id: agenteEfetivoId,
           player_result: j.player_result,
           rake_total: j.rake_clube,
         },

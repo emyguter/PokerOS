@@ -849,6 +849,28 @@ export async function processarAcertosAgentes(importId: string): Promise<{
       grupos.set(chave, atual);
     }
 
+    // Repasse pro Superagente: soma o rake de cada Agente também na linha do
+    // Superagente dele (mesmo clube) — Superagente é só um Agente sem
+    // superagente_id (mesma tabela `agentes`), então ganha uma linha própria
+    // em acertos_agentes igual qualquer Agente, com o % de rakeback dele
+    // (clube_agentes). Jogador sem Agente no meio (reporta direto pro
+    // Superagente) já entra direto na linha dele — ver
+    // harmonizar-import/index.ts (agenteEfetivoId) — esse passo só cobre
+    // quem tem Agente cadastrado. Hierarquia é só 1 nível (Superagente >
+    // Agente), sem repasse encadeado.
+    const agenteIdsDiretos = [...new Set([...grupos.values()].map((g) => g.agente_id))];
+    const { data: agentesInfo } = await supabase.from("agentes").select("id, superagente_id").in("id", agenteIdsDiretos);
+    const superagentePorAgente = new Map((agentesInfo ?? []).map((a) => [a.id as string, a.superagente_id as string | null]));
+
+    for (const g of [...grupos.values()]) {
+      const superagenteId = superagentePorAgente.get(g.agente_id);
+      if (!superagenteId) continue;
+      const chaveSuper = `${superagenteId}:${g.clube_id ?? "sem_clube"}`;
+      const atual = grupos.get(chaveSuper) ?? { agente_id: superagenteId, clube_id: g.clube_id, rake_total: 0 };
+      atual.rake_total += g.rake_total;
+      grupos.set(chaveSuper, atual);
+    }
+
     const agenteIds = [...new Set([...grupos.values()].map((g) => g.agente_id))];
     const clubeIds = [...new Set([...grupos.values()].map((g) => g.clube_id).filter((id): id is string => !!id))];
 
