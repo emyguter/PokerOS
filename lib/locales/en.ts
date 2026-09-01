@@ -777,6 +777,7 @@ export const en: typeof pt = {
     arquivo_valido: '✓ Valid file',
     clube_singular: '{n} club', clube_plural: '{n} clubs',
     jogadores_detectados: '{n} players detected',
+    info_so_rateio_agentes: 'File without a League, only Superagent/Agent/Player — will compute Agent rakeback split, without creating a Settlement for this club.',
     confirmar_importacao: 'Confirm import',
     enviando_arquivo: '⏳ Sending file...',
     atualiza_sozinha_desc: 'This usually takes a few seconds. This screen updates on its own when done — no need to reload the page.',

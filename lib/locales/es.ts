@@ -777,6 +777,7 @@ export const es: typeof pt = {
     arquivo_valido: '✓ Archivo válido',
     clube_singular: '{n} club', clube_plural: '{n} clubes',
     jogadores_detectados: '{n} jugadores detectados',
+    info_so_rateio_agentes: 'Archivo sin Liga, solo Superagente/Agente/Jugador — va a calcular el reparto de rakeback de los Agentes, sin generar Acuerdo para ese club.',
     confirmar_importacao: 'Confirmar importación',
     enviando_arquivo: '⏳ Enviando archivo...',
     atualiza_sozinha_desc: 'Esto normalmente toma unos segundos. Esta pantalla se actualiza sola cuando termina — no hace falta recargar la página.',

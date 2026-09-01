@@ -173,6 +173,39 @@ export function mesclarCabecalhoDuasLinhas(categoriaRow: unknown[], subRow: unkn
   return mesclado;
 }
 
+// Aba "Transações" tem uma coluna "ID de clube" com o ID de verdade — fonte
+// mais confiável que tentar casar "Nome (ID)" no cabeçalho da aba
+// Geral/Geral de clube, que o formato Superagente/Agente/Jogador (relatório
+// voltado pra rateio de agente, não pro Acerto do clube) não tem (achado
+// num arquivo real sem esse padrão, caso Totis Poker).
+function extrairClubeIdDeTransacoes(wb: XLSX.WorkBook): string {
+  const ws = wb.Sheets["Transações"];
+  if (!ws) return "";
+  const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  let idxClube = -1;
+  let headerRowIdx = -1;
+  for (let i = 0; i < Math.min(5, raw.length); i++) {
+    const row = raw[i] as unknown[];
+    const idx = row.findIndex(c => String(c ?? "").trim() === "ID de clube");
+    if (idx !== -1) { idxClube = idx; headerRowIdx = i; break; }
+  }
+  if (idxClube === -1) return "";
+  for (let i = headerRowIdx + 1; i < raw.length; i++) {
+    const valor = String((raw[i] as unknown[])[idxClube] ?? "").trim();
+    if (valor) return valor;
+  }
+  return "";
+}
+
+// Último recurso, só quando o ID não apareceu em lugar nenhum do conteúdo
+// do arquivo: nome de clube isolado costuma vir como
+// <prefixo>-<ID do clube>-<período>.xlsx (4 ou 5 dígitos de prefixo, ID do
+// clube logo depois, separados por hífen).
+function extrairClubeIdDoNomeArquivo(fileName: string): string {
+  const m = fileName.match(/^\d{4,5}-(\d+)-/);
+  return m ? m[1] : "";
+}
+
 function safeStr(v: unknown): string {
   const s = String(v ?? "").trim();
   return s === "None" || s === "none" || s === "" ? "" : s;
@@ -315,11 +348,14 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
     const ws = wb.Sheets[clubeSheetName];
     const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
-    // Header está na linha 1 (index 1) — extrair nome e ID do clube
+    // Header está na linha 1 (index 1) — extrair nome e ID do clube. Nem
+    // todo formato tem esse padrão "Nome (ID)" no cabeçalho (o relatório
+    // Superagente/Agente/Jogador não tem) — sem bater ali, tenta achar o ID
+    // na aba Transações e, por último, no nome do arquivo.
     const clubeHeader = String((raw[1] as unknown[])?.[0] ?? "");
     const clubeMatch = clubeHeader.replace(/\n/g, " ").match(/^(.*?)\s*\((\d+)\)/);
     const clubeNome = clubeMatch ? clubeMatch[1].replace(/\n/g, " ").trim() : fileName.replace(".xlsx", "");
-    const clubeIdExt = clubeMatch ? clubeMatch[2] : "";
+    const clubeIdExt = clubeMatch ? clubeMatch[2] : (extrairClubeIdDeTransacoes(wb) || extrairClubeIdDoNomeArquivo(fileName));
 
     // O clube que exporta o arquivo identifica a Liga (leagues.clube_ext_id)
     // — vale tanto pro arquivo de clube isolado (SUL_HG style) quanto
@@ -332,7 +368,7 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
     liga_nome = clubeNome;
     liga_id_ext = clubeIdExt;
 
-    if (!clubeMatch) warnings.push(t("importacao_xlsx.warn_id_clube_nao_extraido", { clubeHeader }));
+    if (!clubeIdExt) warnings.push(t("importacao_xlsx.warn_id_clube_nao_extraido", { clubeHeader }));
 
     // Lê jogadores (header na linha 1, sub-header na linha 2, dados a partir da linha 3)
     jogadores = parseJogadoresSheet(ws, clubeNome, clubeIdExt, 1);
@@ -341,38 +377,18 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
       warnings.push(t("importacao_xlsx.warn_nenhum_jogador_aba_clube"));
     }
 
-    // Se não tem Geral da liga, gera row de clube a partir dos jogadores —
-    // Geral da liga, quando existe, é sempre a fonte de verdade (pra
-    // Bilhetes e pro resto) pra TODOS os clubes ali, incluindo o clube que
-    // exportou o arquivo; a aba de jogadores não sobrescreve nada dela.
-    if (!ligaSheetName && jogadores.length > 0) {
-      const totalResult = jogadores.reduce((s, j) => s + j.player_result, 0);
-      const totalRake = jogadores.reduce((s, j) => s + j.rake_clube, 0);
-      const totalBilhetes = jogadores.reduce((s, j) => s + j.bilhetes, 0);
-      rows.push({
-        club_name: clubeNome,
-        club_external_id: clubeIdExt,
-        player_result: totalResult,
-        // Aba de jogadores não quebra ganhos por tipo de jogo (só total) —
-        // sem dado de cash aqui, então esse clube fica de fora da média de
-        // WtR (mesmo tratamento que rake zero já recebe).
-        player_result_cash: 0,
-        rake_total: totalRake,
-        rake_mtt: 0,
-        rake_cash: 0,
-        rake_spinup: 0,
-        fee_total: 0,
-        bilhetes: totalBilhetes,
-        agente_nome: "",
-        agente_id_ext: "",
-        superagente_nome: "",
-        superagente_id_ext: "",
-        raw_data: { source: "clube_direto", file: fileName },
-      });
-    }
+    // Arquivo só-Geral (sem Liga) é o relatório Superagente/Agente/Jogador —
+    // só serve pra calcular o rateio de rakeback dos Agentes (acertos_agentes,
+    // a partir de `jogadores` abaixo), NÃO representa o Acerto de verdade do
+    // clube (pedido do Cássio: "esse acerto se trata apenas de superagents
+    // pra baixo... não deve constar como acerto do clube"). Por isso não gera
+    // linha em `rows` aqui — antes gerava uma linha de Acerto agregada só
+    // com os totais dos jogadores, que ficava sem quebra de Rake/Ganhos por
+    // tipo de jogo e sem Ganhos de Cash, distorcendo o Acerto e o WtR do
+    // clube com dado que não é dele.
   }
 
-  if (rows.length === 0) throw {
+  if (rows.length === 0 && jogadores.length === 0) throw {
     titulo: t("importacao_xlsx.err_nenhum_dado_titulo"),
     detalhe: t("importacao_xlsx.err_arquivo_sem_linhas_validas"),
     acao: t("importacao_xlsx.err_verifique_dados_periodo"),
@@ -1022,6 +1038,9 @@ export default function ImportacaoXlsx() {
               {parsed.jogadores.length > 0 && ` · ${t("importacao_xlsx.jogadores_detectados", { n: parsed.jogadores.length })}`}
               {parsed.period_start && ` · ${parsed.period_start} → ${parsed.period_end}`}
             </p>
+            {parsed.rows.length === 0 && parsed.jogadores.length > 0 && (
+              <p style={{ color: "#5a5a52", fontSize: 12, marginTop: 4 }}>ℹ {t("importacao_xlsx.info_so_rateio_agentes")}</p>
+            )}
             {parsed.warnings.map((w, i) => (
               <p key={i} style={{ color: "#C9A84C", fontSize: 12, marginTop: 4 }}>⚠ {w}</p>
             ))}

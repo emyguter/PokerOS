@@ -775,6 +775,7 @@ export const pt = {
     arquivo_valido: '✓ Arquivo válido',
     clube_singular: '{n} clube', clube_plural: '{n} clubes',
     jogadores_detectados: '{n} jogadores detectados',
+    info_so_rateio_agentes: 'Arquivo sem Liga, só com Superagente/Agente/Jogador — vai calcular o rateio de rakeback dos Agentes, sem gerar Acerto pra esse clube.',
     confirmar_importacao: 'Confirmar importação',
     enviando_arquivo: '⏳ Enviando arquivo...',
     atualiza_sozinha_desc: 'Isso normalmente leva alguns segundos. Esta tela atualiza sozinha quando terminar — não precisa recarregar a página.',
