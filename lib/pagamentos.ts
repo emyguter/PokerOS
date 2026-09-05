@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { calcularTotalAcerto, buscarSecurityEDividasPorClube } from './relatorio-acerto'
+import { diasDeAtraso, getFaixasMultaDoClube, valorComMulta } from './dividas'
 
 export type TipoEnvio = 'pagamento' | 'antecipacao' | 'caucao'
 
@@ -317,16 +318,26 @@ export async function descontarDaCaucao(acertoId: string, clubeId: string, valor
   if (updErr) throw updErr
 }
 
-// "Rollover": a Diferença não paga da semana sai das Pendências sem passar
-// pela Caução nem virar Dívida/Acordo (sem multa, sem juros) — só "rola" pra
-// aparecer de novo como Pendência/Antecipação no PRÓXIMO Acerto desse clube
-// (ver buscarRolloverPendente em lib/acertos-engine.ts, consumido só uma
-// vez). Dois efeitos, os dois na hora:
+// "Rollover": a Diferença não paga da semana (clube deve) sai das Pendências
+// sem descontar da Caução — só "rola" pra aparecer de novo como
+// Pendência/Antecipação no PRÓXIMO Acerto desse clube (ver
+// buscarRolloverPendente em lib/acertos-engine.ts, consumido só uma vez).
+// `opts.comMulta` (pedido do Cássio: "vai liberar via rollover se vai
+// cobrar ou não a multa") soma, uma vez só, a Multa da Regra do clube —
+// mesma Regra usada em Dívidas/Acordos (getFaixasMultaDoClube/valorComMulta
+// em lib/dividas.ts) — sobre o valor rolado; NÃO vira Dívida/Acordo de
+// verdade nem recalcula toda semana enquanto atrasado (decisão do Cássio:
+// "continua Rollover, multa somada uma vez"). Atraso contado do fim do
+// período do Acerto que gerou a Diferença (`opts.periodoFim`) até hoje. Sem
+// Regra de Multa cadastrada pro clube, dá 0% — sem mudança nenhuma (igual
+// sempre foi, sem `opts`). Dois efeitos, os dois na hora:
 //  1. Lançamento tipo "pagamento" (Envio) vinculado a ESSE Acerto — quita a
-//     Diferença agora, igual um Envio de verdade teria feito.
+//     Diferença ORIGINAL (sem multa) agora, igual um Envio de verdade teria
+//     feito.
 //  2. Lançamento tipo "antecipacao" SEM acerto_id (natureza "debito", pesa
-//     contra o clube) — fica esperando o motor pegar no próximo cálculo.
-export async function rolloverAcerto(acertoId: string, clubeId: string, valor: number): Promise<void> {
+//     contra o clube) — valor original + multa (se `comMulta`) — fica
+//     esperando o motor pegar no próximo cálculo.
+export async function rolloverAcerto(acertoId: string, clubeId: string, valor: number, opts?: { comMulta: boolean; periodoFim: string }): Promise<void> {
   const { data: userData } = await supabase.auth.getUser()
   const hoje = new Date().toISOString().slice(0, 10)
   const criado_por = userData.user?.id ?? null
@@ -338,8 +349,47 @@ export async function rolloverAcerto(acertoId: string, clubeId: string, valor: n
   })
   if (pagamentoErr) throw pagamentoErr
 
+  let valorRolado = valor
+  if (opts?.comMulta) {
+    const faixas = await getFaixasMultaDoClube(clubeId)
+    const atraso = diasDeAtraso(opts.periodoFim)
+    valorRolado = valorComMulta(valor, atraso, faixas)
+  }
+
   const { error: rolloverErr } = await supabase.from('lancamentos').insert({
-    clube_id: clubeId, tipo: 'antecipacao', natureza: 'debito', valor,
+    clube_id: clubeId, tipo: 'antecipacao', natureza: 'debito', valor: valorRolado,
+    descricao: 'Rollover', data_lancamento: hoje,
+    origem: 'suporte', status: null, criado_por,
+  })
+  if (rolloverErr) throw rolloverErr
+}
+
+// Simétrico ao Rollover acima, pro lado CRÉDITO: Diferença POSITIVA (a Liga
+// deve ao clube) que não foi toda paga na semana — "fica como antecipação
+// na semana seguinte" (pedido do Cássio), sem opção de multa (não faz
+// sentido multar a Liga por um atraso que não é do clube). Mesmo mecanismo
+// de consumo único do débito (buscarRolloverPendente: filtra só por
+// descricao='Rollover', soma crédito e débito com o sinal certo, então já
+// funciona sem mudança nenhuma nele). Dois efeitos, os dois na hora:
+//  1. Lançamento tipo "pagamento" (Envio) vinculado a ESSE Acerto, natureza
+//     "debito" — zera a Diferença POSITIVA de agora (Envio débito subtrai
+//     de Valor Pago, mesma regra de sinal usada em todo o resto do app).
+//  2. Lançamento tipo "antecipacao" SEM acerto_id, natureza "credito" — fica
+//     esperando o motor pegar no próximo cálculo, somando A FAVOR do clube.
+export async function rolloverCredito(acertoId: string, clubeId: string, valor: number): Promise<void> {
+  const { data: userData } = await supabase.auth.getUser()
+  const hoje = new Date().toISOString().slice(0, 10)
+  const criado_por = userData.user?.id ?? null
+
+  const { error: pagamentoErr } = await supabase.from('lancamentos').insert({
+    clube_id: clubeId, acerto_id: acertoId, tipo: 'pagamento', natureza: 'debito', valor,
+    descricao: 'Rollover', data_lancamento: hoje,
+    origem: 'suporte', status: null, criado_por,
+  })
+  if (pagamentoErr) throw pagamentoErr
+
+  const { error: rolloverErr } = await supabase.from('lancamentos').insert({
+    clube_id: clubeId, tipo: 'antecipacao', natureza: 'credito', valor,
     descricao: 'Rollover', data_lancamento: hoje,
     origem: 'suporte', status: null, criado_por,
   })
