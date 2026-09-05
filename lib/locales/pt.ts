@@ -402,7 +402,7 @@ export const pt = {
     lancamentos_periodo_titulo: 'Lançamentos do período',
     dividas_acordos_titulo: 'Dívidas / Acordos',
     acerto_por_clube_vinculado: 'Acerto por clube vinculado',
-    acerto_rs: 'Acerto R$ {nome}',
+    acerto_rs: 'Acerto R$ {nome} ({plataforma})',
     total: 'Total',
     total_moeda: 'Total {moeda}',
     acerto_com_crypto: 'Acerto com Crypto',

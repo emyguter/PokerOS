@@ -223,6 +223,7 @@ export async function removeIndicacao(id: string): Promise<void> {
 export interface VinculoAcertoRow {
   id: string
   nome: string
+  plataformaNome: string
 }
 
 async function buscarAncora(clubeId: string): Promise<{ id: string; vinculo_acerto_grupo_id: string | null }> {
@@ -236,11 +237,12 @@ export async function getVinculosAcerto(clubeId: string): Promise<VinculoAcertoR
   const ancora = clube.vinculo_acerto_grupo_id ?? clube.id
   const { data, error } = await supabase
     .from('clubs')
-    .select('id, name')
+    .select('id, name, plataformas(nome)')
     .or(`id.eq.${ancora},vinculo_acerto_grupo_id.eq.${ancora}`)
     .neq('id', clubeId)
   if (error) throw error
-  return (data ?? []).map((c) => ({ id: c.id, nome: c.name }))
+  return ((data ?? []) as unknown as { id: string; name: string; plataformas: { nome: string } | null }[])
+    .map((c) => ({ id: c.id, nome: c.name, plataformaNome: c.plataformas?.nome ?? '—' }))
 }
 
 export async function addVinculoAcerto(clubeId: string, outroClubeId: string): Promise<void> {
