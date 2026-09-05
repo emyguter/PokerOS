@@ -62,14 +62,26 @@ export function ArvoreAcertosView() {
   const [filaImports, setFilaImports] = useState<string[]>([])
   const [filaCotacao, setFilaCotacao] = useState<{ id: string; name: string }[]>([])
 
-  const load = useCallback(async (periodo: string) => {
+  const load = useCallback(async (periodo: string): Promise<ArvoreRaiz | null> => {
     setLoading(true); setError(null)
     try {
       const [r, p] = await Promise.all([buscarArvoreRaiz(periodo, null), buscarClubesPendentes(periodo, null)])
       setRaiz(r); setPendentes(p)
-    } catch (e) { setError(errMsg(e)) }
+      return r
+    } catch (e) { setError(errMsg(e)); return null }
     finally { setLoading(false) }
   }, [])
+
+  // Acha o mesmo clube (por club_id) dentro de uma árvore recém-carregada —
+  // usado depois de recalcular pra atualizar `path`/`cardAberto` com os
+  // números novos, ver rodarImports.
+  function acharClubeNaArvore(r: ArvoreRaiz, clubeId: string): LinhaMeuAcerto | null {
+    for (const liga of r.ligas) {
+      const c = liga.clubes.find((c) => c.acerto.club_id === clubeId)
+      if (c) return c
+    }
+    return r.semLiga.find((c) => c.acerto.club_id === clubeId) ?? null
+  }
 
   useEffect(() => {
     buscarPeriodosAcerto().then((lista) => {
@@ -142,9 +154,24 @@ export function ArvoreAcertosView() {
         const resultAgentes = await processarAcertosAgentes(importId)
         if (!resultAgentes.success) alert('Acertos por clube ok, mas erro no acerto de agentes: ' + resultAgentes.error)
       }
-      await load(periodoFiltro)
+      const novaRaiz = await load(periodoFiltro)
       setTrayChecked(new Set())
-      if (atual?.tipo === 'clube' && atual.ref.acerto.club_id) buscarArvoreClube(atual.ref.acerto.club_id, periodoFiltro).then(setClubeArvore)
+      if (atual?.tipo === 'clube' && atual.ref.acerto.club_id) {
+        const clubeId = atual.ref.acerto.club_id
+        buscarArvoreClube(clubeId, periodoFiltro).then(setClubeArvore)
+        // Sem isso, o clube aberto (breadcrumb/faixa) e o card "Ver acerto
+        // completo" (se estiver aberto) continuavam mostrando os números de
+        // antes do recálculo — load() só atualiza `raiz` (a lista), não o
+        // `path`/`cardAberto` já montados com a referência antiga (achado
+        // pelo Cássio: editou a % de Fee MTT do clube, recalculou, o rótulo
+        // mudou — lê o cadastro ao vivo — mas o valor em R$ continuou o de
+        // antes, porque vinha direto do objeto acerto congelado no card).
+        const clubeAtualizado = novaRaiz ? acharClubeNaArvore(novaRaiz, clubeId) : null
+        if (clubeAtualizado) {
+          setPath((p) => (p.length > 0 ? [...p.slice(0, -1), { tipo: 'clube', ref: clubeAtualizado }] : p))
+          setCardAberto((prev) => (prev && prev.acerto.club_id === clubeId ? clubeAtualizado : prev))
+        }
+      }
     } finally {
       setCalculando(false)
     }
