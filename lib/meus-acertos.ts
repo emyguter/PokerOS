@@ -11,6 +11,12 @@ export interface LinhaMeuAcerto {
   valorFinal: number
   periodStart: string
   periodEnd: string
+  // true = clube sem Acerto de clube nessa semana (import "só-Geral" tipo
+  // Superagente/Agente/Jogador, ver parsePPPoker — não gera linha em
+  // `acertos` de propósito, só alimenta o rateio de Agentes). Synthetic
+  // entry montada em lib/arvore-acertos.ts (buscarClubesSoRateio), não vem
+  // daqui — default undefined = Acerto de clube de verdade.
+  semAcerto?: boolean
 }
 
 interface AcertoRow extends AcertoCard {
