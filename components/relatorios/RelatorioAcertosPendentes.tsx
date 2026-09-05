@@ -6,7 +6,8 @@ import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
 import { useConciliacao } from '@/components/lancamento/useConciliacao'
 import { ConfirmModal } from '@/components/ConfirmModal'
-import { rolloverAcerto } from '@/lib/pagamentos'
+import { rolloverAcerto, rolloverCredito } from '@/lib/pagamentos'
+import { getFaixasMultaDoClube, diasDeAtraso, valorComMulta, type FaixaMulta } from '@/lib/dividas'
 import {
   buscarAcertosPendentesDaSemana, buscarInadimplencia,
   type LinhaAcertoPendenteSemana, type InadimplenciaResultado,
@@ -23,6 +24,11 @@ export function RelatorioAcertosPendentes() {
   const [fazendoRollover, setFazendoRollover] = useState<string | null>(null)
   const [confirmarRollover, setConfirmarRollover] = useState<LinhaAcertoPendenteSemana | null>(null)
   const [erroRollover, setErroRollover] = useState<string | null>(null)
+  // Multa (só faz sentido pro lado 'clube_deve' — ver rolloverAcerto):
+  // buscada de novo a cada vez que o modal abre pra um clube diferente, pra
+  // mostrar o valor com multa já calculado antes do Cássio confirmar.
+  const [cobrarMulta, setCobrarMulta] = useState(false)
+  const [faixasMulta, setFaixasMulta] = useState<FaixaMulta[]>([])
 
   const totalPendencias = pendGenia.length + pendSuporte.length
   const conciliacaoZerada = !loadingConciliacao && totalPendencias === 0
@@ -40,12 +46,23 @@ export function RelatorioAcertosPendentes() {
     carregar()
   }, [conciliacaoZerada, carregar])
 
+  function abrirRollover(l: LinhaAcertoPendenteSemana) {
+    setConfirmarRollover(l); setErroRollover(null); setCobrarMulta(false); setFaixasMulta([])
+    if (l.direcao === 'clube_deve' && l.clubId) {
+      getFaixasMultaDoClube(l.clubId).then(setFaixasMulta).catch(() => setFaixasMulta([]))
+    }
+  }
+
   async function handleRollover() {
     const l = confirmarRollover
     if (!l || !l.clubId) return
     setFazendoRollover(l.acertoId); setErroRollover(null)
     try {
-      await rolloverAcerto(l.acertoId, l.clubId, l.diferenca)
+      if (l.direcao === 'liga_deve') {
+        await rolloverCredito(l.acertoId, l.clubId, l.diferenca)
+      } else {
+        await rolloverAcerto(l.acertoId, l.clubId, l.diferenca, cobrarMulta ? { comMulta: true, periodoFim: l.periodoFim } : undefined)
+      }
       setConfirmarRollover(null)
       await carregar()
     } catch (err) {
@@ -54,6 +71,9 @@ export function RelatorioAcertosPendentes() {
       setFazendoRollover(null)
     }
   }
+
+  const atrasoDiasModal = confirmarRollover ? diasDeAtraso(confirmarRollover.periodoFim) : 0
+  const valorComMultaModal = confirmarRollover ? valorComMulta(confirmarRollover.diferenca, atrasoDiasModal, faixasMulta) : 0
 
   if (loadingConciliacao) {
     return <div className="p-8 text-center text-gray-500 text-sm">{t('common.carregando')}</div>
@@ -72,7 +92,16 @@ export function RelatorioAcertosPendentes() {
     )
   }
 
-  const totalSemana = semana.reduce((acc, l) => ({ acerto: acc.acerto + l.acerto, pago: acc.pago + l.pago, diferenca: acc.diferenca + l.diferenca }), { acerto: 0, pago: 0, diferenca: 0 })
+  // Diferença aqui soma com o SINAL certo (clube_deve = negativo, liga_deve
+  // = positivo) — agora que os dois sentidos aparecem juntos na lista,
+  // somar só o valor absoluto (como antes, quando só tinha clube_deve)
+  // ficaria errado: um crédito e um débito de mesmo valor se cancelariam
+  // visualmente, não somariam.
+  const totalSemana = semana.reduce((acc, l) => ({
+    acerto: acc.acerto + l.acerto,
+    pago: acc.pago + l.pago,
+    diferenca: acc.diferenca + (l.direcao === 'liga_deve' ? l.diferenca : -l.diferenca),
+  }), { acerto: 0, pago: 0, diferenca: 0 })
 
   if (loading) return <div className="p-8 text-center text-gray-500 text-sm">{t('common.carregando')}</div>
   if (error) return <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>
@@ -106,14 +135,14 @@ export function RelatorioAcertosPendentes() {
                       <td className="px-4 py-3"><StatusBadge status={l.status} /></td>
                       <td className="px-4 py-3 text-right text-gray-300">{fmt(l.acerto)}</td>
                       <td className="px-4 py-3 text-right text-gray-300">{fmt(l.pago)}</td>
-                      <td className="px-4 py-3 text-right text-alert font-medium">{fmt(l.diferenca)}</td>
+                      <td className={`px-4 py-3 text-right font-medium ${l.direcao === 'liga_deve' ? 'text-blue-400' : 'text-alert'}`}>{fmt(l.direcao === 'liga_deve' ? l.diferenca : -l.diferenca)}</td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         {l.clubId && (
                           <button
                             type="button"
-                            onClick={() => { setConfirmarRollover(l); setErroRollover(null) }}
+                            onClick={() => abrirRollover(l)}
                             disabled={fazendoRollover === l.acertoId}
-                            title={t('acertos_pendentes.title_rollover')}
+                            title={l.direcao === 'liga_deve' ? t('acertos_pendentes.title_rollover_credito') : t('acertos_pendentes.title_rollover')}
                             className="flex items-center gap-1.5 px-2.5 py-1.5 border border-gold/30 text-gold rounded-lg text-xs font-medium hover:bg-gold/10 disabled:opacity-50 transition-colors ml-auto"
                           >
                             {fazendoRollover === l.acertoId ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}{t('acertos_pendentes.rollover')}
@@ -130,7 +159,7 @@ export function RelatorioAcertosPendentes() {
                     <td className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider" colSpan={3}>{t('acertos_pendentes.col_total')}</td>
                     <td className="px-4 py-3 text-right text-gray-300 font-semibold">{fmt(totalSemana.acerto)}</td>
                     <td className="px-4 py-3 text-right text-gray-300 font-semibold">{fmt(totalSemana.pago)}</td>
-                    <td className="px-4 py-3 text-right text-alert font-semibold">{fmt(totalSemana.diferenca)}</td>
+                    <td className={`px-4 py-3 text-right font-semibold ${totalSemana.diferenca > 0.005 ? 'text-blue-400' : 'text-alert'}`}>{fmt(totalSemana.diferenca)}</td>
                     <td className="px-4 py-3"></td>
                   </tr>
                 </tfoot>
@@ -146,7 +175,26 @@ export function RelatorioAcertosPendentes() {
       <ConfirmModal
         open={!!confirmarRollover}
         title={t('acertos_pendentes.rollover')}
-        description={confirmarRollover && t('acertos_pendentes.confirm_rollover_desc', { valor: fmt(confirmarRollover.diferenca), nome: confirmarRollover.clubName })}
+        description={confirmarRollover && (
+          confirmarRollover.direcao === 'liga_deve' ? (
+            <p>{t('acertos_pendentes.confirm_rollover_credito_desc', { valor: fmt(confirmarRollover.diferenca), nome: confirmarRollover.clubName })}</p>
+          ) : (
+            <div className="space-y-3">
+              <p>{t('acertos_pendentes.confirm_rollover_desc', { valor: fmt(confirmarRollover.diferenca), nome: confirmarRollover.clubName })}</p>
+              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                <input type="checkbox" checked={cobrarMulta} onChange={(e) => setCobrarMulta(e.target.checked)} className="accent-gold" />
+                {t('acertos_pendentes.cobrar_multa')}
+              </label>
+              {cobrarMulta && (
+                <p className="text-xs text-gray-500">
+                  {atrasoDiasModal > 0 && faixasMulta.length > 0 && valorComMultaModal > confirmarRollover.diferenca + 0.005
+                    ? t('acertos_pendentes.multa_estimada_desc', { valor: fmt(valorComMultaModal) })
+                    : t('acertos_pendentes.multa_sem_regra_desc')}
+                </p>
+              )}
+            </div>
+          )
+        )}
         tone="gold"
         icon={RotateCcw}
         saving={!!fazendoRollover}

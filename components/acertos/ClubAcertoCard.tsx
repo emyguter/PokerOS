@@ -51,6 +51,7 @@ interface ClubSettings {
   cotacao: number | null
   moeda_conversao: string | null
   leagues: { taxa_app_pct: number | null } | null
+  plataformas: { nome: string } | null
 }
 
 interface LancamentoCard {
@@ -161,14 +162,14 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   // os dois, pedido explícito do Cássio (o Resumo de Acertos continua
   // mostrando cada plataforma separada). `outrosMembros`: quem mais tá no
   // mesmo grupo, sem o clube que abriu o card.
-  const [outrosMembros, setOutrosMembros] = useState<{ id: string; nome: string }[]>([])
+  const [outrosMembros, setOutrosMembros] = useState<{ id: string; nome: string; plataformaNome: string }[]>([])
   const [acertosGrupo, setAcertosGrupo] = useState<AcertoGrupoRow[]>([])
   const [extrasPorClube, setExtrasPorClube] = useState<Map<string, ExtrasClube>>(new Map())
   const [indicacoesDetalhe, setIndicacoesDetalhe] = useState<{ nome: string; pct: number; valor: number }[]>([])
 
   useEffect(() => {
     if (acerto.club_id) {
-      supabase.from('clubs').select('fee_mtt_pct, taxa_op_pct, taxa_op_ativo, spinup_pct, security, wtr4_semanas_manual, crypto_rebate_pct, moeda, cotacao, moeda_conversao, leagues(taxa_app_pct)').eq('id', acerto.club_id).maybeSingle()
+      supabase.from('clubs').select('fee_mtt_pct, taxa_op_pct, taxa_op_ativo, spinup_pct, security, wtr4_semanas_manual, crypto_rebate_pct, moeda, cotacao, moeda_conversao, leagues(taxa_app_pct), plataformas(nome)').eq('id', acerto.club_id).maybeSingle()
         .then(({ data }) => setClub(data as unknown as ClubSettings))
     }
   }, [acerto.club_id])
@@ -384,14 +385,19 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   // não só os que têm linha em acertosGrupo — membro sem Acerto nessa semana
   // entra com total R$0 em vez de sumir da quebra.
   const totaisPorMembro = agrupado
-    ? [{ id: acerto.club_id as string, nomeCadastro: acerto.club_name }, ...outrosMembros.map((m) => ({ id: m.id, nomeCadastro: m.nome }))].map(({ id, nomeCadastro }) => {
+    ? [
+        { id: acerto.club_id as string, nomeCadastro: acerto.club_name, plataformaNome: club?.plataformas?.nome ?? '—' },
+        ...outrosMembros.map((m) => ({ id: m.id, nomeCadastro: m.nome, plataformaNome: m.plataformaNome })),
+      ].map(({ id, nomeCadastro, plataformaNome }) => {
         const r = acertosGrupo.find((row) => row.club_id === id)
-        if (!r) return { nome: nomeCadastro, total: 0 }
+        if (!r) return { id, nome: nomeCadastro, plataformaNome, total: 0 }
         const extras = extrasPorClube.get(r.club_id)
         const lancLiquido = (extras?.lancamentos ?? []).reduce((s, l) => s + (l.natureza === 'credito' ? l.valor : -l.valor), 0)
         const dividasT = (extras?.dividasItens ?? []).reduce((s, d) => s + d.valor, 0)
         return {
+          id,
           nome: r.club_name,
+          plataformaNome,
           total: calcularTotalAcerto(r.valor_acerto, {
             bilhetes: r.bilhetes,
             pendenciasAntecipacao: extras?.pendenciasAntecipacao ?? 0,
@@ -575,8 +581,8 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
             <div className="py-1">
               <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">{t('club_acerto_card.acerto_por_clube_vinculado')}</p>
               {totaisPorMembro.map((m) => (
-                <div key={m.nome} className="flex items-center justify-between py-1 px-3 text-sm">
-                  <span className="text-gray-400">{t('club_acerto_card.acerto_rs', { nome: m.nome })}</span>
+                <div key={m.id} className="flex items-center justify-between py-1 px-3 text-sm">
+                  <span className="text-gray-400">{t('club_acerto_card.acerto_rs', { nome: m.nome, plataforma: m.plataformaNome })}</span>
                   <span className="text-white font-medium">{fmt(m.total)}</span>
                 </div>
               ))}

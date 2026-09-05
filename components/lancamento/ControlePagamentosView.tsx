@@ -59,8 +59,8 @@ export function ControlePagamentosView() {
 
   useEffect(() => { load(periodoSelecionado) }, [periodoSelecionado, load])
 
-  // Caução ATUAL de cada clube (saldo de verdade, não a lançada no período —
-  // ver comentário da coluna "Caução") — só pra saber se ainda dá pra
+  // Caução ATUAL de cada clube (saldo de verdade, não a lançada no período,
+  // que agora aparece itemizada como Envio) — só pra saber se ainda dá pra
   // descontar (botão desabilita quando não tem mais nada).
   useEffect(() => {
     const clubIds = [...new Set(linhas.map((l) => l.club_id).filter((id): id is string => !!id))]
@@ -159,7 +159,7 @@ export function ControlePagamentosView() {
                 <th className="text-right px-3 py-2 whitespace-nowrap" title={t('pagamentos.title_valor_acerto')}>{t('pagamentos.col_valor_acerto')}</th>
                 <th className="text-right px-3 py-2 whitespace-nowrap" title={t('pagamentos.title_valor_pago')}>{t('pagamentos.col_valor_pago')}</th>
                 <th className="text-right px-3 py-2 whitespace-nowrap"></th>
-                <th className="text-right px-3 py-2 whitespace-nowrap" title={t('pagamentos.title_caucao')}>{t('pagamentos.col_caucao')}</th>
+                <th className="text-right px-3 py-2 whitespace-nowrap" title={t('pagamentos.title_extra')}>{t('pagamentos.col_extra')}</th>
                 {Array.from({ length: maxEnvios }).map((_, i) => (
                   <th key={i} className="text-right px-3 py-2 whitespace-nowrap">{t('pagamentos.col_envio', { n: String(i + 1) })}</th>
                 ))}
@@ -189,17 +189,27 @@ export function ControlePagamentosView() {
                       )
                     })()}
                   </td>
-                  <td className="px-3 py-2 text-right text-gray-500 whitespace-nowrap">{l.caucao === 0 ? '—' : fmt(l.caucao)}</td>
-                  {Array.from({ length: maxEnvios }).map((_, i) => (
-                    <td key={i} className="px-3 py-2 text-right text-gray-300 whitespace-nowrap">
-                      {l.envios[i] ? (
-                        <>
-                          {l.envios[i].pago_crypto && <span title={t('pagamentos.pago_crypto')} className="text-gold mr-1">₿</span>}
-                          {fmt(l.envios[i].valor_assinado)}
-                        </>
-                      ) : '—'}
-                    </td>
-                  ))}
+                  <td className="px-3 py-2 text-right text-gray-500 whitespace-nowrap">{l.extra === 0 ? '—' : fmt(l.extra)}</td>
+                  {Array.from({ length: maxEnvios }).map((_, i) => {
+                    const envio = l.envios[i]
+                    return (
+                      <td
+                        key={i}
+                        className="px-3 py-2 text-right text-gray-300 whitespace-nowrap"
+                        title={envio && envio.tipo !== 'pagamento' ? t(`pagamentos.envio_tipo_${envio.tipo}`) : undefined}
+                      >
+                        {envio ? (
+                          <>
+                            {envio.tipo !== 'pagamento' && (
+                              <span className="text-gray-500 mr-1 text-[10px] uppercase">{t(`pagamentos.envio_tipo_${envio.tipo}_abrev`)}</span>
+                            )}
+                            {envio.pago_crypto && <span title={t('pagamentos.pago_crypto')} className="text-gold mr-1">₿</span>}
+                            {fmt(envio.valor_assinado)}
+                          </>
+                        ) : '—'}
+                      </td>
+                    )
+                  })}
                 </tr>
               ))}
             </tbody>

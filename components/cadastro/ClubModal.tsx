@@ -394,7 +394,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
                 </div>
                 {vinculos.map(v => (
                   <div key={v.id} className="flex items-center justify-between p-2 bg-surface rounded-lg border border-white/10 text-sm">
-                    <span className="text-gray-300">{v.nome}</span>
+                    <span className="text-gray-300">{v.nome} <span className="text-gray-500">({v.plataformaNome})</span></span>
                     <button type="button" onClick={() => removerVinculoSalvo(v.id)} disabled={salvandoVinculo} className="text-gray-500 hover:text-alert disabled:opacity-40"><Trash2 size={13} /></button>
                   </div>
                 ))}

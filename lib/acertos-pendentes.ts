@@ -3,6 +3,8 @@ import { buscarImportsComAcerto, buscarPagamentosPorImport } from './pagamentos'
 
 export type StatusStoploss = 'ativo' | '50%' | 'bloqueado'
 
+export type DirecaoDiferenca = 'clube_deve' | 'liga_deve'
+
 export interface LinhaAcertoPendenteSemana {
   acertoId: string
   clubId: string
@@ -12,6 +14,14 @@ export interface LinhaAcertoPendenteSemana {
   acerto: number
   pago: number
   diferenca: number
+  // Sinal de verdade da Diferença: 'clube_deve' (negativa, Rollover normal,
+  // com opção de Multa) ou 'liga_deve' (positiva, "fica como antecipação" —
+  // pedido do Cássio, sem Multa) — ver rolloverAcerto/rolloverCredito em
+  // lib/pagamentos.ts.
+  direcao: DirecaoDiferenca
+  // Fim do período do Acerto que gerou essa Diferença — só usado pra
+  // calcular dias de atraso na Multa (rolloverAcerto com comMulta).
+  periodoFim: string
 }
 
 // Bloqueado tem prioridade sobre 50% (um clube pode ter os dois marcados ao
@@ -27,13 +37,17 @@ async function statusStoplossPorClube(clubIds: string[]): Promise<Map<string, St
 }
 
 // "Acertos Pendentes da Semana": Acerto da semana MAIS RECENTE já calculada
-// que o clube ainda não pagou (ou pagou só parte) — mesma fonte de verdade
-// do Controle de Pagamentos (lib/pagamentos.ts), só filtrando quem ainda
-// deve e ordenando do menor pro maior.
+// que ainda não fechou em zero (clube deve OU a Liga deve ao clube e não
+// pagou tudo) — mesma fonte de verdade do Controle de Pagamentos
+// (lib/pagamentos.ts), só filtrando quem ainda tem Diferença e ordenando do
+// menor pro maior. Os dois sentidos aparecem aqui (pedido do Cássio: "a
+// diferença, seja crédito ou débito, da semana anterior deve constar na
+// semana seguinte") — `direcao` diz pra UI qual ação de Rollover oferecer.
 export async function buscarAcertosPendentesDaSemana(): Promise<LinhaAcertoPendenteSemana[]> {
   const imports = await buscarImportsComAcerto()
   if (imports.length === 0) return []
   const importId = imports[0].id
+  const periodoFim = imports[0].period_end
 
   const [pagamentos, { data: acertosClub }] = await Promise.all([
     buscarPagamentosPorImport(importId),
@@ -43,7 +57,7 @@ export async function buscarAcertosPendentesDaSemana(): Promise<LinhaAcertoPende
     ((acertosClub ?? []) as { id: string; club_id: string | null }[]).map((a) => [a.id, a.club_id])
   )
 
-  const pendentes = pagamentos.filter((p) => p.diferenca < -0.005)
+  const pendentes = pagamentos.filter((p) => Math.abs(p.diferenca) > 0.005)
   const clubIds = [...new Set(pendentes.map((p) => clubIdPorAcertoId.get(p.acerto_id)).filter((id): id is string => !!id))]
   const statusPorClube = await statusStoplossPorClube(clubIds)
 
@@ -59,6 +73,8 @@ export async function buscarAcertosPendentesDaSemana(): Promise<LinhaAcertoPende
         acerto: Math.abs(p.valor_acerto),
         pago: Math.abs(p.valor_pago),
         diferenca: Math.abs(p.diferenca),
+        direcao: (p.diferenca < 0 ? 'clube_deve' : 'liga_deve') as DirecaoDiferenca,
+        periodoFim,
       }
     })
     .sort((a, b) => a.diferenca - b.diferenca)
