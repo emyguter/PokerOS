@@ -484,6 +484,7 @@ type CondicaoRow = {
   valor: number | null
   resultado_pct: number | null
   is_fallback: boolean
+  ordem: number
   regra_condicao_termos?: { indicador_id: string; ordem: number }[]
 }
 
@@ -501,7 +502,7 @@ function mapCondicaoRow(c: CondicaoRow): RegraCondicaoForm {
 export async function getRegras(): Promise<Regra[]> {
   const { data, error } = await supabase
     .from('regras')
-    .select('id, nome, created_at, tipo, campo, regra_pai_id, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id, ordem)), regra_multa_faixas(quantidade, unidade, percentual), regra_layout_campos(campo, ordem, visivel), regra_entidades(id)')
+    .select('id, nome, created_at, tipo, campo, regra_pai_id, regra_condicoes(operador, valor, resultado_pct, is_fallback, ordem, regra_condicao_termos(indicador_id, ordem)), regra_multa_faixas(quantidade, unidade, percentual), regra_layout_campos(campo, ordem, visivel), regra_entidades(id)')
     .order('nome')
   if (error) throw error
   return (data ?? []).map((r: any) => ({
@@ -510,7 +511,13 @@ export async function getRegras(): Promise<Regra[]> {
     created_at: r.created_at,
     tipo: (r.tipo ?? 'faixa') as Regra['tipo'],
     campo: (r.campo ?? null) as Regra['campo'],
-    condicoes: (r.regra_condicoes ?? []).map(mapCondicaoRow),
+    // Sem ordenar por `ordem` aqui, a tela de edição de Regras mostrava as
+    // condições em ordem arbitrária (regra_condicoes.id é uuid aleatório) —
+    // e como salvarCondicoes reatribui `ordem` pela posição no array no
+    // momento de salvar, editar e salvar QUALQUER regra (mesmo mudança não
+    // relacionada) embaralhava a ordem de avaliação de verdade. Foi assim
+    // que a regra do Agreste_poker acabou avaliando "< -1" antes de "< -1,5".
+    condicoes: [...(r.regra_condicoes ?? [])].sort((a: CondicaoRow, b: CondicaoRow) => a.ordem - b.ordem).map(mapCondicaoRow),
     faixasMulta: (r.regra_multa_faixas ?? []).map((f: any) => ({ quantidade: f.quantidade, unidade: f.unidade, percentual: f.percentual })),
     layoutCampos: (r.regra_layout_campos ?? []).map((c: any) => ({ campo: c.campo, ordem: c.ordem, visivel: c.visivel })),
     vinculoCount: (r.regra_entidades ?? []).length,
@@ -743,12 +750,15 @@ export interface RegraAplicada {
 // criação/edição em si vive só na tela de Regras, aqui é só leitura do
 // vínculo (Para = essa entidade). Pra Clube, um vínculo pode valer só pra
 // um campo específico (Fee MTT/Cash/Operacional/SpinUp) — vem junto no `campo`.
-const SELECT_REGRA_APLICADA = 'id, nome, tipo, regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicadores(nome, descricao))), regra_multa_faixas(quantidade, unidade, percentual), regra_layout_campos(campo, ordem, visivel)'
+const SELECT_REGRA_APLICADA = 'id, nome, tipo, regra_condicoes(operador, valor, resultado_pct, is_fallback, ordem, regra_condicao_termos(indicadores(nome, descricao))), regra_multa_faixas(quantidade, unidade, percentual), regra_layout_campos(campo, ordem, visivel)'
 
 function linhasDaRegra(regra: any): string[] {
   if (regra?.tipo === 'multa_atraso') return ((regra?.regra_multa_faixas ?? []) as any[]).map((f) => `${f.quantidade} ${f.unidade} → ${f.percentual}%`)
   if (regra?.tipo === 'layout_acerto') return resolverLayout(regra?.regra_layout_campos ?? null).map((c) => `${LABEL_CAMPO_ACERTO[c.campo]}${c.visivel ? '' : ' (oculto)'}`)
-  return ((regra?.regra_condicoes ?? []) as any[]).map(c => {
+  // Mesmo motivo do getRegras/buscarCondicoesPorClube: sem ordenar por
+  // `ordem`, esse painel podia mostrar (e o motor de cálculo avaliar) as
+  // condições numa sequência diferente da pretendida.
+  return ([...(regra?.regra_condicoes ?? [])] as any[]).sort((a, b) => a.ordem - b.ordem).map(c => {
     if (c.is_fallback) return `SENÃO → ${c.resultado_pct}%`
     const termos = (c.regra_condicao_termos ?? []).map((t: any) => t.indicadores?.descricao || t.indicadores?.nome || '?').join(' + ')
     return `SE ${termos} ${c.operador} ${c.valor} → ${c.resultado_pct}%`
