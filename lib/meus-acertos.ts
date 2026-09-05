@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { buscarSecurityEDividasPorClube, calcularTotalAcerto } from './relatorio-acerto'
-import { buscarPendenciasAntecipacao } from './acertos-engine'
+import { buscarPendenciasEAntecipacaoAoVivo } from './acertos-engine'
 import type { AcertoCard } from '@/components/acertos/ClubAcertoCard'
 
 export interface LinhaMeuAcerto {
@@ -52,18 +52,18 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
   // Pendências/Antecipação ao vivo, não a foto gravada em
   // acertos.pendencias_antecipacao — mesmo ajuste feito no AcertosView/
   // ClubAcertoCard/Controle de Pagamentos (achado pelo Cássio no caso
-  // AMORIM PLUS). Agrupa por período (period_start/period_end) porque
-  // imports de Ligas diferentes com o mesmo period_end podem, em teoria,
-  // ter period_start diferente.
-  const gruposPorPeriodo = new Map<string, { periodStart: string; periodEnd: string; clubIds: string[] }>()
+  // AMORIM PLUS). Inclui Rollover ainda não consumido (achado no
+  // Agreste_Poker: um Rollover recém-feito não aparecia aqui) —
+  // buscarPendenciasEAntecipacaoAoVivo precisa do import_id exato de cada
+  // Acerto (não só o período), então agrupa por import_id, não por data.
+  const gruposPorImport = new Map<string, { periodStart: string; periodEnd: string; clubIds: string[] }>()
   for (const a of linhasBase) {
     if (!a.club_id) continue
     const periodStart = a.imports?.period_start ?? periodoFim
     const periodEnd = a.imports?.period_end ?? periodoFim
-    const chave = `${periodStart}|${periodEnd}`
-    const grupo = gruposPorPeriodo.get(chave) ?? { periodStart, periodEnd, clubIds: [] }
+    const grupo = gruposPorImport.get(a.import_id) ?? { periodStart, periodEnd, clubIds: [] }
     grupo.clubIds.push(a.club_id)
-    gruposPorPeriodo.set(chave, grupo)
+    gruposPorImport.set(a.import_id, grupo)
   }
   const [extrasPorClube, { data: lancData }, ...mapasPendencias] = await Promise.all([
     buscarSecurityEDividasPorClube(clubIds, periodoFim, rakeTotalPorClube),
@@ -79,7 +79,7 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
       // o valor (mesmo ajuste feito no AcertosView/ClubAcertoCard).
       .neq('tipo', 'pagamento')
       .lte('data_lancamento', periodoFim),
-    ...[...gruposPorPeriodo.values()].map((g) => buscarPendenciasAntecipacao(g.clubIds, g.periodStart, g.periodEnd)),
+    ...[...gruposPorImport.entries()].map(([importId, g]) => buscarPendenciasEAntecipacaoAoVivo(g.clubIds, g.periodStart, g.periodEnd, importId)),
   ])
   const lancPorClube = new Map<string, number>()
   for (const l of (lancData ?? []) as { clube_id: string; natureza: string; valor: number }[]) {

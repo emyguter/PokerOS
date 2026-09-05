@@ -566,6 +566,29 @@ async function buscarRolloverPendente(clubIds: string[], importId: string): Prom
   return { porClube, ids };
 }
 
+// Mesma soma que processarAcertos grava em acertos.pendencias_antecipacao
+// (Antecipação conciliada + Rollover ainda não consumido), só que ao vivo —
+// pros lugares que preferem não confiar na foto gravada (ClubAcertoCard,
+// Meus Acertos, mesma razão de buscarPendenciasAntecipacao sozinha: uma
+// Antecipação/Rollover lançado DEPOIS do último cálculo precisa aparecer
+// sem esperar alguém clicar "Recalcular"). Achado pelo Cássio no caso
+// Agreste_Poker: o card "Common Settlement" só usava buscarPendenciasAntecipacao
+// (só Antecipação conciliada), então um Rollover recém-feito nunca aparecia
+// ali, por mais que se recalculasse — precisa do `importId` do Acerto sendo
+// exibido (mesmo motivo de buscarRolloverPendente: recalcular o MESMO
+// import não pode "perder" um Rollover que ele mesmo já consumiu antes).
+export async function buscarPendenciasEAntecipacaoAoVivo(clubIds: string[], periodStart: string, periodEnd: string, importId: string): Promise<Map<string, number>> {
+  const [pendenciasPorClube, { porClube: rolloverPorClube }] = await Promise.all([
+    buscarPendenciasAntecipacao(clubIds, periodStart, periodEnd),
+    buscarRolloverPendente(clubIds, importId),
+  ]);
+  const mapa = new Map<string, number>();
+  for (const id of new Set([...pendenciasPorClube.keys(), ...rolloverPorClube.keys()])) {
+    mapa.set(id, (pendenciasPorClube.get(id) ?? 0) + (rolloverPorClube.get(id) ?? 0));
+  }
+  return mapa;
+}
+
 export interface ClubeNovo {
   id: string;
   name: string;
