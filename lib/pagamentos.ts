@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { calcularTotalAcerto, buscarSecurityEDividasPorClube } from './relatorio-acerto'
 import { diasDeAtraso, getFaixasMultaDoClube, valorComMulta } from './dividas'
+import { diaSeguinte } from './acertos-engine'
 
 export type TipoEnvio = 'pagamento' | 'antecipacao' | 'caucao'
 
@@ -181,7 +182,10 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
 // como envio"). Caução agora TAMBÉM quita Diferença (antes não entrava —
 // confirmado pelo Cássio que essa é a mudança pretendida). `clube_id` é
 // resolvido pro `acerto_id` certo pelo chamador (mapa 1 clube = 1 Acerto no
-// período, ver acertoIdPorClube).
+// período, ver acertoIdPorClube). Janela de data deslocada em +1 dia
+// (diaSeguinte) — mesma correção de buscarPendenciasAntecipacao: um
+// lançamento datado no 1º dia do período conta pra semana ANTERIOR
+// (achado no Agreste_Poker, confirmado pelo Cássio).
 async function buscarAntecipacaoEnvios(clubIds: string[], periodStart: string, periodEnd: string): Promise<LancamentoBrutoRow[]> {
   if (clubIds.length === 0 || !periodStart) return []
   const { data } = await supabase
@@ -191,8 +195,8 @@ async function buscarAntecipacaoEnvios(clubIds: string[], periodStart: string, p
     .eq('tipo', 'antecipacao')
     .eq('origem', 'suporte')
     .not('conciliado_com', 'is', null)
-    .gte('data_lancamento', periodStart)
-    .lte('data_lancamento', periodEnd || periodStart)
+    .gte('data_lancamento', diaSeguinte(periodStart))
+    .lte('data_lancamento', diaSeguinte(periodEnd || periodStart))
   return (data ?? []) as LancamentoBrutoRow[]
 }
 
@@ -203,8 +207,8 @@ async function buscarCaucaoEnvios(clubIds: string[], periodStart: string, period
     .select('id, clube_id, natureza, valor, data_lancamento, pago_crypto')
     .in('clube_id', clubIds)
     .eq('tipo', 'caucao')
-    .gte('data_lancamento', periodStart)
-    .lte('data_lancamento', periodEnd || periodStart)
+    .gte('data_lancamento', diaSeguinte(periodStart))
+    .lte('data_lancamento', diaSeguinte(periodEnd || periodStart))
   return (data ?? []) as LancamentoBrutoRow[]
 }
 
