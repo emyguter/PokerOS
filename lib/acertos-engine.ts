@@ -490,6 +490,20 @@ export function calcularWtr4Semanas(row: ImportRow, historico: { player_result_c
   return somaRake ? somaGanhos / somaRake : null;
 }
 
+// Um lançamento datado exatamente no 1º dia do período (period_start) conta
+// pra semana ANTERIOR, não essa — confirmado pelo Cássio (achado no
+// Agreste_Poker: uma Antecipação conciliada e datada bem na virada da
+// semana — "o cara tá pagando da semana anterior" — estava contando na
+// semana errada). Desloca a janela de data_lancamento inteira em +1 dia
+// (start+1 até end+1), não só o limite inferior — assim uma data igual ao
+// period_start da PRÓXIMA semana também sai da semana atual e vai pra lá,
+// a regra vale "sucessivamente" pra toda virada, não só a de cima.
+export function diaSeguinte(dataISO: string): string {
+  const d = new Date(dataISO + "T00:00:00");
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 // Pendências/Antecipação = lançamentos de Antecipação do Suporte já
 // conciliados (conciliado_com preenchido = já casou com o par da Genia),
 // dentro do período do acerto — confirmado com o Cássio. Soma só o lado
@@ -511,8 +525,8 @@ export async function buscarPendenciasAntecipacao(clubIds: string[], periodStart
     .eq("tipo", "antecipacao")
     .eq("origem", "suporte")
     .not("conciliado_com", "is", null)
-    .gte("data_lancamento", periodStart)
-    .lte("data_lancamento", periodEnd || periodStart);
+    .gte("data_lancamento", diaSeguinte(periodStart))
+    .lte("data_lancamento", diaSeguinte(periodEnd || periodStart));
 
   for (const row of (data ?? []) as { clube_id: string; natureza: "credito" | "debito"; valor: number }[]) {
     const delta = row.natureza === "credito" ? row.valor : -row.valor;
