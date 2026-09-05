@@ -186,10 +186,11 @@ export function ArvoreAcertosView() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold text-white">Árvore de Acertos</h1>
-          <p className="text-sm text-gray-400 mt-1">Liga → Clube → Super Agente → Agente → Jogador</p>
-        </div>
+        {/* Título "Árvore de Acertos" já removido daqui — duplicava o H1 da
+            página (AcertosView), que é a única tela que renderiza esse
+            componente. Mantém só a linha de trilha, que explica a navegação
+            (não redundante com nada acima). */}
+        <p className="text-sm text-gray-400">Liga → Clube → Super Agente → Agente → Jogador</p>
         {periodos.length > 0 && (
           <select
             value={periodoFiltro}

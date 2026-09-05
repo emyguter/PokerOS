@@ -351,9 +351,6 @@ export const en: typeof pt = {
   acertos_view: {
     kicker: 'PokerOS · Settlements',
     titulo: 'Settlement Summary',
-    subtitulo_clube: 'Select an import to calculate and check settlements by club',
-    subtitulo_agente: 'Consolidated rakeback by agent, summing every club they cover',
-    aba_clube: 'By Club', aba_agente: 'By Agent',
     imports_titulo: 'Imports',
     ordenar_importacao: 'Import date', ordenar_periodo: 'File period', ordenar_nome: 'Name',
     buscar_import_placeholder: 'Search by file, league or club...',

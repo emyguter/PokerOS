@@ -349,9 +349,6 @@ export const pt = {
   acertos_view: {
     kicker: 'PokerOS · Acertos',
     titulo: 'Resumo de Acertos',
-    subtitulo_clube: 'Selecione um import para calcular e conferir os acertos por clube',
-    subtitulo_agente: 'Rakeback consolidado por agente, somando todos os clubes que atende',
-    aba_clube: 'Por Clube', aba_agente: 'Por Agente',
     imports_titulo: 'Imports',
     ordenar_importacao: 'Data de importação', ordenar_periodo: 'Período do arquivo', ordenar_nome: 'Nome',
     buscar_import_placeholder: 'Buscar por arquivo, liga ou clube...',

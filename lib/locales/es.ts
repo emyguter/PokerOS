@@ -351,9 +351,6 @@ export const es: typeof pt = {
   acertos_view: {
     kicker: 'PokerOS · Liquidaciones',
     titulo: 'Resumen de Liquidaciones',
-    subtitulo_clube: 'Selecciona una importación para calcular y revisar las liquidaciones por club',
-    subtitulo_agente: 'Rakeback consolidado por agente, sumando todos los clubes que atiende',
-    aba_clube: 'Por Club', aba_agente: 'Por Agente',
     imports_titulo: 'Importaciones',
     ordenar_importacao: 'Fecha de importación', ordenar_periodo: 'Período del archivo', ordenar_nome: 'Nombre',
     buscar_import_placeholder: 'Buscar por archivo, liga o club...',
