@@ -466,6 +466,27 @@ function NoFaixa({ path, raiz, onVerCompleto, onRecalcular, calculando }: {
 
   if (atual.tipo === 'clube') {
     const l = atual.ref
+    // semAcerto: import "só-Geral" (Superagente/Agente/Jogador) não gera
+    // Acerto de clube de propósito — Rake/Ganhos/Fee/Bilhetes/Total ficariam
+    // todos 0, o que pareceria um Acerto zerado de verdade em vez de "não
+    // existe". "Ver acerto completo" também não faz sentido (não tem
+    // ClubAcertoCard pra abrir) — só Recalcular, que já reprocessa o import.
+    if (l.semAcerto) {
+      return (
+        <Faixa
+          titulo={l.acerto.club_name}
+          meta={l.acerto.club_external_id}
+          tag="Sem Acerto de clube — só rateio de Agentes"
+          acoes={
+            <button type="button" onClick={() => onRecalcular(l)} disabled={calculando} className="px-3.5 py-1.5 border border-white/10 rounded-lg text-xs text-gray-300 hover:border-gold/40 disabled:opacity-40 flex items-center gap-1.5">
+              <RotateCcw size={12} /> Recalcular semana
+            </button>
+          }
+        >
+          <Fig k="Jogadores → Agentes" v="Ver abaixo" />
+        </Faixa>
+      )
+    }
     return (
       <Faixa
         titulo={l.acerto.club_name}
@@ -565,7 +586,7 @@ function Grade({ children }: { children: React.ReactNode }) {
   return <div className="grid gap-2.5 mb-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))' }}>{children}</div>
 }
 
-function NodeCard({ icone, nome, sub, valor, semAcerto, onClick }: { icone: string; nome: string; sub: string; valor?: string; valorClasse?: string; semAcerto?: boolean; onClick: () => void }) {
+function NodeCard({ icone, nome, sub, valor, badge, onClick }: { icone: string; nome: string; sub: string; valor?: string; badge?: string; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -578,8 +599,8 @@ function NodeCard({ icone, nome, sub, valor, semAcerto, onClick }: { icone: stri
         <ChevronRight size={14} className="text-gray-700 group-hover:text-gold shrink-0" />
       </div>
       <div className="text-[11px] text-gray-600 truncate">{sub}</div>
-      {semAcerto ? (
-        <span className="text-[10px] uppercase tracking-wide text-gold bg-gold/10 border border-gold/25 rounded px-1.5 py-0.5 self-start">falta calcular</span>
+      {badge ? (
+        <span className="text-[10px] uppercase tracking-wide text-gold bg-gold/10 border border-gold/25 rounded px-1.5 py-0.5 self-start">{badge}</span>
       ) : valor !== undefined ? (
         <div className={`text-sm font-semibold ${valor.startsWith('−') ? 'text-alert' : 'text-emerald-400'}`}>{valor}</div>
       ) : null}
@@ -592,7 +613,16 @@ function CardLiga({ liga, onClick }: { liga: LigaNode; onClick: () => void }) {
   return <NodeCard icone="L" nome={liga.nome} sub={`${liga.clubes.length} clube(s)`} valor={fmt(total)} onClick={onClick} />
 }
 function CardClube({ clube, onClick }: { clube: LinhaMeuAcerto; onClick: () => void }) {
-  return <NodeCard icone="C" nome={clube.acerto.club_name} sub={clube.acerto.club_external_id} valor={fmt(clube.valorFinal)} onClick={onClick} />
+  return (
+    <NodeCard
+      icone="C"
+      nome={clube.acerto.club_name}
+      sub={clube.acerto.club_external_id}
+      valor={clube.semAcerto ? undefined : fmt(clube.valorFinal)}
+      badge={clube.semAcerto ? 'só rateio de agentes' : undefined}
+      onClick={onClick}
+    />
+  )
 }
 function CardSuperAgente({ sa, onClick }: { sa: NoSuperAgente; onClick: () => void }) {
   const total = sa.agentes.reduce((s, a) => s + a.valorRakeback, 0)

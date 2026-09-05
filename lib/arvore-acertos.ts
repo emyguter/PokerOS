@@ -20,13 +20,70 @@ export interface ArvoreRaiz {
   semLiga: LinhaMeuAcerto[]
 }
 
+// Clube cujo único import da semana é o tipo "Superagente/Agente/Jogador"
+// (parsePPPoker, sem "Geral da liga") não gera linha em `acertos` de
+// propósito — não é um Acerto de clube de verdade, só alimenta o rateio de
+// Agentes (acertos_agentes). Sem isso, esse clube nunca aparecia na árvore
+// (buscarArvoreRaiz nasce inteira de buscarMeusAcertos, que lê `acertos`) —
+// dava pra ver o rateio de Agentes por outros caminhos, mas não tinha nem
+// como abrir o drill-down dele na Árvore (achado pelo Cássio: clube 3907508,
+// zero Acerto na semana, mas com rateio de Agentes completo já calculado).
+async function buscarClubesSoRateio(
+  periodoFim: string,
+  clubIdsComAcerto: Set<string>,
+  clubeIdsVisiveis: string[] | null
+): Promise<LinhaMeuAcerto[]> {
+  if (clubeIdsVisiveis && clubeIdsVisiveis.length === 0) return []
+
+  const { data: imports } = await supabase.from('imports').select('id').eq('period_end', periodoFim)
+  const importIds = (imports ?? []).map((i) => i.id as string)
+  if (importIds.length === 0) return []
+
+  const { data: linhasAgentes } = await supabase
+    .from('acertos_agentes')
+    .select('clube_id, import_id')
+    .in('import_id', importIds)
+    .not('clube_id', 'is', null)
+  const importIdPorClube = new Map<string, string>()
+  for (const r of (linhasAgentes ?? []) as { clube_id: string; import_id: string }[]) {
+    if (!clubIdsComAcerto.has(r.clube_id)) importIdPorClube.set(r.clube_id, r.import_id)
+  }
+  const clubeIds = [...importIdPorClube.keys()].filter((id) => !clubeIdsVisiveis || clubeIdsVisiveis.includes(id))
+  if (clubeIds.length === 0) return []
+
+  const { data: clubes } = await supabase.from('clubs').select('id, name, external_id, league_id, leagues(name)').in('id', clubeIds)
+  return ((clubes ?? []) as unknown as { id: string; name: string; external_id: string | null; league_id: string | null; leagues: { name: string } | null }[])
+    .map((c) => ({
+      acerto: {
+        id: `sem-acerto:${c.id}`,
+        club_id: c.id,
+        club_name: c.name,
+        club_external_id: c.external_id ?? '',
+        settlement_type: '—',
+        valor_acerto: 0, rake_mtt: 0, rake_cash: 0, rake_total: 0, player_result: 0,
+        fee_calculado: 0, fee_mtt_valor: 0, fee_cash_valor: 0, fee_operacional_valor: 0, fee_spinup_valor: 0,
+        taxa_liga_valor: 0, taxa_cash_pct_aplicada: null, rebate_calculado: 0, bilhetes: 0, indicacao_valor: 0,
+      },
+      importId: importIdPorClube.get(c.id)!,
+      ligaId: c.league_id,
+      ligaNome: c.leagues?.name ?? '—',
+      valorFinal: 0,
+      periodStart: periodoFim,
+      periodEnd: periodoFim,
+      semAcerto: true,
+    }))
+}
+
 // clubeIdsVisiveis: null = sem restrição (staff/admin); lista = escopo de
 // resolverClubesVisiveis (login de Liga/Clube/SuperLiga/MegaLiga).
 export async function buscarArvoreRaiz(periodoFim: string, clubeIdsVisiveis: string[] | null): Promise<ArvoreRaiz> {
   const linhas = await buscarMeusAcertos(periodoFim, clubeIdsVisiveis)
+  const clubIdsComAcerto = new Set(linhas.map((l) => l.acerto.club_id).filter((id): id is string => !!id))
+  const soRateio = await buscarClubesSoRateio(periodoFim, clubIdsComAcerto, clubeIdsVisiveis)
+
   const porLiga = new Map<string, LigaNode>()
   const semLiga: LinhaMeuAcerto[] = []
-  for (const l of linhas) {
+  for (const l of [...linhas, ...soRateio]) {
     if (!l.ligaId) { semLiga.push(l); continue }
     const node = porLiga.get(l.ligaId) ?? { id: l.ligaId, nome: l.ligaNome, clubes: [] }
     node.clubes.push(l)
