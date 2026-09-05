@@ -1,12 +1,21 @@
 import { supabase } from './supabase'
 import { calcularTotalAcerto, buscarSecurityEDividasPorClube } from './relatorio-acerto'
-import { buscarPendenciasAntecipacao } from './acertos-engine'
+
+export type TipoEnvio = 'pagamento' | 'antecipacao' | 'caucao'
 
 export interface EnvioPagamento {
   id: string
   valor_assinado: number
   data_lancamento: string
   pago_crypto: boolean
+  // Pagamento, Antecipação (conciliada) e Caução aparecem todos itemizados
+  // como Envio — pedido do Cássio ("Caucao, pagamento e antecipancao TEM
+  // QUE aparecer como envio"). Antes só Pagamento virava Envio de verdade;
+  // Antecipação entrava só como um número resumido em Valor Pago e Caução
+  // nem entrava na Diferença. `tipo` é só pra UI distinguir/rotular cada
+  // coluna — o valor já vem assinado (crédito soma, débito subtrai) igual
+  // pra qualquer um dos três.
+  tipo: TipoEnvio
 }
 
 export interface AcertoPagamento {
@@ -18,13 +27,11 @@ export interface AcertoPagamento {
   envios: EnvioPagamento[]
   valor_pago: number
   diferenca: number
-  // Caução lançada no período — só referência (igual na planilha do
-  // Cássio), não entra na soma de Envios nem na Diferença: Caução vive na
-  // própria conta dela (alimenta o Stoploss), misturar bagunça as duas
-  // contas — mesma regra já usada em Acertos/ClubAcertoCard. Preenchido só
-  // por buscarPagamentosPorImport (agregarPagamentos não sabe de Caução,
-  // continua puro/testável do jeito que já era).
-  caucao: number
+  // Bônus + Promoção + Outro lançados no período — já entram em Valor do
+  // Acerto (valorAcertoCompletoPorRow), isso aqui é só pra referência visual
+  // separada (pedido do Cássio: "Bônus, promoção e outros aparece em
+  // EXTRA"), não soma de novo em nada.
+  extra: number
   // Projeto do clube (Mega Liga/Superliga/Liga/Clube — mesmo campo usado no
   // Stoploss) — só pra filtrar a tabela na tela, não entra em cálculo nenhum.
   projeto: string | null
@@ -51,6 +58,19 @@ interface PagamentoRow {
   valor: number
   data_lancamento: string
   pago_crypto: boolean
+  // Opcional só pra não quebrar lib/__tests__/pagamentos.test.ts (que monta
+  // esses objetos à mão sem essa chave) — ausente = 'pagamento', o único
+  // tipo que existia antes do Antecipação/Caução também virarem Envio.
+  tipo?: TipoEnvio
+}
+
+interface LancamentoBrutoRow {
+  id: string
+  clube_id: string
+  natureza: 'credito' | 'debito'
+  valor: number
+  data_lancamento: string
+  pago_crypto: boolean
 }
 
 // Junta os Acertos de um import com os lançamentos tipo "pagamento" vinculados
@@ -69,6 +89,7 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
       valor_assinado: p.natureza === 'credito' ? p.valor : -p.valor,
       data_lancamento: p.data_lancamento,
       pago_crypto: p.pago_crypto,
+      tipo: p.tipo ?? 'pagamento',
     })
     enviosPorAcerto.set(p.acerto_id, lista)
   }
@@ -85,7 +106,7 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
       envios,
       valor_pago,
       diferenca: Math.round((a.valor_acerto + valor_pago) * 100) / 100,
-      caucao: 0,
+      extra: 0,
       projeto: null,
     }
   })
@@ -96,19 +117,19 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
 // calcularTotalAcerto): Bilhetes, Segurança, Taxa A-A Home Game, Indicação,
 // Lançamentos do período (Bônus/Promoção/Outro) e Dívidas/Acordos entram
 // todos — confirmado pelo Cássio, nada pode ficar de fora, senão a Diferença
-// de Cobrança/Controle de Pagamentos fica errada. Pendências/Antecipação FICA
-// DE FORA daqui de propósito (diferente do card/AcertosView) — corrigido a
-// pedido do Cássio no caso AMORIM PLUS: aqui ela conta como um PAGAMENTO
-// (soma em "Valor Pago", junto dos Envios), não escondida dentro de "Valor
-// do Acerto" — mesma lógica de "o que devia" vs "o que já foi adiantado" que
-// a coluna Valor Pago já usa pra Envio de verdade. Devolve os dois mapas
-// (valor completo sem pendência + pendência isolada por clube) pro chamador
-// somar a pendência em "Valor Pago"/Diferença, não em "Valor do Acerto".
-async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart: string, periodEnd: string): Promise<{ valorAcertoPorId: Map<string, number>; pendenciasPorClube: Map<string, number> }> {
+// de Cobrança/Controle de Pagamentos fica errada. Antecipação e Caução FICAM
+// DE FORA daqui de propósito — as duas viram Envio itemizado (ver
+// buscarAntecipacaoEnvios/buscarCaucaoEnvios abaixo), não escondidas dentro
+// de "Valor do Acerto" — mesma lógica de "o que devia" vs "o que já foi
+// adiantado/quitado" que a coluna Valor Pago já usa pra Envio de verdade.
+// `extraPorClube` (Bônus+Promoção+Outro, já somado aqui dentro de Valor do
+// Acerto) é devolvido separado só pra UI mostrar como referência na coluna
+// "Extra" (pedido do Cássio) — não é somado de novo em nada.
+async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart: string, periodEnd: string): Promise<{ valorAcertoPorId: Map<string, number>; extraPorClube: Map<string, number> }> {
   const clubIds = [...new Set(lista.map((a) => a.club_id).filter((id): id is string => !!id))]
   const rakeTotalPorClube = new Map(lista.filter((a) => a.club_id).map((a) => [a.club_id as string, a.rake_total]))
 
-  const [{ data: lancamentosData }, extrasPorClube, pendenciasPorClube] = await Promise.all([
+  const [{ data: lancamentosData }, extrasPorClube] = await Promise.all([
     clubIds.length > 0 && periodStart
       ? supabase
           .from('lancamentos')
@@ -116,8 +137,8 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
           .in('clube_id', clubIds)
           .in('origem', ['suporte', 'seguranca'])
           .neq('tipo', 'caucao')
-          // Antecipação já entra separado (Valor Pago, ver acima) e
-          // Pagamento já quita o Acerto certo pelo acerto_id vinculado (ver
+          // Antecipação já vira Envio itemizado (ver buscarAntecipacaoEnvios)
+          // e Pagamento já quita o Acerto certo pelo acerto_id vinculado (ver
           // agregarPagamentos) — contar os dois de novo aqui dobra o valor
           // (mesmo bug do ClubAcertoCard/AcertosView, achado no CHIP COIN:
           // Antecipação de uma semana entrando 2x, e Pagamento que fechou a
@@ -128,17 +149,11 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
           .lte('data_lancamento', periodEnd || periodStart)
       : Promise.resolve({ data: [] as { clube_id: string; natureza: 'credito' | 'debito'; valor: number }[] }),
     buscarSecurityEDividasPorClube(clubIds, periodEnd || periodStart, rakeTotalPorClube),
-    // Ao vivo, não a foto gravada em acertos.pendencias_antecipacao (só
-    // reflete o que existia quando o Acerto foi calculado/recalculado pela
-    // última vez) — achado pelo Cássio no caso AMORIM PLUS: Antecipação
-    // lançada e conciliada depois do último cálculo não aparecia até
-    // clicar em "Recalcular".
-    buscarPendenciasAntecipacao(clubIds, periodStart, periodEnd || periodStart),
   ])
 
-  const lancamentosPorClube = new Map<string, number>()
+  const extraPorClube = new Map<string, number>()
   for (const l of (lancamentosData ?? []) as { clube_id: string; natureza: 'credito' | 'debito'; valor: number }[]) {
-    lancamentosPorClube.set(l.clube_id, (lancamentosPorClube.get(l.clube_id) ?? 0) + (l.natureza === 'credito' ? l.valor : -l.valor))
+    extraPorClube.set(l.clube_id, (extraPorClube.get(l.clube_id) ?? 0) + (l.natureza === 'credito' ? l.valor : -l.valor))
   }
 
   const valorAcertoPorId = new Map<string, number>()
@@ -149,30 +164,61 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
       pendenciasAntecipacao: 0,
       security: extras?.security ?? 0,
       indicacaoValor: a.indicacao_valor,
-      lancamentosLiquido: a.club_id ? lancamentosPorClube.get(a.club_id) ?? 0 : 0,
+      lancamentosLiquido: a.club_id ? extraPorClube.get(a.club_id) ?? 0 : 0,
       dividasTotal: extras?.dividasTotal ?? 0,
     }))
   }
-  return { valorAcertoPorId, pendenciasPorClube }
+  return { valorAcertoPorId, extraPorClube }
 }
 
-// Caução lançada no clube dentro do período do Acerto — só pra referência
-// no Controle de Pagamentos (Suporte), igual na planilha do Cássio (coluna
-// "Caução" separada, entre Acerto e os Envios). Não entra em Diferença.
-async function caucaoPorClube(clubIds: string[], periodStart: string, periodEnd: string): Promise<Map<string, number>> {
-  const mapa = new Map<string, number>()
-  if (clubIds.length === 0 || !periodStart) return mapa
+// Antecipação conciliada (mesmo filtro de buscarPendenciasAntecipacao em
+// lib/acertos-engine.ts — só a copia aqui pegando as linhas cruas em vez de
+// já somar, porque agora ela vira Envio itemizado, não mais um número só
+// resumido em Valor Pago) e Caução lançadas no clube dentro do período do
+// Acerto — ambas viram Envio (crédito soma, débito subtrai), igual Pagamento
+// (pedido do Cássio: "Caucao, pagamento e antecipancao TEM QUE aparecer
+// como envio"). Caução agora TAMBÉM quita Diferença (antes não entrava —
+// confirmado pelo Cássio que essa é a mudança pretendida). `clube_id` é
+// resolvido pro `acerto_id` certo pelo chamador (mapa 1 clube = 1 Acerto no
+// período, ver acertoIdPorClube).
+async function buscarAntecipacaoEnvios(clubIds: string[], periodStart: string, periodEnd: string): Promise<LancamentoBrutoRow[]> {
+  if (clubIds.length === 0 || !periodStart) return []
   const { data } = await supabase
     .from('lancamentos')
-    .select('clube_id, natureza, valor')
+    .select('id, clube_id, natureza, valor, data_lancamento, pago_crypto')
+    .in('clube_id', clubIds)
+    .eq('tipo', 'antecipacao')
+    .eq('origem', 'suporte')
+    .not('conciliado_com', 'is', null)
+    .gte('data_lancamento', periodStart)
+    .lte('data_lancamento', periodEnd || periodStart)
+  return (data ?? []) as LancamentoBrutoRow[]
+}
+
+async function buscarCaucaoEnvios(clubIds: string[], periodStart: string, periodEnd: string): Promise<LancamentoBrutoRow[]> {
+  if (clubIds.length === 0 || !periodStart) return []
+  const { data } = await supabase
+    .from('lancamentos')
+    .select('id, clube_id, natureza, valor, data_lancamento, pago_crypto')
     .in('clube_id', clubIds)
     .eq('tipo', 'caucao')
     .gte('data_lancamento', periodStart)
     .lte('data_lancamento', periodEnd || periodStart)
-  for (const l of (data ?? []) as { clube_id: string; natureza: 'credito' | 'debito'; valor: number }[]) {
-    mapa.set(l.clube_id, (mapa.get(l.clube_id) ?? 0) + (l.natureza === 'credito' ? l.valor : -l.valor))
+  return (data ?? []) as LancamentoBrutoRow[]
+}
+
+// Resolve as linhas cruas de Antecipação/Caução (por clube) pro acerto_id
+// certo e empacota como PagamentoRow — mesmo formato que o Pagamento de
+// verdade usa, assim agregarPagamentos (puro, testado) nem precisa saber
+// que existe Antecipação/Caução, só vê mais Envios chegando.
+function converterParaEnvios(rows: LancamentoBrutoRow[], acertoIdPorClube: Map<string, string>, tipo: TipoEnvio): PagamentoRow[] {
+  const resultado: PagamentoRow[] = []
+  for (const r of rows) {
+    const acertoId = acertoIdPorClube.get(r.clube_id)
+    if (!acertoId) continue
+    resultado.push({ id: r.id, acerto_id: acertoId, natureza: r.natureza, valor: r.valor, data_lancamento: r.data_lancamento, pago_crypto: r.pago_crypto, tipo })
   }
-  return mapa
+  return resultado
 }
 
 export async function buscarPagamentosPorImport(importId: string): Promise<AcertoPagamento[]> {
@@ -187,42 +233,45 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
 
   const { data: importInfo } = await supabase.from('imports').select('period_start, period_end').eq('id', importId).single()
   const clubIds = [...new Set(lista.map((a) => a.club_id).filter((id): id is string => !!id))]
+  const periodStart = importInfo?.period_start ?? ''
+  const periodEnd = importInfo?.period_end ?? ''
 
-  const [{ data: pagamentos }, { valorAcertoPorId, pendenciasPorClube }, caucaoPorId, { data: clubesData }] = await Promise.all([
+  const [{ data: pagamentosData }, { valorAcertoPorId, extraPorClube }, antecipacaoRows, caucaoRows, { data: clubesData }] = await Promise.all([
     supabase
       .from('lancamentos')
       .select('id, acerto_id, natureza, valor, data_lancamento, pago_crypto')
       .in('acerto_id', lista.map((a) => a.id))
-      // Só Pagamento (Envio de verdade) — Antecipação conta à parte, por
-      // clube+período conciliado (ver pendenciasPorClube acima), não por
-      // acerto_id vinculado (que é opcional pra Antecipação e normalmente
-      // fica em branco — contar só quando preenchido perdia a maioria).
       .eq('tipo', 'pagamento')
       // Conta só o lado Suporte, não o par da Genia — senão um Pagamento já
       // conciliado (que tem os dois lados com o mesmo acerto_id) dobra o
       // Valor Pago (achado no CHIP COIN: 2 Envios de -677,97 pro mesmo
-      // Pagamento). Mesma regra já usada em buscarPendenciasAntecipacao.
+      // Pagamento). Mesma regra já usada em buscarAntecipacaoEnvios.
       .eq('origem', 'suporte')
       .order('data_lancamento', { ascending: true }),
-    valorAcertoCompletoPorRow(lista, importInfo?.period_start ?? '', importInfo?.period_end ?? ''),
-    caucaoPorClube(clubIds, importInfo?.period_start ?? '', importInfo?.period_end ?? ''),
+    valorAcertoCompletoPorRow(lista, periodStart, periodEnd),
+    buscarAntecipacaoEnvios(clubIds, periodStart, periodEnd),
+    buscarCaucaoEnvios(clubIds, periodStart, periodEnd),
     clubIds.length > 0 ? supabase.from('clubs').select('id, projeto').in('id', clubIds) : Promise.resolve({ data: [] }),
   ])
   const projetoPorClube = new Map((clubesData ?? []).map((c) => [c.id as string, c.projeto as string | null]))
 
   const listaCompleta: AcertoRow[] = lista.map((a) => ({ ...a, valor_acerto: valorAcertoPorId.get(a.id) ?? a.valor_acerto }))
   const clubIdPorAcertoId = new Map(lista.map((a) => [a.id, a.club_id]))
+  const acertoIdPorClube = new Map(lista.filter((a) => a.club_id).map((a) => [a.club_id as string, a.id]))
 
-  const resultado = agregarPagamentos(listaCompleta, (pagamentos ?? []) as PagamentoRow[])
+  const pagamentos: PagamentoRow[] = [
+    ...((pagamentosData ?? []) as PagamentoRow[]).map((p) => ({ ...p, tipo: 'pagamento' as const })),
+    ...converterParaEnvios(antecipacaoRows, acertoIdPorClube, 'antecipacao'),
+    ...converterParaEnvios(caucaoRows, acertoIdPorClube, 'caucao'),
+  ].sort((a, b) => a.data_lancamento.localeCompare(b.data_lancamento))
+
+  const resultado = agregarPagamentos(listaCompleta, pagamentos)
   return resultado.map((r) => {
     const clubId = clubIdPorAcertoId.get(r.acerto_id)
-    const pendencia = clubId ? pendenciasPorClube.get(clubId) ?? 0 : 0
     return {
       ...r,
       club_id: clubId ?? null,
-      valor_pago: Math.round((r.valor_pago + pendencia) * 100) / 100,
-      diferenca: Math.round((r.diferenca + pendencia) * 100) / 100,
-      caucao: clubId ? caucaoPorId.get(clubId) ?? 0 : 0,
+      extra: clubId ? extraPorClube.get(clubId) ?? 0 : 0,
       projeto: clubId ? projetoPorClube.get(clubId) ?? null : null,
     }
   })
@@ -240,9 +289,9 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
 //     ao vivo a partir de caucao_atual, não precisa mexer em mais nada).
 //     Esse datado do fim do período do Acerto (não hoje) — é o valor que
 //     conta pra semana sendo quitada, mesma regra de "que semana o valor
-//     conta" já usada no resto do Stoploss; sem isso a coluna Caução do
-//     Controle de Pagamentos/Cobrança fica sempre "—" pra semanas passadas
-//     (o lançamento cai fora do período filtrado).
+//     conta" já usada no resto do Stoploss; sem isso o Envio de Caução no
+//     Controle de Pagamentos/Cobrança nunca aparece pra semanas passadas
+//     (o lançamento cai fora do período filtrado por buscarCaucaoEnvios).
 export async function descontarDaCaucao(acertoId: string, clubeId: string, valor: number, dataPeriodo: string): Promise<void> {
   const { data: userData } = await supabase.auth.getUser()
   const hoje = new Date().toISOString().slice(0, 10)
@@ -398,41 +447,42 @@ export async function buscarPagamentosPorPeriodo(periodoInicio: string, periodoF
 
   const clubIds = [...new Set(lista.map((a) => a.club_id).filter((id): id is string => !!id))]
 
-  const [{ data: pagamentos }, { valorAcertoPorId, pendenciasPorClube }, caucaoPorId, { data: clubesData }] = await Promise.all([
+  const [{ data: pagamentosData }, { valorAcertoPorId, extraPorClube }, antecipacaoRows, caucaoRows, { data: clubesData }] = await Promise.all([
     supabase
       .from('lancamentos')
       .select('id, acerto_id, natureza, valor, data_lancamento, pago_crypto')
       .in('acerto_id', lista.map((a) => a.id))
-      // Só Pagamento (Envio de verdade) — Antecipação conta à parte, por
-      // clube+período conciliado (ver pendenciasPorClube acima), não por
-      // acerto_id vinculado (que é opcional pra Antecipação e normalmente
-      // fica em branco — contar só quando preenchido perdia a maioria).
       .eq('tipo', 'pagamento')
       // Conta só o lado Suporte, não o par da Genia — senão um Pagamento já
       // conciliado (que tem os dois lados com o mesmo acerto_id) dobra o
       // Valor Pago (achado no CHIP COIN: 2 Envios de -677,97 pro mesmo
-      // Pagamento). Mesma regra já usada em buscarPendenciasAntecipacao.
+      // Pagamento). Mesma regra já usada em buscarAntecipacaoEnvios.
       .eq('origem', 'suporte')
       .order('data_lancamento', { ascending: true }),
     valorAcertoCompletoPorRow(lista, periodoInicio, periodoFim),
-    caucaoPorClube(clubIds, periodoInicio, periodoFim),
+    buscarAntecipacaoEnvios(clubIds, periodoInicio, periodoFim),
+    buscarCaucaoEnvios(clubIds, periodoInicio, periodoFim),
     clubIds.length > 0 ? supabase.from('clubs').select('id, projeto').in('id', clubIds) : Promise.resolve({ data: [] }),
   ])
   const projetoPorClube = new Map((clubesData ?? []).map((c) => [c.id as string, c.projeto as string | null]))
 
   const listaCompleta: AcertoRow[] = lista.map((a) => ({ ...a, valor_acerto: valorAcertoPorId.get(a.id) ?? a.valor_acerto }))
   const clubIdPorAcertoId = new Map(lista.map((a) => [a.id, a.club_id]))
+  const acertoIdPorClube = new Map(lista.filter((a) => a.club_id).map((a) => [a.club_id as string, a.id]))
 
-  const resultado = agregarPagamentos(listaCompleta, (pagamentos ?? []) as PagamentoRow[])
+  const pagamentos: PagamentoRow[] = [
+    ...((pagamentosData ?? []) as PagamentoRow[]).map((p) => ({ ...p, tipo: 'pagamento' as const })),
+    ...converterParaEnvios(antecipacaoRows, acertoIdPorClube, 'antecipacao'),
+    ...converterParaEnvios(caucaoRows, acertoIdPorClube, 'caucao'),
+  ].sort((a, b) => a.data_lancamento.localeCompare(b.data_lancamento))
+
+  const resultado = agregarPagamentos(listaCompleta, pagamentos)
   return resultado.map((r) => {
     const clubId = clubIdPorAcertoId.get(r.acerto_id)
-    const pendencia = clubId ? pendenciasPorClube.get(clubId) ?? 0 : 0
     return {
       ...r,
       club_id: clubId ?? null,
-      valor_pago: Math.round((r.valor_pago + pendencia) * 100) / 100,
-      diferenca: Math.round((r.diferenca + pendencia) * 100) / 100,
-      caucao: clubId ? caucaoPorId.get(clubId) ?? 0 : 0,
+      extra: clubId ? extraPorClube.get(clubId) ?? 0 : 0,
       projeto: clubId ? projetoPorClube.get(clubId) ?? null : null,
     }
   })
