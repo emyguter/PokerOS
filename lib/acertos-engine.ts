@@ -96,6 +96,7 @@ type RegraCondicaoRow = {
   valor: number | null;
   resultado_pct: number | null;
   is_fallback: boolean;
+  ordem: number;
   regra_condicao_termos?: { indicador_id: string }[];
 };
 
@@ -372,13 +373,19 @@ async function buscarCondicoesPorClube(clubIds: string[]): Promise<Map<string, R
 
   const { data: regraEntidades } = await supabase
     .from("regra_entidades")
-    .select("entidade_id, campo, regras(regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id)))")
+    .select("entidade_id, campo, regras(regra_condicoes(operador, valor, resultado_pct, is_fallback, ordem, regra_condicao_termos(indicador_id)))")
     .eq("entidade_tipo", "clube")
     .in("entidade_id", clubIds);
 
   for (const re of (regraEntidades ?? []) as RegraEntidadeRow[]) {
     if (!re.campo) continue; // vínculo antigo sem campo definido — ignora, cai pro % fixo
-    const condicoesBrutas = re.regras?.regra_condicoes ?? [];
+    // PostgREST não garante ordem em relações aninhadas sem ORDER BY — como
+    // regra_condicoes.id é um uuid aleatório, sem ordenar por `ordem` aqui as
+    // condições chegavam em sequência arbitrária, e "a primeira que bater
+    // vence" (avaliarCondicoes) acabava usando uma faixa errada (achado com o
+    // clube Agreste_poker: WtR -2,77 deveria bater "< -1,5 → 0%", mas batia
+    // "< -1 → 4%" primeiro por causa da ordem errada).
+    const condicoesBrutas = [...(re.regras?.regra_condicoes ?? [])].sort((a, b) => a.ordem - b.ordem);
     const condicoes: CondicaoAvaliavel[] = condicoesBrutas.map((c) => ({
       operador: c.operador,
       valor: c.valor,
@@ -407,13 +414,15 @@ async function buscarCondicoesTaxaLigaPorLiga(leagueIds: string[]): Promise<Map<
 
   const { data: regraEntidades } = await supabase
     .from("regra_entidades")
-    .select("entidade_id, campo, regras(regra_condicoes(operador, valor, resultado_pct, is_fallback, regra_condicao_termos(indicador_id)))")
+    .select("entidade_id, campo, regras(regra_condicoes(operador, valor, resultado_pct, is_fallback, ordem, regra_condicao_termos(indicador_id)))")
     .eq("entidade_tipo", "liga")
     .eq("campo", "taxa_liga")
     .in("entidade_id", leagueIds);
 
   for (const re of (regraEntidades ?? []) as RegraEntidadeRow[]) {
-    const condicoesBrutas = re.regras?.regra_condicoes ?? [];
+    // Mesmo motivo do buscarCondicoesPorClube acima: sem ordenar por `ordem`,
+    // a ordem de avaliação vinha arbitrária (id é uuid aleatório).
+    const condicoesBrutas = [...(re.regras?.regra_condicoes ?? [])].sort((a, b) => a.ordem - b.ordem);
     const condicoes: CondicaoAvaliavel[] = condicoesBrutas.map((c) => ({
       operador: c.operador,
       valor: c.valor,
