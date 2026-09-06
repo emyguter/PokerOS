@@ -408,6 +408,7 @@ export const pt = {
     indicacao_label: 'Indicação ({pct}%) {nome}',
     lancamentos_periodo_titulo: 'Lançamentos do período',
     dividas_acordos_titulo: 'Dívidas / Acordos',
+    total_clube: 'Total {nome}',
     acerto_por_clube_vinculado: 'Acerto por clube vinculado',
     acerto_rs: 'Acerto R$ {nome} [{liga}]',
     total: 'Total',

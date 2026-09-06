@@ -410,6 +410,7 @@ export const es: typeof pt = {
     indicacao_label: 'Referido ({pct}%) {nome}',
     lancamentos_periodo_titulo: 'Movimientos del período',
     dividas_acordos_titulo: 'Deudas / Acuerdos',
+    total_clube: 'Total {nome}',
     acerto_por_clube_vinculado: 'Liquidación por club vinculado',
     acerto_rs: 'Liquidación {nome} [{liga}]',
     total: 'Total',
