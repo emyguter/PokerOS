@@ -477,6 +477,16 @@ export const pt = {
     pagar_com_rake_off: 'Define um cronograma parcelado abaixo.',
     confirmar: 'Interromper e Criar Acordo Filho',
   },
+  dividas_historico: {
+    aba: 'Histórico de Dívidas',
+    titulo: 'Histórico de Dívidas',
+    subtitulo: 'Planilha antiga de dívidas/acertos pendentes (2021-2026) — só consulta, não conta em Acerto nem em Dívidas/Acordos ativos',
+    liga_planilha: 'Liga (planilha)',
+    nenhum: 'Nenhum registro encontrado.',
+    col_data: 'Data', col_clube: 'Clube', col_debet: 'Débito', col_start_to_pay: 'Start to Pay', col_obs: 'Obs',
+    total_anual: 'TOTAL ANUAL',
+    sem_vinculo: 'sem vínculo', sem_vinculo_desc: 'Esse clube não foi encontrado no cadastro atual — provavelmente já saiu da liga.',
+  },
   relatorios: {
     aba_acertos: 'Acertos', aba_lancamentos: 'Lançamentos', aba_taxas: 'Resumo de Taxas', aba_resumo_acertos: 'Resumo de Acertos',
     aba_acertos_pendentes: 'Acertos Pendentes', aba_historico_acertos_pendentes: 'Histórico de Acertos Pendentes',
