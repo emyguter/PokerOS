@@ -479,6 +479,16 @@ export const es: typeof pt = {
     pagar_com_rake_off: 'Define un calendario de cuotas abajo.',
     confirmar: 'Interrumpir y Crear Acuerdo Hijo',
   },
+  dividas_historico: {
+    aba: 'Historial de Deudas',
+    titulo: 'Historial de Deudas',
+    subtitulo: 'Planilla antigua de deudas/liquidaciones pendientes (2021-2026) — solo consulta, no cuenta en Liquidación ni en Deudas/Acuerdos activos',
+    liga_planilha: 'Liga (planilla)',
+    nenhum: 'Ningún registro encontrado.',
+    col_data: 'Fecha', col_clube: 'Club', col_debet: 'Débito', col_start_to_pay: 'Start to Pay', col_obs: 'Notas',
+    total_anual: 'TOTAL ANUAL',
+    sem_vinculo: 'sin vínculo', sem_vinculo_desc: 'Este club no se encontró en el registro actual — probablemente ya salió de la liga.',
+  },
   relatorios: {
     aba_acertos: 'Liquidaciones', aba_lancamentos: 'Movimientos', aba_taxas: 'Resumen de Tasas', aba_resumo_acertos: 'Resumen de Liquidaciones',
     aba_acertos_pendentes: 'Liquidaciones Pendientes', aba_historico_acertos_pendentes: 'Historial de Liquidaciones Pendientes',

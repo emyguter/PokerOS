@@ -479,6 +479,16 @@ export const en: typeof pt = {
     pagar_com_rake_off: 'Defines a scheduled installment plan below.',
     confirmar: 'Interrupt and Create Child Agreement',
   },
+  dividas_historico: {
+    aba: 'Debt History',
+    titulo: 'Debt History',
+    subtitulo: 'Old debt/pending settlement spreadsheet (2021-2026) — reference only, does not count toward Settlements or active Debts/Agreements',
+    liga_planilha: 'League (spreadsheet)',
+    nenhum: 'No records found.',
+    col_data: 'Date', col_clube: 'Club', col_debet: 'Debit', col_start_to_pay: 'Start to Pay', col_obs: 'Notes',
+    total_anual: 'YEARLY TOTAL',
+    sem_vinculo: 'unlinked', sem_vinculo_desc: "This club wasn't found in the current registry — it likely already left the league.",
+  },
   relatorios: {
     aba_acertos: 'Settlements', aba_lancamentos: 'Entries', aba_taxas: 'Fee Summary', aba_resumo_acertos: 'Settlement Summary',
     aba_acertos_pendentes: 'Pending Settlements', aba_historico_acertos_pendentes: 'Pending Settlements History',

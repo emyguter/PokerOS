@@ -8,11 +8,12 @@ import { RelatorioTaxas } from './RelatorioTaxas'
 import { RelatorioResumoAcertos } from './RelatorioResumoAcertos'
 import { RelatorioAcertosPendentes } from './RelatorioAcertosPendentes'
 import { RelatorioHistoricoAcertosPendentes } from './RelatorioHistoricoAcertosPendentes'
+import { RelatorioDividasHistorico } from './RelatorioDividasHistorico'
 
-type Tab = 'lancamentos' | 'taxas' | 'resumo_acertos' | 'acertos_pendentes' | 'historico_acertos_pendentes'
+type Tab = 'lancamentos' | 'taxas' | 'resumo_acertos' | 'acertos_pendentes' | 'historico_acertos_pendentes' | 'dividas_historico'
 
 function tabDaUrl(valor: string | null): Tab | null {
-  return valor === 'lancamentos' || valor === 'taxas' || valor === 'resumo_acertos' || valor === 'acertos_pendentes' || valor === 'historico_acertos_pendentes' ? valor : null
+  return valor === 'lancamentos' || valor === 'taxas' || valor === 'resumo_acertos' || valor === 'acertos_pendentes' || valor === 'historico_acertos_pendentes' || valor === 'dividas_historico' ? valor : null
 }
 
 export function RelatoriosView() {
@@ -98,6 +99,15 @@ export function RelatoriosView() {
             <p className="text-sm text-gray-400 mt-1">{t('relatorios.subtitulo_historico_acertos_pendentes')}</p>
           </div>
           <RelatorioHistoricoAcertosPendentes />
+        </div>
+      )}
+      {abaAtiva === 'dividas_historico' && (
+        <div style={{ background: '#0C0E0B', minHeight: '100vh' }} className="space-y-6 p-4 md:p-10">
+          <div>
+            <h1 className="text-2xl font-semibold text-white">{t('dividas_historico.titulo')}</h1>
+            <p className="text-sm text-gray-400 mt-1">{t('dividas_historico.subtitulo')}</p>
+          </div>
+          <RelatorioDividasHistorico />
         </div>
       )}
     </div>
