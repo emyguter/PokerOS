@@ -28,6 +28,10 @@ export function MeusAcertosView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [aberto, setAberto] = useState<LinhaMeuAcerto | null>(null)
+  // Guardado pra passar pro ClubAcertoCard (mesmo escopo já usado pra buscar
+  // `linhas` acima) — decide se um clube vinculado de outra Liga entra na
+  // soma "Acerto R$" combinada do card ou não (ver Props em ClubAcertoCard.tsx).
+  const [clubeIdsVisiveis, setClubeIdsVisiveis] = useState<string[] | null>(null)
 
   useEffect(() => {
     buscarPeriodosAcerto().then((lista) => {
@@ -42,7 +46,10 @@ export function MeusAcertosView() {
     let cancelado = false
     setLoading(true); setError(null)
     resolverClubesVisiveis(profile)
-      .then((clubeIds) => buscarMeusAcertos(periodoFiltro, clubeIds))
+      .then((clubeIds) => {
+        if (!cancelado) setClubeIdsVisiveis(clubeIds)
+        return buscarMeusAcertos(periodoFiltro, clubeIds)
+      })
       .then((dados) => { if (!cancelado) setLinhas(dados) })
       .catch((e) => { if (!cancelado) setError(errMsg(e)) })
       .finally(() => { if (!cancelado) setLoading(false) })
@@ -133,6 +140,7 @@ export function MeusAcertosView() {
           periodStart={aberto.periodStart}
           periodEnd={aberto.periodEnd}
           onClose={() => setAberto(null)}
+          clubeIdsVisiveis={clubeIdsVisiveis}
         />
       )}
     </div>

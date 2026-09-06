@@ -16,7 +16,19 @@ export interface PerfilComHierarquia {
 export async function resolverClubesVisiveis(perfil: PerfilComHierarquia | null): Promise<string[] | null> {
   if (!perfil) return []
 
-  if (perfil.clube_id) return [perfil.clube_id]
+  // Login de Clube vê também o(s) outro(s) clube(s) vinculados pra Acerto
+  // (mesmo clube em mais de uma plataforma/Liga, ex: GG-Poker 2 na Liga
+  // Particular + G G Poker na ORION — ver clubs.vinculo_acerto_grupo_id) —
+  // pedido do Cássio: o CLUBE em si pode ver o total somado das duas
+  // plataformas, diferente do login de Liga (que só vê a própria, pra não
+  // se confundir somando o valor da outra Liga — ver ClubAcertoCard.tsx).
+  if (perfil.clube_id) {
+    const { data: clube } = await supabase.from('clubs').select('vinculo_acerto_grupo_id').eq('id', perfil.clube_id).single()
+    const ancora = clube?.vinculo_acerto_grupo_id ?? perfil.clube_id
+    const { data: grupo } = await supabase.from('clubs').select('id').or(`id.eq.${ancora},vinculo_acerto_grupo_id.eq.${ancora}`)
+    const ids = (grupo ?? []).map((c) => c.id as string)
+    return ids.length > 0 ? ids : [perfil.clube_id]
+  }
 
   if (perfil.liga_id) {
     const { data } = await supabase.from('clubs').select('id').eq('league_id', perfil.liga_id)

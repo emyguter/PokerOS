@@ -38,6 +38,16 @@ interface Props {
   periodStart: string
   periodEnd: string
   onClose: () => void
+  // Escopo de clubes que esse login pode ver (ver resolverClubesVisiveis,
+  // lib/acesso-hierarquia.ts) — null/omitido = sem restrição (Suporte,
+  // ArvoreAcertosView). Login de Liga só vê os clubes da própria Liga: um
+  // clube vinculado que pertence a OUTRA Liga fica de fora da soma
+  // "Acerto R$" combinada, pra não misturar o total das duas Ligas (pedido
+  // do Cássio: "quando a ORION for olhar seus totais, não se confunda
+  // acrescentando o valor de outra liga"). Login de Clube já vem com os dois
+  // vinculados no escopo (resolverClubesVisiveis cobre isso), então continua
+  // vendo a soma normalmente.
+  clubeIdsVisiveis?: string[] | null
 }
 
 interface ClubSettings {
@@ -151,7 +161,7 @@ async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd
   }
 }
 
-export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClose }: Props) {
+export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClose, clubeIdsVisiveis = null }: Props) {
   const { t } = useI18n()
   const [club, setClub] = useState<ClubSettings | null>(null)
   const [wtr, setWtr] = useState<number | null>(null)
@@ -164,7 +174,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   // os dois, pedido explícito do Cássio (o Resumo de Acertos continua
   // mostrando cada plataforma separada). `outrosMembros`: quem mais tá no
   // mesmo grupo, sem o clube que abriu o card.
-  const [outrosMembros, setOutrosMembros] = useState<{ id: string; nome: string; plataformaNome: string }[]>([])
+  const [outrosMembros, setOutrosMembros] = useState<{ id: string; nome: string; plataformaNome: string; ligaNome: string }[]>([])
   const [acertosGrupo, setAcertosGrupo] = useState<AcertoGrupoRow[]>([])
   const [extrasPorClube, setExtrasPorClube] = useState<Map<string, ExtrasClube>>(new Map())
   const [indicacoesDetalhe, setIndicacoesDetalhe] = useState<{ nome: string; pct: number; valor: number }[]>([])
@@ -282,8 +292,12 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
 
   useEffect(() => {
     if (!acerto.club_id) { setOutrosMembros([]); return }
-    getVinculosAcerto(acerto.club_id).then(setOutrosMembros).catch(() => setOutrosMembros([]))
-  }, [acerto.club_id])
+    getVinculosAcerto(acerto.club_id)
+      // Login de Liga (clubeIdsVisiveis restrito) não vê o vinculado de
+      // outra Liga combinado no total — ver comentário do Props acima.
+      .then((membros) => setOutrosMembros(clubeIdsVisiveis ? membros.filter((m) => clubeIdsVisiveis.includes(m.id)) : membros))
+      .catch(() => setOutrosMembros([]))
+  }, [acerto.club_id, clubeIdsVisiveis])
 
   useEffect(() => {
     // Quebra "Indicação" por clube indicado (pedido do Cássio, mesmo formato
@@ -384,25 +398,27 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
 
   // Cada clube do grupo tem seu próprio "Acerto R$" (o total que ele sozinho
   // teria) — mostrado como quebra logo acima do Total combinado, pedido do
-  // Cássio (mesmo formato da planilha de referência: "Acerto R$ ClubGG" /
-  // "Acerto R$ Sul HG"). A soma dos dois bate exatamente com o Total do card.
-  // Sempre lista TODOS os membros do vínculo (o clube do card + outrosMembros),
-  // não só os que têm linha em acertosGrupo — membro sem Acerto nessa semana
-  // entra com total R$0 em vez de sumir da quebra.
+  // Cássio (mesmo formato da planilha de referência: "Acerto R$ G G Poker
+  // [ORION]" — o nome da LIGA de cada clube, não da plataforma, já que duas
+  // plataformas do mesmo clube podem estar em Ligas diferentes). A soma dos
+  // dois bate exatamente com o Total do card. Sempre lista TODOS os membros
+  // do vínculo (o clube do card + outrosMembros, já filtrado por
+  // clubeIdsVisiveis), não só os que têm linha em acertosGrupo — membro sem
+  // Acerto nessa semana entra com total R$0 em vez de sumir da quebra.
   const totaisPorMembro = agrupado
     ? [
-        { id: acerto.club_id as string, nomeCadastro: acerto.club_name, plataformaNome: club?.plataformas?.nome ?? '—' },
-        ...outrosMembros.map((m) => ({ id: m.id, nomeCadastro: m.nome, plataformaNome: m.plataformaNome })),
-      ].map(({ id, nomeCadastro, plataformaNome }) => {
+        { id: acerto.club_id as string, nomeCadastro: acerto.club_name, ligaNome },
+        ...outrosMembros.map((m) => ({ id: m.id, nomeCadastro: m.nome, ligaNome: m.ligaNome })),
+      ].map(({ id, nomeCadastro, ligaNome: ligaDoMembro }) => {
         const r = acertosGrupo.find((row) => row.club_id === id)
-        if (!r) return { id, nome: nomeCadastro, plataformaNome, total: 0 }
+        if (!r) return { id, nome: nomeCadastro, ligaNome: ligaDoMembro, total: 0 }
         const extras = extrasPorClube.get(r.club_id)
         const lancLiquido = (extras?.lancamentos ?? []).reduce((s, l) => s + (l.natureza === 'credito' ? l.valor : -l.valor), 0)
         const dividasT = (extras?.dividasItens ?? []).reduce((s, d) => s + d.valor, 0)
         return {
           id,
           nome: r.club_name,
-          plataformaNome,
+          ligaNome: ligaDoMembro,
           total: calcularTotalAcerto(r.valor_acerto, {
             bilhetes: r.bilhetes,
             pendenciasAntecipacao: extras?.pendenciasAntecipacao ?? 0,
@@ -587,7 +603,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
               <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">{t('club_acerto_card.acerto_por_clube_vinculado')}</p>
               {totaisPorMembro.map((m) => (
                 <div key={m.id} className="flex items-center justify-between py-1 px-3 text-sm">
-                  <span className="text-gray-400">{t('club_acerto_card.acerto_rs', { nome: m.nome, plataforma: m.plataformaNome })}</span>
+                  <span className="text-gray-400">{t('club_acerto_card.acerto_rs', { nome: m.nome, liga: m.ligaNome })}</span>
                   <span className="text-white font-medium">{fmt(m.total)}</span>
                 </div>
               ))}

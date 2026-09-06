@@ -411,7 +411,7 @@ export const es: typeof pt = {
     lancamentos_periodo_titulo: 'Movimientos del período',
     dividas_acordos_titulo: 'Deudas / Acuerdos',
     acerto_por_clube_vinculado: 'Liquidación por club vinculado',
-    acerto_rs: 'Liquidación {nome} ({plataforma})',
+    acerto_rs: 'Liquidación {nome} [{liga}]',
     total: 'Total',
     total_moeda: 'Total {moeda}',
     acerto_com_crypto: 'Liquidación con Crypto',
