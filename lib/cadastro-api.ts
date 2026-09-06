@@ -224,6 +224,14 @@ export interface VinculoAcertoRow {
   id: string
   nome: string
   plataformaNome: string
+  // Nome da Liga do OUTRO clube vinculado — usado na quebra "Acerto R$
+  // {nome} [{liga}]" do card de Acerto (pedido do Cássio, mesmo formato da
+  // planilha de referência: identifica de qual Liga é cada clube somado,
+  // não de qual plataforma — duas plataformas do mesmo clube podem estar em
+  // Ligas diferentes, ex: GG-Poker 2 na Liga Particular + G G Poker na
+  // ORION). `plataformaNome` continua existindo pra quem ainda usa (ex:
+  // lista de vínculos em ClubModal.tsx).
+  ligaNome: string
 }
 
 async function buscarAncora(clubeId: string): Promise<{ id: string; vinculo_acerto_grupo_id: string | null }> {
@@ -237,12 +245,12 @@ export async function getVinculosAcerto(clubeId: string): Promise<VinculoAcertoR
   const ancora = clube.vinculo_acerto_grupo_id ?? clube.id
   const { data, error } = await supabase
     .from('clubs')
-    .select('id, name, plataformas(nome)')
+    .select('id, name, plataformas(nome), leagues(name)')
     .or(`id.eq.${ancora},vinculo_acerto_grupo_id.eq.${ancora}`)
     .neq('id', clubeId)
   if (error) throw error
-  return ((data ?? []) as unknown as { id: string; name: string; plataformas: { nome: string } | null }[])
-    .map((c) => ({ id: c.id, nome: c.name, plataformaNome: c.plataformas?.nome ?? '—' }))
+  return ((data ?? []) as unknown as { id: string; name: string; plataformas: { nome: string } | null; leagues: { name: string } | null }[])
+    .map((c) => ({ id: c.id, nome: c.name, plataformaNome: c.plataformas?.nome ?? '—', ligaNome: c.leagues?.name ?? '—' }))
 }
 
 export async function addVinculoAcerto(clubeId: string, outroClubeId: string): Promise<void> {
