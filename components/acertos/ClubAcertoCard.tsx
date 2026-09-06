@@ -6,10 +6,11 @@ import { useI18n } from '@/lib/i18n'
 import { getLayoutDoClube, resolverLayout, calcularTotalAcerto, corrigirValorCrypto, type CampoAcerto, type CampoResolvido } from '@/lib/relatorio-acerto'
 import { getDividasAcertoDoClube, type ItemDividaAcerto } from '@/lib/dividas'
 import { getVinculosAcerto, getIndicacoes } from '@/lib/cadastro-api'
-import { calcularIndicacao, buscarPendenciasAntecipacao } from '@/lib/acertos-engine'
+import { calcularIndicacao, buscarPendenciasEAntecipacaoAoVivo } from '@/lib/acertos-engine'
 
 export interface AcertoCard {
   id: string
+  import_id: string
   club_id: string | null
   club_name: string
   club_external_id: string
@@ -67,6 +68,7 @@ interface LancamentoCard {
 interface AcertoGrupoRow {
   club_id: string
   club_name: string
+  import_id: string
   rake_mtt: number
   rake_cash: number
   rake_total: number
@@ -121,7 +123,7 @@ function Linha({ label, value, editable, onCommit }: { label: string; value: num
   )
 }
 
-async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd: string, rakeTotal: number): Promise<ExtrasClube> {
+async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd: string, rakeTotal: number, importId: string): Promise<ExtrasClube> {
   const [{ data: clubeData }, { data: lancData }, dividasItens, pendenciasPorClube] = await Promise.all([
     supabase.from('clubs').select('security').eq('id', clubeId).maybeSingle(),
     supabase
@@ -139,7 +141,7 @@ async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd
       .gte('data_lancamento', periodStart)
       .lte('data_lancamento', periodEnd || periodStart),
     getDividasAcertoDoClube(clubeId, periodEnd || periodStart, rakeTotal),
-    buscarPendenciasAntecipacao([clubeId], periodStart, periodEnd || periodStart),
+    buscarPendenciasEAntecipacaoAoVivo([clubeId], periodStart, periodEnd || periodStart, importId),
   ])
   return {
     security: (clubeData?.security as number | null) ?? 0,
@@ -252,12 +254,15 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
     // reflete o que existia quando o Acerto foi calculado/recalculado pela
     // última vez) — achado pelo Cássio no caso AMORIM PLUS: uma Antecipação
     // lançada e conciliada DEPOIS do último cálculo não aparecia aqui até
-    // alguém clicar em "Recalcular". Mesma query de buscarPendenciasAntecipacao
-    // (lib/acertos-engine.ts), só que reconsultada toda vez que o card abre.
+    // alguém clicar em "Recalcular". Inclui Rollover ainda não consumido
+    // (buscarPendenciasEAntecipacaoAoVivo, lib/acertos-engine.ts) — achado no
+    // Agreste_Poker: um Rollover recém-feito nunca aparecia aqui antes,
+    // mesmo depois de Recalcular, porque essa consulta só olhava Antecipação
+    // conciliada. Reconsultada toda vez que o card abre.
     if (!acerto.club_id || !periodStart) return
-    buscarPendenciasAntecipacao([acerto.club_id], periodStart, periodEnd || periodStart)
+    buscarPendenciasEAntecipacaoAoVivo([acerto.club_id], periodStart, periodEnd || periodStart, acerto.import_id)
       .then((mapa) => setPendenciasLive(mapa.get(acerto.club_id as string) ?? 0))
-  }, [acerto.club_id, periodStart, periodEnd])
+  }, [acerto.club_id, acerto.import_id, periodStart, periodEnd])
 
   useEffect(() => {
     // Parcela de Acordo em aberto (ou dívida Simples ativa) desse clube
@@ -321,11 +326,11 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       if (importIds.length === 0) { if (!cancelado) { setAcertosGrupo([]); setExtrasPorClube(new Map()) }; return }
       const { data } = await supabase
         .from('acertos')
-        .select('club_id, club_name, rake_mtt, rake_cash, rake_total, player_result, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, bilhetes, indicacao_valor, rebate_calculado, valor_acerto')
+        .select('club_id, club_name, import_id, rake_mtt, rake_cash, rake_total, player_result, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, bilhetes, indicacao_valor, rebate_calculado, valor_acerto')
         .in('club_id', idsGrupo)
         .in('import_id', importIds)
       const linhas = (data ?? []) as AcertoGrupoRow[]
-      const extras = await Promise.all(linhas.map(async (r) => [r.club_id, await buscarExtrasClube(r.club_id, periodStart, periodEnd, r.rake_total)] as const))
+      const extras = await Promise.all(linhas.map(async (r) => [r.club_id, await buscarExtrasClube(r.club_id, periodStart, periodEnd, r.rake_total, r.import_id)] as const))
       if (cancelado) return
       setAcertosGrupo(linhas)
       setExtrasPorClube(new Map(extras))
@@ -343,7 +348,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   // acertosGrupo, então um membro sem Acerto simplesmente não soma nada.
   const agrupado = outrosMembros.length > 0
 
-  const somaGrupo = (campo: keyof Omit<AcertoGrupoRow, 'club_id' | 'club_name'>) =>
+  const somaGrupo = (campo: keyof Omit<AcertoGrupoRow, 'club_id' | 'club_name' | 'import_id'>) =>
     acertosGrupo.reduce((s, r) => s + (r[campo] ?? 0), 0)
 
   const rakeMtt = agrupado ? somaGrupo('rake_mtt') : acerto.rake_mtt

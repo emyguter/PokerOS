@@ -56,6 +56,7 @@ async function buscarClubesSoRateio(
     .map((c) => ({
       acerto: {
         id: `sem-acerto:${c.id}`,
+        import_id: importIdPorClube.get(c.id) ?? '',
         club_id: c.id,
         club_name: c.name,
         club_external_id: c.external_id ?? '',
