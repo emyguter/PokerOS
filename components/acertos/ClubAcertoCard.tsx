@@ -353,44 +353,42 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsGrupoChave, periodStart, periodEnd])
 
-  // Card "agrupa" sempre que o clube TEM vínculo cadastrado — mesmo que o
-  // outro membro não tenha Acerto nessa semana (não jogou), ele ainda
-  // aparece na quebra "Acerto por clube vinculado" com R$0, em vez de sumir
-  // da tela (pedido do Cássio, achado no caso PIXGAME/Liga Particular +
-  // PIXGAME/Orion). Os somatórios (rakeMtt, feeCalculadoValor etc. abaixo)
-  // continuam corretos: somam só as linhas que de fato existem em
-  // acertosGrupo, então um membro sem Acerto simplesmente não soma nada.
+  // Card "agrupa" (mostra a quebra por clube vinculado + Total combinado)
+  // sempre que o clube TEM vínculo cadastrado E visível pro login atual
+  // (outrosMembros já vem filtrado por clubeIdsVisiveis) — mesmo que o outro
+  // membro não tenha Acerto nessa semana (não jogou), ele ainda aparece na
+  // quebra com R$0, em vez de sumir da tela (pedido do Cássio, achado no
+  // caso PIXGAME/Liga Particular + PIXGAME/Orion).
+  //
+  // IMPORTANTE (achado com a planilha de referência GG-Poker 2 + G G Poker):
+  // o corpo do card (Rake, Ganhos/Perdas, Taxas, Lançamentos etc.) mostra
+  // SEMPRE só os números do PRÓPRIO clube que abriu o card, nunca somado com
+  // o vinculado — cada Liga precisa ver os próprios números "puros" na tela
+  // toda, não só no Total. A soma só acontece em dois lugares específicos,
+  // de propósito: (1) "Total {próprio clube}" logo abaixo do corpo (2) o
+  // Total geral lá embaixo, que soma "Total {próprio clube}" + "Acerto R$
+  // {cada vinculado} [{Liga dele}]" — são os "2 totais" que o Cássio pediu:
+  // um só da própria Liga, outro considerando a Liga do vinculado também.
   const agrupado = outrosMembros.length > 0
 
-  const somaGrupo = (campo: keyof Omit<AcertoGrupoRow, 'club_id' | 'club_name' | 'import_id'>) =>
-    acertosGrupo.reduce((s, r) => s + (r[campo] ?? 0), 0)
+  const rakeMtt = acerto.rake_mtt
+  const rakeCash = acerto.rake_cash
+  const rakeTotal = acerto.rake_total
+  const ganhos = acerto.player_result
+  const feeCalculadoValor = acerto.fee_calculado
+  const feeMttValor = acerto.fee_mtt_valor
+  const feeCashValor = acerto.fee_cash_valor
+  const feeOperacionalValor = acerto.fee_operacional_valor
+  const feeSpinupValor = acerto.fee_spinup_valor
+  const taxaLigaValor = acerto.taxa_liga_valor
+  const bilhetesValor = acerto.bilhetes
+  const pendenciasValor = pendenciasLive
+  const rebateCalculado = acerto.rebate_calculado
+  const clubNameDisplay = acerto.club_name
 
-  const rakeMtt = agrupado ? somaGrupo('rake_mtt') : acerto.rake_mtt
-  const rakeCash = agrupado ? somaGrupo('rake_cash') : acerto.rake_cash
-  const rakeTotal = agrupado ? somaGrupo('rake_total') : acerto.rake_total
-  const ganhos = agrupado ? somaGrupo('player_result') : acerto.player_result
-  const feeCalculadoValor = agrupado ? somaGrupo('fee_calculado') : acerto.fee_calculado
-  const feeMttValor = agrupado ? somaGrupo('fee_mtt_valor') : acerto.fee_mtt_valor
-  const feeCashValor = agrupado ? somaGrupo('fee_cash_valor') : acerto.fee_cash_valor
-  const feeOperacionalValor = agrupado ? somaGrupo('fee_operacional_valor') : acerto.fee_operacional_valor
-  const feeSpinupValor = agrupado ? somaGrupo('fee_spinup_valor') : acerto.fee_spinup_valor
-  const taxaLigaValor = agrupado ? somaGrupo('taxa_liga_valor') : acerto.taxa_liga_valor
-  const bilhetesValor = agrupado ? somaGrupo('bilhetes') : acerto.bilhetes
-  const pendenciasValor = agrupado
-    ? acertosGrupo.reduce((s, r) => s + (extrasPorClube.get(r.club_id)?.pendenciasAntecipacao ?? 0), 0)
-    : pendenciasLive
-  const rebateCalculado = agrupado ? somaGrupo('rebate_calculado') : acerto.rebate_calculado
-  const clubNameDisplay = agrupado ? [...new Set(acertosGrupo.map((r) => r.club_name))].join(' + ') : acerto.club_name
-
-  const lancamentosDisplay = agrupado
-    ? acertosGrupo.flatMap((r) => extrasPorClube.get(r.club_id)?.lancamentos ?? [])
-    : lancamentos
-  const dividasDisplay = agrupado
-    ? acertosGrupo.flatMap((r) => extrasPorClube.get(r.club_id)?.dividasItens ?? [])
-    : dividasItens
-  const security = agrupado
-    ? acertosGrupo.reduce((s, r) => s + (extrasPorClube.get(r.club_id)?.security ?? 0), 0)
-    : club?.security ?? 0
+  const lancamentosDisplay = lancamentos
+  const dividasDisplay = dividasItens
+  const security = club?.security ?? 0
 
   const rebateDisplay = -rebateCalculado
   const lancamentosLiquido = lancamentosDisplay.reduce((s, l) => s + (l.natureza === 'credito' ? l.valor : -l.valor), 0)
@@ -431,6 +429,23 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       })
     : []
 
+  // Total 1: só do PRÓPRIO clube (a Liga que abriu o card) — igual ao
+  // "Total" de sempre pra quem não tem vínculo, só que agora calculado
+  // sempre assim (agrupado ou não), já que o corpo do card acima nunca soma
+  // o vinculado. Total 2 ("total" abaixo): soma esse com o de cada
+  // vinculado — os "2 totais" que o Cássio pediu.
+  const totalProprio = agrupado
+    ? totaisPorMembro.find((m) => m.id === acerto.club_id)?.total ?? 0
+    : calcularTotalAcerto(acerto.valor_acerto, {
+        bilhetes: acerto.bilhetes,
+        pendenciasAntecipacao: pendenciasLive,
+        security,
+        indicacaoValor: acerto.indicacao_valor,
+        lancamentosLiquido,
+        dividasTotal,
+      })
+  const outrosTotais = totaisPorMembro.filter((m) => m.id !== acerto.club_id)
+
   // Base já vem do motor (acerto.valor_acerto — certo pra cada
   // settlement_type, rebate já embutido quando é o caso) + tudo o mais que
   // compõe o Acerto de verdade. Nada pode ficar de fora (confirmado pelo
@@ -440,14 +455,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   // resultado que somar tudo direto, já que calcularTotalAcerto é linear).
   const total = agrupado
     ? totaisPorMembro.reduce((s, m) => s + m.total, 0)
-    : calcularTotalAcerto(acerto.valor_acerto, {
-        bilhetes: acerto.bilhetes,
-        pendenciasAntecipacao: pendenciasLive,
-        security,
-        indicacaoValor: acerto.indicacao_valor,
-        lancamentosLiquido,
-        dividasTotal,
-      })
+    : totalProprio
 
   // Crypto Rebate NÃO muda o Total guardado do Acerto — é só uma segunda
   // exibição embaixo dele (confirmado pelo Cássio): "Acerto com Crypto" é o
@@ -599,17 +607,29 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           {layout.filter((c) => c.visivel).map((c) => renderCampo(c.campo))}
 
           {agrupado && (
-            <div className="py-1">
-              <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">{t('club_acerto_card.acerto_por_clube_vinculado')}</p>
-              {totaisPorMembro.map((m) => (
-                <div key={m.id} className="flex items-center justify-between py-1 px-3 text-sm">
-                  <span className="text-gray-400">{t('club_acerto_card.acerto_rs', { nome: m.nome, liga: m.ligaNome })}</span>
-                  <span className="text-white font-medium">{fmt(m.total)}</span>
-                </div>
-              ))}
-            </div>
+            <>
+              {/* Total 1: só do próprio clube — o corpo do card acima nunca
+                  soma o vinculado, então esse total fecha exatamente com ele. */}
+              <div className="flex items-center justify-between py-2 px-3 bg-surface2">
+                <span className="text-white font-semibold text-sm">{t('club_acerto_card.total_clube', { nome: acerto.club_name })}</span>
+                <span className={`font-bold text-sm ${totalProprio >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(totalProprio)}</span>
+              </div>
+              <div className="py-1">
+                <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">{t('club_acerto_card.acerto_por_clube_vinculado')}</p>
+                {outrosTotais.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between py-1 px-3 text-sm">
+                    <span className="text-gray-400">{t('club_acerto_card.acerto_rs', { nome: m.nome, liga: m.ligaNome })}</span>
+                    <span className="text-white font-medium">{fmt(m.total)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
 
+          {/* Total 2: soma o Total do próprio clube com o de cada vinculado
+              (só quando agrupado) — os "2 totais" pedidos pelo Cássio: um só
+              da própria Liga (acima), outro considerando a Liga do
+              vinculado também (esse aqui). */}
           <div className="flex items-center justify-between py-3 px-3 bg-surface2">
             <span className="text-white font-semibold text-sm">{t('club_acerto_card.total')}</span>
             <span className={`font-bold text-base ${total >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(total)}</span>
