@@ -429,7 +429,11 @@ export async function getDividasAcertoDoClube(clubeId: string, periodoFim: strin
       const saldoAtual = d.saldo_restante ?? d.valor_integral
       if (saldoAtual <= 0) continue
       const valorSemana = arredonda(rakeTotal * d.rakeback_pct / 100)
-      if (d.pagamento_minimo && valorSemana < d.pagamento_minimo) continue
+      // Pagamento Mínimo NÃO barra mais o desconto (revertido a pedido do
+      // Cássio, caso Sevens Pkr House: uma semana de Rake baixo abatia zero,
+      // mesmo já tendo dívida a cobrar) — desconta toda semana, do tamanho
+      // que for, até zerar o saldo. Campo continua gravado no cadastro (não
+      // precisa apagar quem já tinha preenchido), só parou de ser lido aqui.
       if (valorSemana <= 0) continue
       const valorDeduzido = Math.min(valorSemana, saldoAtual)
       itens.push({
