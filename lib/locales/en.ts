@@ -228,6 +228,7 @@ export const en: typeof pt = {
     selecione_par: '— Select the matching entry —',
     janela_nota: 'Automatically reconciles entries up to 7 days apart (matches the weekly closing cycle). Outside that window, link them manually.',
     sem_par_motivo: 'No match within the 7-day closing window — link manually if this is the same entry:',
+    par_encontrado: 'Found the right match (amount matches) — just click Link to confirm.',
     col_suporte: 'Support', col_financeiro: 'Finance', col_status: 'Status',
     status_divergente: 'Different amounts',
     status_falta_financeiro: 'Missing Finance', status_falta_suporte: 'Missing Support',
