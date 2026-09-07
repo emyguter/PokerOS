@@ -380,27 +380,32 @@ export interface ItemDividaAcerto {
   // Pra marcar como paga sozinha quando o Acerto for processado (ver
   // marcarDividasPagasComRake, chamado por processarAcertos) — 'simples' e
   // 'acordo_rake' marcam a Dívida inteira (status quitado, de uma vez só),
-  // 'parcela' marca só aquela Parcela do cronograma, 'simples_rakeback'
+  // 'parcela' marca só aquela Parcela do cronograma (só quando `autoQuita`
+  // for true — ver comentário em getDividasAcertoDoClube), 'simples_rakeback'
   // atualiza saldo_restante (e só quita quando ele chega a zero).
   origem:
     | { tipo: 'simples'; dividaId: string }
     | { tipo: 'acordo_rake'; dividaId: string }
-    | { tipo: 'parcela'; parcelaId: string }
+    | { tipo: 'parcela'; parcelaId: string; autoQuita: boolean }
     | { tipo: 'simples_rakeback'; dividaId: string; saldoApos: number }
 }
 
-// Dívida/Acordo desse clube que entra no card de Acerto — só quem estiver
-// marcado "Pagar com Rake" (pago_com_rake): Simples ativa (valor cheio, some
-// assim que marcada quitada) + Acordo SEM cronograma de parcelas
-// (quantidade_parcelas null — nasceu com Pagar com Rake ligado direto, sem
-// parcelamento) quita tudo de uma vez igual Simples, sem multa (não tem
-// vencimento nenhum pra calcular atraso) + parcelas de Acordo COM
-// cronograma ainda não pagas com vencimento até o fim do período (inclui
-// atrasadas de períodos anteriores: continuam entrando toda semana até
-// serem marcadas como pagas — o que marcarDividasPagasComRake faz sozinho
-// ao processar o Acerto), com multa se o clube tiver Regra de Multa
-// vinculada (confirmado pelo Cássio: se tiver multa cadastrada, ela entra —
-// sem regra vinculada, não tem multa nenhuma, igual sempre foi). Atraso
+// Dívida/Acordo desse clube que entra no card de Acerto. Simples ativa
+// (valor cheio, some assim que marcada quitada) e Acordo SEM cronograma de
+// parcelas (quantidade_parcelas null — nasceu com Pagar com Rake ligado
+// direto, sem parcelamento) só entram quando marcados "Pagar com Rake"
+// (pago_com_rake) — sem vencimento nenhum pra filtrar, sem isso entrariam
+// toda semana pra sempre. Parcelas de Acordo COM cronograma são diferentes:
+// entram sempre que vencidas até o fim do período (inclui atrasadas de
+// períodos anteriores, com multa se o clube tiver Regra de Multa vinculada),
+// COM ou SEM "Pagar com Rake" — a Diferença da semana precisa refletir que
+// aquele valor já é devido, mesmo quando a cobrança de verdade vai ser feita
+// por fora, não descontada do Rake (pedido do Cássio, achado no caso
+// EVIDENCE POKER: "não vai mexer no rake, mas vai mexer no acerto"). O que
+// "Pagar com Rake" (na Dívida E na Parcela, os dois) decide é só se
+// marcarDividasPagasComRake marca essa parcela como paga sozinha ao
+// processar o Acerto — sem isso, ela continua "não paga" e some da lista só
+// quando alguém marcar como paga na tela de Dívidas e Acordos. Atraso
 // calculado em relação ao FIM DO PERÍODO, não "hoje" — um Acerto já fechado
 // não pode mudar de valor se reaberto numa data futura.
 //
@@ -419,8 +424,8 @@ export async function getDividasAcertoDoClube(clubeId: string, periodoFim: strin
   const itens: ItemDividaAcerto[] = []
   const hoje = new Date(periodoFim + 'T00:00:00')
   for (const d of (dividas ?? []) as { id: string; tipo: TipoDivida; valor_integral: number; descricao: string | null; quantidade_parcelas: number | null; pago_com_rake: boolean; rakeback_pct: number | null; saldo_restante: number | null; pagamento_minimo: number | null }[]) {
-    if (!d.pago_com_rake) continue
     if (d.tipo === 'simples' && d.rakeback_pct != null) {
+      if (!d.pago_com_rake) continue
       const saldoAtual = d.saldo_restante ?? d.valor_integral
       if (saldoAtual <= 0) continue
       const valorSemana = arredonda(rakeTotal * d.rakeback_pct / 100)
@@ -435,24 +440,25 @@ export async function getDividasAcertoDoClube(clubeId: string, periodoFim: strin
       continue
     }
     if (d.tipo === 'simples') {
+      if (!d.pago_com_rake) continue
       itens.push({ descricao: d.descricao || 'Dívida', valor: d.valor_integral, origem: { tipo: 'simples', dividaId: d.id } })
       continue
     }
     if (!d.quantidade_parcelas) {
+      if (!d.pago_com_rake) continue
       itens.push({ descricao: d.descricao || 'Acordo', valor: d.valor_integral, origem: { tipo: 'acordo_rake', dividaId: d.id } })
       continue
     }
     const { data: parcelas } = await supabase
       .from('divida_parcelas')
-      .select('id, numero, valor, vencimento')
+      .select('id, numero, valor, vencimento, pago_com_rake')
       .eq('divida_id', d.id)
       .eq('pago', false)
-      .eq('pago_com_rake', true)
       .lte('vencimento', periodoFim)
-    for (const p of (parcelas ?? []) as { id: string; numero: number; valor: number; vencimento: string }[]) {
+    for (const p of (parcelas ?? []) as { id: string; numero: number; valor: number; vencimento: string; pago_com_rake: boolean }[]) {
       const atraso = diasDeAtraso(p.vencimento, hoje)
       const valor = atraso > 0 ? valorComMulta(p.valor, atraso, faixas) : p.valor
-      itens.push({ descricao: `${d.descricao || 'Acordo'} · parcela ${p.numero}`, valor, origem: { tipo: 'parcela', parcelaId: p.id } })
+      itens.push({ descricao: `${d.descricao || 'Acordo'} · parcela ${p.numero}`, valor, origem: { tipo: 'parcela', parcelaId: p.id, autoQuita: d.pago_com_rake && p.pago_com_rake } })
     }
   }
   return itens
@@ -461,7 +467,9 @@ export async function getDividasAcertoDoClube(clubeId: string, periodoFim: strin
 // Só a parte de multa (sem o principal) das parcelas atrasadas desse
 // período — usado no Resumo de Acertos ("Fines" da planilha do Cássio).
 // Mesma regra de atraso/faixas de getDividasAcertoDoClube, isolando o
-// delta (valor com multa − valor original da parcela) em vez do total.
+// delta (valor com multa − valor original da parcela) em vez do total. Não
+// filtra mais por "Pagar com Rake" (mesmo ajuste de getDividasAcertoDoClube)
+// — a multa é sobre o atraso, não sobre como a parcela vai ser cobrada.
 export async function getMultaAplicadaDoClube(clubeId: string, periodoFim: string): Promise<number> {
   const [{ data: dividas }, faixas] = await Promise.all([
     supabase.from('dividas').select('id').eq('clube_id', clubeId).eq('status', 'ativo').eq('tipo', 'acordo').not('quantidade_parcelas', 'is', null),
@@ -475,7 +483,6 @@ export async function getMultaAplicadaDoClube(clubeId: string, periodoFim: strin
       .select('valor, vencimento')
       .eq('divida_id', d.id)
       .eq('pago', false)
-      .eq('pago_com_rake', true)
       .lte('vencimento', periodoFim)
     for (const p of (parcelas ?? []) as { valor: number; vencimento: string }[]) {
       const atraso = diasDeAtraso(p.vencimento, hoje)
@@ -499,7 +506,11 @@ export async function marcarDividasPagasComRake(clubIds: string[], periodoFim: s
     catch { continue }
     for (const item of itens) {
       try {
-        if (item.origem.tipo === 'parcela') await marcarParcelaPaga(item.origem.parcelaId, item.valor)
+        // parcela sem `autoQuita` (Pagar com Rake desligado, na Dívida ou na
+        // Parcela) entrou na lista só pra contar no Total — não é descontada
+        // do Rake de verdade, então não pode marcar como paga sozinha; segue
+        // "não paga" até alguém confirmar na tela de Dívidas e Acordos.
+        if (item.origem.tipo === 'parcela') { if (item.origem.autoQuita) await marcarParcelaPaga(item.origem.parcelaId, item.valor) }
         else if (item.origem.tipo === 'simples_rakeback') await atualizarSaldoRestanteDivida(item.origem.dividaId, item.origem.saldoApos)
         else await atualizarStatusDivida(item.origem.dividaId, 'quitado')
       } catch { /* segue pros outros itens */ }
