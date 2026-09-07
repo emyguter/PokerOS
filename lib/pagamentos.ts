@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import { calcularTotalAcerto, buscarSecurityEDividasPorClube } from './relatorio-acerto'
 import { diasDeAtraso, getFaixasMultaDoClube, valorComMulta } from './dividas'
-import { diaSeguinte } from './acertos-engine'
+import { diaSeguinte, maisDias } from './acertos-engine'
 
 export type TipoEnvio = 'pagamento' | 'antecipacao'
 
@@ -188,12 +188,16 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
 // resumido em Valor Pago) lançada no clube dentro do período do Acerto —
 // vira Envio (crédito soma, débito subtrai), igual Pagamento (pedido do
 // Cássio). `clube_id` é resolvido pro `acerto_id` certo pelo chamador (mapa
-// 1 clube = 1 Acerto no período, ver acertoIdPorClube). Janela de data
-// deslocada em +1 dia (diaSeguinte) — mesma correção de
-// buscarPendenciasAntecipacao: um lançamento datado no 1º dia do período
-// conta pra semana ANTERIOR (achado no Agreste_Poker, confirmado pelo Cássio).
+// 1 clube = 1 Acerto no período, ver acertoIdPorClube). Janela de data =
+// a semana INTEIRA seguinte ao período (mesma regra de
+// buscarPendenciasAntecipacao — o Suporte só sabe a Diferença de uma semana
+// depois que ela fecha, então um lançamento datado durante a semana
+// seguinte está pagando ESSA semana, não a que ainda está em andamento;
+// achado no Royal Star — não é só o 1º dia do período que desloca, é a
+// semana inteira).
 async function buscarAntecipacaoEnvios(clubIds: string[], periodStart: string, periodEnd: string): Promise<LancamentoBrutoRow[]> {
   if (clubIds.length === 0 || !periodStart) return []
+  const fim = periodEnd || periodStart
   const { data } = await supabase
     .from('lancamentos')
     .select('id, clube_id, natureza, valor, data_lancamento, pago_crypto')
@@ -201,24 +205,25 @@ async function buscarAntecipacaoEnvios(clubIds: string[], periodStart: string, p
     .eq('tipo', 'antecipacao')
     .eq('origem', 'suporte')
     .not('conciliado_com', 'is', null)
-    .gte('data_lancamento', diaSeguinte(periodStart))
-    .lte('data_lancamento', diaSeguinte(periodEnd || periodStart))
+    .gte('data_lancamento', diaSeguinte(fim))
+    .lte('data_lancamento', maisDias(fim, 7))
   return (data ?? []) as LancamentoBrutoRow[]
 }
 
 // Caução lançada no clube dentro do período — NÃO vira Envio (ver
 // EnvioPagamento acima): é só somada pra exibir como referência
-// (`caucaoLancada`), mesmo tratamento do Extra. Mesma janela +1 dia das
-// outras buscas por período.
+// (`caucaoLancada`), mesmo tratamento do Extra. Mesma janela de semana
+// inteira das outras buscas por período (ver buscarAntecipacaoEnvios acima).
 async function buscarCaucaoDoPeriodo(clubIds: string[], periodStart: string, periodEnd: string): Promise<LancamentoBrutoRow[]> {
   if (clubIds.length === 0 || !periodStart) return []
+  const fim = periodEnd || periodStart
   const { data } = await supabase
     .from('lancamentos')
     .select('id, clube_id, natureza, valor, data_lancamento, pago_crypto')
     .in('clube_id', clubIds)
     .eq('tipo', 'caucao')
-    .gte('data_lancamento', diaSeguinte(periodStart))
-    .lte('data_lancamento', diaSeguinte(periodEnd || periodStart))
+    .gte('data_lancamento', diaSeguinte(fim))
+    .lte('data_lancamento', maisDias(fim, 7))
   return (data ?? []) as LancamentoBrutoRow[]
 }
 
