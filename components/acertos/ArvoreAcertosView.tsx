@@ -57,7 +57,7 @@ export function ArvoreAcertosView() {
   const [jogadoresAgente, setJogadoresAgente] = useState<NoJogador[] | null>(null)
 
   const [cardAberto, setCardAberto] = useState<LinhaMeuAcerto | null>(null)
-  const [recalcAlvo, setRecalcAlvo] = useState<{ nome: string; clube: LinhaMeuAcerto } | null>(null)
+  const [recalcAlvo, setRecalcAlvo] = useState<{ nome: string; importIds: string[] } | null>(null)
   const [calculando, setCalculando] = useState(false)
   const [filaImports, setFilaImports] = useState<string[]>([])
   const [filaCotacao, setFilaCotacao] = useState<{ id: string; name: string }[]>([])
@@ -208,14 +208,22 @@ export function ArvoreAcertosView() {
   }
 
   function recalcularClube(l: LinhaMeuAcerto) {
-    setRecalcAlvo({ nome: l.acerto.club_name, clube: l })
+    setRecalcAlvo({ nome: l.acerto.club_name, importIds: l.importId ? [l.importId] : [] })
+  }
+
+  // Uma Liga pode ter clubes vindos de mais de um arquivo/plataforma na
+  // mesma semana — recalcula todos de uma vez (pedido do Cássio: hoje só
+  // dava pra recalcular abrindo um clube por vez).
+  function recalcularLiga(liga: LigaNode) {
+    const importIds = [...new Set(liga.clubes.map((c) => c.importId).filter((id): id is string => !!id))]
+    setRecalcAlvo({ nome: liga.nome, importIds })
   }
 
   async function confirmarRecalculo() {
     if (!recalcAlvo) return
-    const importId = recalcAlvo.clube.importId
+    const importIds = recalcAlvo.importIds
     setRecalcAlvo(null)
-    if (importId) await rodarImports([importId])
+    if (importIds.length > 0) await rodarImports(importIds)
   }
 
   // ── filtro de busca no nível atual ───────────────────────────────────
@@ -327,6 +335,7 @@ export function ArvoreAcertosView() {
         raiz={raiz}
         onVerCompleto={(l) => setCardAberto(l)}
         onRecalcular={recalcularClube}
+        onRecalcularLiga={recalcularLiga}
         calculando={calculando}
       />
 
@@ -453,7 +462,9 @@ export function ArvoreAcertosView() {
             </div>
             <h4 className="text-white font-semibold text-base mb-1.5">Recalcular semana inteira?</h4>
             <p className="text-xs text-gray-400 leading-relaxed mb-5">
-              Vai reprocessar o arquivo completo dessa semana pra <strong className="text-white">{recalcAlvo.nome}</strong> — todos os clubes desse arquivo são recalculados junto, não só esse.
+              {recalcAlvo.importIds.length > 1
+                ? <>Vai reprocessar os {recalcAlvo.importIds.length} arquivos dessa semana pra <strong className="text-white">{recalcAlvo.nome}</strong> — todos os clubes desses arquivos são recalculados junto.</>
+                : <>Vai reprocessar o arquivo completo dessa semana pra <strong className="text-white">{recalcAlvo.nome}</strong> — todos os clubes desse arquivo são recalculados junto, não só esse.</>}
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setRecalcAlvo(null)} className="flex-1 px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20">Cancelar</button>
@@ -472,11 +483,12 @@ export function ArvoreAcertosView() {
 
 // ─── faixa do nó selecionado ─────────────────────────────────────────────
 
-function NoFaixa({ path, raiz, onVerCompleto, onRecalcular, calculando }: {
+function NoFaixa({ path, raiz, onVerCompleto, onRecalcular, onRecalcularLiga, calculando }: {
   path: PathEntry[]
   raiz: ArvoreRaiz | null
   onVerCompleto: (l: LinhaMeuAcerto) => void
   onRecalcular: (l: LinhaMeuAcerto) => void
+  onRecalcularLiga: (liga: LigaNode) => void
   calculando: boolean
 }) {
   const atual = path[path.length - 1]
@@ -498,7 +510,15 @@ function NoFaixa({ path, raiz, onVerCompleto, onRecalcular, calculando }: {
     const total = l.clubes.reduce((s, c) => s + c.valorFinal, 0)
     const rake = l.clubes.reduce((s, c) => s + c.acerto.rake_total, 0)
     return (
-      <Faixa titulo={l.nome} meta={`${l.clubes.length} clube(s)`}>
+      <Faixa
+        titulo={l.nome}
+        meta={`${l.clubes.length} clube(s)`}
+        acoes={
+          <button type="button" onClick={() => onRecalcularLiga(l)} disabled={calculando} className="px-3.5 py-1.5 border border-white/10 rounded-lg text-xs text-gray-300 hover:border-gold/40 disabled:opacity-40 flex items-center gap-1.5">
+            <RotateCcw size={12} /> Recalcular semana
+          </button>
+        }
+      >
         <Fig k="Rake total" v={fmt(rake)} />
         <Fig k="Total (liga)" v={fmt(total)} className={cor(total)} destaque />
       </Faixa>
@@ -634,8 +654,10 @@ function Secao({ titulo, contagem, children }: { titulo: string; contagem: numbe
     </div>
   )
 }
+// Lista (não mais grid de cards, pedido do Cássio: "melhora o UX") — cada
+// linha ocupa a largura toda, fácil de escanear uma coluna de valores.
 function Grade({ children }: { children: React.ReactNode }) {
-  return <div className="grid gap-2.5 mb-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))' }}>{children}</div>
+  return <div className="rounded-xl border border-white/10 divide-y divide-white/5 overflow-hidden mb-6">{children}</div>
 }
 
 function NodeCard({ icone, nome, sub, valor, badge, onClick }: { icone: string; nome: string; sub: string; valor?: string; badge?: string; onClick: () => void }) {
@@ -643,20 +665,20 @@ function NodeCard({ icone, nome, sub, valor, badge, onClick }: { icone: string; 
     <button
       type="button"
       onClick={onClick}
-      className="text-left bg-surface border border-white/10 hover:border-gold/40 hover:bg-surface2 rounded-xl p-4 flex flex-col gap-2.5 transition-colors group"
+      className="w-full text-left bg-surface hover:bg-surface2 px-4 py-3 flex items-center gap-3 transition-colors group"
     >
-      <div className="flex items-center gap-2">
-        <span className="w-7 h-7 rounded-lg bg-surface2 border border-white/10 flex items-center justify-center text-[11px] font-bold text-gray-400 group-hover:text-gold group-hover:border-gold/30 shrink-0">{icone}</span>
-        <span className="text-sm font-semibold text-white truncate flex-1">{nome}</span>
-        <ChevronRight size={14} className="text-gray-700 group-hover:text-gold shrink-0" />
+      <span className="w-7 h-7 rounded-lg bg-surface2 border border-white/10 flex items-center justify-center text-[11px] font-bold text-gray-400 group-hover:text-gold group-hover:border-gold/30 shrink-0">{icone}</span>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-semibold text-white truncate">{nome}</div>
+        <div className="text-[11px] text-gray-600 truncate">{sub}</div>
       </div>
-      <div className="text-[11px] text-gray-600 truncate">{sub}</div>
       {badge && (
-        <span className="text-[10px] uppercase tracking-wide text-gold bg-gold/10 border border-gold/25 rounded px-1.5 py-0.5 self-start">{badge}</span>
+        <span className="text-[10px] uppercase tracking-wide text-gold bg-gold/10 border border-gold/25 rounded px-1.5 py-0.5 shrink-0">{badge}</span>
       )}
       {valor !== undefined && (
-        <div className={`text-sm font-semibold ${valor.startsWith('−') ? 'text-alert' : 'text-emerald-400'}`}>{valor}</div>
+        <div className={`text-sm font-semibold shrink-0 ${valor.startsWith('−') ? 'text-alert' : 'text-emerald-400'}`}>{valor}</div>
       )}
+      <ChevronRight size={14} className="text-gray-700 group-hover:text-gold shrink-0" />
     </button>
   )
 }
