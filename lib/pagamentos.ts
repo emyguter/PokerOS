@@ -3,20 +3,23 @@ import { calcularTotalAcerto, buscarSecurityEDividasPorClube } from './relatorio
 import { diasDeAtraso, getFaixasMultaDoClube, valorComMulta } from './dividas'
 import { diaSeguinte } from './acertos-engine'
 
-export type TipoEnvio = 'pagamento' | 'antecipacao' | 'caucao'
+export type TipoEnvio = 'pagamento' | 'antecipacao'
 
 export interface EnvioPagamento {
   id: string
   valor_assinado: number
   data_lancamento: string
   pago_crypto: boolean
-  // Pagamento, Antecipação (conciliada) e Caução aparecem todos itemizados
-  // como Envio — pedido do Cássio ("Caucao, pagamento e antecipancao TEM
-  // QUE aparecer como envio"). Antes só Pagamento virava Envio de verdade;
-  // Antecipação entrava só como um número resumido em Valor Pago e Caução
-  // nem entrava na Diferença. `tipo` é só pra UI distinguir/rotular cada
-  // coluna — o valor já vem assinado (crédito soma, débito subtrai) igual
-  // pra qualquer um dos três.
+  // Pagamento e Antecipação (conciliada) aparecem itemizados como Envio e
+  // contam na Diferença — pedido do Cássio. Caução NÃO entra aqui: já foi
+  // Envio antes, mas o Cássio reverteu esse pedido — caução lançada no
+  // período agora é só referência (ver `caucaoLancada` em AcertoPagamento,
+  // mesmo tratamento do Extra), nunca conta em Valor Pago/Diferença. Só
+  // vira Diferença de verdade através de "Descontar da Caução"
+  // (descontarDaCaucao abaixo), que cria um Envio tipo "pagamento" de
+  // propósito — essa é a única porta de entrada. `tipo` é só pra UI
+  // distinguir/rotular cada coluna — o valor já vem assinado (crédito
+  // soma, débito subtrai) igual pros dois.
   tipo: TipoEnvio
 }
 
@@ -34,6 +37,10 @@ export interface AcertoPagamento {
   // separada (pedido do Cássio: "Bônus, promoção e outros aparece em
   // EXTRA"), não soma de novo em nada.
   extra: number
+  // Caução lançada no período — só referência visual, igual Extra: não
+  // soma em Valor do Acerto, Valor Pago nem Diferença (pedido do Cássio,
+  // revertendo uma decisão anterior de fazer Caução virar Envio).
+  caucaoLancada: number
   // Projeto do clube (Mega Liga/Superliga/Liga/Clube — mesmo campo usado no
   // Stoploss) — só pra filtrar a tabela na tela, não entra em cálculo nenhum.
   projeto: string | null
@@ -109,6 +116,7 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
       valor_pago,
       diferenca: Math.round((a.valor_acerto + valor_pago) * 100) / 100,
       extra: 0,
+      caucaoLancada: 0,
       projeto: null,
     }
   })
@@ -119,11 +127,12 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
 // calcularTotalAcerto): Bilhetes, Segurança, Taxa A-A Home Game, Indicação,
 // Lançamentos do período (Bônus/Promoção/Outro) e Dívidas/Acordos entram
 // todos — confirmado pelo Cássio, nada pode ficar de fora, senão a Diferença
-// de Cobrança/Controle de Pagamentos fica errada. Antecipação e Caução FICAM
-// DE FORA daqui de propósito — as duas viram Envio itemizado (ver
-// buscarAntecipacaoEnvios/buscarCaucaoEnvios abaixo), não escondidas dentro
-// de "Valor do Acerto" — mesma lógica de "o que devia" vs "o que já foi
-// adiantado/quitado" que a coluna Valor Pago já usa pra Envio de verdade.
+// de Cobrança/Controle de Pagamentos fica errada. Antecipação FICA DE FORA
+// daqui de propósito — vira Envio itemizado (ver buscarAntecipacaoEnvios
+// abaixo), não escondida dentro de "Valor do Acerto" — mesma lógica de "o
+// que devia" vs "o que já foi adiantado" que a coluna Valor Pago já usa pra
+// Envio de verdade. Caução também fica de fora, mas por outro motivo: não é
+// Envio nenhum, é só referência (ver buscarCaucaoDoPeriodo).
 // `extraPorClube` (Bônus+Promoção+Outro, já somado aqui dentro de Valor do
 // Acerto) é devolvido separado só pra UI mostrar como referência na coluna
 // "Extra" (pedido do Cássio) — não é somado de novo em nada.
@@ -176,16 +185,13 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
 // Antecipação conciliada (mesmo filtro de buscarPendenciasAntecipacao em
 // lib/acertos-engine.ts — só a copia aqui pegando as linhas cruas em vez de
 // já somar, porque agora ela vira Envio itemizado, não mais um número só
-// resumido em Valor Pago) e Caução lançadas no clube dentro do período do
-// Acerto — ambas viram Envio (crédito soma, débito subtrai), igual Pagamento
-// (pedido do Cássio: "Caucao, pagamento e antecipancao TEM QUE aparecer
-// como envio"). Caução agora TAMBÉM quita Diferença (antes não entrava —
-// confirmado pelo Cássio que essa é a mudança pretendida). `clube_id` é
-// resolvido pro `acerto_id` certo pelo chamador (mapa 1 clube = 1 Acerto no
-// período, ver acertoIdPorClube). Janela de data deslocada em +1 dia
-// (diaSeguinte) — mesma correção de buscarPendenciasAntecipacao: um
-// lançamento datado no 1º dia do período conta pra semana ANTERIOR
-// (achado no Agreste_Poker, confirmado pelo Cássio).
+// resumido em Valor Pago) lançada no clube dentro do período do Acerto —
+// vira Envio (crédito soma, débito subtrai), igual Pagamento (pedido do
+// Cássio). `clube_id` é resolvido pro `acerto_id` certo pelo chamador (mapa
+// 1 clube = 1 Acerto no período, ver acertoIdPorClube). Janela de data
+// deslocada em +1 dia (diaSeguinte) — mesma correção de
+// buscarPendenciasAntecipacao: um lançamento datado no 1º dia do período
+// conta pra semana ANTERIOR (achado no Agreste_Poker, confirmado pelo Cássio).
 async function buscarAntecipacaoEnvios(clubIds: string[], periodStart: string, periodEnd: string): Promise<LancamentoBrutoRow[]> {
   if (clubIds.length === 0 || !periodStart) return []
   const { data } = await supabase
@@ -200,7 +206,11 @@ async function buscarAntecipacaoEnvios(clubIds: string[], periodStart: string, p
   return (data ?? []) as LancamentoBrutoRow[]
 }
 
-async function buscarCaucaoEnvios(clubIds: string[], periodStart: string, periodEnd: string): Promise<LancamentoBrutoRow[]> {
+// Caução lançada no clube dentro do período — NÃO vira Envio (ver
+// EnvioPagamento acima): é só somada pra exibir como referência
+// (`caucaoLancada`), mesmo tratamento do Extra. Mesma janela +1 dia das
+// outras buscas por período.
+async function buscarCaucaoDoPeriodo(clubIds: string[], periodStart: string, periodEnd: string): Promise<LancamentoBrutoRow[]> {
   if (clubIds.length === 0 || !periodStart) return []
   const { data } = await supabase
     .from('lancamentos')
@@ -212,10 +222,16 @@ async function buscarCaucaoEnvios(clubIds: string[], periodStart: string, period
   return (data ?? []) as LancamentoBrutoRow[]
 }
 
-// Resolve as linhas cruas de Antecipação/Caução (por clube) pro acerto_id
-// certo e empacota como PagamentoRow — mesmo formato que o Pagamento de
-// verdade usa, assim agregarPagamentos (puro, testado) nem precisa saber
-// que existe Antecipação/Caução, só vê mais Envios chegando.
+function caucaoLancadaPorClube(rows: LancamentoBrutoRow[]): Map<string, number> {
+  const mapa = new Map<string, number>()
+  for (const r of rows) mapa.set(r.clube_id, (mapa.get(r.clube_id) ?? 0) + (r.natureza === 'credito' ? r.valor : -r.valor))
+  return mapa
+}
+
+// Resolve as linhas cruas de Antecipação (por clube) pro acerto_id certo e
+// empacota como PagamentoRow — mesmo formato que o Pagamento de verdade
+// usa, assim agregarPagamentos (puro, testado) nem precisa saber que existe
+// Antecipação, só vê mais Envios chegando.
 function converterParaEnvios(rows: LancamentoBrutoRow[], acertoIdPorClube: Map<string, string>, tipo: TipoEnvio): PagamentoRow[] {
   const resultado: PagamentoRow[] = []
   for (const r of rows) {
@@ -255,10 +271,11 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
       .order('data_lancamento', { ascending: true }),
     valorAcertoCompletoPorRow(lista, periodStart, periodEnd),
     buscarAntecipacaoEnvios(clubIds, periodStart, periodEnd),
-    buscarCaucaoEnvios(clubIds, periodStart, periodEnd),
+    buscarCaucaoDoPeriodo(clubIds, periodStart, periodEnd),
     clubIds.length > 0 ? supabase.from('clubs').select('id, projeto').in('id', clubIds) : Promise.resolve({ data: [] }),
   ])
   const projetoPorClube = new Map((clubesData ?? []).map((c) => [c.id as string, c.projeto as string | null]))
+  const caucaoPorClube = caucaoLancadaPorClube(caucaoRows)
 
   const listaCompleta: AcertoRow[] = lista.map((a) => ({ ...a, valor_acerto: valorAcertoPorId.get(a.id) ?? a.valor_acerto }))
   const clubIdPorAcertoId = new Map(lista.map((a) => [a.id, a.club_id]))
@@ -267,7 +284,6 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
   const pagamentos: PagamentoRow[] = [
     ...((pagamentosData ?? []) as PagamentoRow[]).map((p) => ({ ...p, tipo: 'pagamento' as const })),
     ...converterParaEnvios(antecipacaoRows, acertoIdPorClube, 'antecipacao'),
-    ...converterParaEnvios(caucaoRows, acertoIdPorClube, 'caucao'),
   ].sort((a, b) => a.data_lancamento.localeCompare(b.data_lancamento))
 
   const resultado = agregarPagamentos(listaCompleta, pagamentos)
@@ -277,6 +293,7 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
       ...r,
       club_id: clubId ?? null,
       extra: clubId ? extraPorClube.get(clubId) ?? 0 : 0,
+      caucaoLancada: clubId ? caucaoPorClube.get(clubId) ?? 0 : 0,
       projeto: clubId ? projetoPorClube.get(clubId) ?? null : null,
     }
   })
@@ -294,9 +311,9 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
 //     ao vivo a partir de caucao_atual, não precisa mexer em mais nada).
 //     Esse datado do fim do período do Acerto (não hoje) — é o valor que
 //     conta pra semana sendo quitada, mesma regra de "que semana o valor
-//     conta" já usada no resto do Stoploss; sem isso o Envio de Caução no
-//     Controle de Pagamentos/Cobrança nunca aparece pra semanas passadas
-//     (o lançamento cai fora do período filtrado por buscarCaucaoEnvios).
+//     conta" já usada no resto do Stoploss; sem isso a referência de Caução
+//     no Controle de Pagamentos/Cobrança nunca aparece pra semanas passadas
+//     (o lançamento cai fora do período filtrado por buscarCaucaoDoPeriodo).
 export async function descontarDaCaucao(acertoId: string, clubeId: string, valor: number, dataPeriodo: string): Promise<void> {
   const { data: userData } = await supabase.auth.getUser()
   const hoje = new Date().toISOString().slice(0, 10)
@@ -515,10 +532,11 @@ export async function buscarPagamentosPorPeriodo(periodoInicio: string, periodoF
       .order('data_lancamento', { ascending: true }),
     valorAcertoCompletoPorRow(lista, periodoInicio, periodoFim),
     buscarAntecipacaoEnvios(clubIds, periodoInicio, periodoFim),
-    buscarCaucaoEnvios(clubIds, periodoInicio, periodoFim),
+    buscarCaucaoDoPeriodo(clubIds, periodoInicio, periodoFim),
     clubIds.length > 0 ? supabase.from('clubs').select('id, projeto').in('id', clubIds) : Promise.resolve({ data: [] }),
   ])
   const projetoPorClube = new Map((clubesData ?? []).map((c) => [c.id as string, c.projeto as string | null]))
+  const caucaoPorClube = caucaoLancadaPorClube(caucaoRows)
 
   const listaCompleta: AcertoRow[] = lista.map((a) => ({ ...a, valor_acerto: valorAcertoPorId.get(a.id) ?? a.valor_acerto }))
   const clubIdPorAcertoId = new Map(lista.map((a) => [a.id, a.club_id]))
@@ -527,7 +545,6 @@ export async function buscarPagamentosPorPeriodo(periodoInicio: string, periodoF
   const pagamentos: PagamentoRow[] = [
     ...((pagamentosData ?? []) as PagamentoRow[]).map((p) => ({ ...p, tipo: 'pagamento' as const })),
     ...converterParaEnvios(antecipacaoRows, acertoIdPorClube, 'antecipacao'),
-    ...converterParaEnvios(caucaoRows, acertoIdPorClube, 'caucao'),
   ].sort((a, b) => a.data_lancamento.localeCompare(b.data_lancamento))
 
   const resultado = agregarPagamentos(listaCompleta, pagamentos)
@@ -537,6 +554,7 @@ export async function buscarPagamentosPorPeriodo(periodoInicio: string, periodoF
       ...r,
       club_id: clubId ?? null,
       extra: clubId ? extraPorClube.get(clubId) ?? 0 : 0,
+      caucaoLancada: clubId ? caucaoPorClube.get(clubId) ?? 0 : 0,
       projeto: clubId ? projetoPorClube.get(clubId) ?? null : null,
     }
   })

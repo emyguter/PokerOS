@@ -60,8 +60,8 @@ export function ControlePagamentosView() {
   useEffect(() => { load(periodoSelecionado) }, [periodoSelecionado, load])
 
   // Caução ATUAL de cada clube (saldo de verdade, não a lançada no período,
-  // que agora aparece itemizada como Envio) — só pra saber se ainda dá pra
-  // descontar (botão desabilita quando não tem mais nada).
+  // que aparece só como referência em `caucaoLancada`) — só pra saber se
+  // ainda dá pra descontar (botão desabilita quando não tem mais nada).
   useEffect(() => {
     const clubIds = [...new Set(linhas.map((l) => l.club_id).filter((id): id is string => !!id))]
     const query = clubIds.length > 0
@@ -160,6 +160,7 @@ export function ControlePagamentosView() {
                 <th className="text-right px-3 py-2 whitespace-nowrap" title={t('pagamentos.title_valor_pago')}>{t('pagamentos.col_valor_pago')}</th>
                 <th className="text-right px-3 py-2 whitespace-nowrap"></th>
                 <th className="text-right px-3 py-2 whitespace-nowrap" title={t('pagamentos.title_extra')}>{t('pagamentos.col_extra')}</th>
+                <th className="text-right px-3 py-2 whitespace-nowrap" title={t('pagamentos.title_caucao_lancada')}>{t('pagamentos.col_caucao_lancada')}</th>
                 {Array.from({ length: maxEnvios }).map((_, i) => (
                   <th key={i} className="text-right px-3 py-2 whitespace-nowrap">{t('pagamentos.col_envio', { n: String(i + 1) })}</th>
                 ))}
@@ -190,6 +191,7 @@ export function ControlePagamentosView() {
                     })()}
                   </td>
                   <td className="px-3 py-2 text-right text-gray-500 whitespace-nowrap">{l.extra === 0 ? '—' : fmt(l.extra)}</td>
+                  <td className="px-3 py-2 text-right text-gray-500 whitespace-nowrap">{l.caucaoLancada === 0 ? '—' : fmt(l.caucaoLancada)}</td>
                   {Array.from({ length: maxEnvios }).map((_, i) => {
                     const envio = l.envios[i]
                     return (
