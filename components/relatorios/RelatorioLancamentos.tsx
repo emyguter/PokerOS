@@ -4,7 +4,7 @@ import { ArrowDownCircle, ArrowUpCircle, Wallet } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { BuscaSelectMulti } from '@/components/BuscaSelectMulti'
-import { TIPOS } from '@/components/lancamento/ExtratoView'
+import { TIPOS, aguardandoConfirmacao } from '@/components/lancamento/ExtratoView'
 
 interface ClubeOpcao { id: string; name: string }
 
@@ -205,7 +205,12 @@ export function RelatorioLancamentos() {
                   <tr key={l.id} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
                     <td className="px-4 py-3 text-gray-400">{new Date(l.data_lancamento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
                     <td className="px-4 py-3 text-white">{l.clubs?.name ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-300">{t(TIPOS.find(tp => tp.value === l.tipo)?.labelKey ?? l.tipo)}</td>
+                    <td className="px-4 py-3 text-gray-300">
+                      {t(TIPOS.find(tp => tp.value === l.tipo)?.labelKey ?? l.tipo)}
+                      {aguardandoConfirmacao(l) && (
+                        <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full border border-gold/30 bg-gold/10 text-gold uppercase tracking-wide align-middle">{t('lancamento.aguardando_confirmacao')}</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-400">{l.origens.map(o => LABEL_ORIGEM[o] ?? o).join(' + ')}</td>
                     <td className="px-4 py-3 text-gray-400">{l.status ? LABEL_STATUS[l.status] ?? l.status : '—'}</td>
                     <td className="px-4 py-3 text-gray-400">{l.descricao || '—'}</td>
