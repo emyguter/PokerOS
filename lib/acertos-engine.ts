@@ -504,6 +504,12 @@ export function diaSeguinte(dataISO: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+export function maisDias(dataISO: string, dias: number): string {
+  const d = new Date(dataISO + "T00:00:00");
+  d.setDate(d.getDate() + dias);
+  return d.toISOString().slice(0, 10);
+}
+
 // Pendências/Antecipação = lançamentos de Antecipação do Suporte já
 // conciliados (conciliado_com preenchido = já casou com o par da Genia),
 // dentro do período do acerto — confirmado com o Cássio. Soma só o lado
@@ -514,10 +520,19 @@ export function diaSeguinte(dataISO: string): string {
 // uma foto de quando o Acerto foi calculado/recalculado pela última vez —
 // achado pelo Cássio: uma Antecipação lançada/conciliada DEPOIS disso não
 // aparecia até alguém clicar em "Recalcular").
+//
+// Janela de data = a semana INTEIRA seguinte ao período (diaSeguinte(fim) a
+// fim+7), não o período do próprio Acerto — o Suporte só sabe a Diferença de
+// uma semana depois que ela fecha, então qualquer lançamento datado durante
+// a semana seguinte está pagando ESSA semana (a que já fechou), nunca a que
+// ainda está em andamento (confirmado pelo Cássio: achado no Royal Star,
+// Antecipação datada 19-20/08 contando no Acerto 17-23 em vez do 10-16 —
+// não é só o 1º dia do período que desloca, é a semana inteira).
 export async function buscarPendenciasAntecipacao(clubIds: string[], periodStart: string, periodEnd: string): Promise<Map<string, number>> {
   const mapa = new Map<string, number>();
   if (clubIds.length === 0 || !periodStart) return mapa;
 
+  const fim = periodEnd || periodStart;
   const { data } = await supabase
     .from("lancamentos")
     .select("clube_id, natureza, valor")
@@ -525,8 +540,8 @@ export async function buscarPendenciasAntecipacao(clubIds: string[], periodStart
     .eq("tipo", "antecipacao")
     .eq("origem", "suporte")
     .not("conciliado_com", "is", null)
-    .gte("data_lancamento", diaSeguinte(periodStart))
-    .lte("data_lancamento", diaSeguinte(periodEnd || periodStart));
+    .gte("data_lancamento", diaSeguinte(fim))
+    .lte("data_lancamento", maisDias(fim, 7));
 
   for (const row of (data ?? []) as { clube_id: string; natureza: "credito" | "debito"; valor: number }[]) {
     const delta = row.natureza === "credito" ? row.valor : -row.valor;

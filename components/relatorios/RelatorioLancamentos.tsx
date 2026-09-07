@@ -18,6 +18,7 @@ interface Lancamento {
   data_lancamento: string
   origem: 'suporte' | 'genia' | 'seguranca'
   status: string | null
+  conciliado_com: string | null
   clubs: { name: string } | null
 }
 
@@ -59,7 +60,7 @@ export function RelatorioLancamentos() {
     setLoading(true)
     let query = supabase
       .from('lancamentos')
-      .select('id, clube_id, tipo, natureza, valor, descricao, data_lancamento, origem, status, clubs(name)')
+      .select('id, clube_id, tipo, natureza, valor, descricao, data_lancamento, origem, status, conciliado_com, clubs(name)')
       .order('data_lancamento', { ascending: false })
       .limit(500)
     if (clubeIds.length > 0) query = query.in('clube_id', clubeIds)
@@ -76,11 +77,36 @@ export function RelatorioLancamentos() {
 
   useEffect(() => { load() }, [load])
 
-  const totais = useMemo(() => lancamentos.reduce((acc, l) => {
+  // Pagamento/Antecipação conciliados vêm 2x do banco (Suporte + Genia,
+  // mesmo valor, ligados por conciliado_com — ver useConciliacao.ts) —
+  // sem isso pareciam duplicados na tela (achado pelo Cássio: "aqui está
+  // dobrando") e os totais de Créditos/Débitos contavam cada um 2x. Junta
+  // o par numa linha só (rotulando as duas origens), só quando o par
+  // inteiro está dentro do filtro atual — se um dos lados ficou de fora
+  // (por causa do filtro de Origem, por exemplo), mostra o que sobrou
+  // sozinho, sem inventar rótulo do outro lado que não está na tela.
+  const linhasUnificadas = useMemo(() => {
+    const porId = new Map(lancamentos.map((l) => [l.id, l]))
+    const consumidos = new Set<string>()
+    const linhas: (Lancamento & { origens: string[] })[] = []
+    for (const l of lancamentos) {
+      if (consumidos.has(l.id)) continue
+      const par = l.conciliado_com ? porId.get(l.conciliado_com) : undefined
+      if (par) {
+        consumidos.add(par.id)
+        linhas.push({ ...l, origens: [...new Set([l.origem, par.origem])] })
+      } else {
+        linhas.push({ ...l, origens: [l.origem] })
+      }
+    }
+    return linhas
+  }, [lancamentos])
+
+  const totais = useMemo(() => linhasUnificadas.reduce((acc, l) => {
     if (l.natureza === 'credito') acc.credito += l.valor
     else acc.debito += l.valor
     return acc
-  }, { credito: 0, debito: 0 }), [lancamentos])
+  }, { credito: 0, debito: 0 }), [linhasUnificadas])
 
   return (
     <div className="space-y-5">
@@ -172,15 +198,15 @@ export function RelatorioLancamentos() {
             <tbody>
               {loading ? (
                 <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500 text-sm">{t('common.carregando')}</td></tr>
-              ) : lancamentos.length === 0 ? (
+              ) : linhasUnificadas.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500 text-sm">{t('common.nenhum_registro')}</td></tr>
               ) : (
-                lancamentos.map(l => (
+                linhasUnificadas.map(l => (
                   <tr key={l.id} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
                     <td className="px-4 py-3 text-gray-400">{new Date(l.data_lancamento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
                     <td className="px-4 py-3 text-white">{l.clubs?.name ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-300">{t(TIPOS.find(tp => tp.value === l.tipo)?.labelKey ?? l.tipo)}</td>
-                    <td className="px-4 py-3 text-gray-400">{LABEL_ORIGEM[l.origem] ?? l.origem}</td>
+                    <td className="px-4 py-3 text-gray-400">{l.origens.map(o => LABEL_ORIGEM[o] ?? o).join(' + ')}</td>
                     <td className="px-4 py-3 text-gray-400">{l.status ? LABEL_STATUS[l.status] ?? l.status : '—'}</td>
                     <td className="px-4 py-3 text-gray-400">{l.descricao || '—'}</td>
                     <td className={`px-4 py-3 text-right font-medium ${l.natureza === 'credito' ? 'text-success' : 'text-alert'}`}>

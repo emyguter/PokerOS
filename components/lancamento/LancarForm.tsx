@@ -8,7 +8,7 @@ import { desvincularConciliacao } from '@/lib/lancamentos'
 import { corrigirValorCrypto } from '@/lib/relatorio-acerto'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
-import { TIPOS, ehTipoSeguranca } from './ExtratoView'
+import { TIPOS, ehTipoSeguranca, aguardandoConfirmacao } from './ExtratoView'
 
 // Esse form só cria lançamento com origem 'suporte'/'genia' — Bloqueio/
 // Reembolso da Segurança (origem 'seguranca') não podem aparecer aqui, senão
@@ -26,6 +26,7 @@ interface LancamentoRecente {
   descricao: string | null
   data_lancamento: string
   status: string | null
+  conciliado_com: string | null
   clube_id: string
   acerto_id: string | null
   clubs: { name: string } | null
@@ -113,6 +114,11 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
       .then(({ data }) => {
         const lista = ((data ?? []) as unknown as { id: string; valor_acerto: number; imports: { period_start: string | null; period_end: string | null } | null }[])
           .map((a) => ({ id: a.id, valor_acerto: a.valor_acerto, period_start: a.imports?.period_start ?? null, period_end: a.imports?.period_end ?? null }))
+          // `created_at` (quando foi calculado) não é a mesma ordem de qual
+          // semana é — um Acerto recalculado depois de outros mais recentes
+          // aparecia fora de ordem no seletor (achado no Royal Star). Reordena
+          // pela semana de verdade (period_end, mais recente primeiro).
+          .sort((a, b) => (b.period_end ?? '').localeCompare(a.period_end ?? ''))
         setAcertosClube(lista)
         setAcertoId('')
       })
@@ -122,7 +128,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
     setLoadingRecentes(true)
     const { data } = await supabase
       .from('lancamentos')
-      .select('id, tipo, natureza, valor, descricao, data_lancamento, status, clube_id, acerto_id, clubs(name)')
+      .select('id, tipo, natureza, valor, descricao, data_lancamento, status, conciliado_com, clube_id, acerto_id, clubs(name)')
       .eq('origem', origem)
       .order('created_at', { ascending: false })
       .limit(10)
@@ -353,6 +359,11 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
                     {l.status && (
                       <span className={`text-xs px-2 py-0.5 rounded-full border ${l.status === 'pago' ? 'border-success/30 bg-success/10 text-success' : 'border-gold/30 bg-gold/10 text-gold'}`}>
                         {t(`lancamento.status.${l.status}`)}
+                      </span>
+                    )}
+                    {!l.status && aguardandoConfirmacao(l) && (
+                      <span className="text-xs px-2 py-0.5 rounded-full border border-gold/30 bg-gold/10 text-gold">
+                        {t('lancamento.aguardando_confirmacao')}
                       </span>
                     )}
                     <span className={`text-sm font-medium ${l.natureza === 'credito' ? 'text-success' : 'text-alert'}`}>

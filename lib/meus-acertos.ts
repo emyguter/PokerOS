@@ -17,6 +17,13 @@ export interface LinhaMeuAcerto {
   // entry montada em lib/arvore-acertos.ts (buscarClubesSoRateio), não vem
   // daqui — default undefined = Acerto de clube de verdade.
   semAcerto?: boolean
+  // true = clube ativo da Liga sem NENHUM movimento nessa semana (nem
+  // Acerto, nem rateio de Agentes) — synthetic entry montada em
+  // lib/arvore-acertos.ts (buscarClubesZerados). `valorFinal` ainda reflete
+  // Pendências/Antecipação/Dívidas/Multa de verdade (pedido do Cássio: um
+  // clube sem movimento não pode "esconder" o que ele já deve ou tem a
+  // receber) — só o Rake/Ganhos/Fee é que ficam zerados.
+  zerado?: boolean
 }
 
 interface AcertoRow extends AcertoCard {

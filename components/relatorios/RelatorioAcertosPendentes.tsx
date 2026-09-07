@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, Loader2, RotateCcw } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
@@ -29,6 +29,8 @@ export function RelatorioAcertosPendentes() {
   // mostrar o valor com multa já calculado antes do Cássio confirmar.
   const [cobrarMulta, setCobrarMulta] = useState(false)
   const [faixasMulta, setFaixasMulta] = useState<FaixaMulta[]>([])
+  const [clubeFiltro, setClubeFiltro] = useState('')
+  const [projetoFiltro, setProjetoFiltro] = useState('')
 
   const totalPendencias = pendGenia.length + pendSuporte.length
   const conciliacaoZerada = !loadingConciliacao && totalPendencias === 0
@@ -75,6 +77,18 @@ export function RelatorioAcertosPendentes() {
   const atrasoDiasModal = confirmarRollover ? diasDeAtraso(confirmarRollover.periodoFim) : 0
   const valorComMultaModal = confirmarRollover ? valorComMulta(confirmarRollover.diferenca, atrasoDiasModal, faixasMulta) : 0
 
+  const projetosDisponiveis = useMemo(
+    () => [...new Set(semana.map((l) => l.projeto).filter((p): p is string => !!p))].sort(),
+    [semana]
+  )
+  const semanaFiltrada = useMemo(() => {
+    const busca = clubeFiltro.trim().toLowerCase()
+    return semana.filter((l) =>
+      (!projetoFiltro || l.projeto === projetoFiltro) &&
+      (!busca || l.clubName.toLowerCase().includes(busca))
+    )
+  }, [semana, projetoFiltro, clubeFiltro])
+
   if (loadingConciliacao) {
     return <div className="p-8 text-center text-gray-500 text-sm">{t('common.carregando')}</div>
   }
@@ -97,7 +111,7 @@ export function RelatorioAcertosPendentes() {
   // somar só o valor absoluto (como antes, quando só tinha clube_deve)
   // ficaria errado: um crédito e um débito de mesmo valor se cancelariam
   // visualmente, não somariam.
-  const totalSemana = semana.reduce((acc, l) => ({
+  const totalSemana = semanaFiltrada.reduce((acc, l) => ({
     acerto: acc.acerto + l.acerto,
     pago: acc.pago + l.pago,
     diferenca: acc.diferenca + (l.direcao === 'liga_deve' ? l.diferenca : -l.diferenca),
@@ -110,6 +124,19 @@ export function RelatorioAcertosPendentes() {
     <div className="space-y-8">
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-white">{t('acertos_pendentes.semana_titulo')}</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.clube')}</label>
+            <input type="text" value={clubeFiltro} onChange={(e) => setClubeFiltro(e.target.value)} placeholder={t('acertos.buscar_placeholder')} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.projeto')}</label>
+            <select value={projetoFiltro} onChange={(e) => setProjetoFiltro(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
+              <option value="">{t('stoploss.todos_projetos')}</option>
+              {projetosDisponiveis.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+        </div>
         <div className="rounded-xl border border-white/10 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -125,10 +152,10 @@ export function RelatorioAcertosPendentes() {
                 </tr>
               </thead>
               <tbody>
-                {semana.length === 0 ? (
+                {semanaFiltrada.length === 0 ? (
                   <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500 text-sm">{t('acertos_pendentes.nenhum_pendente_semana')}</td></tr>
                 ) : (
-                  semana.map((l) => (
+                  semanaFiltrada.map((l) => (
                     <tr key={l.clubId || l.clubExternalId} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
                       <td className="px-4 py-3 text-gray-400">{l.clubExternalId}</td>
                       <td className="px-4 py-3 text-white">{l.clubName}</td>

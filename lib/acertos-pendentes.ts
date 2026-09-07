@@ -22,6 +22,10 @@ export interface LinhaAcertoPendenteSemana {
   // Fim do período do Acerto que gerou essa Diferença — só usado pra
   // calcular dias de atraso na Multa (rolloverAcerto com comMulta).
   periodoFim: string
+  // Projeto do clube (Mega Liga/Superliga/Liga/Clube) — só pra filtrar a
+  // tabela na tela (pedido do Cássio: busca por clube + filtro por
+  // projeto), não entra em cálculo nenhum.
+  projeto: string | null
 }
 
 // Bloqueado tem prioridade sobre 50% (um clube pode ter os dois marcados ao
@@ -75,6 +79,7 @@ export async function buscarAcertosPendentesDaSemana(): Promise<LinhaAcertoPende
         diferenca: Math.abs(p.diferenca),
         direcao: (p.diferenca < 0 ? 'clube_deve' : 'liga_deve') as DirecaoDiferenca,
         periodoFim,
+        projeto: p.projeto,
       }
     })
     .sort((a, b) => a.diferenca - b.diferenca)
