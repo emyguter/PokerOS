@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
 import { desvincularConciliacao } from '@/lib/lancamentos'
+import { tentarConciliarAoLancar } from './useConciliacao'
 import { corrigirValorCrypto } from '@/lib/relatorio-acerto'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
@@ -185,7 +186,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
       // não tem status — exceto Caução, que pula direto pra fila da Genia
       // (é como se ela mesma tivesse lançado, só falta ela validar).
       const status = origem === 'genia' || tipo === 'caucao' ? 'em_validacao' : null
-      const { error: insErr } = await supabase.from('lancamentos').insert({
+      const { data: criado, error: insErr } = await supabase.from('lancamentos').insert({
         clube_id: clubeId,
         tipo,
         natureza,
@@ -197,8 +198,20 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
         status,
         acerto_id: ehPagamentoComAcerto && acertoId ? acertoId : null,
         pago_crypto: tipo === 'pagamento' && pagoCrypto,
-      })
+      }).select('id').single()
       if (insErr) throw insErr
+      // Tenta conciliar com o par do lado oposto NA HORA, sem esperar
+      // alguém abrir a tela de Conciliação/Pendências depois (achado no
+      // caso INSTA PIX POK: um Pagamento/Antecipação sem conciliar não
+      // contava em nada até alguém lembrar de abrir aquela tela). Best-
+      // effort: o lançamento já foi salvo com sucesso acima, um erro aqui
+      // não pode travar o formulário — pior caso, fica pendente igual
+      // sempre foi, pra resolver depois em Conciliação/Pendências.
+      if (criado?.id) {
+        try {
+          await tentarConciliarAoLancar({ id: criado.id, clube_id: clubeId, tipo, natureza, valor: valorNum, data_lancamento: data, origem })
+        } catch { /* best-effort */ }
+      }
       setValor('')
       setDescricao('')
       setData(hoje())

@@ -228,6 +228,7 @@ export const es: typeof pt = {
     selecione_par: '— Seleccionar el movimiento correspondiente —',
     janela_nota: 'Concilia automáticamente movimientos con hasta 7 días de diferencia (sigue el cierre semanal). Fuera de esa ventana, hay que vincular manualmente.',
     sem_par_motivo: 'Sin par dentro de los 7 días del cierre — vincula manualmente si es el mismo movimiento:',
+    par_encontrado: 'Encontramos el par correcto (el valor coincide) — solo falta confirmar haciendo clic en Vincular.',
     col_suporte: 'Soporte', col_financeiro: 'Finanzas', col_status: 'Estado',
     status_divergente: 'Valores diferentes',
     status_falta_financeiro: 'Falta Finanzas', status_falta_suporte: 'Falta Soporte',

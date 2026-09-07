@@ -102,10 +102,17 @@ export function ListaPendencias({ itens, ladoOposto, vazio, onSalvarValor, onVin
 
             {item.motivo === 'sem_par' && (
               <div className="space-y-1.5">
-                <p className="text-xs text-gray-500">{t('conciliacao.sem_par_motivo')}</p>
+                {item.par ? (
+                  <div className="flex items-center gap-2 text-xs bg-success/5 border border-success/20 rounded-lg px-3 py-2">
+                    <Check size={13} className="text-success shrink-0" />
+                    <span className="text-gray-400">{t('conciliacao.par_encontrado')}</span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">{t('conciliacao.sem_par_motivo')}</p>
+                )}
                 <div className="flex items-center gap-2">
                 <select
-                  value={vinculando[e.id] ?? ''}
+                  value={vinculando[e.id] ?? item.par?.id ?? ''}
                   onChange={ev => setVinculando(v => ({ ...v, [e.id]: ev.target.value }))}
                   className="flex-1 bg-surface border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-gold/50"
                 >
@@ -117,8 +124,13 @@ export function ListaPendencias({ itens, ladoOposto, vazio, onSalvarValor, onVin
                   ))}
                 </select>
                 <button
-                  disabled={!vinculando[e.id]}
-                  onClick={async () => { await onVincular(e.id, vinculando[e.id]); setVinculando(v => { const n = { ...v }; delete n[e.id]; return n }) }}
+                  disabled={!(vinculando[e.id] ?? item.par?.id)}
+                  onClick={async () => {
+                    const outroId = vinculando[e.id] ?? item.par?.id
+                    if (!outroId) return
+                    await onVincular(e.id, outroId)
+                    setVinculando(v => { const n = { ...v }; delete n[e.id]; return n })
+                  }}
                   className="flex items-center gap-1 px-2.5 py-1.5 bg-surface2 border border-white/10 rounded-lg text-xs text-gold hover:border-gold/50 disabled:opacity-30 transition-colors"
                 >
                   <Link2 size={12} />{t('conciliacao.vincular')}

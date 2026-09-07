@@ -226,6 +226,7 @@ export const pt = {
     selecione_par: '— Selecione o lançamento correspondente —',
     janela_nota: 'Concilia automaticamente lançamentos de até 7 dias de diferença (acompanha o fechamento semanal). Fora dessa janela, precisa vincular manualmente.',
     sem_par_motivo: 'Sem par dentro dos 7 dias do fechamento — vincula manualmente se for o mesmo lançamento:',
+    par_encontrado: 'Achamos o par certo (valor bate) — só falta confirmar clicando em Vincular.',
     col_suporte: 'Suporte', col_financeiro: 'Financeiro', col_status: 'Status',
     status_divergente: 'Valores diferentes',
     status_falta_financeiro: 'Falta Financeiro', status_falta_suporte: 'Falta Suporte',

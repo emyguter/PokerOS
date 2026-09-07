@@ -37,15 +37,15 @@ export interface LinhaConciliacao {
   status: StatusLinha
 }
 
-const JANELA_DIAS = 7
+export const JANELA_DIAS = 7
 
-function diffDias(a: string, b: string) {
+export function diffDias(a: string, b: string) {
   return Math.abs((new Date(a + 'T00:00:00').getTime() - new Date(b + 'T00:00:00').getTime()) / 86400000)
 }
-function valorBate(a: number, b: number) {
+export function valorBate(a: number, b: number) {
   return Math.abs(a - b) < 0.005
 }
-function chaveBase(e: Entrada) {
+export function chaveBase(e: Pick<Entrada, 'clube_id' | 'tipo' | 'natureza'>) {
   return `${e.clube_id}|${e.tipo}|${e.natureza}`
 }
 function hojeMenos(dias: number) {
@@ -54,11 +54,26 @@ function hojeMenos(dias: number) {
   return d.toISOString().slice(0, 10)
 }
 
+// Tipos que nunca formam par Suporte×Genia por esse mecanismo — Caução tem
+// fluxo próprio de mão única (Validar, ver FilaValidacao.tsx) e Bônus/
+// Promoção/Outro vão direto pro "Liberar para Acerto" (ver TIPOS_LIBERAVEIS
+// em lib/lancamentos.ts). Mesma lista usada no filtro de carga da tela de
+// Conciliação (`load` abaixo) e em tentarConciliarAoLancar.
+const TIPOS_SEM_CONCILIACAO = ['caucao', 'bonus', 'promocao', 'outro']
+
+type EntradaMinima = Pick<Entrada, 'id' | 'clube_id' | 'tipo' | 'natureza' | 'valor'>
+
+function maisDias(dataISO: string, dias: number): string {
+  const d = new Date(dataISO + 'T00:00:00')
+  d.setDate(d.getDate() + dias)
+  return d.toISOString().slice(0, 10)
+}
+
 // Antecipação é a única que compõe o Stoploss do clube, e só quando concilia
 // (antes disso é só uma promessa, igual Caução até a Genia confirmar) — usado
 // tanto no auto-match quanto no vínculo manual, pra não deixar uma
 // Antecipação conciliada na mão sem entrar no Stoploss.
-async function registrarAntecipacaoNoStoploss(suporte: Entrada, criadoPor: string | null): Promise<void> {
+export async function registrarAntecipacaoNoStoploss(suporte: EntradaMinima, criadoPor: string | null): Promise<void> {
   if (suporte.tipo !== 'antecipacao') return
   const atual = await getStoplossAtual(suporte.clube_id)
   const delta = suporte.natureza === 'credito' ? suporte.valor : -suporte.valor
@@ -77,6 +92,57 @@ async function registrarAntecipacaoNoStoploss(suporte: Entrada, criadoPor: strin
   })
 }
 
+// Concilia um lançamento (Suporte ou Genia) contra o par do lado oposto NA
+// HORA em que ele é lançado — sem isso, o par só casava quando alguém
+// abrisse a tela de Conciliação/Pendências depois, o que deixava um
+// Pagamento/Antecipação "sumido" (não contando em nada) até alguém lembrar
+// de abrir aquela tela (pedido do Cássio: "não pode conciliar ao abrir a
+// tela, tem que ser ao lançar mesmo", achado no caso INSTA PIX POK).
+// Chamado pelo LancarForm logo depois do insert. Mesmo critério do
+// auto-match da tela (clube+tipo+natureza, dentro de JANELA_DIAS, valor
+// mais próximo) — só concilia de verdade quando o valor bate certinho; sem
+// par ou com valor divergente, fica pendente igual sempre foi (resolvido
+// depois em Conciliação/Pendências, editando o valor ou vinculando na mão).
+export async function tentarConciliarAoLancar(novo: Pick<Entrada, 'id' | 'clube_id' | 'tipo' | 'natureza' | 'valor' | 'data_lancamento' | 'origem'>): Promise<void> {
+  if (TIPOS_SEM_CONCILIACAO.includes(novo.tipo)) return
+  const origemOposta = novo.origem === 'suporte' ? 'genia' : 'suporte'
+
+  const { data } = await supabase
+    .from('lancamentos')
+    .select('id, tipo, natureza, valor, descricao, data_lancamento, origem, status, clube_id, conciliado_com, clubs(name)')
+    .eq('clube_id', novo.clube_id)
+    .eq('tipo', novo.tipo)
+    .eq('natureza', novo.natureza)
+    .eq('origem', origemOposta)
+    .is('conciliado_com', null)
+    .or('descricao.neq.Rollover,descricao.is.null')
+    .gte('data_lancamento', maisDias(novo.data_lancamento, -JANELA_DIAS))
+    .lte('data_lancamento', maisDias(novo.data_lancamento, JANELA_DIAS))
+
+  const candidatos = (data ?? []) as unknown as Entrada[]
+  if (candidatos.length === 0) return
+
+  const melhor = [...candidatos].sort((a, b) => {
+    const diffValorA = Math.abs(a.valor - novo.valor), diffValorB = Math.abs(b.valor - novo.valor)
+    if (diffValorA !== diffValorB) return diffValorA - diffValorB
+    return diffDias(a.data_lancamento, novo.data_lancamento) - diffDias(b.data_lancamento, novo.data_lancamento)
+  })[0]
+
+  if (!valorBate(melhor.valor, novo.valor)) return
+
+  const agora = new Date().toISOString()
+  await Promise.all([
+    supabase.from('lancamentos').update({ conciliado_com: melhor.id, conciliado_em: agora }).eq('id', novo.id),
+    supabase.from('lancamentos').update({ conciliado_com: novo.id, conciliado_em: agora }).eq('id', melhor.id),
+  ])
+
+  if (novo.tipo === 'antecipacao') {
+    const suporte = novo.origem === 'suporte' ? novo : melhor
+    const { data: userData } = await supabase.auth.getUser()
+    await registrarAntecipacaoNoStoploss(suporte, userData.user?.id ?? null)
+  }
+}
+
 // Casa os lançamentos do Suporte com os da Genia por clube+tipo+natureza,
 // preferindo o candidato com valor mais próximo dentro de uma janela de
 // dias — usado tanto pelas telas de Pendências (uma lista por vez) quanto
@@ -86,7 +152,6 @@ export function useConciliacao() {
   const [dataFim, setDataFim] = useState('')
   const [entradas, setEntradas] = useState<Entrada[]>([])
   const [loading, setLoading] = useState(true)
-  const [processando, setProcessando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -140,7 +205,7 @@ export function useConciliacao() {
 
   useEffect(() => { load() }, [load])
 
-  const { pendGenia, pendSuporte, conciliadosAgora, linhas } = useMemo(() => {
+  const { pendGenia, pendSuporte, linhas } = useMemo(() => {
     const suporte = entradas.filter(e => e.origem === 'suporte')
     const genia = entradas.filter(e => e.origem === 'genia')
 
@@ -153,7 +218,6 @@ export function useConciliacao() {
 
     const pendGenia: ItemPendencia[] = []
     const pendSuporte: ItemPendencia[] = []
-    const conciliadosAgora: { suporte: Entrada; genia: Entrada }[] = []
     const linhas: LinhaConciliacao[] = []
 
     for (const s of suporte) {
@@ -173,8 +237,17 @@ export function useConciliacao() {
       }
       geniaUsados.add(melhor.id)
       if (valorBate(melhor.valor, s.valor)) {
-        conciliadosAgora.push({ suporte: s, genia: melhor })
-        linhas.push({ chave: s.id, clube: s.clubs?.name ?? '—', tipo: s.tipo, data: s.data_lancamento, suporte: s, genia: melhor, status: 'conciliado' })
+        // Achou o par certo, mas NÃO vincula sozinho só de abrir essa tela
+        // (pedido do Cássio, achado no INSTA PIX POK: "não pode conciliar
+        // ao abrir a tela, tem que ser ao lançar mesmo") — o normal é isso
+        // já ter acontecido na hora do lançamento (ver tentarConciliarAoLancar,
+        // chamado pelo LancarForm). Só chega até aqui ainda pendente um
+        // lançamento de antes desse fix, ou algum caso raro — mostra em
+        // Pendências com o par já pré-selecionado (`par: melhor`), só falta
+        // clicar em Vincular pra confirmar de verdade.
+        pendGenia.push({ motivo: 'sem_par', principal: s, par: melhor })
+        pendSuporte.push({ motivo: 'sem_par', principal: melhor, par: s })
+        linhas.push({ chave: s.id, clube: s.clubs?.name ?? '—', tipo: s.tipo, data: s.data_lancamento, suporte: s, status: 'sem_par_genia' })
       } else {
         pendGenia.push({ motivo: 'divergencia', principal: s, par: melhor })
         pendSuporte.push({ motivo: 'divergencia', principal: melhor, par: s })
@@ -189,33 +262,8 @@ export function useConciliacao() {
     }
 
     linhas.sort((a, b) => a.data.localeCompare(b.data))
-    return { pendGenia, pendSuporte, conciliadosAgora, linhas }
+    return { pendGenia, pendSuporte, linhas }
   }, [entradas])
-
-  // Persiste os pares que bateram certinho, pra não reprocessar toda vez —
-  // e some da lista na próxima carga (filtro `!conciliado_com` no load).
-  // Antecipação é a única que compõe o Stoploss do clube, e só quando
-  // concilia (antes disso é só uma promessa, igual Caução até a Genia confirmar).
-  useEffect(() => {
-    if (conciliadosAgora.length === 0) return
-    setProcessando(true)
-    ;(async () => {
-      const agora = new Date().toISOString()
-      await Promise.all(conciliadosAgora.flatMap(({ suporte, genia }) => [
-        supabase.from('lancamentos').update({ conciliado_com: genia.id, conciliado_em: agora }).eq('id', suporte.id),
-        supabase.from('lancamentos').update({ conciliado_com: suporte.id, conciliado_em: agora }).eq('id', genia.id),
-      ]))
-
-      const antecipacoes = conciliadosAgora.filter(({ suporte }) => suporte.tipo === 'antecipacao')
-      if (antecipacoes.length > 0) {
-        const { data: userData } = await supabase.auth.getUser()
-        for (const { suporte } of antecipacoes) await registrarAntecipacaoNoStoploss(suporte, userData.user?.id ?? null)
-      }
-
-      setProcessando(false); load()
-    })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conciliadosAgora])
 
   async function salvarValor(id: string, valorNovo: number) {
     await supabase.from('lancamentos').update({ valor: valorNovo }).eq('id', id)
@@ -243,7 +291,7 @@ export function useConciliacao() {
 
   return {
     dataInicio, setDataInicio, dataFim, setDataFim,
-    loading: loading || processando, processando, error,
+    loading, error,
     pendGenia, pendSuporte, linhas,
     geniaEntradas, suporteEntradas,
     salvarValor, vincular,
