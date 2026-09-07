@@ -411,10 +411,14 @@ export interface ItemDividaAcerto {
 //
 // Dívida Simples com rakeback_pct preenchido foge desse "tudo de uma vez":
 // desconta só rakeback_pct% do rakeTotal dessa semana, até zerar
-// saldo_restante. Numa semana em que esse valor der menos que o Pagamento
-// Mínimo cadastrado, não desconta nada — sem multa nem cronograma, só espera
-// uma semana melhor (confirmado pelo Cássio com a planilha do Sevens Pkr
-// House: "Complemento Pgto Mínimo" desfazendo o desconto abaixo do mínimo).
+// saldo_restante — toda semana, do tamanho que for (o campo Pagamento
+// Mínimo do cadastro parou de bloquear isso, ver comentário mais abaixo).
+//
+// `descricao` sempre um rótulo fixo ("Dívida"/"Acordo"), nunca o texto
+// livre gravado no cadastro (`dividas.descricao`) — esse card pode chegar
+// até o clube, e a descrição interna é livre pro Suporte anotar qualquer
+// coisa (achado pelo Cássio: uma Dívida cadastrada como "Calote" aparecendo
+// assim, literalmente, na linha do Acerto).
 export async function getDividasAcertoDoClube(clubeId: string, periodoFim: string, rakeTotal: number): Promise<ItemDividaAcerto[]> {
   const [{ data: dividas }, faixas] = await Promise.all([
     supabase.from('dividas').select('id, tipo, valor_integral, descricao, quantidade_parcelas, pago_com_rake, rakeback_pct, saldo_restante, pagamento_minimo').eq('clube_id', clubeId).eq('status', 'ativo'),
@@ -437,7 +441,7 @@ export async function getDividasAcertoDoClube(clubeId: string, periodoFim: strin
       if (valorSemana <= 0) continue
       const valorDeduzido = Math.min(valorSemana, saldoAtual)
       itens.push({
-        descricao: d.descricao || 'Dívida',
+        descricao: 'Dívida',
         valor: valorDeduzido,
         origem: { tipo: 'simples_rakeback', dividaId: d.id, saldoApos: arredonda(saldoAtual - valorDeduzido) },
       })
@@ -445,12 +449,12 @@ export async function getDividasAcertoDoClube(clubeId: string, periodoFim: strin
     }
     if (d.tipo === 'simples') {
       if (!d.pago_com_rake) continue
-      itens.push({ descricao: d.descricao || 'Dívida', valor: d.valor_integral, origem: { tipo: 'simples', dividaId: d.id } })
+      itens.push({ descricao: 'Dívida', valor: d.valor_integral, origem: { tipo: 'simples', dividaId: d.id } })
       continue
     }
     if (!d.quantidade_parcelas) {
       if (!d.pago_com_rake) continue
-      itens.push({ descricao: d.descricao || 'Acordo', valor: d.valor_integral, origem: { tipo: 'acordo_rake', dividaId: d.id } })
+      itens.push({ descricao: 'Acordo', valor: d.valor_integral, origem: { tipo: 'acordo_rake', dividaId: d.id } })
       continue
     }
     const { data: parcelas } = await supabase
@@ -462,7 +466,7 @@ export async function getDividasAcertoDoClube(clubeId: string, periodoFim: strin
     for (const p of (parcelas ?? []) as { id: string; numero: number; valor: number; vencimento: string; pago_com_rake: boolean }[]) {
       const atraso = diasDeAtraso(p.vencimento, hoje)
       const valor = atraso > 0 ? valorComMulta(p.valor, atraso, faixas) : p.valor
-      itens.push({ descricao: `${d.descricao || 'Acordo'} · parcela ${p.numero}`, valor, origem: { tipo: 'parcela', parcelaId: p.id, autoQuita: d.pago_com_rake && p.pago_com_rake } })
+      itens.push({ descricao: `Acordo · parcela ${p.numero}`, valor, origem: { tipo: 'parcela', parcelaId: p.id, autoQuita: d.pago_com_rake && p.pago_com_rake } })
     }
   }
   return itens
