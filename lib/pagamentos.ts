@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import { calcularTotalAcerto, buscarSecurityEDividasPorClube } from './relatorio-acerto'
 import { diasDeAtraso, getFaixasMultaDoClube, valorComMulta } from './dividas'
-import { diaSeguinte, maisDias } from './acertos-engine'
+import { diaSeguinte, maisDias, diaAnterior, clubesComDiferencaQuitada } from './acertos-engine'
 
 export type TipoEnvio = 'pagamento' | 'antecipacao'
 
@@ -185,29 +185,45 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
 // Antecipação conciliada (mesmo filtro de buscarPendenciasAntecipacao em
 // lib/acertos-engine.ts — só a copia aqui pegando as linhas cruas em vez de
 // já somar, porque agora ela vira Envio itemizado, não mais um número só
-// resumido em Valor Pago) lançada no clube dentro do período do Acerto —
-// vira Envio (crédito soma, débito subtrai), igual Pagamento (pedido do
-// Cássio). `clube_id` é resolvido pro `acerto_id` certo pelo chamador (mapa
-// 1 clube = 1 Acerto no período, ver acertoIdPorClube). Janela de data =
-// a semana INTEIRA seguinte ao período (mesma regra de
-// buscarPendenciasAntecipacao — o Suporte só sabe a Diferença de uma semana
-// depois que ela fecha, então um lançamento datado durante a semana
-// seguinte está pagando ESSA semana, não a que ainda está em andamento;
-// achado no Royal Star — não é só o 1º dia do período que desloca, é a
-// semana inteira).
+// resumido em Valor Pago) lançada no clube — vira Envio (crédito soma,
+// débito subtrai), igual Pagamento (pedido do Cássio). `clube_id` é
+// resolvido pro `acerto_id` certo pelo chamador (mapa 1 clube = 1 Acerto no
+// período, ver acertoIdPorClube). Mesma regra de duas fontes de
+// buscarPendenciasAntecipacao (ver lá pro caso completo, achado no Dont Do
+// Mistakes): Antecipação datada na semana seguinte ao período só conta aqui
+// se a Diferença do período AINDA não foi quitada por um Pagamento
+// vinculado direto; Antecipação datada dentro do próprio período só conta
+// aqui se a Diferença do período ANTERIOR já tiver sido quitada (senão já
+// foi contada lá, pela outra fonte) — sem isso, um Pagamento que já fechou a
+// Diferença exata da semana anterior fazia uma Antecipação extra (que era
+// adiantamento de verdade pra essa semana) "sumir" do Acerto errado.
 async function buscarAntecipacaoEnvios(clubIds: string[], periodStart: string, periodEnd: string): Promise<LancamentoBrutoRow[]> {
   if (clubIds.length === 0 || !periodStart) return []
   const fim = periodEnd || periodStart
-  const { data } = await supabase
-    .from('lancamentos')
-    .select('id, clube_id, natureza, valor, data_lancamento, pago_crypto')
-    .in('clube_id', clubIds)
-    .eq('tipo', 'antecipacao')
-    .eq('origem', 'suporte')
-    .not('conciliado_com', 'is', null)
-    .gte('data_lancamento', diaSeguinte(fim))
-    .lte('data_lancamento', maisDias(fim, 7))
-  return (data ?? []) as LancamentoBrutoRow[]
+  const baseQuery = () =>
+    supabase
+      .from('lancamentos')
+      .select('id, clube_id, natureza, valor, data_lancamento, pago_crypto')
+      .in('clube_id', clubIds)
+      .eq('tipo', 'antecipacao')
+      .eq('origem', 'suporte')
+      .not('conciliado_com', 'is', null)
+
+  const [{ data: deslocadas }, { data: proprias }, quitadoAtual, quitadoAnterior] = await Promise.all([
+    baseQuery().gte('data_lancamento', diaSeguinte(fim)).lte('data_lancamento', maisDias(fim, 7)),
+    baseQuery().gte('data_lancamento', periodStart).lte('data_lancamento', fim),
+    clubesComDiferencaQuitada(clubIds, fim),
+    clubesComDiferencaQuitada(clubIds, diaAnterior(periodStart)),
+  ])
+
+  const linhas: LancamentoBrutoRow[] = []
+  for (const row of (deslocadas ?? []) as LancamentoBrutoRow[]) {
+    if (!quitadoAtual.has(row.clube_id)) linhas.push(row)
+  }
+  for (const row of (proprias ?? []) as LancamentoBrutoRow[]) {
+    if (quitadoAnterior.has(row.clube_id)) linhas.push(row)
+  }
+  return linhas
 }
 
 // Caução lançada no clube dentro do período — NÃO vira Envio (ver
