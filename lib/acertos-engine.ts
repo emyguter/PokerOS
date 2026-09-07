@@ -117,6 +117,19 @@ type RegraCondicaoRow = {
 // além de poder vir vinculado ao Clube (fallback — buscarCondicoesPorClube).
 export type CampoClube = "fee_mtt" | "fee_cash" | "taxa_op" | "spinup" | "rake_total" | "taxa_liga";
 
+// Ordem de prioridade pra achar QUALQUER Regra do clube — usada só como
+// referência de exibição da linha "Taxa da Liga" (ver calcularAcerto),
+// quando não tem NADA configurado pra ela especificamente (nem % fixo na
+// Liga, nem Regra vinculada à Liga, nem Regra vinculada ao Clube no campo
+// Taxa da Liga). Pedido do Cássio (caso LS HS club): mostra a %/valor de
+// referência na linha mesmo assim — usando a Regra que o clube já tem em
+// outro campo (ex: Rake) — só que sem descontar de novo do Total, porque
+// esse valor já está embutido no Fee calculado por essa mesma Regra (não é
+// uma cobrança adicional de verdade, só transparência de qual % está
+// rolando). Rake primeiro por já ser o fallback padrão de Fee Cash/Fee MTT
+// no resto do motor (a Regra mais "geral" de um clube costuma estar lá).
+const CAMPOS_REFERENCIA_TAXA_LIGA: CampoClube[] = ["rake_total", "fee_cash", "fee_mtt", "taxa_op", "spinup"];
+
 type RegraEntidadeRow = {
   entidade_id: string;
   campo: CampoClube | null;
@@ -332,6 +345,14 @@ export function calcularAcerto(
   // rake_total olhavam pro clube — taxa_liga sempre foi só-Liga). Não se
   // aplica quando o clube nem tem tipo de cobrança reconhecido (fallback
   // "sem_regra" — nada mais é cobrado ali também).
+  //
+  // Sem NENHUMA dessas três fontes (nem Liga, nem Clube no campo certo), a
+  // linha ainda mostra a %/valor de referência de QUALQUER outra Regra que o
+  // clube já tenha (CAMPOS_REFERENCIA_TAXA_LIGA acima) — pedido do Cássio,
+  // achado no caso LS HS club — só que sem descontar de novo do Total: essa
+  // Regra já está embutida no Fee calculado ali em cima, então usá-la de
+  // novo aqui seria cobrar em dobro (confirmado: "só mostrar a %/valor na
+  // linha, sem mudar o Total").
   if (tipoReconhecido) {
     const baseTaxaLiga = rake_total + rake_spinup;
     const pctTaxaLigaDaLiga = taxaLiga.pctFixo != null
@@ -339,11 +360,26 @@ export function calcularAcerto(
       : taxaLiga.condicoes.length > 0
       ? avaliarCondicoes(taxaLiga.condicoes, row, wtr4Semanas)
       : null;
-    const pctTaxaLiga = pctTaxaLigaDaLiga ?? (condicoesPorCampo.taxa_liga.length > 0
+    const pctTaxaLigaReal = pctTaxaLigaDaLiga ?? (condicoesPorCampo.taxa_liga.length > 0
       ? avaliarCondicoes(condicoesPorCampo.taxa_liga, row, wtr4Semanas)
       : null);
+
+    let pctTaxaLigaReferencia: number | null = null;
+    if (pctTaxaLigaReal == null) {
+      for (const campo of CAMPOS_REFERENCIA_TAXA_LIGA) {
+        if (condicoesPorCampo[campo].length === 0) continue;
+        const pct = avaliarCondicoes(condicoesPorCampo[campo], row, wtr4Semanas);
+        if (pct != null) { pctTaxaLigaReferencia = pct; break; }
+      }
+    }
+
+    const pctTaxaLiga = pctTaxaLigaReal ?? pctTaxaLigaReferencia;
     taxa_liga_valor = baseTaxaLiga * ((pctTaxaLiga ?? 0) / 100);
-    valor_acerto -= taxa_liga_valor;
+    // Só desconta do Valor do Acerto quando veio de uma fonte "de verdade"
+    // da Taxa da Liga (Liga ou Clube no campo certo) — o valor de
+    // referência (achado em outro campo) fica só na linha, pra não descontar
+    // o Fee duas vezes.
+    if (pctTaxaLigaReal != null) valor_acerto -= taxa_liga_valor;
   }
 
   return {
