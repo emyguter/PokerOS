@@ -17,6 +17,9 @@ export interface ClubSettings {
   spinup_pct: number;
   wtr4_semanas_manual: number | null;
   league_id: string | null;
+  // Cotação (Moeda → Moeda de Conversão) do cadastro NO MOMENTO do cálculo —
+  // ver AcertoCalculado.cotacao pra por que isso precisa ser gravado.
+  cotacao: number | null;
 }
 
 // % fixo do cadastro da Liga (leagues.taxa_app_pct) + Regra de Faixa
@@ -79,6 +82,13 @@ export interface AcertoCalculado {
   // qualquer tipo de cobrança do clube (ver calcularAcerto). Já descontada
   // de valor_acerto; guardada separada só pra mostrar a linha no card.
   taxa_liga_valor: number;
+  // Cotação do cadastro do clube usada NO MOMENTO desse cálculo — gravada
+  // aqui (em vez de só ler clubs.cotacao ao vivo) pra não perder o valor
+  // usado quando o campo do cadastro mudar depois (perguntado pelo Cássio:
+  // "quando calculou foi com qual valor?", sem resposta possível antes
+  // disso). Null quando o clube não tem Moeda de Conversão/Cotação
+  // cadastrada — ver "Total Convertido" em ClubAcertoCard.
+  cotacao: number | null;
 }
 
 // Condição SE/ENTÃO já resolvida em nomes de indicador (em vez de indicador_id),
@@ -357,6 +367,7 @@ export function calcularAcerto(
     fee_spinup_valor:       Math.round(fee_spinup_valor       * 100) / 100,
     taxa_liga_valor:        Math.round(taxa_liga_valor        * 100) / 100,
     taxa_cash_pct_aplicada,
+    cotacao: club.cotacao ?? null,
     status: "calculado",
   };
 }
@@ -641,7 +652,7 @@ export async function processarAcertos(importId: string): Promise<{
 
     const { data: clubs, error: clubsError } = await supabase
       .from("clubs")
-      .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual, league_id");
+      .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual, league_id, cotacao");
 
     if (clubsError) throw new Error(clubsError.message);
 
@@ -716,7 +727,7 @@ export async function processarAcertos(importId: string): Promise<{
                   fee_mtt_pct: null, fee_cash_pct: null, taxa_op_pct: null, taxa_op_ativo: false, spinup_pct: null,
                   caucao_atual: null, stoploss_inicial: null,
                 })
-                .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual, league_id")
+                .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual, league_id, cotacao")
                 .single()
             ).data
           : null;
@@ -735,6 +746,7 @@ export async function processarAcertos(importId: string): Promise<{
             fee_calculado: 0, rebate_calculado: 0, valor_acerto: 0,
             fee_mtt_valor: 0, fee_cash_valor: 0, fee_operacional_valor: 0, fee_spinup_valor: 0, taxa_liga_valor: 0,
             taxa_cash_pct_aplicada: null,
+            cotacao: null,
             status: "sem_regra",
           });
           continue;

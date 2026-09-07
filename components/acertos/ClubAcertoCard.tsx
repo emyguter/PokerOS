@@ -30,6 +30,10 @@ export interface AcertoCard {
   rebate_calculado: number
   bilhetes: number
   indicacao_valor: number
+  // Cotação do cadastro do clube usada no momento do cálculo — null em
+  // Acertos calculados antes dessa coluna existir (cai pro valor ao vivo de
+  // clubs.cotacao como fallback, ver totalConvertido abaixo).
+  cotacao: number | null
 }
 
 interface Props {
@@ -470,7 +474,13 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   // referência do Cássio ("Total PEN" + "Total USD"). Só aparece quando o
   // clube tem "Converter para" e Cotação cadastradas (etapa "Plataforma" do
   // cadastro) — a Cotação converte da Moeda do clube pra Moeda de Conversão.
-  const totalConvertido = club?.moeda_conversao && club.cotacao ? total / club.cotacao : null
+  // Usa a cotação GRAVADA no Acerto (valor de quando foi calculado), não a
+  // ao vivo do cadastro — senão o Total Convertido de uma semana passada
+  // muda sozinho quando alguém atualiza a Cotação hoje (perguntado pelo
+  // Cássio: "mas quando calculou foi com qual valor?"). Cai pro valor ao
+  // vivo só em Acertos antigos, calculados antes dessa coluna existir.
+  const cotacaoUsada = acerto.cotacao ?? club?.cotacao ?? null
+  const totalConvertido = club?.moeda_conversao && cotacaoUsada ? total / cotacaoUsada : null
 
   // O layout (Regra vinculada ao clube) só decide QUAIS linhas aparecem e em
   // que ordem — o Total sempre soma tudo, igual já funciona no Liberar para
