@@ -75,13 +75,23 @@ const RELATORIOS_SUB: SubNavItem[] = [
   { key: 'dividas_historico', labelKey: 'dividas_historico.aba', href: '/relatorios?tab=dividas_historico', chave: 'relatorios.acertos_pendentes' },
   { key: 'stoploss', labelKey: 'relatorios.aba_stoploss', href: '/stoploss?tab=relatorio' },
   { key: 'vip_relatorio', labelKey: 'vip.menu_relatorios', href: '/vip?tab=relatorio', chave: 'vip.relatorio' },
-  // Extrato de Suporte/Segurança/Financeiro saíram daqui: são telas com
-  // editar/excluir (ExtratoView com permitirEdicao), então moraram pra
-  // dentro do menu de cada área (LANCAMENTO_SUB/FINANCEIRO_SUB/
-  // SEGURANCA_SUB) — Relatórios é só-consulta (pedido do Cássio). O de
-  // Stoploss ficou: ExtratoStoploss é só leitura (audit de stoploss_historico,
-  // sem editar/excluir), não viola a regra.
-  { key: 'extrato_stoploss', labelKey: 'relatorios.extrato_stoploss', href: '/stoploss?tab=extrato', chave: 'stoploss' },
+  // Extrato de Suporte/Segurança/Financeiro: a tela com editar/excluir
+  // (ExtratoView com permitirEdicao) mora no menu da própria área
+  // (LANCAMENTO_SUB/FINANCEIRO_SUB/SEGURANCA_SUB) — aqui é uma CÓPIA
+  // só-consulta, mesma tela (ExtratoView com permitirEdicao={false}), rota
+  // própria dentro de Relatórios (pedido do Cássio: "a gente deixa essa
+  // tela sob o menu de cada respectiva area e aqui a gente faz uma copia
+  // sem estes acessos"). Extrato do Stoploss não precisa de cópia — já é
+  // só leitura no original (ExtratoStoploss, audit de stoploss_historico).
+  {
+    key: 'extratos', labelKey: 'relatorios.menu_extratos', href: '/relatorios?tab=extrato_suporte', chave: ['lancamento', 'seguranca', 'stoploss', 'lancamento.genia'],
+    subItems: [
+      { key: 'extrato_suporte', labelKey: 'relatorios.extrato_suporte', href: '/relatorios?tab=extrato_suporte', chave: 'lancamento' },
+      { key: 'extrato_seguranca', labelKey: 'relatorios.extrato_seguranca', href: '/relatorios?tab=extrato_seguranca', chave: 'seguranca' },
+      { key: 'extrato_stoploss', labelKey: 'relatorios.extrato_stoploss', href: '/stoploss?tab=extrato', chave: 'stoploss' },
+      { key: 'extrato_financeiro', labelKey: 'relatorios.extrato_financeiro', href: '/relatorios?tab=extrato_financeiro', chave: 'lancamento.genia' },
+    ],
+  },
 ]
 const STOPLOSS_SUB: SubNavItem[] = [
   { key: 'resumo', labelKey: 'stoploss.aba_resumo', href: '/stoploss?tab=resumo' },

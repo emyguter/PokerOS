@@ -494,8 +494,12 @@ export const es: typeof pt = {
   relatorios: {
     aba_acertos: 'Liquidaciones', aba_lancamentos: 'Movimientos', aba_taxas: 'Resumen de Tasas', aba_resumo_acertos: 'Resumen de Liquidaciones',
     aba_acertos_pendentes: 'Liquidaciones Pendientes', aba_historico_acertos_pendentes: 'Historial de Liquidaciones Pendientes',
-    aba_stoploss: 'Stoploss', extrato_stoploss: 'Extracto Stoploss',
+    aba_stoploss: 'Stoploss', menu_extratos: 'Extractos',
+    extrato_suporte: 'Soporte', extrato_seguranca: 'Seguridad', extrato_stoploss: 'Extracto Stoploss', extrato_financeiro: 'Finanzas',
     titulo_lancamentos: 'Informe de Movimientos', subtitulo_lancamentos: 'Consulta movimientos de todos los clubes, sin tener que elegir uno a la vez',
+    titulo_extrato_suporte: 'Extracto — Soporte', subtitulo_extrato_suporte: 'Copia solo consulta del Extracto de Movimiento — sin editar ni eliminar',
+    titulo_extrato_seguranca: 'Extracto — Seguridad', subtitulo_extrato_seguranca: 'Copia solo consulta del Extracto de Seguridad — sin editar ni eliminar',
+    titulo_extrato_financeiro: 'Extracto — Finanzas', subtitulo_extrato_financeiro: 'Copia solo consulta del Extracto de Finanzas — sin editar ni eliminar',
     titulo_taxas: 'Resumen de Tasas', subtitulo_taxas: 'Vista ejecutiva de las tasas registradas en todos los clubes activos',
     titulo_resumo_acertos: 'Resumen de Liquidaciones', subtitulo_resumo_acertos: 'Vista ejecutiva de todos los clubes, todas las Ligas, en una sola semana',
     titulo_acertos_pendentes: 'Liquidaciones Pendientes', subtitulo_acertos_pendentes: 'Quién debe o no ha pagado — Liquidación de la semana y Deudas antiguas',

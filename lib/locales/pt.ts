@@ -492,8 +492,12 @@ export const pt = {
   relatorios: {
     aba_acertos: 'Acertos', aba_lancamentos: 'Lançamentos', aba_taxas: 'Resumo de Taxas', aba_resumo_acertos: 'Resumo de Acertos',
     aba_acertos_pendentes: 'Acertos Pendentes', aba_historico_acertos_pendentes: 'Histórico de Acertos Pendentes',
-    aba_stoploss: 'Stoploss', extrato_stoploss: 'Extrato Stoploss',
+    aba_stoploss: 'Stoploss', menu_extratos: 'Extratos',
+    extrato_suporte: 'Suporte', extrato_seguranca: 'Segurança', extrato_stoploss: 'Stoploss', extrato_financeiro: 'Financeiro',
     titulo_lancamentos: 'Relatório de Lançamentos', subtitulo_lancamentos: 'Consulta lançamentos de todos os clubes, sem precisar escolher um por vez',
+    titulo_extrato_suporte: 'Extrato — Suporte', subtitulo_extrato_suporte: 'Cópia só-consulta do Extrato de Lançamento — sem editar ou excluir',
+    titulo_extrato_seguranca: 'Extrato — Segurança', subtitulo_extrato_seguranca: 'Cópia só-consulta do Extrato de Segurança — sem editar ou excluir',
+    titulo_extrato_financeiro: 'Extrato — Financeiro', subtitulo_extrato_financeiro: 'Cópia só-consulta do Extrato do Financeiro — sem editar ou excluir',
     titulo_taxas: 'Resumo de Taxas', subtitulo_taxas: 'Visão executiva das taxas cadastradas em todos os clubes ativos',
     titulo_resumo_acertos: 'Resumo de Acertos', subtitulo_resumo_acertos: 'Visão executiva de todos os clubes, todas as Ligas, numa semana só',
     titulo_acertos_pendentes: 'Acertos Pendentes', subtitulo_acertos_pendentes: 'Quem está devendo ou não pagou — Acerto da semana e Dívidas antigas',
