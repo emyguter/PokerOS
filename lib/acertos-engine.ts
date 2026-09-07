@@ -521,40 +521,115 @@ export function maisDias(dataISO: string, dias: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Espelho de diaSeguinte — usado pra achar o period_end do período ANTERIOR
+// a um period_start (períodos são semanas contíguas, sem buraco).
+export function diaAnterior(dataISO: string): string {
+  const d = new Date(dataISO + "T00:00:00");
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+// Clubes cujo Acerto do período (achado pelo period_end) já foi 100% quitado
+// por um Pagamento vinculado DIRETO (acerto_id, não por data) — usado pra
+// decidir se uma Antecipação datada na semana seguinte a esse período ainda
+// precisa deslocar pra trás pra ajudar a quitar essa Diferença, ou se ela já
+// pode contar pra própria semana dela (ver buscarPendenciasAntecipacao e
+// buscarAntecipacaoEnvios). Só olha Pagamento (o único tipo que grava
+// acerto_id direto) — Antecipação nunca tem acerto_id, é sempre casada por
+// data (por isso a pergunta "já foi quitado?" faz sentido em primeiro lugar).
+export async function clubesComDiferencaQuitada(clubIds: string[], periodEnd: string): Promise<Set<string>> {
+  const quitados = new Set<string>();
+  if (clubIds.length === 0 || !periodEnd) return quitados;
+
+  const { data: importsData } = await supabase.from("imports").select("id").eq("period_end", periodEnd);
+  const importIds = (importsData ?? []).map((i) => i.id as string);
+  if (importIds.length === 0) return quitados;
+
+  const { data: acertosData } = await supabase
+    .from("acertos")
+    .select("id, club_id, valor_acerto")
+    .in("import_id", importIds)
+    .in("club_id", clubIds);
+  const porClube = new Map<string, { acertoId: string; valorAcerto: number }>();
+  for (const a of (acertosData ?? []) as { id: string; club_id: string | null; valor_acerto: number }[]) {
+    if (a.club_id) porClube.set(a.club_id, { acertoId: a.id, valorAcerto: a.valor_acerto });
+  }
+  if (porClube.size === 0) return quitados;
+
+  const acertoIds = [...porClube.values()].map((v) => v.acertoId);
+  // Só o lado Suporte, não o par da Genia — senão dobra o Valor Pago (mesma
+  // regra usada em toda soma de Pagamento/Envio no resto do app).
+  const { data: pagamentosData } = await supabase
+    .from("lancamentos")
+    .select("acerto_id, natureza, valor")
+    .in("acerto_id", acertoIds)
+    .eq("tipo", "pagamento")
+    .eq("origem", "suporte");
+  const pagoPorAcerto = new Map<string, number>();
+  for (const p of (pagamentosData ?? []) as { acerto_id: string; natureza: "credito" | "debito"; valor: number }[]) {
+    pagoPorAcerto.set(p.acerto_id, (pagoPorAcerto.get(p.acerto_id) ?? 0) + (p.natureza === "credito" ? p.valor : -p.valor));
+  }
+  for (const [clubId, { acertoId, valorAcerto }] of porClube) {
+    const pago = pagoPorAcerto.get(acertoId) ?? 0;
+    if (Math.abs(valorAcerto + pago) < 0.005) quitados.add(clubId);
+  }
+  return quitados;
+}
+
 // Pendências/Antecipação = lançamentos de Antecipação do Suporte já
-// conciliados (conciliado_com preenchido = já casou com o par da Genia),
-// dentro do período do acerto — confirmado com o Cássio. Soma só o lado
-// Suporte (o real) e não o par da Genia, senão dobra o valor (mesma regra de
-// origem já usada em Acertos/Extrato/ClubAcertoCard). Exportada porque
-// AcertosView/ClubAcertoCard também chamam direto, ao vivo, em vez de
-// confiar só no valor gravado em `acertos.pendencias_antecipacao` (que é
-// uma foto de quando o Acerto foi calculado/recalculado pela última vez —
-// achado pelo Cássio: uma Antecipação lançada/conciliada DEPOIS disso não
-// aparecia até alguém clicar em "Recalcular").
+// conciliados (conciliado_com preenchido = já casou com o par da Genia) —
+// confirmado com o Cássio. Soma só o lado Suporte (o real) e não o par da
+// Genia, senão dobra o valor (mesma regra de origem já usada em
+// Acertos/Extrato/ClubAcertoCard). Exportada porque AcertosView/ClubAcertoCard
+// também chamam direto, ao vivo, em vez de confiar só no valor gravado em
+// `acertos.pendencias_antecipacao` (que é uma foto de quando o Acerto foi
+// calculado/recalculado pela última vez — achado pelo Cássio: uma
+// Antecipação lançada/conciliada DEPOIS disso não aparecia até alguém
+// clicar em "Recalcular").
 //
-// Janela de data = a semana INTEIRA seguinte ao período (diaSeguinte(fim) a
-// fim+7), não o período do próprio Acerto — o Suporte só sabe a Diferença de
-// uma semana depois que ela fecha, então qualquer lançamento datado durante
-// a semana seguinte está pagando ESSA semana (a que já fechou), nunca a que
-// ainda está em andamento (confirmado pelo Cássio: achado no Royal Star,
-// Antecipação datada 19-20/08 contando no Acerto 17-23 em vez do 10-16 —
-// não é só o 1º dia do período que desloca, é a semana inteira).
+// Duas fontes somam pro período P (periodStart–periodEnd):
+//  1. Antecipação datada na semana INTEIRA seguinte a P (diaSeguinte(fim) a
+//     fim+7) — o Suporte só sabe a Diferença de uma semana depois que ela
+//     fecha, então um lançamento datado durante a semana seguinte está
+//     pagando ESSA semana que já fechou (achado no Royal Star: Antecipação
+//     datada 19-20/08 contando no Acerto 17-23 em vez do 10-16). MAS só
+//     conta aqui se a Diferença de P AINDA não foi quitada por um Pagamento
+//     vinculado direto — se já foi (caso Dont Do Mistakes: Pagamento de
+//     317,35 fechou a Diferença de 317,35 do 10-16 certinho), essa
+//     Antecipação não é "resto" nenhum de P, é adiantamento de verdade pra
+//     semana seguinte, e conta lá (fonte 2 abaixo), não aqui.
+//  2. Antecipação datada dentro do PRÓPRIO período P — só conta aqui se a
+//     Diferença do período ANTERIOR a P já tiver sido quitada por Pagamento
+//     vinculado (senão essa mesma Antecipação já foi contada lá, pela fonte
+//     1 do período anterior — contar dos dois lados dobraria o valor).
 export async function buscarPendenciasAntecipacao(clubIds: string[], periodStart: string, periodEnd: string): Promise<Map<string, number>> {
   const mapa = new Map<string, number>();
   if (clubIds.length === 0 || !periodStart) return mapa;
 
   const fim = periodEnd || periodStart;
-  const { data } = await supabase
-    .from("lancamentos")
-    .select("clube_id, natureza, valor")
-    .in("clube_id", clubIds)
-    .eq("tipo", "antecipacao")
-    .eq("origem", "suporte")
-    .not("conciliado_com", "is", null)
-    .gte("data_lancamento", diaSeguinte(fim))
-    .lte("data_lancamento", maisDias(fim, 7));
+  const baseQuery = () =>
+    supabase
+      .from("lancamentos")
+      .select("clube_id, natureza, valor")
+      .in("clube_id", clubIds)
+      .eq("tipo", "antecipacao")
+      .eq("origem", "suporte")
+      .not("conciliado_com", "is", null);
 
-  for (const row of (data ?? []) as { clube_id: string; natureza: "credito" | "debito"; valor: number }[]) {
+  const [{ data: deslocadas }, { data: proprias }, quitadoAtual, quitadoAnterior] = await Promise.all([
+    baseQuery().gte("data_lancamento", diaSeguinte(fim)).lte("data_lancamento", maisDias(fim, 7)),
+    baseQuery().gte("data_lancamento", periodStart).lte("data_lancamento", fim),
+    clubesComDiferencaQuitada(clubIds, fim),
+    clubesComDiferencaQuitada(clubIds, diaAnterior(periodStart)),
+  ]);
+
+  for (const row of (deslocadas ?? []) as { clube_id: string; natureza: "credito" | "debito"; valor: number }[]) {
+    if (quitadoAtual.has(row.clube_id)) continue;
+    const delta = row.natureza === "credito" ? row.valor : -row.valor;
+    mapa.set(row.clube_id, (mapa.get(row.clube_id) ?? 0) + delta);
+  }
+  for (const row of (proprias ?? []) as { clube_id: string; natureza: "credito" | "debito"; valor: number }[]) {
+    if (!quitadoAnterior.has(row.clube_id)) continue;
     const delta = row.natureza === "credito" ? row.valor : -row.valor;
     mapa.set(row.clube_id, (mapa.get(row.clube_id) ?? 0) + delta);
   }
