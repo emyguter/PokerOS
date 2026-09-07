@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
 import { buscarMeusAcertos, type LinhaMeuAcerto } from './meus-acertos'
+import { buscarPendenciasEAntecipacaoAoVivo } from './acertos-engine'
+import { calcularTotalAcerto, buscarSecurityEDividasPorClube } from './relatorio-acerto'
 
 // ─── Árvore de Acertos: Liga → Clube → Super Agente → Agente → Jogador ────
 // Cada nível reusa a mesma fonte de verdade dos outros lugares (Valor do
@@ -75,6 +77,81 @@ async function buscarClubesSoRateio(
     }))
 }
 
+// Clube ativo de uma Liga que já teve movimento na semana (outro clube dela
+// apareceu em `linhas`/`soRateio`), mas ele mesmo não teve nenhum — nem
+// Acerto, nem rateio de Agentes. Sem isso, ele simplesmente sumia da Árvore
+// (achado pelo Cássio: "Liga Venezolana", clube ativo dentro da LPG sem
+// nenhum lançamento na semana). Mostra zerado (Rake/Ganhos/Fee = 0), mas
+// ainda busca Pendências/Antecipação/Dívidas/Multa de verdade pro clube —
+// ele pode não ter jogado essa semana e mesmo assim dever ou ter a receber
+// de uma semana anterior (pedido explícito: "sempre trazendo as pendencias
+// e antecipações, assim como as multas"). Clube marcado como removido da
+// liga (`ativo = false` — mesmo campo que já filtra "Clubes Pendentes" em
+// buscarClubesPendentes) nunca aparece aqui, de propósito: é o "clicar num
+// botão no cadastro como removido da liga" que o Cássio pediu.
+async function buscarClubesZerados(
+  periodoFim: string,
+  clubIdsJaListados: Set<string>,
+  ligasComMovimento: Map<string, string>,
+  clubeIdsVisiveis: string[] | null
+): Promise<LinhaMeuAcerto[]> {
+  if (ligasComMovimento.size === 0) return []
+  if (clubeIdsVisiveis && clubeIdsVisiveis.length === 0) return []
+  const ligaIds = [...ligasComMovimento.keys()]
+
+  let clubQuery = supabase.from('clubs').select('id, name, external_id, league_id').eq('ativo', true).in('league_id', ligaIds)
+  if (clubeIdsVisiveis) clubQuery = clubQuery.in('id', clubeIdsVisiveis)
+  const { data: clubesData } = await clubQuery
+  const clubes = ((clubesData ?? []) as { id: string; name: string; external_id: string | null; league_id: string | null }[])
+    .filter((c) => !clubIdsJaListados.has(c.id))
+  if (clubes.length === 0) return []
+
+  const { data: importsData } = await supabase.from('imports').select('id, league_id').eq('period_end', periodoFim).in('league_id', ligaIds)
+  const importIdPorLiga = new Map<string, string>()
+  for (const i of (importsData ?? []) as { id: string; league_id: string | null }[]) {
+    if (i.league_id && !importIdPorLiga.has(i.league_id)) importIdPorLiga.set(i.league_id, i.id)
+  }
+
+  const clubIds = clubes.map((c) => c.id)
+  const rakeTotalZero = new Map<string, number>()
+  const [extrasPorClube, pendenciasPorClube] = await Promise.all([
+    buscarSecurityEDividasPorClube(clubIds, periodoFim, rakeTotalZero),
+    buscarPendenciasEAntecipacaoAoVivo(clubIds, periodoFim, periodoFim, ''),
+  ])
+
+  return clubes.map((c) => {
+    const extras = extrasPorClube.get(c.id)
+    const valorFinal = calcularTotalAcerto(0, {
+      bilhetes: 0,
+      pendenciasAntecipacao: pendenciasPorClube.get(c.id) ?? 0,
+      security: extras?.security ?? 0,
+      indicacaoValor: 0,
+      lancamentosLiquido: 0,
+      dividasTotal: extras?.dividasTotal ?? 0,
+    })
+    return {
+      acerto: {
+        id: `zerado:${c.id}`,
+        import_id: importIdPorLiga.get(c.league_id ?? '') ?? '',
+        club_id: c.id,
+        club_name: c.name,
+        club_external_id: c.external_id ?? '',
+        settlement_type: '—',
+        valor_acerto: 0, rake_mtt: 0, rake_cash: 0, rake_total: 0, player_result: 0,
+        fee_calculado: 0, fee_mtt_valor: 0, fee_cash_valor: 0, fee_operacional_valor: 0, fee_spinup_valor: 0,
+        taxa_liga_valor: 0, taxa_cash_pct_aplicada: null, rebate_calculado: 0, bilhetes: 0, indicacao_valor: 0,
+      },
+      importId: importIdPorLiga.get(c.league_id ?? '') ?? '',
+      ligaId: c.league_id,
+      ligaNome: c.league_id ? ligasComMovimento.get(c.league_id) ?? '—' : '—',
+      valorFinal,
+      periodStart: periodoFim,
+      periodEnd: periodoFim,
+      zerado: true,
+    }
+  })
+}
+
 // clubeIdsVisiveis: null = sem restrição (staff/admin); lista = escopo de
 // resolverClubesVisiveis (login de Liga/Clube/SuperLiga/MegaLiga).
 export async function buscarArvoreRaiz(periodoFim: string, clubeIdsVisiveis: string[] | null): Promise<ArvoreRaiz> {
@@ -82,9 +159,16 @@ export async function buscarArvoreRaiz(periodoFim: string, clubeIdsVisiveis: str
   const clubIdsComAcerto = new Set(linhas.map((l) => l.acerto.club_id).filter((id): id is string => !!id))
   const soRateio = await buscarClubesSoRateio(periodoFim, clubIdsComAcerto, clubeIdsVisiveis)
 
+  const ligasComMovimento = new Map<string, string>()
+  for (const l of [...linhas, ...soRateio]) {
+    if (l.ligaId) ligasComMovimento.set(l.ligaId, l.ligaNome)
+  }
+  const clubIdsJaListados = new Set([...clubIdsComAcerto, ...soRateio.map((l) => l.acerto.club_id).filter((id): id is string => !!id)])
+  const zerados = await buscarClubesZerados(periodoFim, clubIdsJaListados, ligasComMovimento, clubeIdsVisiveis)
+
   const porLiga = new Map<string, LigaNode>()
   const semLiga: LinhaMeuAcerto[] = []
-  for (const l of [...linhas, ...soRateio]) {
+  for (const l of [...linhas, ...soRateio, ...zerados]) {
     if (!l.ligaId) { semLiga.push(l); continue }
     const node = porLiga.get(l.ligaId) ?? { id: l.ligaId, nome: l.ligaNome, clubes: [] }
     node.clubes.push(l)

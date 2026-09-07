@@ -514,6 +514,17 @@ function NoFaixa({ path, raiz, onVerCompleto, onRecalcular, calculando }: {
         </Faixa>
       )
     }
+    // zerado: clube ativo da Liga sem nenhum movimento na semana (ver
+    // buscarClubesZerados) — não tem Acerto de verdade nem import próprio
+    // pra recalcular/abrir, só o Total já com Pendências/Antecipação/
+    // Dívidas/Multa (pode dever ou ter a receber mesmo sem ter jogado).
+    if (l.zerado) {
+      return (
+        <Faixa titulo={l.acerto.club_name} meta={l.acerto.club_external_id} tag="Sem movimento essa semana">
+          <Fig k="Total (Pendências/Dívidas)" v={fmt(l.valorFinal)} className={cor(l.valorFinal)} destaque />
+        </Faixa>
+      )
+    }
     return (
       <Faixa
         titulo={l.acerto.club_name}
@@ -626,11 +637,12 @@ function NodeCard({ icone, nome, sub, valor, badge, onClick }: { icone: string; 
         <ChevronRight size={14} className="text-gray-700 group-hover:text-gold shrink-0" />
       </div>
       <div className="text-[11px] text-gray-600 truncate">{sub}</div>
-      {badge ? (
+      {badge && (
         <span className="text-[10px] uppercase tracking-wide text-gold bg-gold/10 border border-gold/25 rounded px-1.5 py-0.5 self-start">{badge}</span>
-      ) : valor !== undefined ? (
+      )}
+      {valor !== undefined && (
         <div className={`text-sm font-semibold ${valor.startsWith('−') ? 'text-alert' : 'text-emerald-400'}`}>{valor}</div>
-      ) : null}
+      )}
     </button>
   )
 }
@@ -646,7 +658,7 @@ function CardClube({ clube, onClick }: { clube: LinhaMeuAcerto; onClick: () => v
       nome={clube.acerto.club_name}
       sub={clube.acerto.club_external_id}
       valor={clube.semAcerto ? undefined : fmt(clube.valorFinal)}
-      badge={clube.semAcerto ? 'só rateio de agentes' : undefined}
+      badge={clube.semAcerto ? 'só rateio de agentes' : clube.zerado ? 'sem movimento' : undefined}
       onClick={onClick}
     />
   )
