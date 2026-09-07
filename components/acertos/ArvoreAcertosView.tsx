@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Search, ChevronRight, ChevronDown, RotateCcw } from 'lucide-react'
+import { Search, ChevronRight, ChevronDown, RotateCcw, Loader2 } from 'lucide-react'
 import { errMsg } from '@/lib/errors'
 import { buscarPeriodosAcerto, type PeriodoAcerto } from '@/lib/relatorio-resumo-acertos'
 import {
@@ -230,8 +230,13 @@ export function ArvoreAcertosView() {
   async function confirmarRecalculo() {
     if (!recalcAlvo) return
     const importIds = recalcAlvo.importIds
-    setRecalcAlvo(null)
+    // Não fecha o modal antes de terminar (achado pelo Cássio: fechava na
+    // hora e não dava nenhum aviso de "ainda tá calculando", só um botão
+    // meio apagado lá longe — fácil de achar que travou ou nem clicou
+    // direito e ir pra outra tela no meio do recálculo). Fica aberto com o
+    // spinner (ver botão "Recalcular" abaixo) até rodarImports terminar.
     if (importIds.length > 0) await rodarImports(importIds)
+    setRecalcAlvo(null)
   }
 
   // ── filtro de busca no nível atual ───────────────────────────────────
@@ -307,8 +312,9 @@ export function ArvoreAcertosView() {
                   type="button"
                   onClick={calcularSelecionados}
                   disabled={trayChecked.size === 0 || calculando}
-                  className="px-4 py-1.5 bg-gold text-surface rounded-lg text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="px-4 py-1.5 bg-gold text-surface rounded-lg text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
                 >
+                  {calculando && <Loader2 size={12} className="animate-spin" />}
                   {calculando ? 'Calculando…' : 'Calcular selecionados'}
                 </button>
               </div>
@@ -464,20 +470,27 @@ export function ArvoreAcertosView() {
 
       {recalcAlvo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setRecalcAlvo(null)} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !calculando && setRecalcAlvo(null)} />
           <div className="relative bg-surface2 border border-white/10 rounded-2xl w-full max-w-sm mx-4 p-6 text-center">
             <div className="w-10 h-10 rounded-full bg-gold/10 text-gold flex items-center justify-center mx-auto mb-3">
-              <RotateCcw size={18} />
+              {calculando ? <Loader2 size={18} className="animate-spin" /> : <RotateCcw size={18} />}
             </div>
-            <h4 className="text-white font-semibold text-base mb-1.5">Recalcular semana inteira?</h4>
+            <h4 className="text-white font-semibold text-base mb-1.5">
+              {calculando ? 'Recalculando…' : 'Recalcular semana inteira?'}
+            </h4>
             <p className="text-xs text-gray-400 leading-relaxed mb-5">
-              {recalcAlvo.importIds.length > 1
+              {calculando
+                ? <>Não feche nem saia dessa tela — só um instante.</>
+                : recalcAlvo.importIds.length > 1
                 ? <>Vai reprocessar os {recalcAlvo.importIds.length} arquivos dessa semana pra <strong className="text-white">{recalcAlvo.nome}</strong> — todos os clubes desses arquivos são recalculados junto.</>
                 : <>Vai reprocessar o arquivo completo dessa semana pra <strong className="text-white">{recalcAlvo.nome}</strong> — todos os clubes desse arquivo são recalculados junto, não só esse.</>}
             </p>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setRecalcAlvo(null)} className="flex-1 px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20">Cancelar</button>
-              <button type="button" onClick={confirmarRecalculo} disabled={calculando} className="flex-1 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold disabled:opacity-50">Recalcular</button>
+              <button type="button" onClick={() => setRecalcAlvo(null)} disabled={calculando} className="flex-1 px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 disabled:opacity-40">Cancelar</button>
+              <button type="button" onClick={confirmarRecalculo} disabled={calculando} className="flex-1 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2">
+                {calculando && <Loader2 size={14} className="animate-spin" />}
+                {calculando ? 'Recalculando…' : 'Recalcular'}
+              </button>
             </div>
           </div>
         </div>
