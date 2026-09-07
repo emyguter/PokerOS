@@ -114,6 +114,11 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
       .then(({ data }) => {
         const lista = ((data ?? []) as unknown as { id: string; valor_acerto: number; imports: { period_start: string | null; period_end: string | null } | null }[])
           .map((a) => ({ id: a.id, valor_acerto: a.valor_acerto, period_start: a.imports?.period_start ?? null, period_end: a.imports?.period_end ?? null }))
+          // `created_at` (quando foi calculado) não é a mesma ordem de qual
+          // semana é — um Acerto recalculado depois de outros mais recentes
+          // aparecia fora de ordem no seletor (achado no Royal Star). Reordena
+          // pela semana de verdade (period_end, mais recente primeiro).
+          .sort((a, b) => (b.period_end ?? '').localeCompare(a.period_end ?? ''))
         setAcertosClube(lista)
         setAcertoId('')
       })

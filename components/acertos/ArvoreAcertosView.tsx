@@ -96,6 +96,20 @@ export function ArvoreAcertosView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // `raiz` só é buscado no mount — editar um lançamento em outra aba/tela
+  // (Extrato, Controle de Pagamentos) não atualiza os totais aqui sozinho.
+  // Refaz a busca quando a aba volta a ficar em foco, pra não deixar o Total
+  // da lista desatualizado até um F5 manual (achado no AMORIM PLUS e
+  // Authentic: corrigiu a data de um lançamento, o Total daqui continuou
+  // errado, só corrigiu ao abrir o card do clube — que busca os dados na
+  // hora — de novo).
+  useEffect(() => {
+    if (!periodoFiltro) return
+    function aoFocar() { load(periodoFiltro) }
+    window.addEventListener('focus', aoFocar)
+    return () => window.removeEventListener('focus', aoFocar)
+  }, [periodoFiltro, load])
+
   const atual = path[path.length - 1]
 
   // Carrega os filhos (Super Agente/Agente ou Jogador) de um novo caminho —
