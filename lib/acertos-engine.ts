@@ -571,7 +571,18 @@ export async function clubesComDiferencaQuitada(clubIds: string[], periodEnd: st
   }
   for (const [clubId, { acertoId, valorAcerto }] of porClube) {
     const pago = pagoPorAcerto.get(acertoId) ?? 0;
-    if (Math.abs(valorAcerto + pago) < 0.005) quitados.add(clubId);
+    const resto = valorAcerto + pago;
+    // "Quitado" não é só bater exatamente em zero — um Pagamento que
+    // ultrapassa o que devia (acontece: o Suporte manda um valor redondo,
+    // não centavo a centavo) também fecha a Diferença original, só que com
+    // sobra pro outro lado (achado no AMORIM PLUS: Diferença de -11.243,40
+    // fechada por um Pagamento de +11.977,22, sobrando +733,82 — mesmo assim
+    // já não deve mais nada da semana original). Só continua "não quitado"
+    // enquanto o resto ainda estiver do MESMO lado (sinal) da Diferença
+    // original — sem Pagamento nenhum, resto === valorAcerto, cai aqui
+    // igual sempre foi.
+    const naoQuitado = valorAcerto > 0.005 ? resto > 0.005 : valorAcerto < -0.005 ? resto < -0.005 : false;
+    if (!naoQuitado) quitados.add(clubId);
   }
   return quitados;
 }
