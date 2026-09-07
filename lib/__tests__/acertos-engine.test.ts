@@ -28,6 +28,7 @@ function club(overrides: Partial<ClubSettings> = {}): ClubSettings {
     spinup_pct: 3,
     wtr4_semanas_manual: null,
     league_id: null,
+    cotacao: null,
     ...overrides,
   }
 }
