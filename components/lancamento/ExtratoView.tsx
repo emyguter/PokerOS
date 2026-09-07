@@ -55,7 +55,23 @@ interface Lancamento {
   liberado: boolean
   clube_id: string
   acerto_id: string | null
+  status: string | null
+  conciliado_com: string | null
   clubs: { name: string } | null
+}
+
+// Pagamento/Antecipação só contam de verdade (Envio, Stoploss) depois que o
+// lado Suporte e o lado Genia se conciliam — e isso só roda quando alguém
+// abre a tela de Conciliação (não é automático nem tem prazo, ver
+// useConciliacao.ts). Caução é diferente: não usa conciliado_com, fica
+// "em_validacao" até a Genia validar na Fila (ver LancarForm/FilaValidacao).
+// Sem esse aviso, um lançamento sozinho parece "sumido"/bugado (achado no
+// INSTA PIX POK: Suporte e Genia lançaram a mesma Antecipação, nenhum dos
+// dois nunca foi conciliado, e ela nunca apareceu no Acerto).
+export function aguardandoConfirmacao(l: Pick<Lancamento, 'tipo' | 'status' | 'conciliado_com'>): boolean {
+  if (l.tipo === 'caucao') return l.status === 'em_validacao'
+  if (l.tipo === 'pagamento' || l.tipo === 'antecipacao') return !l.conciliado_com
+  return false
 }
 
 interface ClubeOpcao { id: string; name: string }
@@ -129,7 +145,7 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
     setLoading(true)
     let query = supabase
       .from('lancamentos')
-      .select('id, tipo, natureza, valor, descricao, data_lancamento, created_at, categoria_seguranca, liberado, clube_id, acerto_id, clubs(name)')
+      .select('id, tipo, natureza, valor, descricao, data_lancamento, created_at, categoria_seguranca, liberado, clube_id, acerto_id, status, conciliado_com, clubs(name)')
       .in('origem', origens)
       .order('data_lancamento', { ascending: true })
       .order('created_at', { ascending: true })
@@ -372,7 +388,12 @@ export function ExtratoView({ clubeIdFixo, origens = ORIGENS_PADRAO, mostrarCate
                     )}
                     <td className="px-4 py-3 text-gray-400">{new Date(l.data_lancamento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
                     {clubeId === TODOS_CLUBES && <td className="px-4 py-3 text-gray-300">{l.clubs?.name ?? '—'}</td>}
-                    <td className="px-4 py-3 text-gray-300">{t(TIPOS.find((tp) => tp.value === l.tipo)?.labelKey ?? l.tipo)}</td>
+                    <td className="px-4 py-3 text-gray-300">
+                      {t(TIPOS.find((tp) => tp.value === l.tipo)?.labelKey ?? l.tipo)}
+                      {aguardandoConfirmacao(l) && (
+                        <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full border border-gold/30 bg-gold/10 text-gold uppercase tracking-wide align-middle">{t('lancamento.aguardando_confirmacao')}</span>
+                      )}
+                    </td>
                     {mostrarCategoriaSeguranca && (
                       <td className="px-4 py-3 text-gray-400">{l.categoria_seguranca ? t(CATEGORIAS_SEGURANCA.find((c) => c.value === l.categoria_seguranca)?.labelKey ?? l.categoria_seguranca) : '—'}</td>
                     )}

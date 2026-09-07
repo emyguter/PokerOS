@@ -172,6 +172,7 @@ export const pt = {
     pagar_crypto_titulo: 'Preenche o Valor já com o desconto de {pct}% de Crypto Rebate do clube.',
     tipos: { bonus: 'Bônus', promocao: 'Promoção', caucao: 'Caução', pagamento: 'Pagamento', antecipacao: 'Antecipação', outro: 'Outro', seguranca_bloqueio: 'Bloqueio da Segurança', seguranca_reembolso: 'Reembolso da Segurança' },
     status: { em_validacao: 'Em validação', pago: 'Confirmado' },
+    aguardando_confirmacao: 'Aguardando Financeiro',
     caucao_duplicata_titulo: 'Já existe um lançamento de caução com esse valor nessa data',
     caucao_duplicata_desc: 'Confirma que não é duplicado antes de lançar de novo?',
     confirmar_mesmo_assim: 'Confirmar mesmo assim',

@@ -174,6 +174,7 @@ export const es: typeof pt = {
     pagar_crypto_titulo: 'Completa el Valor ya con el descuento del {pct}% de Crypto Rebate del club.',
     tipos: { bonus: 'Bono', promocao: 'Promoción', caucao: 'Depósito', pagamento: 'Pago', antecipacao: 'Anticipo', outro: 'Otro', seguranca_bloqueio: 'Bloqueo de Seguridad', seguranca_reembolso: 'Reembolso de Seguridad' },
     status: { em_validacao: 'En validación', pago: 'Confirmado' },
+    aguardando_confirmacao: 'Esperando al Financiero',
     caucao_duplicata_titulo: 'Ya existe un movimiento de depósito con ese valor en esa fecha',
     caucao_duplicata_desc: '¿Confirmas que no está duplicado antes de registrarlo de nuevo?',
     confirmar_mesmo_assim: 'Confirmar de todos modos',

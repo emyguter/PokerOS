@@ -8,7 +8,7 @@ import { desvincularConciliacao } from '@/lib/lancamentos'
 import { corrigirValorCrypto } from '@/lib/relatorio-acerto'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
-import { TIPOS, ehTipoSeguranca } from './ExtratoView'
+import { TIPOS, ehTipoSeguranca, aguardandoConfirmacao } from './ExtratoView'
 
 // Esse form só cria lançamento com origem 'suporte'/'genia' — Bloqueio/
 // Reembolso da Segurança (origem 'seguranca') não podem aparecer aqui, senão
@@ -26,6 +26,7 @@ interface LancamentoRecente {
   descricao: string | null
   data_lancamento: string
   status: string | null
+  conciliado_com: string | null
   clube_id: string
   acerto_id: string | null
   clubs: { name: string } | null
@@ -122,7 +123,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
     setLoadingRecentes(true)
     const { data } = await supabase
       .from('lancamentos')
-      .select('id, tipo, natureza, valor, descricao, data_lancamento, status, clube_id, acerto_id, clubs(name)')
+      .select('id, tipo, natureza, valor, descricao, data_lancamento, status, conciliado_com, clube_id, acerto_id, clubs(name)')
       .eq('origem', origem)
       .order('created_at', { ascending: false })
       .limit(10)
@@ -353,6 +354,11 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
                     {l.status && (
                       <span className={`text-xs px-2 py-0.5 rounded-full border ${l.status === 'pago' ? 'border-success/30 bg-success/10 text-success' : 'border-gold/30 bg-gold/10 text-gold'}`}>
                         {t(`lancamento.status.${l.status}`)}
+                      </span>
+                    )}
+                    {!l.status && aguardandoConfirmacao(l) && (
+                      <span className="text-xs px-2 py-0.5 rounded-full border border-gold/30 bg-gold/10 text-gold">
+                        {t('lancamento.aguardando_confirmacao')}
                       </span>
                     )}
                     <span className={`text-sm font-medium ${l.natureza === 'credito' ? 'text-success' : 'text-alert'}`}>
