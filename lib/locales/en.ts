@@ -492,8 +492,7 @@ export const en: typeof pt = {
   relatorios: {
     aba_acertos: 'Settlements', aba_lancamentos: 'Entries', aba_taxas: 'Fee Summary', aba_resumo_acertos: 'Settlement Summary',
     aba_acertos_pendentes: 'Pending Settlements', aba_historico_acertos_pendentes: 'Pending Settlements History',
-    aba_stoploss: 'Stoploss', menu_extratos: 'Statements',
-    extrato_suporte: 'Support', extrato_seguranca: 'Security', extrato_stoploss: 'Stoploss', extrato_financeiro: 'Finance',
+    aba_stoploss: 'Stoploss', extrato_stoploss: 'Stoploss Statement',
     titulo_lancamentos: 'Entries Report', subtitulo_lancamentos: 'Query entries across every club, without picking one at a time',
     titulo_taxas: 'Fee Summary', subtitulo_taxas: 'Executive view of the fees registered across every active club',
     titulo_resumo_acertos: 'Settlement Summary', subtitulo_resumo_acertos: 'Executive view of every club, every League, for one week',

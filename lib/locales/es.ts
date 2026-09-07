@@ -492,8 +492,7 @@ export const es: typeof pt = {
   relatorios: {
     aba_acertos: 'Liquidaciones', aba_lancamentos: 'Movimientos', aba_taxas: 'Resumen de Tasas', aba_resumo_acertos: 'Resumen de Liquidaciones',
     aba_acertos_pendentes: 'Liquidaciones Pendientes', aba_historico_acertos_pendentes: 'Historial de Liquidaciones Pendientes',
-    aba_stoploss: 'Stoploss', menu_extratos: 'Extractos',
-    extrato_suporte: 'Soporte', extrato_seguranca: 'Seguridad', extrato_stoploss: 'Stoploss', extrato_financeiro: 'Finanzas',
+    aba_stoploss: 'Stoploss', extrato_stoploss: 'Extracto Stoploss',
     titulo_lancamentos: 'Informe de Movimientos', subtitulo_lancamentos: 'Consulta movimientos de todos los clubes, sin tener que elegir uno a la vez',
     titulo_taxas: 'Resumen de Tasas', subtitulo_taxas: 'Vista ejecutiva de las tasas registradas en todos los clubes activos',
     titulo_resumo_acertos: 'Resumen de Liquidaciones', subtitulo_resumo_acertos: 'Vista ejecutiva de todos los clubes, todas las Ligas, en una sola semana',

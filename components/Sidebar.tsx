@@ -38,6 +38,7 @@ const LANCAMENTO_SUB: SubNavItem[] = [
   { key: 'pendencias', labelKey: 'lancamento.aba_pendencias', href: '/lancamento?tab=pendencias' },
   { key: 'pagamentos', labelKey: 'lancamento.aba_pagamentos', href: '/lancamento?tab=pagamentos' },
   { key: 'extra', labelKey: 'lancamento.aba_extra', href: '/lancamento?tab=extra' },
+  { key: 'extrato', labelKey: 'lancamento.aba_extrato', href: '/lancamento?tab=extrato' },
   { key: 'conferencia', labelKey: 'lancamento.aba_conferencia', href: '/lancamento?tab=conferencia' },
   {
     key: 'vip', labelKey: 'vip.menu_suporte_grupo', href: '/vip?tab=lancamento', chave: ['vip', 'vip.limites'],
@@ -53,9 +54,11 @@ const FINANCEIRO_SUB: SubNavItem[] = [
   { key: 'pendencias', labelKey: 'lancamento.aba_pendencias', href: '/financeiro?tab=pendencias' },
   { key: 'conciliacao', labelKey: 'lancamento.aba_conciliacao', href: '/financeiro?tab=conciliacao', chave: 'conciliacao' },
   { key: 'cobranca', labelKey: 'lancamento.aba_cobranca', href: '/financeiro?tab=cobranca' },
+  { key: 'extrato', labelKey: 'lancamento.aba_extrato', href: '/financeiro?tab=extrato' },
 ]
 const SEGURANCA_SUB: SubNavItem[] = [
   { key: 'lancar', labelKey: 'lancamento.aba_lancar', href: '/seguranca?tab=lancar' },
+  { key: 'extrato', labelKey: 'lancamento.aba_extrato', href: '/seguranca?tab=extrato' },
 ]
 // "relatorios" genérico dá acesso a Lançamentos (compatibilidade — mesma
 // regra de RelatoriosView); Resumo de Taxas não herda dele de propósito, só
@@ -72,15 +75,13 @@ const RELATORIOS_SUB: SubNavItem[] = [
   { key: 'dividas_historico', labelKey: 'dividas_historico.aba', href: '/relatorios?tab=dividas_historico', chave: 'relatorios.acertos_pendentes' },
   { key: 'stoploss', labelKey: 'relatorios.aba_stoploss', href: '/stoploss?tab=relatorio' },
   { key: 'vip_relatorio', labelKey: 'vip.menu_relatorios', href: '/vip?tab=relatorio', chave: 'vip.relatorio' },
-  {
-    key: 'extratos', labelKey: 'relatorios.menu_extratos', href: '/lancamento?tab=extrato', chave: ['lancamento', 'seguranca', 'stoploss', 'lancamento.genia'],
-    subItems: [
-      { key: 'extrato_suporte', labelKey: 'relatorios.extrato_suporte', href: '/lancamento?tab=extrato', chave: 'lancamento' },
-      { key: 'extrato_seguranca', labelKey: 'relatorios.extrato_seguranca', href: '/seguranca?tab=extrato', chave: 'seguranca' },
-      { key: 'extrato_stoploss', labelKey: 'relatorios.extrato_stoploss', href: '/stoploss?tab=extrato', chave: 'stoploss' },
-      { key: 'extrato_financeiro', labelKey: 'relatorios.extrato_financeiro', href: '/financeiro?tab=extrato', chave: 'lancamento.genia' },
-    ],
-  },
+  // Extrato de Suporte/Segurança/Financeiro saíram daqui: são telas com
+  // editar/excluir (ExtratoView com permitirEdicao), então moraram pra
+  // dentro do menu de cada área (LANCAMENTO_SUB/FINANCEIRO_SUB/
+  // SEGURANCA_SUB) — Relatórios é só-consulta (pedido do Cássio). O de
+  // Stoploss ficou: ExtratoStoploss é só leitura (audit de stoploss_historico,
+  // sem editar/excluir), não viola a regra.
+  { key: 'extrato_stoploss', labelKey: 'relatorios.extrato_stoploss', href: '/stoploss?tab=extrato', chave: 'stoploss' },
 ]
 const STOPLOSS_SUB: SubNavItem[] = [
   { key: 'resumo', labelKey: 'stoploss.aba_resumo', href: '/stoploss?tab=resumo' },

@@ -490,8 +490,7 @@ export const pt = {
   relatorios: {
     aba_acertos: 'Acertos', aba_lancamentos: 'Lançamentos', aba_taxas: 'Resumo de Taxas', aba_resumo_acertos: 'Resumo de Acertos',
     aba_acertos_pendentes: 'Acertos Pendentes', aba_historico_acertos_pendentes: 'Histórico de Acertos Pendentes',
-    aba_stoploss: 'Stoploss', menu_extratos: 'Extratos',
-    extrato_suporte: 'Suporte', extrato_seguranca: 'Segurança', extrato_stoploss: 'Stoploss', extrato_financeiro: 'Financeiro',
+    aba_stoploss: 'Stoploss', extrato_stoploss: 'Extrato Stoploss',
     titulo_lancamentos: 'Relatório de Lançamentos', subtitulo_lancamentos: 'Consulta lançamentos de todos os clubes, sem precisar escolher um por vez',
     titulo_taxas: 'Resumo de Taxas', subtitulo_taxas: 'Visão executiva das taxas cadastradas em todos os clubes ativos',
     titulo_resumo_acertos: 'Resumo de Acertos', subtitulo_resumo_acertos: 'Visão executiva de todos os clubes, todas as Ligas, numa semana só',
