@@ -537,8 +537,17 @@ export function diaAnterior(dataISO: string): string {
 // buscarAntecipacaoEnvios). Só olha Pagamento (o único tipo que grava
 // acerto_id direto) — Antecipação nunca tem acerto_id, é sempre casada por
 // data (por isso a pergunta "já foi quitado?" faz sentido em primeiro lugar).
+//
+// "Quitado" por padrão pra todo mundo (Set(clubIds) inteiro) — só sai da
+// lista quem tem um Acerto de verdade nesse período AINDA devendo. Sem
+// Acerto nenhum nesse period_end (clube não jogou essa semana, ou a Liga
+// nem teve import nessa data) conta como quitado também — não tem Diferença
+// nenhuma pra "ainda dever" (achado no INSTA PIX POK: sem Acerto pro
+// period_end anterior, a função devolvia um Set vazio — todo mundo "não
+// quitado" — e uma Antecipação dentro da própria semana ficava travada sem
+// nenhum jeito de contar, nem pra trás, que também não tinha Acerto pra ir).
 export async function clubesComDiferencaQuitada(clubIds: string[], periodEnd: string): Promise<Set<string>> {
-  const quitados = new Set<string>();
+  const quitados = new Set(clubIds);
   if (clubIds.length === 0 || !periodEnd) return quitados;
 
   const { data: importsData } = await supabase.from("imports").select("id").eq("period_end", periodEnd);
@@ -582,7 +591,7 @@ export async function clubesComDiferencaQuitada(clubIds: string[], periodEnd: st
     // original — sem Pagamento nenhum, resto === valorAcerto, cai aqui
     // igual sempre foi.
     const naoQuitado = valorAcerto > 0.005 ? resto > 0.005 : valorAcerto < -0.005 ? resto < -0.005 : false;
-    if (!naoQuitado) quitados.add(clubId);
+    if (naoQuitado) quitados.delete(clubId);
   }
   return quitados;
 }
