@@ -72,11 +72,20 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
     grupo.clubIds.push(a.club_id)
     gruposPorImport.set(a.import_id, grupo)
   }
+  // period_start de cada clube (pelo import a que o Acerto dele pertence) —
+  // usado abaixo pra filtrar os Lançamentos do período na mão, cliente a
+  // cliente, já que a query é em lote (todos os clubIds de uma vez, cada um
+  // podendo ter uma semana diferente).
+  const periodStartPorClube = new Map<string, string>()
+  for (const a of linhasBase) {
+    if (a.club_id) periodStartPorClube.set(a.club_id, a.imports?.period_start ?? periodoFim)
+  }
+
   const [extrasPorClube, { data: lancData }, ...mapasPendencias] = await Promise.all([
     buscarSecurityEDividasPorClube(clubIds, periodoFim, rakeTotalPorClube),
     supabase
       .from('lancamentos')
-      .select('clube_id, natureza, valor')
+      .select('clube_id, natureza, valor, data_lancamento')
       .in('clube_id', clubIds)
       .in('origem', ['suporte', 'seguranca'])
       .neq('tipo', 'caucao')
@@ -89,7 +98,14 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
     ...[...gruposPorImport.entries()].map(([importId, g]) => buscarPendenciasEAntecipacaoAoVivo(g.clubIds, g.periodStart, g.periodEnd, importId)),
   ])
   const lancPorClube = new Map<string, number>()
-  for (const l of (lancData ?? []) as { clube_id: string; natureza: string; valor: number }[]) {
+  for (const l of (lancData ?? []) as { clube_id: string; natureza: string; valor: number; data_lancamento: string }[]) {
+    // Faltava o limite de baixo (só tinha `.lte(periodoFim)` acima) — sem
+    // isso, um Bônus/Promoção/Outro de uma semana anterior somava de novo
+    // aqui pra sempre, em toda semana seguinte (achado no AMORIM PLUS: o
+    // Total dessa tela batia diferente do ClubAcertoCard porque um VIP
+    // Cashback de 10-16 continuava contando também em 17-23).
+    const periodStart = periodStartPorClube.get(l.clube_id) ?? periodoFim
+    if (l.data_lancamento < periodStart) continue
     lancPorClube.set(l.clube_id, (lancPorClube.get(l.clube_id) ?? 0) + (l.natureza === 'credito' ? l.valor : -l.valor))
   }
   const pendenciasPorClube = new Map<string, number>()

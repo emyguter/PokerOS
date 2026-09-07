@@ -60,6 +60,7 @@ interface AcertoRow {
   club_id: string | null
   club_name: string
   club_external_id: string
+  import_id: string
   settlement_type: string
   rake_total: number
   fee_calculado: number
@@ -118,13 +119,22 @@ export async function buscarResumoAcertos(periodoFim: string): Promise<LinhaResu
 
   const { data: acertosData, error } = await supabase
     .from('acertos')
-    .select('club_id, club_name, club_external_id, settlement_type, rake_total, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, player_result, bilhetes, indicacao_valor, clubs(projeto, leagues(name, projeto, super_leagues(projeto, mega_ligas(projeto))))')
+    .select('club_id, club_name, club_external_id, import_id, settlement_type, rake_total, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, player_result, bilhetes, indicacao_valor, clubs(projeto, leagues(name, projeto, super_leagues(projeto, mega_ligas(projeto))))')
     .in('import_id', importIds)
   if (error) throw error
   const linhasBase = (acertosData ?? []) as unknown as AcertoRow[]
   if (linhasBase.length === 0) return []
 
   const clubIds = [...new Set(linhasBase.map((a) => a.club_id).filter((id): id is string => !!id))]
+  // period_start de cada import dessa semana (pode variar entre Ligas, ver
+  // comentário de lib/meus-acertos.ts) — usado abaixo pra filtrar os Extras
+  // (Bônus/Promoção/Outro) na mão, cliente a cliente.
+  const { data: importsInfo } = await supabase.from('imports').select('id, period_start').in('id', importIds)
+  const periodStartPorImport = new Map(((importsInfo ?? []) as { id: string; period_start: string | null }[]).map((i) => [i.id, i.period_start ?? periodoFim]))
+  const periodStartPorClube = new Map<string, string>()
+  for (const a of linhasBase) {
+    if (a.club_id) periodStartPorClube.set(a.club_id, periodStartPorImport.get(a.import_id) ?? periodoFim)
+  }
   const rakeTotalPorClube = new Map(linhasBase.filter((a) => a.club_id).map((a) => [a.club_id as string, a.rake_total]))
   const [extrasPorClube, multaPares] = await Promise.all([
     buscarSecurityEDividasPorClube(clubIds, periodoFim, rakeTotalPorClube),
@@ -141,7 +151,7 @@ export async function buscarResumoAcertos(periodoFim: string): Promise<LinhaResu
   // entra separado, Caução não é rake semanal).
   const { data: lancData } = await supabase
     .from('lancamentos')
-    .select('clube_id, natureza, valor')
+    .select('clube_id, natureza, valor, data_lancamento')
     .in('clube_id', clubIds)
     .in('origem', ['suporte', 'seguranca'])
     .neq('tipo', 'caucao')
@@ -152,7 +162,13 @@ export async function buscarResumoAcertos(periodoFim: string): Promise<LinhaResu
     .neq('tipo', 'pagamento')
     .lte('data_lancamento', periodoFim)
   const extrasLancPorClube = new Map<string, number>()
-  for (const l of (lancData ?? []) as { clube_id: string; natureza: string; valor: number }[]) {
+  for (const l of (lancData ?? []) as { clube_id: string; natureza: string; valor: number; data_lancamento: string }[]) {
+    // Faltava o limite de baixo (só tinha `.lte(periodoFim)` acima) — sem
+    // isso, um Bônus/Promoção/Outro de uma semana anterior somava de novo
+    // aqui pra sempre, em toda semana seguinte (mesmo bug achado no AMORIM
+    // PLUS, ver lib/meus-acertos.ts).
+    const periodStart = periodStartPorClube.get(l.clube_id) ?? periodoFim
+    if (l.data_lancamento < periodStart) continue
     extrasLancPorClube.set(l.clube_id, (extrasLancPorClube.get(l.clube_id) ?? 0) + (l.natureza === 'credito' ? l.valor : -l.valor))
   }
 
