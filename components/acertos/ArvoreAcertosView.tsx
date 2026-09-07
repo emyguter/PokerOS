@@ -219,6 +219,14 @@ export function ArvoreAcertosView() {
     setRecalcAlvo({ nome: liga.nome, importIds })
   }
 
+  // Mesma ideia, no nível "Todas as Ligas" — recalcula a semana inteira,
+  // todas as Ligas e clubes sem Liga de uma vez (pedido do Cássio).
+  function recalcularTudo() {
+    if (!raiz) return
+    const importIds = [...new Set([...raiz.ligas.flatMap((l) => l.clubes), ...raiz.semLiga].map((c) => c.importId).filter((id): id is string => !!id))]
+    setRecalcAlvo({ nome: 'todas as Ligas', importIds })
+  }
+
   async function confirmarRecalculo() {
     if (!recalcAlvo) return
     const importIds = recalcAlvo.importIds
@@ -336,6 +344,7 @@ export function ArvoreAcertosView() {
         onVerCompleto={(l) => setCardAberto(l)}
         onRecalcular={recalcularClube}
         onRecalcularLiga={recalcularLiga}
+        onRecalcularTudo={recalcularTudo}
         calculando={calculando}
       />
 
@@ -483,12 +492,13 @@ export function ArvoreAcertosView() {
 
 // ─── faixa do nó selecionado ─────────────────────────────────────────────
 
-function NoFaixa({ path, raiz, onVerCompleto, onRecalcular, onRecalcularLiga, calculando }: {
+function NoFaixa({ path, raiz, onVerCompleto, onRecalcular, onRecalcularLiga, onRecalcularTudo, calculando }: {
   path: PathEntry[]
   raiz: ArvoreRaiz | null
   onVerCompleto: (l: LinhaMeuAcerto) => void
   onRecalcular: (l: LinhaMeuAcerto) => void
   onRecalcularLiga: (liga: LigaNode) => void
+  onRecalcularTudo: () => void
   calculando: boolean
 }) {
   const atual = path[path.length - 1]
@@ -498,7 +508,15 @@ function NoFaixa({ path, raiz, onVerCompleto, onRecalcular, onRecalcularLiga, ca
     const total = [...raiz.ligas.flatMap((l) => l.clubes), ...raiz.semLiga].reduce((s, c) => s + c.valorFinal, 0)
     const rake = [...raiz.ligas.flatMap((l) => l.clubes), ...raiz.semLiga].reduce((s, c) => s + c.acerto.rake_total, 0)
     return (
-      <Faixa titulo="Todas as Ligas" meta={`${raiz.ligas.length} ligas · ${raiz.semLiga.length} clube(s) sem liga`}>
+      <Faixa
+        titulo="Todas as Ligas"
+        meta={`${raiz.ligas.length} ligas · ${raiz.semLiga.length} clube(s) sem liga`}
+        acoes={
+          <button type="button" onClick={onRecalcularTudo} disabled={calculando} className="px-3.5 py-1.5 border border-white/10 rounded-lg text-xs text-gray-300 hover:border-gold/40 disabled:opacity-40 flex items-center gap-1.5">
+            <RotateCcw size={12} /> Recalcular semana
+          </button>
+        }
+      >
         <Fig k="Rake total" v={fmt(rake)} />
         <Fig k="Total geral" v={fmt(total)} className={cor(total)} destaque />
       </Faixa>
