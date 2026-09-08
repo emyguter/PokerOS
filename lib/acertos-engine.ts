@@ -672,11 +672,12 @@ export async function buscarPendenciasAntecipacao(clubIds: string[], periodStart
       .eq("origem", "suporte")
       .not("conciliado_com", "is", null);
 
-  const [{ data: deslocadas }, { data: proprias }, quitadoAtual, quitadoAnterior] = await Promise.all([
+  const [{ data: deslocadas }, { data: proprias }, quitadoAtual, quitadoAnterior, arrastado] = await Promise.all([
     baseQuery().gte("data_lancamento", diaSeguinte(fim)).lte("data_lancamento", maisDias(fim, 7)),
     baseQuery().gte("data_lancamento", periodStart).lte("data_lancamento", fim),
     clubesComDiferencaQuitada(clubIds, fim),
     clubesComDiferencaQuitada(clubIds, diaAnterior(periodStart)),
+    buscarSaldoArrastado(clubIds, fim),
   ]);
 
   for (const row of (deslocadas ?? []) as { clube_id: string; natureza: "credito" | "debito"; valor: number }[]) {
@@ -688,6 +689,93 @@ export async function buscarPendenciasAntecipacao(clubIds: string[], periodStart
     if (!quitadoAnterior.has(row.clube_id)) continue;
     const delta = row.natureza === "credito" ? row.valor : -row.valor;
     mapa.set(row.clube_id, (mapa.get(row.clube_id) ?? 0) + delta);
+  }
+  for (const [clubId, valor] of arrastado) {
+    mapa.set(clubId, (mapa.get(clubId) ?? 0) + valor);
+  }
+  return mapa;
+}
+
+// Saldo arrastado: soma de TODA Diferença que sobrou sem solução (nem
+// Pagamento direto, nem Antecipação própria/deslocada) em QUALQUER período
+// anterior desse clube — pedido do Cássio: "não pagou, tem que estar em
+// pendência automaticamente, sem precisar de Rollover nem Recalcular".
+// Antes disso, uma semana só "arrastava" se alguém clicasse Rollover
+// manualmente (ver rolloverAcerto em lib/pagamentos.ts); sem isso, o valor
+// simplesmente sumia — cada card só olhava a própria semana. Agora toda
+// Diferença sem solução continua contando, empilhada, período após período,
+// até ser paga de verdade (ou virar Dívida/Acordo, ação manual separada).
+//
+// Reaplica, num laço só por clube (dados buscados em lote, sem N+1), a MESMA
+// conta de deslocada/própria/quitado que buscarPendenciasAntecipacao já faz
+// pro período em exibição — só que rodando pra TODO período anterior ao
+// `periodEnd` pedido, e SOMANDO o que sobrar de cada um (em vez de decidir
+// visível/quitado só pro período atual). Cada período conta exatamente uma
+// vez: deslocada(P) só entra se P não foi quitado por Pagamento direto,
+// própria(P) só entra se o período ANTERIOR a P foi quitado por Pagamento
+// direto — mesmo par de regras, pra não contar a mesma Antecipação duas
+// vezes (uma como deslocada do período antigo, outra como própria do novo).
+async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promise<Map<string, number>> {
+  const mapa = new Map<string, number>();
+  if (clubIds.length === 0 || !periodEnd) return mapa;
+
+  const { data: acertosData } = await supabase
+    .from("acertos")
+    .select("id, club_id, valor_acerto, imports(period_start, period_end)")
+    .in("club_id", clubIds);
+  type AcertoComPeriodo = { id: string; club_id: string | null; valor_acerto: number; imports: { period_start: string; period_end: string } | { period_start: string; period_end: string }[] | null };
+  type PeriodoClube = { acertoId: string; valorAcerto: number; start: string; end: string };
+  const porClube = new Map<string, PeriodoClube[]>();
+  for (const a of (acertosData ?? []) as AcertoComPeriodo[]) {
+    const imp = Array.isArray(a.imports) ? a.imports[0] : a.imports;
+    if (!a.club_id || !imp || imp.period_end >= periodEnd) continue;
+    const lista = porClube.get(a.club_id) ?? [];
+    lista.push({ acertoId: a.id, valorAcerto: a.valor_acerto, start: imp.period_start, end: imp.period_end });
+    porClube.set(a.club_id, lista);
+  }
+  if (porClube.size === 0) return mapa;
+
+  const clubIdsComHistorico = [...porClube.keys()];
+  const todosAcertoIds = [...porClube.values()].flatMap((l) => l.map((r) => r.acertoId));
+  const [{ data: pagamentosData }, { data: antecipData }] = await Promise.all([
+    supabase.from("lancamentos").select("acerto_id, natureza, valor").in("acerto_id", todosAcertoIds).eq("tipo", "pagamento").eq("origem", "suporte"),
+    supabase.from("lancamentos").select("clube_id, natureza, valor, data_lancamento").in("clube_id", clubIdsComHistorico).eq("tipo", "antecipacao").eq("origem", "suporte").not("conciliado_com", "is", null),
+  ]);
+  const pagoPorAcerto = new Map<string, number>();
+  for (const p of (pagamentosData ?? []) as { acerto_id: string; natureza: "credito" | "debito"; valor: number }[]) {
+    pagoPorAcerto.set(p.acerto_id, (pagoPorAcerto.get(p.acerto_id) ?? 0) + (p.natureza === "credito" ? p.valor : -p.valor));
+  }
+  const antecipPorClube = new Map<string, { natureza: "credito" | "debito"; valor: number; data: string }[]>();
+  for (const r of (antecipData ?? []) as { clube_id: string; natureza: "credito" | "debito"; valor: number; data_lancamento: string }[]) {
+    const lista = antecipPorClube.get(r.clube_id) ?? [];
+    lista.push({ natureza: r.natureza, valor: r.valor, data: r.data_lancamento });
+    antecipPorClube.set(r.clube_id, lista);
+  }
+
+  for (const [clubId, periodos] of porClube) {
+    periodos.sort((a, b) => a.end.localeCompare(b.end));
+    const antecipacoes = antecipPorClube.get(clubId) ?? [];
+    // Sem período nenhum antes do primeiro da lista: conta como "quitado" —
+    // mesma regra de clubesComDiferencaQuitada (sem Acerto, nada devendo).
+    let quitadoDiretoAnterior = true;
+    let acumulado = 0;
+    for (const p of periodos) {
+      const pago = pagoPorAcerto.get(p.acertoId) ?? 0;
+      const restoDireto = p.valorAcerto + pago;
+      const quitadoDireto = p.valorAcerto > 0.005 ? restoDireto <= 0.005 : p.valorAcerto < -0.005 ? restoDireto >= -0.005 : true;
+      const deslocadaIni = diaSeguinte(p.end);
+      const deslocadaFim = maisDias(p.end, 7);
+      let deslocada = 0;
+      let propria = 0;
+      for (const a of antecipacoes) {
+        const delta = a.natureza === "credito" ? a.valor : -a.valor;
+        if (!quitadoDireto && a.data >= deslocadaIni && a.data <= deslocadaFim) deslocada += delta;
+        if (quitadoDiretoAnterior && a.data >= p.start && a.data <= p.end) propria += delta;
+      }
+      acumulado += restoDireto + deslocada + propria;
+      quitadoDiretoAnterior = quitadoDireto;
+    }
+    if (Math.abs(acumulado) > 0.005) mapa.set(clubId, acumulado);
   }
   return mapa;
 }
@@ -706,10 +794,32 @@ async function buscarRolloverPendente(clubIds: string[], importId: string): Prom
   const ids: string[] = [];
   if (clubIds.length === 0) return { porClube, ids };
 
+  const { data: importAtual } = await supabase.from("imports").select("period_end").eq("id", importId).maybeSingle();
+  const periodEndAtual = (importAtual as { period_end: string } | null)?.period_end ?? null;
+
+  const { data: acertosData } = await supabase.from("acertos").select("club_id, imports(period_end)").in("club_id", clubIds);
+  const maxPeriodEndPorClube = new Map<string, string>();
+  for (const a of (acertosData ?? []) as { club_id: string | null; imports: { period_end: string } | { period_end: string }[] | null }[]) {
+    const imp = Array.isArray(a.imports) ? a.imports[0] : a.imports;
+    if (!a.club_id || !imp) continue;
+    const atual = maxPeriodEndPorClube.get(a.club_id);
+    if (!atual || imp.period_end > atual) maxPeriodEndPorClube.set(a.club_id, imp.period_end);
+  }
+  // Só deixa consumir Rollover quem está calculando o período mais recente
+  // (ou empatado) desse clube — achado no Agreste_Poker: recalcular uma
+  // semana ANTIGA (ex: "Recalcular semana inteira" aberto num período
+  // passado) engolia Rollovers pendentes que eram pra ir pra semana mais
+  // nova, sumindo de onde deveriam aparecer.
+  const clubIdsElegiveis = clubIds.filter((id) => {
+    const maxEnd = maxPeriodEndPorClube.get(id);
+    return !maxEnd || !periodEndAtual || periodEndAtual >= maxEnd;
+  });
+  if (clubIdsElegiveis.length === 0) return { porClube, ids };
+
   const { data } = await supabase
     .from("lancamentos")
     .select("id, clube_id, natureza, valor, rollover_consumido_import_id")
-    .in("clube_id", clubIds)
+    .in("clube_id", clubIdsElegiveis)
     .eq("tipo", "antecipacao")
     .eq("origem", "suporte")
     .eq("descricao", "Rollover")
