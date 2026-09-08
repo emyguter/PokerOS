@@ -274,6 +274,12 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
     if (!acerto.club_id || !periodStart) return
     buscarPendenciasEAntecipacaoAoVivo([acerto.club_id], periodStart, periodEnd || periodStart)
       .then((mapa) => setPendenciasLive(mapa.get(acerto.club_id as string) ?? 0))
+      // Sem isso, um erro aqui (ex: falha numa das consultas de
+      // buscarSaldoArrastado) ficava mudo — a Promise rejeitava, o
+      // .then() nunca rodava, e o card continuava mostrando 0,00 (o
+      // valor inicial do useState) como se estivesse tudo certo, sem
+      // nenhum sinal de que o cálculo não completou.
+      .catch((err) => console.error('Erro ao buscar Pendências/Antecipação ao vivo:', err))
   }, [acerto.club_id, periodStart, periodEnd])
 
   useEffect(() => {
