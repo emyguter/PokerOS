@@ -755,7 +755,10 @@ async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promi
   const faixasPorClube = new Map<string, Awaited<ReturnType<typeof getFaixasMultaDoClube>>>();
   await Promise.all(
     clubIdsComHistorico.map(async (clubId) => {
-      faixasPorClube.set(clubId, await getFaixasMultaDoClube(clubId));
+      // Isolado por clube: um erro buscando a Regra de Multa de UM clube
+      // não pode derrubar o saldo arrastado (o valor sem multa nenhuma,
+      // que já é o principal) de todos os outros clubes do mesmo lote.
+      faixasPorClube.set(clubId, await getFaixasMultaDoClube(clubId).catch(() => []));
     })
   );
 
