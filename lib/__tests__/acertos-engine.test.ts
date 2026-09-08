@@ -432,4 +432,17 @@ describe('calcularAcerto — Taxa da Liga', () => {
     const resultado = calcularAcerto(r, c, condicoesPorCampo, null, { pctFixo: null, condicoes: condicoesLiga })
     expect(resultado.taxa_liga_valor).toBe(50) // 1000 * 5% (Regra da Liga), não os 7% do Clube
   })
+
+  it('sem NENHUMA fonte de Taxa da Liga (nem Liga, nem Clube no campo certo): mostra a %/valor de outra Regra do clube (Rake) só de referência, sem descontar do Total de novo', () => {
+    const r = row({ rake_total: 1000, rake_mtt: 500, rake_cash: 500, rake_spinup: 0, player_result: -100 })
+    const c = club({ settlement_type: 'taxa_dinamica', fee_mtt_pct: 0, fee_cash_pct: 0, taxa_op_ativo: false, spinup_pct: 0 })
+    const condicoesPorCampo = { ...CONDICOES_VAZIAS, rake_total: [condicao({ operador: '>', valor: 0, resultado_pct: 20 })] }
+    const resultado = calcularAcerto(r, c, condicoesPorCampo, null)
+    // Fee já saiu 200 (1000 * 20%, Rake como fallback de Fee MTT/Cash) — a
+    // Taxa da Liga mostra a MESMA % de referência (linha só informativa),
+    // mas o Total não desconta os 200 de novo.
+    expect(resultado.fee_calculado).toBe(200)
+    expect(resultado.taxa_liga_valor).toBe(200) // 1000 * 20%, mesma Regra do Rake, só de referência
+    expect(resultado.valor_acerto).toBe(1000 - 100 - 200) // NÃO subtrai a Taxa da Liga de novo
+  })
 })
