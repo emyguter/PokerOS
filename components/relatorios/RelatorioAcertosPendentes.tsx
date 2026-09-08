@@ -6,7 +6,7 @@ import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
 import { useConciliacao } from '@/components/lancamento/useConciliacao'
 import { ConfirmModal } from '@/components/ConfirmModal'
-import { rolloverAcerto, rolloverCredito } from '@/lib/pagamentos'
+import { rolloverAcerto } from '@/lib/pagamentos'
 import { getFaixasMultaDoClube, diasDeAtraso, valorComMulta, type FaixaMulta } from '@/lib/dividas'
 import {
   buscarAcertosPendentesDaSemana, buscarInadimplencia,
@@ -24,10 +24,10 @@ export function RelatorioAcertosPendentes() {
   const [fazendoRollover, setFazendoRollover] = useState<string | null>(null)
   const [confirmarRollover, setConfirmarRollover] = useState<LinhaAcertoPendenteSemana | null>(null)
   const [erroRollover, setErroRollover] = useState<string | null>(null)
-  // Multa (só faz sentido pro lado 'clube_deve' — ver rolloverAcerto):
-  // buscada de novo a cada vez que o modal abre pra um clube diferente, pra
-  // mostrar o valor com multa já calculado antes do Cássio confirmar.
-  const [cobrarMulta, setCobrarMulta] = useState(false)
+  // Multa já é automática (soma sozinha na Pendência do próximo Acerto se o
+  // clube tiver Regra cadastrada) — buscada aqui só pra MOSTRAR a
+  // estimativa no modal, o Rollover em si serve pra isentar dessa multa
+  // automática (Cássio, em áudio: "o rollover... não vai ter multa").
   const [faixasMulta, setFaixasMulta] = useState<FaixaMulta[]>([])
   const [clubeFiltro, setClubeFiltro] = useState('')
   const [projetoFiltro, setProjetoFiltro] = useState('')
@@ -49,8 +49,8 @@ export function RelatorioAcertosPendentes() {
   }, [conciliacaoZerada, carregar])
 
   function abrirRollover(l: LinhaAcertoPendenteSemana) {
-    setConfirmarRollover(l); setErroRollover(null); setCobrarMulta(false); setFaixasMulta([])
-    if (l.direcao === 'clube_deve' && l.clubId) {
+    setConfirmarRollover(l); setErroRollover(null); setFaixasMulta([])
+    if (l.clubId) {
       getFaixasMultaDoClube(l.clubId).then(setFaixasMulta).catch(() => setFaixasMulta([]))
     }
   }
@@ -60,11 +60,7 @@ export function RelatorioAcertosPendentes() {
     if (!l || !l.clubId) return
     setFazendoRollover(l.acertoId); setErroRollover(null)
     try {
-      if (l.direcao === 'liga_deve') {
-        await rolloverCredito(l.acertoId, l.clubId, l.diferenca)
-      } else {
-        await rolloverAcerto(l.acertoId, l.clubId, l.diferenca, cobrarMulta ? { comMulta: true, periodoFim: l.periodoFim } : undefined)
-      }
+      await rolloverAcerto(l.acertoId)
       setConfirmarRollover(null)
       await carregar()
     } catch (err) {
@@ -164,12 +160,12 @@ export function RelatorioAcertosPendentes() {
                       <td className="px-4 py-3 text-right text-gray-300">{fmt(l.pago)}</td>
                       <td className={`px-4 py-3 text-right font-medium ${l.direcao === 'liga_deve' ? 'text-blue-400' : 'text-alert'}`}>{fmt(l.direcao === 'liga_deve' ? l.diferenca : -l.diferenca)}</td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
-                        {l.clubId && (
+                        {l.clubId && l.direcao === 'clube_deve' && (
                           <button
                             type="button"
                             onClick={() => abrirRollover(l)}
                             disabled={fazendoRollover === l.acertoId}
-                            title={l.direcao === 'liga_deve' ? t('acertos_pendentes.title_rollover_credito') : t('acertos_pendentes.title_rollover')}
+                            title={t('acertos_pendentes.title_rollover')}
                             className="flex items-center gap-1.5 px-2.5 py-1.5 border border-gold/30 text-gold rounded-lg text-xs font-medium hover:bg-gold/10 disabled:opacity-50 transition-colors ml-auto"
                           >
                             {fazendoRollover === l.acertoId ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}{t('acertos_pendentes.rollover')}
@@ -203,24 +199,12 @@ export function RelatorioAcertosPendentes() {
         open={!!confirmarRollover}
         title={t('acertos_pendentes.rollover')}
         description={confirmarRollover && (
-          confirmarRollover.direcao === 'liga_deve' ? (
-            <p>{t('acertos_pendentes.confirm_rollover_credito_desc', { valor: fmt(confirmarRollover.diferenca), nome: confirmarRollover.clubName })}</p>
-          ) : (
-            <div className="space-y-3">
-              <p>{t('acertos_pendentes.confirm_rollover_desc', { valor: fmt(confirmarRollover.diferenca), nome: confirmarRollover.clubName })}</p>
-              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
-                <input type="checkbox" checked={cobrarMulta} onChange={(e) => setCobrarMulta(e.target.checked)} className="accent-gold" />
-                {t('acertos_pendentes.cobrar_multa')}
-              </label>
-              {cobrarMulta && (
-                <p className="text-xs text-gray-500">
-                  {atrasoDiasModal > 0 && faixasMulta.length > 0 && valorComMultaModal > confirmarRollover.diferenca + 0.005
-                    ? t('acertos_pendentes.multa_estimada_desc', { valor: fmt(valorComMultaModal) })
-                    : t('acertos_pendentes.multa_sem_regra_desc')}
-                </p>
-              )}
-            </div>
-          )
+          <div className="space-y-2">
+            <p>{t('acertos_pendentes.confirm_rollover_desc', { valor: fmt(confirmarRollover.diferenca), nome: confirmarRollover.clubName })}</p>
+            {atrasoDiasModal > 0 && faixasMulta.length > 0 && valorComMultaModal > confirmarRollover.diferenca + 0.005 && (
+              <p className="text-xs text-gray-500">{t('acertos_pendentes.multa_seria_cobrada_desc', { valor: fmt(valorComMultaModal - confirmarRollover.diferenca) })}</p>
+            )}
+          </div>
         )}
         tone="gold"
         icon={RotateCcw}

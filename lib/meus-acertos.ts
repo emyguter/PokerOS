@@ -59,10 +59,9 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
   // Pendências/Antecipação ao vivo, não a foto gravada em
   // acertos.pendencias_antecipacao — mesmo ajuste feito no AcertosView/
   // ClubAcertoCard/Controle de Pagamentos (achado pelo Cássio no caso
-  // AMORIM PLUS). Inclui Rollover ainda não consumido (achado no
-  // Agreste_Poker: um Rollover recém-feito não aparecia aqui) —
-  // buscarPendenciasEAntecipacaoAoVivo precisa do import_id exato de cada
-  // Acerto (não só o período), então agrupa por import_id, não por data.
+  // AMORIM PLUS). Agrupa por import_id (não por data) porque clubes na
+  // mesma `linhasBase` podem vir de imports diferentes mesmo com o mesmo
+  // period_end (duplicidade histórica de imports).
   const gruposPorImport = new Map<string, { periodStart: string; periodEnd: string; clubIds: string[] }>()
   for (const a of linhasBase) {
     if (!a.club_id) continue
@@ -95,7 +94,7 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
       // o valor (mesmo ajuste feito no AcertosView/ClubAcertoCard).
       .neq('tipo', 'pagamento')
       .lte('data_lancamento', periodoFim),
-    ...[...gruposPorImport.entries()].map(([importId, g]) => buscarPendenciasEAntecipacaoAoVivo(g.clubIds, g.periodStart, g.periodEnd, importId)),
+    ...[...gruposPorImport.values()].map((g) => buscarPendenciasEAntecipacaoAoVivo(g.clubIds, g.periodStart, g.periodEnd)),
   ])
   const lancPorClube = new Map<string, number>()
   for (const l of (lancData ?? []) as { clube_id: string; natureza: string; valor: number; data_lancamento: string }[]) {
