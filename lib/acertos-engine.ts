@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { marcarDividasPagasComRake } from "@/lib/dividas";
+import { marcarDividasPagasComRake, getFaixasMultaDoClube, percentualMulta, diasDeAtraso as diasDeAtrasoDivida } from "@/lib/dividas";
 
 export interface ClubSettings {
   id: string;
@@ -672,11 +672,12 @@ export async function buscarPendenciasAntecipacao(clubIds: string[], periodStart
       .eq("origem", "suporte")
       .not("conciliado_com", "is", null);
 
-  const [{ data: deslocadas }, { data: proprias }, quitadoAtual, quitadoAnterior] = await Promise.all([
+  const [{ data: deslocadas }, { data: proprias }, quitadoAtual, quitadoAnterior, arrastado] = await Promise.all([
     baseQuery().gte("data_lancamento", diaSeguinte(fim)).lte("data_lancamento", maisDias(fim, 7)),
     baseQuery().gte("data_lancamento", periodStart).lte("data_lancamento", fim),
     clubesComDiferencaQuitada(clubIds, fim),
     clubesComDiferencaQuitada(clubIds, diaAnterior(periodStart)),
+    buscarSaldoArrastado(clubIds, fim),
   ]);
 
   for (const row of (deslocadas ?? []) as { clube_id: string; natureza: "credito" | "debito"; valor: number }[]) {
@@ -689,62 +690,130 @@ export async function buscarPendenciasAntecipacao(clubIds: string[], periodStart
     const delta = row.natureza === "credito" ? row.valor : -row.valor;
     mapa.set(row.clube_id, (mapa.get(row.clube_id) ?? 0) + delta);
   }
+  for (const [clubId, valor] of arrastado) {
+    mapa.set(clubId, (mapa.get(clubId) ?? 0) + valor);
+  }
   return mapa;
 }
 
-// Rollover (ver rolloverAcerto em lib/pagamentos.ts): Diferença não paga que
-// o Suporte decidiu "rolar" pra próxima semana em vez de descontar da Caução
-// ou virar Dívida/Acordo (sem multa, sem juros). Fica esperando — sem data
-// nenhuma, diferente da Antecipação normal (essa é por período) — até o
-// PRÓXIMO Acerto desse clube ser calculado, quando entra somado em
-// Pendências/Antecipação (mesma linha, mesmo lugar que o Cássio pediu) e
-// marca `rollover_consumido_import_id` pra não entrar de novo num import
-// diferente depois. Recalcular o MESMO import continua pegando (import_id
-// bate ou ainda tá null).
-async function buscarRolloverPendente(clubIds: string[], importId: string): Promise<{ porClube: Map<string, number>; ids: string[] }> {
-  const porClube = new Map<string, number>();
-  const ids: string[] = [];
-  if (clubIds.length === 0) return { porClube, ids };
-
-  const { data } = await supabase
-    .from("lancamentos")
-    .select("id, clube_id, natureza, valor, rollover_consumido_import_id")
-    .in("clube_id", clubIds)
-    .eq("tipo", "antecipacao")
-    .eq("origem", "suporte")
-    .eq("descricao", "Rollover")
-    .or(`rollover_consumido_import_id.is.null,rollover_consumido_import_id.eq.${importId}`);
-
-  for (const row of (data ?? []) as { id: string; clube_id: string; natureza: "credito" | "debito"; valor: number }[]) {
-    const delta = row.natureza === "credito" ? row.valor : -row.valor;
-    porClube.set(row.clube_id, (porClube.get(row.clube_id) ?? 0) + delta);
-    ids.push(row.id);
-  }
-  return { porClube, ids };
-}
-
-// Mesma soma que processarAcertos grava em acertos.pendencias_antecipacao
-// (Antecipação conciliada + Rollover ainda não consumido), só que ao vivo —
-// pros lugares que preferem não confiar na foto gravada (ClubAcertoCard,
-// Meus Acertos, mesma razão de buscarPendenciasAntecipacao sozinha: uma
-// Antecipação/Rollover lançado DEPOIS do último cálculo precisa aparecer
-// sem esperar alguém clicar "Recalcular"). Achado pelo Cássio no caso
-// Agreste_Poker: o card "Common Settlement" só usava buscarPendenciasAntecipacao
-// (só Antecipação conciliada), então um Rollover recém-feito nunca aparecia
-// ali, por mais que se recalculasse — precisa do `importId` do Acerto sendo
-// exibido (mesmo motivo de buscarRolloverPendente: recalcular o MESMO
-// import não pode "perder" um Rollover que ele mesmo já consumiu antes).
-export async function buscarPendenciasEAntecipacaoAoVivo(clubIds: string[], periodStart: string, periodEnd: string, importId: string): Promise<Map<string, number>> {
-  const [pendenciasPorClube, { porClube: rolloverPorClube }] = await Promise.all([
-    buscarPendenciasAntecipacao(clubIds, periodStart, periodEnd),
-    buscarRolloverPendente(clubIds, importId),
-  ]);
+// Saldo arrastado: soma de TODA Diferença que sobrou sem solução (nem
+// Pagamento direto, nem Antecipação própria/deslocada) em QUALQUER período
+// anterior desse clube — pedido do Cássio: "não pagou, tem que estar em
+// pendência automaticamente, sem precisar de Rollover nem Recalcular".
+// Antes disso, uma semana só "arrastava" se alguém clicasse Rollover
+// manualmente (ver rolloverAcerto em lib/pagamentos.ts); sem isso, o valor
+// simplesmente sumia — cada card só olhava a própria semana. Agora toda
+// Diferença sem solução continua contando, empilhada, período após período,
+// até ser paga de verdade (ou virar Dívida/Acordo, ação manual separada).
+//
+// Reaplica, num laço só por clube (dados buscados em lote, sem N+1), a MESMA
+// conta de deslocada/própria/quitado que buscarPendenciasAntecipacao já faz
+// pro período em exibição — só que rodando pra TODO período anterior ao
+// `periodEnd` pedido, e SOMANDO o que sobrar de cada um (em vez de decidir
+// visível/quitado só pro período atual). Cada período conta exatamente uma
+// vez: deslocada(P) só entra se P não foi quitado por Pagamento direto,
+// própria(P) só entra se o período ANTERIOR a P foi quitado por Pagamento
+// direto — mesmo par de regras, pra não contar a mesma Antecipação duas
+// vezes (uma como deslocada do período antigo, outra como própria do novo).
+async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promise<Map<string, number>> {
   const mapa = new Map<string, number>();
-  for (const id of new Set([...pendenciasPorClube.keys(), ...rolloverPorClube.keys()])) {
-    mapa.set(id, (pendenciasPorClube.get(id) ?? 0) + (rolloverPorClube.get(id) ?? 0));
+  if (clubIds.length === 0 || !periodEnd) return mapa;
+
+  const { data: acertosData } = await supabase
+    .from("acertos")
+    .select("id, club_id, valor_acerto, rollover_sem_multa, imports(period_start, period_end)")
+    .in("club_id", clubIds);
+  type AcertoComPeriodo = { id: string; club_id: string | null; valor_acerto: number; rollover_sem_multa: boolean | null; imports: { period_start: string; period_end: string } | { period_start: string; period_end: string }[] | null };
+  type PeriodoClube = { acertoId: string; valorAcerto: number; start: string; end: string; semMulta: boolean };
+  const porClube = new Map<string, PeriodoClube[]>();
+  for (const a of (acertosData ?? []) as AcertoComPeriodo[]) {
+    const imp = Array.isArray(a.imports) ? a.imports[0] : a.imports;
+    if (!a.club_id || !imp || imp.period_end >= periodEnd) continue;
+    const lista = porClube.get(a.club_id) ?? [];
+    lista.push({ acertoId: a.id, valorAcerto: a.valor_acerto, start: imp.period_start, end: imp.period_end, semMulta: !!a.rollover_sem_multa });
+    porClube.set(a.club_id, lista);
+  }
+  if (porClube.size === 0) return mapa;
+
+  const clubIdsComHistorico = [...porClube.keys()];
+  const todosAcertoIds = [...porClube.values()].flatMap((l) => l.map((r) => r.acertoId));
+  const [{ data: pagamentosData }, { data: antecipData }] = await Promise.all([
+    supabase.from("lancamentos").select("acerto_id, natureza, valor").in("acerto_id", todosAcertoIds).eq("tipo", "pagamento").eq("origem", "suporte"),
+    supabase.from("lancamentos").select("clube_id, natureza, valor, data_lancamento").in("clube_id", clubIdsComHistorico).eq("tipo", "antecipacao").eq("origem", "suporte").not("conciliado_com", "is", null),
+  ]);
+  const pagoPorAcerto = new Map<string, number>();
+  for (const p of (pagamentosData ?? []) as { acerto_id: string; natureza: "credito" | "debito"; valor: number }[]) {
+    pagoPorAcerto.set(p.acerto_id, (pagoPorAcerto.get(p.acerto_id) ?? 0) + (p.natureza === "credito" ? p.valor : -p.valor));
+  }
+  const antecipPorClube = new Map<string, { natureza: "credito" | "debito"; valor: number; data: string }[]>();
+  for (const r of (antecipData ?? []) as { clube_id: string; natureza: "credito" | "debito"; valor: number; data_lancamento: string }[]) {
+    const lista = antecipPorClube.get(r.clube_id) ?? [];
+    lista.push({ natureza: r.natureza, valor: r.valor, data: r.data_lancamento });
+    antecipPorClube.set(r.clube_id, lista);
+  }
+
+  const faixasPorClube = new Map<string, Awaited<ReturnType<typeof getFaixasMultaDoClube>>>();
+  await Promise.all(
+    clubIdsComHistorico.map(async (clubId) => {
+      faixasPorClube.set(clubId, await getFaixasMultaDoClube(clubId));
+    })
+  );
+
+  for (const [clubId, periodos] of porClube) {
+    periodos.sort((a, b) => a.end.localeCompare(b.end));
+    const antecipacoes = antecipPorClube.get(clubId) ?? [];
+    const faixas = faixasPorClube.get(clubId) ?? [];
+    // Sem período nenhum antes do primeiro da lista: conta como "quitado" —
+    // mesma regra de clubesComDiferencaQuitada (sem Acerto, nada devendo).
+    let quitadoDiretoAnterior = true;
+    let acumulado = 0;
+    for (const p of periodos) {
+      const pago = pagoPorAcerto.get(p.acertoId) ?? 0;
+      const restoDireto = p.valorAcerto + pago;
+      const quitadoDireto = p.valorAcerto > 0.005 ? restoDireto <= 0.005 : p.valorAcerto < -0.005 ? restoDireto >= -0.005 : true;
+      const deslocadaIni = diaSeguinte(p.end);
+      const deslocadaFim = maisDias(p.end, 7);
+      let deslocada = 0;
+      let propria = 0;
+      for (const a of antecipacoes) {
+        const delta = a.natureza === "credito" ? a.valor : -a.valor;
+        if (!quitadoDireto && a.data >= deslocadaIni && a.data <= deslocadaFim) deslocada += delta;
+        if (quitadoDiretoAnterior && a.data >= p.start && a.data <= p.end) propria += delta;
+      }
+      const restoPeriodo = restoDireto + deslocada + propria;
+      // Multa por atraso: só sobre o que o CLUBE ainda deve (faz sentido
+      // multar o clube por atraso, não a Liga) e só pra quem tem Regra de
+      // Multa cadastrada (sem Regra, percentualMulta dá 0%, soma zero, sem
+      // mudar nada pra quem nunca configurou). Cássio pediu: "a partir do
+      // momento que atrasou, já tem que aparecer a multa" — sem precisar de
+      // Rollover manual. `rollover_sem_multa` (marcado na tela Acertos
+      // Pendentes) isenta esse período específico — Cássio, em áudio: "o
+      // rollover é a opção dos dois lados, da negociação optarem por rolar
+      // dívida pra próxima semana sem nenhum problema... não vai ter
+      // multa". O saldo em si continua carregando normalmente, só a multa
+      // desse período fica de fora.
+      const multaDoPeriodo =
+        restoPeriodo < -0.005 && faixas.length > 0 && !p.semMulta
+          ? restoPeriodo * (percentualMulta(diasDeAtrasoDivida(p.end), faixas) / 100)
+          : 0;
+      acumulado += restoPeriodo + multaDoPeriodo;
+      quitadoDiretoAnterior = quitadoDireto;
+    }
+    if (Math.abs(acumulado) > 0.005) mapa.set(clubId, acumulado);
   }
   return mapa;
 }
+
+// Mesma soma que processarAcertos grava em acertos.pendencias_antecipacao,
+// só que ao vivo — pros lugares que preferem não confiar na foto gravada
+// (ClubAcertoCard, Meus Acertos): uma Antecipação lançada/conciliada DEPOIS
+// do último cálculo precisa aparecer sem esperar alguém clicar
+// "Recalcular". Não depende mais do `importId` do Acerto exibido (Rollover
+// não cria mais lançamento nenhum — ver rolloverAcerto em
+// lib/pagamentos.ts — só marca `acertos.rollover_sem_multa`, lido direto em
+// buscarSaldoArrastado) — por isso virou só um alias de
+// buscarPendenciasAntecipacao.
+export const buscarPendenciasEAntecipacaoAoVivo = buscarPendenciasAntecipacao;
 
 export interface ClubeNovo {
   id: string;
@@ -916,7 +985,6 @@ export async function processarAcertos(importId: string): Promise<{
       importInfo?.period_start ?? "",
       importInfo?.period_end ?? ""
     );
-    const { porClube: rolloverPorClube, ids: rolloverIdsAplicados } = await buscarRolloverPendente(clubIdsResolvidos, importId);
 
     // Bônus de Indicação (ver calcularIndicacao acima): club_indicacoes.club_id
     // é quem ganha o bônus, mas a base é o rake do club_indicado_id — cada
@@ -939,7 +1007,7 @@ export async function processarAcertos(importId: string): Promise<{
     const acertosComExtras = acertos.map((a) => ({
       ...a,
       bilhetes: bilhetesPorClube.get(a.club_external_id) ?? 0,
-      pendencias_antecipacao: (a.club_id ? pendenciasPorClube.get(a.club_id) ?? 0 : 0) + (a.club_id ? rolloverPorClube.get(a.club_id) ?? 0 : 0),
+      pendencias_antecipacao: a.club_id ? pendenciasPorClube.get(a.club_id) ?? 0 : 0,
       indicacao_valor: a.club_id ? indicacaoValorPorClube.get(a.club_id) ?? 0 : 0,
     }));
 
@@ -986,14 +1054,6 @@ export async function processarAcertos(importId: string): Promise<{
       .map(([, id]) => id);
     if (idsOrfaos.length > 0) {
       await supabase.from("acertos").delete().in("id", idsOrfaos);
-    }
-
-    // Marca os Rollovers aplicados nesse import — não entram de novo num
-    // import diferente (Recalcular o MESMO import continua pegando, o filtro
-    // de buscarRolloverPendente já aceita rollover_consumido_import_id ===
-    // importId também).
-    if (rolloverIdsAplicados.length > 0) {
-      await supabase.from("lancamentos").update({ rollover_consumido_import_id: importId }).in("id", rolloverIdsAplicados);
     }
 
     // Dívida/parcela marcada "Pagar com Rake" acabou de ter seu valor

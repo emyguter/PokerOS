@@ -137,7 +137,7 @@ function Linha({ label, value, editable, onCommit }: { label: string; value: num
   )
 }
 
-async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd: string, rakeTotal: number, importId: string): Promise<ExtrasClube> {
+async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd: string, rakeTotal: number): Promise<ExtrasClube> {
   const [{ data: clubeData }, { data: lancData }, dividasItens, pendenciasPorClube] = await Promise.all([
     supabase.from('clubs').select('security').eq('id', clubeId).maybeSingle(),
     supabase
@@ -155,7 +155,7 @@ async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd
       .gte('data_lancamento', periodStart)
       .lte('data_lancamento', periodEnd || periodStart),
     getDividasAcertoDoClube(clubeId, periodEnd || periodStart, rakeTotal),
-    buscarPendenciasEAntecipacaoAoVivo([clubeId], periodStart, periodEnd || periodStart, importId),
+    buscarPendenciasEAntecipacaoAoVivo([clubeId], periodStart, periodEnd || periodStart),
   ])
   return {
     security: (clubeData?.security as number | null) ?? 0,
@@ -268,15 +268,13 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
     // reflete o que existia quando o Acerto foi calculado/recalculado pela
     // última vez) — achado pelo Cássio no caso AMORIM PLUS: uma Antecipação
     // lançada e conciliada DEPOIS do último cálculo não aparecia aqui até
-    // alguém clicar em "Recalcular". Inclui Rollover ainda não consumido
-    // (buscarPendenciasEAntecipacaoAoVivo, lib/acertos-engine.ts) — achado no
-    // Agreste_Poker: um Rollover recém-feito nunca aparecia aqui antes,
-    // mesmo depois de Recalcular, porque essa consulta só olhava Antecipação
-    // conciliada. Reconsultada toda vez que o card abre.
+    // alguém clicar em "Recalcular". Também inclui a Diferença arrastada +
+    // multa automática de períodos anteriores não pagos (buscarSaldoArrastado,
+    // lib/acertos-engine.ts). Reconsultada toda vez que o card abre.
     if (!acerto.club_id || !periodStart) return
-    buscarPendenciasEAntecipacaoAoVivo([acerto.club_id], periodStart, periodEnd || periodStart, acerto.import_id)
+    buscarPendenciasEAntecipacaoAoVivo([acerto.club_id], periodStart, periodEnd || periodStart)
       .then((mapa) => setPendenciasLive(mapa.get(acerto.club_id as string) ?? 0))
-  }, [acerto.club_id, acerto.import_id, periodStart, periodEnd])
+  }, [acerto.club_id, periodStart, periodEnd])
 
   useEffect(() => {
     // Parcela de Acordo em aberto (ou dívida Simples ativa) desse clube
@@ -348,7 +346,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         .in('club_id', idsGrupo)
         .in('import_id', importIds)
       const linhas = (data ?? []) as AcertoGrupoRow[]
-      const extras = await Promise.all(linhas.map(async (r) => [r.club_id, await buscarExtrasClube(r.club_id, periodStart, periodEnd, r.rake_total, r.import_id)] as const))
+      const extras = await Promise.all(linhas.map(async (r) => [r.club_id, await buscarExtrasClube(r.club_id, periodStart, periodEnd, r.rake_total)] as const))
       if (cancelado) return
       setAcertosGrupo(linhas)
       setExtrasPorClube(new Map(extras))

@@ -14,13 +14,13 @@ export interface LinhaAcertoPendenteSemana {
   acerto: number
   pago: number
   diferenca: number
-  // Sinal de verdade da Diferença: 'clube_deve' (negativa, Rollover normal,
-  // com opção de Multa) ou 'liga_deve' (positiva, "fica como antecipação" —
-  // pedido do Cássio, sem Multa) — ver rolloverAcerto/rolloverCredito em
-  // lib/pagamentos.ts.
+  // Sinal de verdade da Diferença: 'clube_deve' (negativa, pode receber
+  // multa automática por atraso e Rollover de isenção — ver
+  // buscarSaldoArrastado em lib/acertos-engine.ts) ou 'liga_deve' (positiva,
+  // nunca tem multa).
   direcao: DirecaoDiferenca
-  // Fim do período do Acerto que gerou essa Diferença — só usado pra
-  // calcular dias de atraso na Multa (rolloverAcerto com comMulta).
+  // Fim do período do Acerto que gerou essa Diferença — usado só pra
+  // mostrar a estimativa de multa/dias de atraso na tela.
   periodoFim: string
   // Projeto do clube (Mega Liga/Superliga/Liga/Clube) — só pra filtrar a
   // tabela na tela (pedido do Cássio: busca por clube + filtro por

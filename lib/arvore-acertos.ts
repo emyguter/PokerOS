@@ -116,7 +116,7 @@ async function buscarClubesZerados(
   const rakeTotalZero = new Map<string, number>()
   const [extrasPorClube, pendenciasPorClube] = await Promise.all([
     buscarSecurityEDividasPorClube(clubIds, periodoFim, rakeTotalZero),
-    buscarPendenciasEAntecipacaoAoVivo(clubIds, periodoFim, periodoFim, ''),
+    buscarPendenciasEAntecipacaoAoVivo(clubIds, periodoFim, periodoFim),
   ])
 
   return clubes.map((c) => {
