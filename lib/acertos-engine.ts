@@ -770,6 +770,19 @@ async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promi
     // mesma regra de clubesComDiferencaQuitada (sem Acerto, nada devendo).
     let quitadoDiretoAnterior = true;
     let acumulado = 0;
+    // Saldo é "conta corrente", não semana isolada — Cássio, em áudio: "é um
+    // saldo em conta e o acerto é como se fosse um lançamento na conta... se
+    // ficou negativo aparece menos, ficou positivo aparece mais". Uma semana
+    // positiva no meio pode zerar (ou passar) a dívida acumulada até ali —
+    // "um acerto pagou o outro, dá-lhe pra frente" — e a multa só deve
+    // contar em cima do trecho que ficou negativo SEM INTERRUPÇÃO: reseta a
+    // contagem de dias toda vez que o saldo total volta a zero/positivo,
+    // não fica somando multa de uma dívida que já foi coberta por uma
+    // semana boa depois. Por isso a multa não é somada período a período —
+    // é calculada UMA VEZ no final, sobre o saldo negativo atual, contando
+    // os dias desde que essa sequência negativa começou.
+    let streakDesde: string | null = null;
+    let streakSemMulta = false;
     for (const p of periodos) {
       const pago = pagoPorAcerto.get(p.acertoId) ?? 0;
       const restoDireto = p.valorAcerto + pago;
@@ -784,25 +797,31 @@ async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promi
         if (quitadoDiretoAnterior && a.data >= p.start && a.data <= p.end) propria += delta;
       }
       const restoPeriodo = restoDireto + deslocada + propria;
-      // Multa por atraso: só sobre o que o CLUBE ainda deve (faz sentido
-      // multar o clube por atraso, não a Liga) e só pra quem tem Regra de
-      // Multa cadastrada (sem Regra, percentualMulta dá 0%, soma zero, sem
-      // mudar nada pra quem nunca configurou). Cássio pediu: "a partir do
-      // momento que atrasou, já tem que aparecer a multa" — sem precisar de
-      // Rollover manual. `rollover_sem_multa` (marcado na tela Acertos
-      // Pendentes) isenta esse período específico — Cássio, em áudio: "o
-      // rollover é a opção dos dois lados, da negociação optarem por rolar
-      // dívida pra próxima semana sem nenhum problema... não vai ter
-      // multa". O saldo em si continua carregando normalmente, só a multa
-      // desse período fica de fora.
-      const multaDoPeriodo =
-        restoPeriodo < -0.005 && faixas.length > 0 && !p.semMulta
-          ? restoPeriodo * (percentualMulta(diasDeAtrasoDivida(p.end), faixas) / 100)
-          : 0;
-      acumulado += restoPeriodo + multaDoPeriodo;
+      acumulado += restoPeriodo;
+      if (acumulado < -0.005) {
+        if (streakDesde === null) { streakDesde = p.end; streakSemMulta = false; }
+        // `rollover_sem_multa` (marcado na tela Acertos Pendentes) isenta a
+        // sequência negativa atual inteira — Cássio, em áudio: "o rollover
+        // é a opção dos dois lados, da negociação... não vai ter multa".
+        if (p.semMulta) streakSemMulta = true;
+      } else {
+        streakDesde = null;
+        streakSemMulta = false;
+      }
       quitadoDiretoAnterior = quitadoDireto;
     }
-    if (Math.abs(acumulado) > 0.005) mapa.set(clubId, acumulado);
+    // Multa por atraso: só sobre o que o CLUBE ainda deve de verdade (faz
+    // sentido multar o clube por atraso, não a Liga) e só pra quem tem
+    // Regra de Multa cadastrada (sem Regra, percentualMulta dá 0%, soma
+    // zero, sem mudar nada pra quem nunca configurou). Cássio pediu: "a
+    // partir do momento que atrasou, já tem que aparecer a multa" — sem
+    // precisar de Rollover manual.
+    const multaFinal =
+      acumulado < -0.005 && streakDesde && !streakSemMulta && faixas.length > 0
+        ? acumulado * (percentualMulta(diasDeAtrasoDivida(streakDesde), faixas) / 100)
+        : 0;
+    const total = acumulado + multaFinal;
+    if (Math.abs(total) > 0.005) mapa.set(clubId, total);
   }
   return mapa;
 }
