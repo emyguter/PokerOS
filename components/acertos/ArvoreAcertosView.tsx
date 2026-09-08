@@ -147,6 +147,12 @@ export function ArvoreAcertosView() {
     setPeriodoFiltro(fim)
     setPath([])
     setBusca('')
+    // Zera `raiz` antes de recarregar — sem isso, a lista da semana ANTERIOR
+    // continuava visível e clicável durante o fetch (`loading && !raiz` só
+    // bloqueia no carregamento inicial), deixando clicar num clube com os
+    // dados de period_start/period_end ainda da semana de antes (achado:
+    // trocar a semana e clicar rápido no clube abria o Acerto errado).
+    setRaiz(null)
     load(fim)
   }
 
