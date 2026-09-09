@@ -769,7 +769,11 @@ async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promi
     // Sem período nenhum antes do primeiro da lista: conta como "quitado" —
     // mesma regra de clubesComDiferencaQuitada (sem Acerto, nada devendo).
     let quitadoDiretoAnterior = true;
-    let acumulado = 0;
+    // 1ª passada: resto de cada período (igual antes) + soma corrida, pra
+    // saber em que ponto (se algum) o saldo total volta a zero/positivo.
+    const linhas: { end: string; resto: number; semMulta: boolean }[] = [];
+    const somaCorrida: number[] = [];
+    let corrido = 0;
     for (const p of periodos) {
       const pago = pagoPorAcerto.get(p.acertoId) ?? 0;
       const restoDireto = p.valorAcerto + pago;
@@ -783,22 +787,36 @@ async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promi
         if (!quitadoDireto && a.data >= deslocadaIni && a.data <= deslocadaFim) deslocada += delta;
         if (quitadoDiretoAnterior && a.data >= p.start && a.data <= p.end) propria += delta;
       }
-      const restoPeriodo = restoDireto + deslocada + propria;
-      // Multa por atraso: cada semana pega a multa DELA MESMA — sobre o que
-      // sobrou naquela semana específica, contando os dias dela até hoje —
-      // e não perde isso depois só porque uma semana seguinte, no total
-      // corrido, cobriu a dívida (confirmado pelo Cássio: "toda semana que
-      // passa do prazo pega a multa dela, não importa se depois ela some
-      // porque foi paga... uma vez vencida, a multinha gruda"). Só sobre o
-      // que o CLUBE deve (não a Liga) e só pra quem tem Regra de Multa
-      // cadastrada (sem Regra, percentualMulta dá 0%, sem mudar nada pra
-      // quem nunca configurou). `rollover_sem_multa` isenta só essa semana.
-      const multaDoPeriodo =
-        restoPeriodo < -0.005 && faixas.length > 0 && !p.semMulta
-          ? restoPeriodo * (percentualMulta(diasDeAtrasoDivida(p.end), faixas) / 100)
-          : 0;
-      acumulado += restoPeriodo + multaDoPeriodo;
+      const resto = restoDireto + deslocada + propria;
+      corrido += resto;
+      linhas.push({ end: p.end, resto, semMulta: p.semMulta });
+      somaCorrida.push(corrido);
       quitadoDiretoAnterior = quitadoDireto;
+    }
+    // 2ª passada: multa por atraso — cada semana pega a multa DELA MESMA,
+    // sobre o que sobrou naquela semana, mas o relógio dela trava assim que
+    // o saldo total corrido volta a zero/positivo (o "aluguel foi pago"),
+    // em vez de continuar contando pra sempre — confirmado pelo Cássio: "na
+    // segunda semana ele paga o acerto com 2% de multa... zerou. Deveu de
+    // novo, atrasou 1 semana, 2%... atrasou 2, 10%, igual aluguel". Uma
+    // dívida ainda em aberto HOJE (nunca foi coberta) continua contando os
+    // dias até hoje normalmente — só quem já foi coberto por uma semana
+    // seguinte trava a data ali. Só sobre o que o CLUBE deve (não a Liga) e
+    // só pra quem tem Regra de Multa cadastrada (sem Regra, percentualMulta
+    // dá 0%, sem mudar nada pra quem nunca configurou). `rollover_sem_multa`
+    // isenta só essa semana.
+    let acumulado = 0;
+    for (let i = 0; i < linhas.length; i++) {
+      const { end, resto, semMulta } = linhas[i];
+      let multaDoPeriodo = 0;
+      if (resto < -0.005 && faixas.length > 0 && !semMulta) {
+        let travaEm: Date | undefined;
+        for (let j = i; j < somaCorrida.length; j++) {
+          if (somaCorrida[j] >= -0.005) { travaEm = new Date(linhas[j].end + "T00:00:00"); break; }
+        }
+        multaDoPeriodo = resto * (percentualMulta(diasDeAtrasoDivida(end, travaEm), faixas) / 100);
+      }
+      acumulado += resto + multaDoPeriodo;
     }
     if (Math.abs(acumulado) > 0.005) mapa.set(clubId, acumulado);
   }
