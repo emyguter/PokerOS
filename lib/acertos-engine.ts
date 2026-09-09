@@ -769,11 +769,23 @@ async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promi
     // Sem período nenhum antes do primeiro da lista: conta como "quitado" —
     // mesma regra de clubesComDiferencaQuitada (sem Acerto, nada devendo).
     let quitadoDiretoAnterior = true;
-    // 1ª passada: resto de cada período (igual antes) + soma corrida, pra
-    // saber em que ponto (se algum) o saldo total volta a zero/positivo.
-    const linhas: { end: string; resto: number; semMulta: boolean }[] = [];
-    const somaCorrida: number[] = [];
-    let corrido = 0;
+    // Multa vira PARTE DO SALDO de verdade (não só um número calculado só
+    // pra mostrar na tela) — achado no caso LIGA VENEZOLANA: o card
+    // mostrava Total com multa embutida, o Suporte pagou exatamente esse
+    // Total, mas sobrava troco, porque o Pagamento só batia contra o valor
+    // puro do Acerto — a multa nunca era "quitável". Confirmado pelo
+    // Cássio/proxy: pagar o Total (com multa) tem que zerar tudo. Por isso
+    // a multa entra no `saldo` corrido igual um lançamento (ajustada pra
+    // cima/baixo conforme a faixa muda, sem dobrar — "não acumula, maior
+    // substitui"), e some sozinha quando um Pagamento/Antecipação cobre o
+    // saldo. Sequência negativa "trava" (some) quando o saldo total volta a
+    // zero/positivo — igual aluguel: "atrasou 1 semana, 2%... atrasou 2,
+    // 10%... pagou, zerou".
+    let saldo = 0;
+    let sequenciaDesde: string | null = null;
+    let sequenciaPrincipal = 0;
+    let sequenciaMultaCobrada = 0;
+    let sequenciaSemMulta = false;
     for (const p of periodos) {
       const pago = pagoPorAcerto.get(p.acertoId) ?? 0;
       const restoDireto = p.valorAcerto + pago;
@@ -788,37 +800,32 @@ async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promi
         if (quitadoDiretoAnterior && a.data >= p.start && a.data <= p.end) propria += delta;
       }
       const resto = restoDireto + deslocada + propria;
-      corrido += resto;
-      linhas.push({ end: p.end, resto, semMulta: p.semMulta });
-      somaCorrida.push(corrido);
+      saldo += resto;
+      if (sequenciaDesde !== null) sequenciaPrincipal += resto;
+      if (saldo < -0.005) {
+        if (sequenciaDesde === null) { sequenciaDesde = p.end; sequenciaPrincipal = resto; sequenciaMultaCobrada = 0; sequenciaSemMulta = false; }
+        if (p.semMulta) sequenciaSemMulta = true;
+        if (!sequenciaSemMulta && faixas.length > 0) {
+          const multaAlvo = sequenciaPrincipal * (percentualMulta(diasDeAtrasoDivida(sequenciaDesde, new Date(p.end + "T00:00:00")), faixas) / 100);
+          saldo += multaAlvo - sequenciaMultaCobrada;
+          sequenciaMultaCobrada = multaAlvo;
+        }
+      } else {
+        sequenciaDesde = null;
+        sequenciaPrincipal = 0;
+        sequenciaMultaCobrada = 0;
+        sequenciaSemMulta = false;
+      }
       quitadoDiretoAnterior = quitadoDireto;
     }
-    // 2ª passada: multa por atraso — cada semana pega a multa DELA MESMA,
-    // sobre o que sobrou naquela semana, mas o relógio dela trava assim que
-    // o saldo total corrido volta a zero/positivo (o "aluguel foi pago"),
-    // em vez de continuar contando pra sempre — confirmado pelo Cássio: "na
-    // segunda semana ele paga o acerto com 2% de multa... zerou. Deveu de
-    // novo, atrasou 1 semana, 2%... atrasou 2, 10%, igual aluguel". Uma
-    // dívida ainda em aberto HOJE (nunca foi coberta) continua contando os
-    // dias até hoje normalmente — só quem já foi coberto por uma semana
-    // seguinte trava a data ali. Só sobre o que o CLUBE deve (não a Liga) e
-    // só pra quem tem Regra de Multa cadastrada (sem Regra, percentualMulta
-    // dá 0%, sem mudar nada pra quem nunca configurou). `rollover_sem_multa`
-    // isenta só essa semana.
-    let acumulado = 0;
-    for (let i = 0; i < linhas.length; i++) {
-      const { end, resto, semMulta } = linhas[i];
-      let multaDoPeriodo = 0;
-      if (resto < -0.005 && faixas.length > 0 && !semMulta) {
-        let travaEm: Date | undefined;
-        for (let j = i; j < somaCorrida.length; j++) {
-          if (somaCorrida[j] >= -0.005) { travaEm = new Date(linhas[j].end + "T00:00:00"); break; }
-        }
-        multaDoPeriodo = resto * (percentualMulta(diasDeAtrasoDivida(end, travaEm), faixas) / 100);
-      }
-      acumulado += resto + multaDoPeriodo;
+    // Sequência ainda em aberto hoje (nunca foi coberta por nenhum período
+    // seguinte): atualiza a multa mais uma vez contra a data de HOJE, já
+    // que continua contando enquanto ninguém paga.
+    if (sequenciaDesde !== null && !sequenciaSemMulta && faixas.length > 0) {
+      const multaAlvo = sequenciaPrincipal * (percentualMulta(diasDeAtrasoDivida(sequenciaDesde), faixas) / 100);
+      saldo += multaAlvo - sequenciaMultaCobrada;
     }
-    if (Math.abs(acumulado) > 0.005) mapa.set(clubId, acumulado);
+    if (Math.abs(saldo) > 0.005) mapa.set(clubId, saldo);
   }
   return mapa;
 }
