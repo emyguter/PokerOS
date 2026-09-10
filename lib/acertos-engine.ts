@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { marcarDividasPagasComRake, getFaixasMultaDoClube, percentualMulta, diasDeAtraso as diasDeAtrasoDivida } from "@/lib/dividas";
+import { marcarDividasPagasComRake, getFaixasMultaDeClubes, percentualMulta, diasDeAtraso as diasDeAtrasoDivida, type FaixaMulta } from "@/lib/dividas";
 
 export interface ClubSettings {
   id: string;
@@ -753,9 +753,20 @@ async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promi
 
   const clubIdsComHistorico = [...porClube.keys()];
   const todosAcertoIds = [...porClube.values()].flatMap((l) => l.map((r) => r.acertoId));
-  const [{ data: pagamentosData }, { data: antecipData }] = await Promise.all([
+  // Regra de Multa de TODOS os clubes do lote buscada de uma vez só
+  // (getFaixasMultaDeClubes, 2 queries no total) — antes disso era 1
+  // Promise.all chamando getFaixasMultaDoClube por clube (até 2 requisições
+  // HTTP cada), o que travava a Árvore de Acertos ("Todas as Ligas", ~130
+  // clubes) em "Carregando…" por minutos, gerando milhares de requisições
+  // pro Supabase numa carga só (achado: log do Supabase mostrando ~9.500
+  // requisições em 15 minutos pra essa mesma tela). .catch(() => mapa vazio)
+  // preserva o mesmo fallback de antes: erro buscando Multa não pode
+  // derrubar o saldo arrastado (o valor sem multa nenhuma, que já é o
+  // principal) do lote inteiro.
+  const [{ data: pagamentosData }, { data: antecipData }, faixasPorClube] = await Promise.all([
     supabase.from("lancamentos").select("acerto_id, natureza, valor").in("acerto_id", todosAcertoIds).eq("tipo", "pagamento").eq("origem", "suporte"),
     supabase.from("lancamentos").select("clube_id, natureza, valor, data_lancamento").in("clube_id", clubIdsComHistorico).eq("tipo", "antecipacao").eq("origem", "suporte").not("conciliado_com", "is", null),
+    getFaixasMultaDeClubes(clubIdsComHistorico).catch(() => new Map<string, FaixaMulta[]>()),
   ]);
   const pagoPorAcerto = new Map<string, number>();
   for (const p of (pagamentosData ?? []) as { acerto_id: string; natureza: "credito" | "debito"; valor: number }[]) {
@@ -767,16 +778,6 @@ async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promi
     lista.push({ natureza: r.natureza, valor: r.valor, data: r.data_lancamento });
     antecipPorClube.set(r.clube_id, lista);
   }
-
-  const faixasPorClube = new Map<string, Awaited<ReturnType<typeof getFaixasMultaDoClube>>>();
-  await Promise.all(
-    clubIdsComHistorico.map(async (clubId) => {
-      // Isolado por clube: um erro buscando a Regra de Multa de UM clube
-      // não pode derrubar o saldo arrastado (o valor sem multa nenhuma,
-      // que já é o principal) de todos os outros clubes do mesmo lote.
-      faixasPorClube.set(clubId, await getFaixasMultaDoClube(clubId).catch(() => []));
-    })
-  );
 
   for (const [clubId, periodos] of porClube) {
     periodos.sort((a, b) => a.end.localeCompare(b.end));
