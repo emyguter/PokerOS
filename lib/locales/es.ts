@@ -404,6 +404,7 @@ export const es: typeof pt = {
     taxa_liga_label: 'Tasa de la Liga ({pct}%)',
     bilhetes_label: 'Boletos',
     pendencias_label: 'Pendientes / Anticipo',
+    multa_label: 'Multa por Atraso ({pct}%)',
     seguranca_label: 'Seguridad',
     rebate_label: 'Rebate',
     indicacao_label: 'Referido ({pct}%) {nome}',

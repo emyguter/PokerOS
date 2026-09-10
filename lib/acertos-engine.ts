@@ -690,8 +690,24 @@ export async function buscarPendenciasAntecipacao(clubIds: string[], periodStart
     const delta = row.natureza === "credito" ? row.valor : -row.valor;
     mapa.set(row.clube_id, (mapa.get(row.clube_id) ?? 0) + delta);
   }
-  for (const [clubId, valor] of arrastado) {
-    mapa.set(clubId, (mapa.get(clubId) ?? 0) + valor);
+  for (const [clubId, dados] of arrastado) {
+    mapa.set(clubId, (mapa.get(clubId) ?? 0) + dados.total);
+  }
+  return mapa;
+}
+
+// Multa atual (valor em R$ e percentual vigente) da Diferença arrastada de
+// cada clube — pedido do Cássio: a multa precisa aparecer como uma linha
+// PRÓPRIA no Acerto ("Multa Atraso Acerto"), separada de
+// Pendências/Antecipação, mostrando percentual e valor. Só exibição, ao
+// vivo, igual buscarPendenciasEAntecipacaoAoVivo — não grava lançamento
+// nenhum nem muda o Total (o valor da multa já está embutido no saldo que
+// buscarPendenciasAntecipacao soma; isso aqui só expõe o detalhe pra UI).
+export async function buscarMultaAtual(clubIds: string[], periodEnd: string): Promise<Map<string, { valor: number; pct: number }>> {
+  const mapa = new Map<string, { valor: number; pct: number }>();
+  const arrastado = await buscarSaldoArrastado(clubIds, periodEnd);
+  for (const [clubId, dados] of arrastado) {
+    if (Math.abs(dados.multa) > 0.005) mapa.set(clubId, { valor: dados.multa, pct: dados.pct });
   }
   return mapa;
 }
@@ -715,8 +731,8 @@ export async function buscarPendenciasAntecipacao(clubIds: string[], periodStart
 // própria(P) só entra se o período ANTERIOR a P foi quitado por Pagamento
 // direto — mesmo par de regras, pra não contar a mesma Antecipação duas
 // vezes (uma como deslocada do período antigo, outra como própria do novo).
-async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promise<Map<string, number>> {
-  const mapa = new Map<string, number>();
+async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promise<Map<string, { total: number; multa: number; pct: number }>> {
+  const mapa = new Map<string, { total: number; multa: number; pct: number }>();
   if (clubIds.length === 0 || !periodEnd) return mapa;
 
   const { data: acertosData } = await supabase
@@ -820,12 +836,16 @@ async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promi
     }
     // Sequência ainda em aberto hoje (nunca foi coberta por nenhum período
     // seguinte): atualiza a multa mais uma vez contra a data de HOJE, já
-    // que continua contando enquanto ninguém paga.
+    // que continua contando enquanto ninguém paga. `multaFinal`/`pctFinal`
+    // ficam guardados pra expor em buscarMultaAtual (linha própria no card).
+    let multaFinal = 0;
+    let pctFinal = 0;
     if (sequenciaDesde !== null && !sequenciaSemMulta && faixas.length > 0) {
-      const multaAlvo = sequenciaPrincipal * (percentualMulta(diasDeAtrasoDivida(sequenciaDesde), faixas) / 100);
-      saldo += multaAlvo - sequenciaMultaCobrada;
+      pctFinal = percentualMulta(diasDeAtrasoDivida(sequenciaDesde), faixas);
+      multaFinal = sequenciaPrincipal * (pctFinal / 100);
+      saldo += multaFinal - sequenciaMultaCobrada;
     }
-    if (Math.abs(saldo) > 0.005) mapa.set(clubId, saldo);
+    if (Math.abs(saldo) > 0.005) mapa.set(clubId, { total: saldo, multa: multaFinal, pct: pctFinal });
   }
   return mapa;
 }

@@ -4,7 +4,7 @@ import { getDividasAcertoDoClube } from './dividas'
 // Campos que SEMPRE aparecem no card de Acerto, em qualquer clube — não dá
 // pra esconder pela Regra de Layout, só reordenar (confirmado pelo Cássio).
 export const CAMPOS_OBRIGATORIOS = [
-  'semana', 'clube', 'pendencias', 'rake_total', 'ganhos', 'bilhetes', 'seguranca', 'spinup',
+  'semana', 'clube', 'pendencias', 'multa', 'rake_total', 'ganhos', 'bilhetes', 'seguranca', 'spinup',
   'indicacao', 'lancamentos_periodo', 'dividas_acordos',
 ] as const
 
@@ -23,6 +23,7 @@ export const LABEL_CAMPO: Record<CampoAcerto, string> = {
   semana: 'Semana',
   clube: 'Clube',
   pendencias: 'Pendências / Antecipação',
+  multa: 'Multa Atraso Acerto',
   rake_total: 'Rake Total',
   ganhos: 'Ganhos/Perdas',
   bilhetes: 'Bilhetes',
@@ -46,7 +47,7 @@ export const LABEL_CAMPO: Record<CampoAcerto, string> = {
 export const LAYOUT_PADRAO: CampoAcerto[] = [
   'semana', 'clube', 'taxa_mtt', 'wtr4', 'taxa_cash',
   'rake_total', 'rake_mtt', 'rake_cash', 'ganhos',
-  'taxa_operacional', 'spinup', 'taxa_liga', 'bilhetes', 'pendencias', 'seguranca',
+  'taxa_operacional', 'spinup', 'taxa_liga', 'bilhetes', 'pendencias', 'multa', 'seguranca',
   'rebate', 'indicacao', 'lancamentos_periodo', 'dividas_acordos',
 ]
 
