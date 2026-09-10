@@ -769,20 +769,23 @@ async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promi
     // Sem período nenhum antes do primeiro da lista: conta como "quitado" —
     // mesma regra de clubesComDiferencaQuitada (sem Acerto, nada devendo).
     let quitadoDiretoAnterior = true;
-    let acumulado = 0;
-    // Saldo é "conta corrente", não semana isolada — Cássio, em áudio: "é um
-    // saldo em conta e o acerto é como se fosse um lançamento na conta... se
-    // ficou negativo aparece menos, ficou positivo aparece mais". Uma semana
-    // positiva no meio pode zerar (ou passar) a dívida acumulada até ali —
-    // "um acerto pagou o outro, dá-lhe pra frente" — e a multa só deve
-    // contar em cima do trecho que ficou negativo SEM INTERRUPÇÃO: reseta a
-    // contagem de dias toda vez que o saldo total volta a zero/positivo,
-    // não fica somando multa de uma dívida que já foi coberta por uma
-    // semana boa depois. Por isso a multa não é somada período a período —
-    // é calculada UMA VEZ no final, sobre o saldo negativo atual, contando
-    // os dias desde que essa sequência negativa começou.
-    let streakDesde: string | null = null;
-    let streakSemMulta = false;
+    // Multa vira PARTE DO SALDO de verdade (não só um número calculado só
+    // pra mostrar na tela) — achado no caso LIGA VENEZOLANA: o card
+    // mostrava Total com multa embutida, o Suporte pagou exatamente esse
+    // Total, mas sobrava troco, porque o Pagamento só batia contra o valor
+    // puro do Acerto — a multa nunca era "quitável". Confirmado pelo
+    // Cássio/proxy: pagar o Total (com multa) tem que zerar tudo. Por isso
+    // a multa entra no `saldo` corrido igual um lançamento (ajustada pra
+    // cima/baixo conforme a faixa muda, sem dobrar — "não acumula, maior
+    // substitui"), e some sozinha quando um Pagamento/Antecipação cobre o
+    // saldo. Sequência negativa "trava" (some) quando o saldo total volta a
+    // zero/positivo — igual aluguel: "atrasou 1 semana, 2%... atrasou 2,
+    // 10%... pagou, zerou".
+    let saldo = 0;
+    let sequenciaDesde: string | null = null;
+    let sequenciaPrincipal = 0;
+    let sequenciaMultaCobrada = 0;
+    let sequenciaSemMulta = false;
     for (const p of periodos) {
       const pago = pagoPorAcerto.get(p.acertoId) ?? 0;
       const restoDireto = p.valorAcerto + pago;
@@ -796,32 +799,33 @@ async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promi
         if (!quitadoDireto && a.data >= deslocadaIni && a.data <= deslocadaFim) deslocada += delta;
         if (quitadoDiretoAnterior && a.data >= p.start && a.data <= p.end) propria += delta;
       }
-      const restoPeriodo = restoDireto + deslocada + propria;
-      acumulado += restoPeriodo;
-      if (acumulado < -0.005) {
-        if (streakDesde === null) { streakDesde = p.end; streakSemMulta = false; }
-        // `rollover_sem_multa` (marcado na tela Acertos Pendentes) isenta a
-        // sequência negativa atual inteira — Cássio, em áudio: "o rollover
-        // é a opção dos dois lados, da negociação... não vai ter multa".
-        if (p.semMulta) streakSemMulta = true;
+      const resto = restoDireto + deslocada + propria;
+      saldo += resto;
+      if (sequenciaDesde !== null) sequenciaPrincipal += resto;
+      if (saldo < -0.005) {
+        if (sequenciaDesde === null) { sequenciaDesde = p.end; sequenciaPrincipal = resto; sequenciaMultaCobrada = 0; sequenciaSemMulta = false; }
+        if (p.semMulta) sequenciaSemMulta = true;
+        if (!sequenciaSemMulta && faixas.length > 0) {
+          const multaAlvo = sequenciaPrincipal * (percentualMulta(diasDeAtrasoDivida(sequenciaDesde, new Date(p.end + "T00:00:00")), faixas) / 100);
+          saldo += multaAlvo - sequenciaMultaCobrada;
+          sequenciaMultaCobrada = multaAlvo;
+        }
       } else {
-        streakDesde = null;
-        streakSemMulta = false;
+        sequenciaDesde = null;
+        sequenciaPrincipal = 0;
+        sequenciaMultaCobrada = 0;
+        sequenciaSemMulta = false;
       }
       quitadoDiretoAnterior = quitadoDireto;
     }
-    // Multa por atraso: só sobre o que o CLUBE ainda deve de verdade (faz
-    // sentido multar o clube por atraso, não a Liga) e só pra quem tem
-    // Regra de Multa cadastrada (sem Regra, percentualMulta dá 0%, soma
-    // zero, sem mudar nada pra quem nunca configurou). Cássio pediu: "a
-    // partir do momento que atrasou, já tem que aparecer a multa" — sem
-    // precisar de Rollover manual.
-    const multaFinal =
-      acumulado < -0.005 && streakDesde && !streakSemMulta && faixas.length > 0
-        ? acumulado * (percentualMulta(diasDeAtrasoDivida(streakDesde), faixas) / 100)
-        : 0;
-    const total = acumulado + multaFinal;
-    if (Math.abs(total) > 0.005) mapa.set(clubId, total);
+    // Sequência ainda em aberto hoje (nunca foi coberta por nenhum período
+    // seguinte): atualiza a multa mais uma vez contra a data de HOJE, já
+    // que continua contando enquanto ninguém paga.
+    if (sequenciaDesde !== null && !sequenciaSemMulta && faixas.length > 0) {
+      const multaAlvo = sequenciaPrincipal * (percentualMulta(diasDeAtrasoDivida(sequenciaDesde), faixas) / 100);
+      saldo += multaAlvo - sequenciaMultaCobrada;
+    }
+    if (Math.abs(saldo) > 0.005) mapa.set(clubId, saldo);
   }
   return mapa;
 }
