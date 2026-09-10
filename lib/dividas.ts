@@ -374,6 +374,52 @@ export async function getFaixasMultaDoClube(clubeId: string): Promise<FaixaMulta
   return [...diretas, ...anexadas]
 }
 
+// Mesma busca de getFaixasMultaDoClube, só que pra VÁRIOS clubes de uma vez
+// (2 queries no total, não 2 por clube) — usado por buscarSaldoArrastado
+// (lib/acertos-engine.ts), que precisa da faixa de TODO clube com histórico
+// pra Árvore de Acertos inteira. Achado: com ~130 clubes, o loop antigo
+// (Promise.all chamando getFaixasMultaDoClube um por um) disparava até 260
+// requisições HTTP só pra isso, travando "Todas as Ligas" em "Carregando…"
+// por minutos.
+export async function getFaixasMultaDeClubes(clubIds: string[]): Promise<Map<string, FaixaMulta[]>> {
+  const mapa = new Map<string, FaixaMulta[]>()
+  if (clubIds.length === 0) return mapa
+  const { data } = await supabase
+    .from('regra_entidades')
+    .select('entidade_id, regras(id, tipo, regra_multa_faixas(quantidade, unidade, percentual))')
+    .eq('entidade_tipo', 'clube')
+    .in('entidade_id', clubIds)
+  const linhas = (data ?? []) as unknown as { entidade_id: string; regras: { id: string; tipo: string; regra_multa_faixas: FaixaMulta[] } | null }[]
+
+  // Regra 'faixa' (Cálculo) anexada ao clube pode ter uma Multa 'filha'
+  // (regra_pai_id) — guarda qual(is) clube(s) apontam pra cada Regra de
+  // Cálculo, pra atribuir de volta certinho depois do segundo SELECT.
+  const calculoIdParaClubes = new Map<string, string[]>()
+  for (const l of linhas) {
+    if (l.regras?.tipo === 'multa_atraso') {
+      mapa.set(l.entidade_id, [...(mapa.get(l.entidade_id) ?? []), ...(l.regras.regra_multa_faixas ?? [])])
+    } else if (l.regras?.tipo === 'faixa') {
+      const lista = calculoIdParaClubes.get(l.regras.id) ?? []
+      lista.push(l.entidade_id)
+      calculoIdParaClubes.set(l.regras.id, lista)
+    }
+  }
+  const calculoIds = [...calculoIdParaClubes.keys()]
+  if (calculoIds.length > 0) {
+    const { data: filhas } = await supabase
+      .from('regras')
+      .select('regra_pai_id, regra_multa_faixas(quantidade, unidade, percentual)')
+      .eq('tipo', 'multa_atraso')
+      .in('regra_pai_id', calculoIds)
+    for (const f of (filhas ?? []) as unknown as { regra_pai_id: string; regra_multa_faixas: FaixaMulta[] }[]) {
+      for (const clubeId of calculoIdParaClubes.get(f.regra_pai_id) ?? []) {
+        mapa.set(clubeId, [...(mapa.get(clubeId) ?? []), ...(f.regra_multa_faixas ?? [])])
+      }
+    }
+  }
+  return mapa
+}
+
 export interface ItemDividaAcerto {
   descricao: string
   valor: number
