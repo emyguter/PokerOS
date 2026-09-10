@@ -404,6 +404,7 @@ export const en: typeof pt = {
     taxa_liga_label: 'League Fee ({pct}%)',
     bilhetes_label: 'Tickets',
     pendencias_label: 'Pending / Advance',
+    multa_label: 'Late Settlement Fee ({pct}%)',
     seguranca_label: 'Security',
     rebate_label: 'Rebate',
     indicacao_label: 'Referral ({pct}%) {nome}',

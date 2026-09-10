@@ -402,6 +402,7 @@ export const pt = {
     taxa_liga_label: 'Taxa da Liga ({pct}%)',
     bilhetes_label: 'Bilhetes',
     pendencias_label: 'Pendências / Antecipação',
+    multa_label: 'Multa Atraso Acerto ({pct}%)',
     seguranca_label: 'Segurança',
     rebate_label: 'Rebate',
     indicacao_label: 'Indicação ({pct}%) {nome}',

@@ -6,7 +6,7 @@ import { useI18n } from '@/lib/i18n'
 import { getLayoutDoClube, resolverLayout, calcularTotalAcerto, corrigirValorCrypto, type CampoAcerto, type CampoResolvido } from '@/lib/relatorio-acerto'
 import { getDividasAcertoDoClube, type ItemDividaAcerto } from '@/lib/dividas'
 import { getVinculosAcerto, getIndicacoes } from '@/lib/cadastro-api'
-import { calcularIndicacao, buscarPendenciasEAntecipacaoAoVivo } from '@/lib/acertos-engine'
+import { calcularIndicacao, buscarPendenciasEAntecipacaoAoVivo, buscarMultaAtual } from '@/lib/acertos-engine'
 
 export interface AcertoCard {
   id: string
@@ -172,6 +172,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const [lancamentos, setLancamentos] = useState<LancamentoCard[]>([])
   const [dividasItens, setDividasItens] = useState<ItemDividaAcerto[]>([])
   const [pendenciasLive, setPendenciasLive] = useState(0)
+  const [multaLive, setMultaLive] = useState<{ valor: number; pct: number } | null>(null)
   const [layout, setLayout] = useState<CampoResolvido[]>(() => resolverLayout(null))
   // Clube Vinculado (mesmo clube em outra plataforma, ex: ClubGG + Sul HG) —
   // esse card ("Common Settlement / Acerto Geral") é o único lugar que soma
@@ -280,6 +281,19 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       // valor inicial do useState) como se estivesse tudo certo, sem
       // nenhum sinal de que o cálculo não completou.
       .catch((err) => console.error('Erro ao buscar Pendências/Antecipação ao vivo:', err))
+  }, [acerto.club_id, periodStart, periodEnd])
+
+  useEffect(() => {
+    // Multa numa linha própria, separada de Pendências/Antecipação — pedido
+    // do Cássio (mockup "Sun's PokerClub3": "Pendências/Antecipação" e
+    // "Multa Atraso Acerto" aparecem como 2 linhas distintas, cada uma com
+    // seu valor). O valor da multa já está embutido dentro de pendenciasLive
+    // (buscarSaldoArrastado soma ela no saldo corrido) — isso aqui só busca o
+    // detalhe (% vigente + R$) pra exibir, sem mudar o Total nem gravar nada.
+    if (!acerto.club_id || !periodStart) { setMultaLive(null); return }
+    buscarMultaAtual([acerto.club_id], periodEnd || periodStart)
+      .then((mapa) => setMultaLive(mapa.get(acerto.club_id as string) ?? null))
+      .catch((err) => { console.error('Erro ao buscar Multa Atraso Acerto ao vivo:', err); setMultaLive(null) })
   }, [acerto.club_id, periodStart, periodEnd])
 
   useEffect(() => {
@@ -552,6 +566,9 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         return <Linha key={campo} label={t('club_acerto_card.bilhetes_label')} value={bilhetesValor} />
       case 'pendencias':
         return <Linha key={campo} label={t('club_acerto_card.pendencias_label')} value={pendenciasValor} />
+      case 'multa':
+        if (!multaLive) return null
+        return <Linha key={campo} label={t('club_acerto_card.multa_label', { pct: fmtPct(multaLive.pct) })} value={multaLive.valor} />
       case 'seguranca':
         return <Linha key={campo} label={t('club_acerto_card.seguranca_label')} value={security} />
       case 'rebate':
