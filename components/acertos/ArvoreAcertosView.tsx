@@ -290,6 +290,15 @@ export function ArvoreAcertosView() {
           </button>
           {trayOpen && (
             <>
+              <label className="flex items-center gap-2.5 px-4 py-2 border-b border-gold/10 cursor-pointer text-xs text-gray-400 hover:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={trayChecked.size === pendentes.length}
+                  onChange={(e) => setTrayChecked(e.target.checked ? new Set(pendentes.map((p) => `${p.importId}|${p.externalId}`)) : new Set())}
+                  className="accent-gold w-3.5 h-3.5"
+                />
+                Selecionar todos
+              </label>
               <div className="px-3 pb-1 flex flex-col gap-0.5 max-h-64 overflow-y-auto">
                 {pendentes.map((p) => {
                   const chave = `${p.importId}|${p.externalId}`
