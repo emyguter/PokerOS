@@ -52,14 +52,6 @@ interface Props {
   // vinculados no escopo (resolverClubesVisiveis cobre isso), então continua
   // vendo a soma normalmente.
   clubeIdsVisiveis?: string[] | null
-  // Pedido do Cássio: o clube VINCULADO (quem aponta pra outro clube em
-  // clubs.vinculo_acerto_grupo_id) não pode ver o Acerto do clube PRINCIPAL
-  // (a âncora — quem tem o vínculo "cadastrado", ver lib/cadastro-api.ts) —
-  // só o principal enxerga o grupo combinado. Restrição só pro login do
-  // PRÓPRIO clube vinculado abrindo o PRÓPRIO card (login de Liga/Suporte/
-  // Admin continua vendo o grupo inteiro sempre — omite essa prop). true =
-  // aplica a restrição (ver useEffect de outrosMembros).
-  restringirVinculado?: boolean
 }
 
 interface ClubSettings {
@@ -174,7 +166,7 @@ async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd
   }
 }
 
-export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClose, clubeIdsVisiveis = null, restringirVinculado = false }: Props) {
+export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClose, clubeIdsVisiveis = null }: Props) {
   const { t } = useI18n()
   const [club, setClub] = useState<ClubSettings | null>(null)
   const [wtr, setWtr] = useState<number | null>(null)
@@ -331,17 +323,17 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
     if (!clubeId) { setOutrosMembros([]); return }
     ;(async () => {
       try {
-        // Restrição pedida pelo Cássio: o clube VINCULADO (quem tem
+        // Pedido do Cássio: o clube VINCULADO (quem tem
         // vinculo_acerto_grupo_id preenchido, apontando pra outro clube) não
-        // pode ver o grupo combinado quando é o PRÓPRIO login dele abrindo o
-        // PRÓPRIO card — só o clube PRINCIPAL (a âncora) enxerga. Checa isso
-        // ANTES de buscar os vínculos — se for o caso, nem busca, já fica
-        // como se não tivesse vínculo nenhum (mesmo comportamento de um
-        // clube solto).
-        if (restringirVinculado) {
-          const { data: clubeData } = await supabase.from('clubs').select('vinculo_acerto_grupo_id').eq('id', clubeId).maybeSingle()
-          if (clubeData?.vinculo_acerto_grupo_id != null) { setOutrosMembros([]); return }
-        }
+        // aparece agrupado no card — só o clube PRINCIPAL (a âncora, ver
+        // lib/cadastro-api.ts) mostra o grupo combinado. Vale sempre, pra
+        // QUALQUER login (inclusive Suporte/Admin) — "qualquer um que olhar
+        // precisa saber quem é o principal e quem é o vinculado", não só o
+        // login do próprio clube. Checa isso ANTES de buscar os vínculos —
+        // se for o caso, nem busca, já fica como se não tivesse vínculo
+        // nenhum (mesmo comportamento de um clube solto).
+        const { data: clubeData } = await supabase.from('clubs').select('vinculo_acerto_grupo_id').eq('id', clubeId).maybeSingle()
+        if (clubeData?.vinculo_acerto_grupo_id != null) { setOutrosMembros([]); return }
         const membros = await getVinculosAcerto(clubeId)
         // Login de Liga (clubeIdsVisiveis restrito) não vê o vinculado de
         // outra Liga combinado no total — ver comentário do Props acima.
@@ -350,7 +342,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         setOutrosMembros([])
       }
     })()
-  }, [acerto.club_id, clubeIdsVisiveis, restringirVinculado])
+  }, [acerto.club_id, clubeIdsVisiveis])
 
   useEffect(() => {
     // Quebra "Indicação" por clube indicado (pedido do Cássio, mesmo formato
@@ -694,10 +686,20 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
 
           {agrupado && (
             <>
-              {/* Total 1: só do próprio clube — o corpo do card acima nunca
-                  soma o vinculado, então esse total fecha exatamente com ele. */}
+              {/* Total 1: só do próprio clube, na moeda NATIVA dele — o corpo
+                  do card acima nunca soma o vinculado, então esse total fecha
+                  exatamente com ele. Quando o clube usa outra moeda (ex:
+                  CAZZINO em USD), mostra a moeda do lado — sem essa etiqueta,
+                  esse valor cru ficava do lado do "Acerto R$" (já em real) e
+                  do Total combinado (também já convertido pra real), dando a
+                  falsa impressão de que a conta não fechava (achado pelo
+                  Cássio: "3,74 + 2.702,79 não dá 2.725,23" — dava sim, só que
+                  o 3,74 era dólar). */}
               <div className="flex items-center justify-between py-2 px-3 bg-surface2">
-                <span className="text-white font-semibold text-sm">{t('club_acerto_card.total_clube', { nome: acerto.club_name })}</span>
+                <span className="text-white font-semibold text-sm">
+                  {t('club_acerto_card.total_clube', { nome: acerto.club_name })}
+                  {club?.moeda && club.moeda !== 'BRL' && <span className="text-gray-500 font-normal ml-1">({club.moeda})</span>}
+                </span>
                 <span className={`font-bold text-sm ${totalProprio >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(totalProprio)}</span>
               </div>
               <div className="py-1">

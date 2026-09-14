@@ -141,10 +141,6 @@ export function MeusAcertosView() {
           periodEnd={aberto.periodEnd}
           onClose={() => setAberto(null)}
           clubeIdsVisiveis={clubeIdsVisiveis}
-          // Só restringe quando é o PRÓPRIO login do clube abrindo o PRÓPRIO
-          // card (não um login de Liga olhando o clube por cima) — pedido do
-          // Cássio: o clube vinculado não pode ver o Acerto do principal.
-          restringirVinculado={profile?.clube_id === aberto.acerto.club_id}
         />
       )}
     </div>
