@@ -52,6 +52,14 @@ interface Props {
   // vinculados no escopo (resolverClubesVisiveis cobre isso), então continua
   // vendo a soma normalmente.
   clubeIdsVisiveis?: string[] | null
+  // Pedido do Cássio: o clube VINCULADO (quem aponta pra outro clube em
+  // clubs.vinculo_acerto_grupo_id) não pode ver o Acerto do clube PRINCIPAL
+  // (a âncora — quem tem o vínculo "cadastrado", ver lib/cadastro-api.ts) —
+  // só o principal enxerga o grupo combinado. Restrição só pro login do
+  // PRÓPRIO clube vinculado abrindo o PRÓPRIO card (login de Liga/Suporte/
+  // Admin continua vendo o grupo inteiro sempre — omite essa prop). true =
+  // aplica a restrição (ver useEffect de outrosMembros).
+  restringirVinculado?: boolean
 }
 
 interface ClubSettings {
@@ -166,7 +174,7 @@ async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd
   }
 }
 
-export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClose, clubeIdsVisiveis = null }: Props) {
+export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClose, clubeIdsVisiveis = null, restringirVinculado = false }: Props) {
   const { t } = useI18n()
   const [club, setClub] = useState<ClubSettings | null>(null)
   const [wtr, setWtr] = useState<number | null>(null)
@@ -319,13 +327,30 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   }, [acerto.club_id])
 
   useEffect(() => {
-    if (!acerto.club_id) { setOutrosMembros([]); return }
-    getVinculosAcerto(acerto.club_id)
-      // Login de Liga (clubeIdsVisiveis restrito) não vê o vinculado de
-      // outra Liga combinado no total — ver comentário do Props acima.
-      .then((membros) => setOutrosMembros(clubeIdsVisiveis ? membros.filter((m) => clubeIdsVisiveis.includes(m.id)) : membros))
-      .catch(() => setOutrosMembros([]))
-  }, [acerto.club_id, clubeIdsVisiveis])
+    const clubeId = acerto.club_id
+    if (!clubeId) { setOutrosMembros([]); return }
+    ;(async () => {
+      try {
+        // Restrição pedida pelo Cássio: o clube VINCULADO (quem tem
+        // vinculo_acerto_grupo_id preenchido, apontando pra outro clube) não
+        // pode ver o grupo combinado quando é o PRÓPRIO login dele abrindo o
+        // PRÓPRIO card — só o clube PRINCIPAL (a âncora) enxerga. Checa isso
+        // ANTES de buscar os vínculos — se for o caso, nem busca, já fica
+        // como se não tivesse vínculo nenhum (mesmo comportamento de um
+        // clube solto).
+        if (restringirVinculado) {
+          const { data: clubeData } = await supabase.from('clubs').select('vinculo_acerto_grupo_id').eq('id', clubeId).maybeSingle()
+          if (clubeData?.vinculo_acerto_grupo_id != null) { setOutrosMembros([]); return }
+        }
+        const membros = await getVinculosAcerto(clubeId)
+        // Login de Liga (clubeIdsVisiveis restrito) não vê o vinculado de
+        // outra Liga combinado no total — ver comentário do Props acima.
+        setOutrosMembros(clubeIdsVisiveis ? membros.filter((m) => clubeIdsVisiveis.includes(m.id)) : membros)
+      } catch {
+        setOutrosMembros([])
+      }
+    })()
+  }, [acerto.club_id, clubeIdsVisiveis, restringirVinculado])
 
   useEffect(() => {
     // Quebra "Indicação" por clube indicado (pedido do Cássio, mesmo formato
