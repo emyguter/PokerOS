@@ -175,10 +175,18 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
 
   const mostrarCalculo = editandoCalculo || criandoCompleto
   const mostrarLayout = editandoCalculo || editandoLayoutAvulso || criandoCompleto || criandoLayoutAvulso
+  // Layout Avulso (sem Cálculo) é a única etapa que fica "de pé" na lista de
+  // Regras sozinha — precisa de Nome próprio pra distinguir de outro Layout
+  // Avulso (achado pelo Cássio: dois clubes diferentes, dois Layouts, os
+  // dois aparecendo como "Layout do Acerto" na lista, sem dar pra saber qual
+  // é qual). Layout anexado a um Cálculo continua usando o nome fixo — ele
+  // nem aparece na lista principal (só o Cálculo pai aparece), então nomear
+  // não ajudaria em nada ali.
+  const mostrarLayoutAvulso = editandoLayoutAvulso || criandoLayoutAvulso
   const mostrarMultaComCheckbox = editandoCalculo || criandoCompleto
   const mostrarMultaFixa = editandoMultaAvulsa || criandoSoMulta
   const mostrarMulta = mostrarMultaFixa || (mostrarMultaComCheckbox && incluirMulta)
-  const precisaNome = mostrarCalculo || mostrarMulta
+  const precisaNome = mostrarCalculo || mostrarMulta || mostrarLayoutAvulso
 
   const multaConteudo = (
     <>
@@ -216,9 +224,10 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
     e.preventDefault()
     const result: RegraModalResult = {}
     if (mostrarCalculo) result.calculo = { nome, tipo: 'faixa', campo, condicoes, faixasMulta: [], layoutCampos: [] }
-    // Layout do Acerto não pede Nome — não faz muito sentido nomear "qual
-    // ordem os campos aparecem", então usa um nome fixo na lista de Regras.
-    if (mostrarLayout) result.layout = { nome: 'Layout do Acerto', tipo: 'layout_acerto', campo: null, condicoes: [], faixasMulta: [], layoutCampos }
+    // Layout Avulso usa o Nome digitado (ver mostrarLayoutAvulso acima);
+    // Layout anexado a um Cálculo continua com nome fixo — não aparece
+    // sozinho na lista de Regras, nomear não ajudaria em nada ali.
+    if (mostrarLayout) result.layout = { nome: mostrarLayoutAvulso ? nome : 'Layout do Acerto', tipo: 'layout_acerto', campo: null, condicoes: [], faixasMulta: [], layoutCampos }
     if (mostrarMulta) result.multa = { nome, tipo: 'multa_atraso', campo: null, condicoes: [], faixasMulta, layoutCampos: [] }
     // Editando um Cálculo que já tinha Multa anexada e o checkbox foi
     // desmarcado — sinaliza pra apagar a filha em vez de só não enviar nada.
