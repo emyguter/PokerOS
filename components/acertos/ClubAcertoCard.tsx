@@ -717,9 +717,18 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           {/* Total 2: soma o Total do próprio clube com o de cada vinculado
               (só quando agrupado) — os "2 totais" pedidos pelo Cássio: um só
               da própria Liga (acima), outro considerando a Liga do
-              vinculado também (esse aqui). */}
+              vinculado também (esse aqui). Quando NÃO agrupado (achado pelo
+              Cássio: card do clube vinculado, que agora nunca mostra o grupo,
+              cai direto nessa linha em vez da "Total {clube}" acima), esse
+              Total é o mesmo totalProprio, na moeda NATIVA do clube — mesma
+              etiqueta de moeda da linha "Total {clube}". Quando agrupado, o
+              Total aqui já é a soma convertida pra moeda comum (ver
+              totaisPorMembro), não precisa de etiqueta. */}
           <div className="flex items-center justify-between py-3 px-3 bg-surface2">
-            <span className="text-white font-semibold text-sm">{t('club_acerto_card.total')}</span>
+            <span className="text-white font-semibold text-sm">
+              {t('club_acerto_card.total')}
+              {!agrupado && club?.moeda && club.moeda !== 'BRL' && <span className="text-gray-500 font-normal ml-1">({club.moeda})</span>}
+            </span>
             <span className={`font-bold text-base ${total >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(total)}</span>
           </div>
 
