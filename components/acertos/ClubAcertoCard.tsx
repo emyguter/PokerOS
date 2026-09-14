@@ -52,6 +52,14 @@ interface Props {
   // vinculados no escopo (resolverClubesVisiveis cobre isso), então continua
   // vendo a soma normalmente.
   clubeIdsVisiveis?: string[] | null
+  // Pedido do Cássio: o clube VINCULADO (quem aponta pra outro clube em
+  // clubs.vinculo_acerto_grupo_id) não pode ver o Acerto do clube PRINCIPAL
+  // (a âncora — quem tem o vínculo "cadastrado", ver lib/cadastro-api.ts) —
+  // só o principal enxerga o grupo combinado. Restrição só pro login do
+  // PRÓPRIO clube vinculado abrindo o PRÓPRIO card (login de Liga/Suporte/
+  // Admin continua vendo o grupo inteiro sempre — omite essa prop). true =
+  // aplica a restrição (ver useEffect de outrosMembros).
+  restringirVinculado?: boolean
 }
 
 interface ClubSettings {
@@ -97,6 +105,7 @@ interface AcertoGrupoRow {
   indicacao_valor: number
   rebate_calculado: number
   valor_acerto: number
+  cotacao: number | null
 }
 
 interface ExtrasClube {
@@ -165,7 +174,7 @@ async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd
   }
 }
 
-export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClose, clubeIdsVisiveis = null }: Props) {
+export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClose, clubeIdsVisiveis = null, restringirVinculado = false }: Props) {
   const { t } = useI18n()
   const [club, setClub] = useState<ClubSettings | null>(null)
   const [wtr, setWtr] = useState<number | null>(null)
@@ -182,6 +191,11 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const [outrosMembros, setOutrosMembros] = useState<{ id: string; nome: string; plataformaNome: string; ligaNome: string }[]>([])
   const [acertosGrupo, setAcertosGrupo] = useState<AcertoGrupoRow[]>([])
   const [extrasPorClube, setExtrasPorClube] = useState<Map<string, ExtrasClube>>(new Map())
+  // Moeda de cada membro do grupo (ver totaisPorMembro abaixo) — achado no
+  // caso CAZZINO (USD) + Believe Poker 3 (BRL): a soma do Acerto combinado
+  // não pode misturar moeda crua, cada membro precisa converter pro BRL
+  // antes de entrar na soma (confirmado pelo Cássio).
+  const [moedaPorClube, setMoedaPorClube] = useState<Map<string, { moeda_conversao: string | null; cotacao: number | null }>>(new Map())
   const [indicacoesDetalhe, setIndicacoesDetalhe] = useState<{ nome: string; pct: number; valor: number }[]>([])
 
   useEffect(() => {
@@ -313,13 +327,30 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   }, [acerto.club_id])
 
   useEffect(() => {
-    if (!acerto.club_id) { setOutrosMembros([]); return }
-    getVinculosAcerto(acerto.club_id)
-      // Login de Liga (clubeIdsVisiveis restrito) não vê o vinculado de
-      // outra Liga combinado no total — ver comentário do Props acima.
-      .then((membros) => setOutrosMembros(clubeIdsVisiveis ? membros.filter((m) => clubeIdsVisiveis.includes(m.id)) : membros))
-      .catch(() => setOutrosMembros([]))
-  }, [acerto.club_id, clubeIdsVisiveis])
+    const clubeId = acerto.club_id
+    if (!clubeId) { setOutrosMembros([]); return }
+    ;(async () => {
+      try {
+        // Restrição pedida pelo Cássio: o clube VINCULADO (quem tem
+        // vinculo_acerto_grupo_id preenchido, apontando pra outro clube) não
+        // pode ver o grupo combinado quando é o PRÓPRIO login dele abrindo o
+        // PRÓPRIO card — só o clube PRINCIPAL (a âncora) enxerga. Checa isso
+        // ANTES de buscar os vínculos — se for o caso, nem busca, já fica
+        // como se não tivesse vínculo nenhum (mesmo comportamento de um
+        // clube solto).
+        if (restringirVinculado) {
+          const { data: clubeData } = await supabase.from('clubs').select('vinculo_acerto_grupo_id').eq('id', clubeId).maybeSingle()
+          if (clubeData?.vinculo_acerto_grupo_id != null) { setOutrosMembros([]); return }
+        }
+        const membros = await getVinculosAcerto(clubeId)
+        // Login de Liga (clubeIdsVisiveis restrito) não vê o vinculado de
+        // outra Liga combinado no total — ver comentário do Props acima.
+        setOutrosMembros(clubeIdsVisiveis ? membros.filter((m) => clubeIdsVisiveis.includes(m.id)) : membros)
+      } catch {
+        setOutrosMembros([])
+      }
+    })()
+  }, [acerto.club_id, clubeIdsVisiveis, restringirVinculado])
 
   useEffect(() => {
     // Quebra "Indicação" por clube indicado (pedido do Cássio, mesmo formato
@@ -354,22 +385,26 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const idsGrupoChave = idsGrupo.join(',')
 
   useEffect(() => {
-    if (idsGrupo.length === 0 || !periodEnd) { setAcertosGrupo([]); setExtrasPorClube(new Map()); return }
+    if (idsGrupo.length === 0 || !periodEnd) { setAcertosGrupo([]); setExtrasPorClube(new Map()); setMoedaPorClube(new Map()); return }
     let cancelado = false
     ;(async () => {
       const { data: importsData } = await supabase.from('imports').select('id').eq('period_end', periodEnd)
       const importIds = (importsData ?? []).map((i) => i.id as string)
-      if (importIds.length === 0) { if (!cancelado) { setAcertosGrupo([]); setExtrasPorClube(new Map()) }; return }
-      const { data } = await supabase
-        .from('acertos')
-        .select('club_id, club_name, import_id, rake_mtt, rake_cash, rake_total, player_result, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, bilhetes, indicacao_valor, rebate_calculado, valor_acerto')
-        .in('club_id', idsGrupo)
-        .in('import_id', importIds)
+      if (importIds.length === 0) { if (!cancelado) { setAcertosGrupo([]); setExtrasPorClube(new Map()); setMoedaPorClube(new Map()) }; return }
+      const [{ data }, { data: clubesData }] = await Promise.all([
+        supabase
+          .from('acertos')
+          .select('club_id, club_name, import_id, rake_mtt, rake_cash, rake_total, player_result, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, bilhetes, indicacao_valor, rebate_calculado, valor_acerto, cotacao')
+          .in('club_id', idsGrupo)
+          .in('import_id', importIds),
+        supabase.from('clubs').select('id, moeda_conversao, cotacao').in('id', idsGrupo),
+      ])
       const linhas = (data ?? []) as AcertoGrupoRow[]
       const extras = await Promise.all(linhas.map(async (r) => [r.club_id, await buscarExtrasClube(r.club_id, periodStart, periodEnd, r.rake_total)] as const))
       if (cancelado) return
       setAcertosGrupo(linhas)
       setExtrasPorClube(new Map(extras))
+      setMoedaPorClube(new Map(((clubesData ?? []) as { id: string; moeda_conversao: string | null; cotacao: number | null }[]).map((c) => [c.id, { moeda_conversao: c.moeda_conversao, cotacao: c.cotacao }])))
     })()
     return () => { cancelado = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -431,23 +466,28 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         ...outrosMembros.map((m) => ({ id: m.id, nomeCadastro: m.nome, ligaNome: m.ligaNome })),
       ].map(({ id, nomeCadastro, ligaNome: ligaDoMembro }) => {
         const r = acertosGrupo.find((row) => row.club_id === id)
-        if (!r) return { id, nome: nomeCadastro, ligaNome: ligaDoMembro, total: 0 }
+        if (!r) return { id, nome: nomeCadastro, ligaNome: ligaDoMembro, total: 0, totalConvertido: 0 }
         const extras = extrasPorClube.get(r.club_id)
         const lancLiquido = (extras?.lancamentos ?? []).reduce((s, l) => s + (l.natureza === 'credito' ? l.valor : -l.valor), 0)
         const dividasT = (extras?.dividasItens ?? []).reduce((s, d) => s + d.valor, 0)
-        return {
-          id,
-          nome: r.club_name,
-          ligaNome: ligaDoMembro,
-          total: calcularTotalAcerto(r.valor_acerto, {
-            bilhetes: r.bilhetes,
-            pendenciasAntecipacao: extras?.pendenciasAntecipacao ?? 0,
-            security: extras?.security ?? 0,
-            indicacaoValor: r.indicacao_valor,
-            lancamentosLiquido: lancLiquido,
-            dividasTotal: dividasT,
-          }),
-        }
+        const total = calcularTotalAcerto(r.valor_acerto, {
+          bilhetes: r.bilhetes,
+          pendenciasAntecipacao: extras?.pendenciasAntecipacao ?? 0,
+          security: extras?.security ?? 0,
+          indicacaoValor: r.indicacao_valor,
+          lancamentosLiquido: lancLiquido,
+          dividasTotal: dividasT,
+        })
+        // Converte pra uma moeda comum (BRL) ANTES de somar no grupo — achado
+        // no caso CAZZINO (USD) + Believe Poker 3 (BRL): sem isso, o Total
+        // combinado somava dólar cru com real cru (confirmado pelo Cássio:
+        // "precisaria ver a cotação, e calcular a soma do acerto cazzino em
+        // real e então somar com believe"). Membro sem "Converter para"
+        // cadastrado (a maioria) já está em BRL, `total` entra sem alteração.
+        const moeda = moedaPorClube.get(id)
+        const cotacaoMembro = r.cotacao ?? moeda?.cotacao ?? null
+        const totalConvertido = moeda?.moeda_conversao && cotacaoMembro ? total / cotacaoMembro : total
+        return { id, nome: r.club_name, ligaNome: ligaDoMembro, total, totalConvertido }
       })
     : []
 
@@ -473,10 +513,15 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   // compõe o Acerto de verdade. Nada pode ficar de fora (confirmado pelo
   // Cássio) — mesma fórmula usada na lista de Acertos e no Controle de
   // Pagamentos, pra nunca dar número diferente em lugares diferentes.
-  // Agrupado: soma os totais individuais de cada clube do grupo (dá o mesmo
-  // resultado que somar tudo direto, já que calcularTotalAcerto é linear).
+  // Agrupado: soma o totalConvertido (já em moeda comum, ver totaisPorMembro
+  // acima) de cada clube do grupo — não dá mais pra somar `total` cru direto
+  // quando os membros usam moedas diferentes. `totalProprio` (Total 1, "só
+  // do próprio clube") continua na moeda NATIVA do clube — por isso, quando
+  // algum membro precisa de conversão, Total 1 + soma dos "Acerto R$" não
+  // bate mais centavo a centavo com Total 2 (esperado: são moedas
+  // diferentes, não dá pra somar sem converter).
   const total = agrupado
-    ? totaisPorMembro.reduce((s, m) => s + m.total, 0)
+    ? totaisPorMembro.reduce((s, m) => s + m.totalConvertido, 0)
     : totalProprio
 
   // Crypto Rebate NÃO muda o Total guardado do Acerto — é só uma segunda
@@ -660,7 +705,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
                 {outrosTotais.map((m) => (
                   <div key={m.id} className="flex items-center justify-between py-1 px-3 text-sm">
                     <span className="text-gray-400">{t('club_acerto_card.acerto_rs', { nome: m.nome, liga: m.ligaNome })}</span>
-                    <span className="text-white font-medium">{fmt(m.total)}</span>
+                    <span className="text-white font-medium">{fmt(m.totalConvertido)}</span>
                   </div>
                 ))}
               </div>
