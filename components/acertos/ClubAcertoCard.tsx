@@ -497,8 +497,18 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   // muda sozinho quando alguém atualiza a Cotação hoje (perguntado pelo
   // Cássio: "mas quando calculou foi com qual valor?"). Cai pro valor ao
   // vivo só em Acertos antigos, calculados antes dessa coluna existir.
+  //
+  // Converte só o `totalProprio` (o próprio clube), NUNCA o `total`
+  // agrupado — achado no caso CAZZINO/Believe Poker 3: CAZZINO cadastrado
+  // em USD com Believe Poker 3 (vinculado, em BRL) somava os dois crus no
+  // `total` combinado, e essa linha convertia essa soma já misturada pela
+  // cotação do CAZZINO, dando um valor absurdo (R$16.241,70 num Acerto de
+  // poucos reais). Confirmado pelo Cássio com o card do Believe Poker 3
+  // como referência do "ideal": o lado vinculado nem tenta converter o
+  // Total combinado, só mostra ele cru — a conversão é sempre uma conta
+  // isolada do PRÓPRIO clube, nunca atravessa o vínculo.
   const cotacaoUsada = acerto.cotacao ?? club?.cotacao ?? null
-  const totalConvertido = club?.moeda_conversao && cotacaoUsada ? total / cotacaoUsada : null
+  const totalConvertido = club?.moeda_conversao && cotacaoUsada ? totalProprio / cotacaoUsada : null
 
   // O layout (Regra vinculada ao clube) só decide QUAIS linhas aparecem e em
   // que ordem — o Total sempre soma tudo, igual já funciona no Liberar para

@@ -280,11 +280,24 @@ export function calcularAcerto(
       // (confirmado pelo Cássio), por isso fica de fora do fee_calculado e
       // entra somando no Valor do Acerto, não subtraindo.
       fee_calculado = fee_mtt_valor + fee_cash_valor + fee_operacional_valor;
+      // Rebate % (cadastro do clube) — até aqui só entrava pros tipos
+      // rakeback/weekly_usd, ficando sempre 0 aqui mesmo com % cadastrado
+      // (achado no caso 7 Eleven: 10% cadastrado, card sempre mostrava
+      // "Rebate -0,00"). Fórmula confirmada pelo Cássio, batendo exato com a
+      // planilha de referência (7 Eleven: Rake 3.357,98, Ganhos -8.572,93,
+      // 10% → Rebate 521,50): (Ganhos/Perdas + Rake Total) × Rebate% — mesma
+      // convenção de sinal já usada pros outros tipos (ClubAcertoCard exibe
+      // -rebate_calculado): fica negativo aqui (logo, exibido positivo/
+      // crédito) quando a perda supera o Rake, e positivo aqui (exibido
+      // negativo/cobrança) quando o Rake é maior que a perda do jogador
+      // (achado no Arena do Baralho, confirmado pelo Cássio).
+      rebate_calculado = (row.player_result + rake_total) * ((club.rebate_pct ?? 0) / 100);
       // Valor do Acerto = soma de todas as variáveis do período (confirmado
       // com a planilha manual do Cássio, fórmula =ARRED(SOMA(...);2)): Rake
       // Total + Ganhos/Perdas do jogador + SpinUp (crédito) − a taxa cobrada
-      // (custo do clube).
-      valor_acerto = rake_total + row.player_result + fee_spinup_valor - fee_calculado;
+      // (custo do clube) − Rebate (que aqui já vem com o sinal invertido do
+      // que é exibido, ver comentário acima).
+      valor_acerto = rake_total + row.player_result + fee_spinup_valor - fee_calculado - rebate_calculado;
       break;
     }
     case "taxa_fixa_variavel": {
@@ -309,7 +322,11 @@ export function calcularAcerto(
       }
 
       fee_calculado = taxaFixaVariavel + fee_operacional_valor;
-      valor_acerto = rake_total + row.player_result - fee_calculado;
+      // Rebate % (cadastro do clube) — mesmo bug e mesma fórmula/convenção de
+      // sinal do case "taxa_dinamica" acima (ver comentário lá): (Ganhos/
+      // Perdas + Rake Total) × Rebate%.
+      rebate_calculado = (row.player_result + rake_total) * ((club.rebate_pct ?? 0) / 100);
+      valor_acerto = rake_total + row.player_result - fee_calculado - rebate_calculado;
       break;
     }
     case "rakeback":

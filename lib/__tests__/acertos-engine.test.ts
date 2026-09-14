@@ -322,6 +322,29 @@ describe('calcularAcerto — outros tipos de cobrança', () => {
     expect(resultado.valor_acerto).toBe(1000 - 100 - 190) // 710
   })
 
+  it('taxa_fixa_variavel: Rebate % vira crédito quando a perda do jogador supera o Rake (caso real 7 Eleven)', () => {
+    // Confirmado pelo Cássio: 10% cadastrado, mas o card sempre mostrava
+    // "Rebate -0,00" — Rebate só entrava pra rakeback/weekly_usd antes desse
+    // fix. Valores reais do 7 Eleven, semana 03/08-09/08: Rake 3.357,98,
+    // Ganhos/Perdas -8.572,93, bate exato com a planilha de referência
+    // (Rebate 521,50, Total USD -910,80 = Rake+P&L+Fee+Rebate+Pending-Security).
+    const r = row({ rake_total: 3357.98, player_result: -8572.93 })
+    const c = club({ settlement_type: 'taxa_fixa_variavel', fee_mtt_pct: 5, taxa_op_ativo: false, rebate_pct: 10 })
+    const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
+    expect(resultado.fee_calculado).toBe(167.9) // 3357.98 * 5%
+    // Rebate exibido no card é -rebate_calculado (ver ClubAcertoCard) — aqui
+    // rebate_calculado vem negativo pra exibir como crédito positivo (521,50).
+    expect(-resultado.rebate_calculado).toBeCloseTo(521.5, 2)
+    expect(resultado.valor_acerto).toBeCloseTo(-4861.35, 2)
+  })
+
+  it('taxa_fixa_variavel: Rebate % vira cobrança quando o Rake supera a perda do jogador (caso real Arena do Baralho)', () => {
+    const r = row({ rake_total: 11482.38, player_result: -8061.13 })
+    const c = club({ settlement_type: 'taxa_fixa_variavel', fee_mtt_pct: 5, taxa_op_ativo: true, taxa_op_pct: 0, rebate_pct: 10 })
+    const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
+    expect(-resultado.rebate_calculado).toBeCloseTo(-342.12, 2) // negativo = cobrança, confirmado pelo Cássio
+  })
+
   it('rakeback: rebate sobre o rake total, valor do acerto é o rebate negativo (custo da liga)', () => {
     const r = row({ rake_total: 1000 })
     const c = club({ settlement_type: 'rakeback', rakeback_pct: 8 })
