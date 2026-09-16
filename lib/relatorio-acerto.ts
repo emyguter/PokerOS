@@ -14,7 +14,7 @@ export const CAMPOS_OBRIGATORIOS = [
 // de propósito pra não ter dois lugares representando o mesmo bônus.
 export const CAMPOS_OPCIONAIS = [
   'taxa_mtt', 'wtr4', 'taxa_cash', 'rake_mtt', 'rake_cash', 'taxa_operacional', 'taxa_liga',
-  'rebate',
+  'rebate', 'rakeback',
 ] as const
 
 export type CampoAcerto = (typeof CAMPOS_OBRIGATORIOS)[number] | (typeof CAMPOS_OPCIONAIS)[number]
@@ -37,6 +37,7 @@ export const LABEL_CAMPO: Record<CampoAcerto, string> = {
   taxa_operacional: 'Taxa Operacional',
   taxa_liga: 'Taxa da Liga',
   rebate: 'Rebate',
+  rakeback: 'Rakeback',
   indicacao: 'Indicação',
   lancamentos_periodo: 'Lançamentos do período',
   dividas_acordos: 'Dívidas / Acordos',
@@ -48,7 +49,7 @@ export const LAYOUT_PADRAO: CampoAcerto[] = [
   'semana', 'clube', 'taxa_mtt', 'wtr4', 'taxa_cash',
   'rake_total', 'rake_mtt', 'rake_cash', 'ganhos',
   'taxa_operacional', 'spinup', 'taxa_liga', 'bilhetes', 'pendencias', 'multa', 'seguranca',
-  'rebate', 'indicacao', 'lancamentos_periodo', 'dividas_acordos',
+  'rebate', 'rakeback', 'indicacao', 'lancamentos_periodo', 'dividas_acordos',
 ]
 
 export function ehObrigatorio(campo: string): boolean {
