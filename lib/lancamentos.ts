@@ -10,9 +10,9 @@ export async function desvincularConciliacao(lancamentoId: string): Promise<void
 // Tipos que passam pelo fluxo de "Liberar para Acerto" — Bloqueio/Reembolso
 // da Segurança e Bônus/Promoção/Outro do Suporte. Caução, Pagamento e
 // Antecipação ficam de fora de propósito: já têm o próprio gate (validação
-// da Genia, Acerto vinculado, Conciliação). O motor de cálculo soma tudo
-// independente de liberado — só a visão do clube (app/extrato) esconde o
-// que ainda não foi liberado.
+// da Genia, Acerto vinculado, Conciliação). O motor de cálculo só soma um
+// desses tipos depois de Liberado (pedido do Cássio) — antes disso fica de
+// fora tanto da visão do clube (app/extrato) quanto do Acerto interno.
 export const TIPOS_LIBERAVEIS = ['seguranca_bloqueio', 'seguranca_reembolso', 'bonus', 'promocao', 'outro'] as const
 
 export async function liberarLancamentos(ids: string[]): Promise<void> {

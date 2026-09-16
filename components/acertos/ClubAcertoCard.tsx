@@ -153,6 +153,9 @@ async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd
       // o valor se a data cair dentro da janela dessa semana (achado no
       // CHIP COIN: pagamento que fechou a semana anterior "vazando" pra cá).
       .neq('tipo', 'pagamento')
+      // Só conta no Acerto depois de Liberado (pedido do Cássio) — antes
+      // disso é só um lançamento pendente na tela de Lançamento.
+      .eq('liberado', true)
       .gte('data_lancamento', periodStart)
       .lte('data_lancamento', periodEnd || periodStart),
     getDividasAcertoDoClube(clubeId, periodEnd || periodStart, rakeTotal),
@@ -265,6 +268,9 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       // aqui de novo dobra o valor quando a data cai dentro da janela dessa
       // semana (ver mesmo comentário em buscarExtrasClube acima).
       .neq('tipo', 'pagamento')
+      // Só conta no Acerto depois de Liberado (pedido do Cássio) — antes
+      // disso é só um lançamento pendente na tela de Lançamento.
+      .eq('liberado', true)
       .gte('data_lancamento', periodStart)
       .lte('data_lancamento', periodEnd || periodStart)
       .then(({ data }) => setLancamentos(data ?? []))
@@ -442,6 +448,13 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const rebateDisplay = -rebateCalculado
   const lancamentosLiquido = lancamentosDisplay.reduce((s, l) => s + (l.natureza === 'credito' ? l.valor : -l.valor), 0)
   const dividasTotal = dividasDisplay.reduce((s, d) => s + d.valor, 0)
+  // Soma ao vivo (% cadastrado hoje × rake atual de quem foi indicado, ver
+  // indicacoesDetalhe acima) — achado pelo Cássio (CranberryFields): a linha
+  // "Indicação" aparecia certa no card, mas o Total continuava usando
+  // acerto.indicacao_valor, a "foto" gravada da última vez que o Acerto foi
+  // calculado, que não inclui indicação cadastrada/alterada depois. Mesmo
+  // padrão já usado pra Pendências/Antecipação (pendenciasLive).
+  const indicacaoLive = indicacoesDetalhe.reduce((s, d) => s + d.valor, 0)
 
   // Cada clube do grupo tem seu próprio "Acerto R$" (o total que ele sozinho
   // teria) — mostrado como quebra logo acima do Total combinado, pedido do
@@ -462,11 +475,16 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         const extras = extrasPorClube.get(r.club_id)
         const lancLiquido = (extras?.lancamentos ?? []).reduce((s, l) => s + (l.natureza === 'credito' ? l.valor : -l.valor), 0)
         const dividasT = (extras?.dividasItens ?? []).reduce((s, d) => s + d.valor, 0)
+        // Indicação ao vivo (indicacaoLive) só existe pro PRÓPRIO clube do
+        // card (indicacoesDetalhe busca só pra acerto.club_id) — pros demais
+        // membros do grupo, cai pra r.indicacao_valor (foto do último
+        // cálculo), mesma limitação de outros campos por-membro já aceita
+        // no resto do card.
         const total = calcularTotalAcerto(r.valor_acerto, {
           bilhetes: r.bilhetes,
           pendenciasAntecipacao: extras?.pendenciasAntecipacao ?? 0,
           security: extras?.security ?? 0,
-          indicacaoValor: r.indicacao_valor,
+          indicacaoValor: id === acerto.club_id ? indicacaoLive : r.indicacao_valor,
           lancamentosLiquido: lancLiquido,
           dividasTotal: dividasT,
         })
@@ -478,7 +496,12 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         // cadastrado (a maioria) já está em BRL, `total` entra sem alteração.
         const moeda = moedaPorClube.get(id)
         const cotacaoMembro = r.cotacao ?? moeda?.cotacao ?? null
-        const totalConvertido = moeda?.moeda_conversao && cotacaoMembro ? total / cotacaoMembro : total
+        // Cotação agora é "1 {moeda do clube} vale quantos {moeda_conversao}"
+        // (pedido do Cássio: mais natural com a moeda base sendo o dólar) —
+        // multiplica em vez de dividir. Clubes já cadastrados antes dessa
+        // mudança tiveram o valor migrado (ver migration), então continua
+        // dando o mesmo resultado de sempre.
+        const totalConvertido = moeda?.moeda_conversao && cotacaoMembro ? total * cotacaoMembro : total
         return { id, nome: r.club_name, ligaNome: ligaDoMembro, total, totalConvertido }
       })
     : []
@@ -494,7 +517,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         bilhetes: acerto.bilhetes,
         pendenciasAntecipacao: pendenciasLive,
         security,
-        indicacaoValor: acerto.indicacao_valor,
+        indicacaoValor: indicacaoLive,
         lancamentosLiquido,
         dividasTotal,
       })
@@ -544,8 +567,12 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   // como referência do "ideal": o lado vinculado nem tenta converter o
   // Total combinado, só mostra ele cru — a conversão é sempre uma conta
   // isolada do PRÓPRIO clube, nunca atravessa o vínculo.
+  // Cotação agora é "1 {moeda do clube} vale quantos {moeda_conversao}"
+  // (pedido do Cássio) — multiplica em vez de dividir. Valores já
+  // cadastrados antes dessa mudança foram migrados (ver migration), o
+  // resultado final continua o mesmo de sempre.
   const cotacaoUsada = acerto.cotacao ?? club?.cotacao ?? null
-  const totalConvertido = club?.moeda_conversao && cotacaoUsada ? totalProprio / cotacaoUsada : null
+  const totalConvertido = club?.moeda_conversao && cotacaoUsada ? totalProprio * cotacaoUsada : null
 
   // O layout (Regra vinculada ao clube) só decide QUAIS linhas aparecem e em
   // que ordem — o Total sempre soma tudo, igual já funciona no Liberar para
@@ -605,8 +632,17 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         // sozinho contava ela duas vezes (achado no caso AK AMAKHA club 2:
         // 19% mostrado, mas só 10% era taxa de verdade — os outros 9% já
         // apareciam de novo na linha de Taxa Operacional).
-        const valorTaxaLiga = taxaLigaValor !== 0 || acerto.settlement_type === 'taxa_dinamica' ? taxaLigaValor : feeCalculadoValor - feeOperacionalValor
-        const pct = rakeTotal > 0 ? (valorTaxaLiga / rakeTotal) * 100 : 0
+        const semTaxaLigaReal = taxaLigaValor === 0 && acerto.settlement_type !== 'taxa_dinamica'
+        const valorTaxaLiga = semTaxaLigaReal ? feeCalculadoValor - feeOperacionalValor : taxaLigaValor
+        // % mostrado: nesse fallback (sem Taxa da Liga de verdade, valor é só
+        // referência de outra taxa), NÃO recalcula dividendo o valor já
+        // arredondado pelo Rake — com Rake pequeno isso distorce muito (achado
+        // no clube Rigel: Rake 0,50, Fee 5% cadastrado arredondava o valor pra
+        // 0,03, e 0,03÷0,50 mostrava "6,00%" em vez de 5%, confirmado pelo
+        // Cássio: "ele deve informar o que está cadastrado apenas"). Usa o %
+        // cadastrado no clube direto — mesma fonte que gerou esse valor de
+        // referência (fee_calculado, sem Regra SE/ENTÃO, cai no % fixo).
+        const pct = semTaxaLigaReal ? (club?.fee_mtt_pct ?? 0) : (rakeTotal > 0 ? (valorTaxaLiga / rakeTotal) * 100 : 0)
         return <Linha key={campo} label={t('club_acerto_card.taxa_liga_label', { pct: fmtPct(pct) })} value={-valorTaxaLiga} />
       }
       case 'bilhetes':

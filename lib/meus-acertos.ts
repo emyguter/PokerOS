@@ -93,6 +93,9 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
       // agregarPagamentos em lib/pagamentos.ts) — contar aqui de novo dobra
       // o valor (mesmo ajuste feito no AcertosView/ClubAcertoCard).
       .neq('tipo', 'pagamento')
+      // Só conta no Acerto depois de Liberado (pedido do Cássio) — antes
+      // disso é só um lançamento pendente na tela de Lançamento.
+      .eq('liberado', true)
       .lte('data_lancamento', periodoFim),
     ...[...gruposPorImport.values()].map((g) => buscarPendenciasEAntecipacaoAoVivo(g.clubIds, g.periodStart, g.periodEnd)),
   ])

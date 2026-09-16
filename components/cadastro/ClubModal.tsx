@@ -506,9 +506,6 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               <NumInput value={form.cotacao} onChange={v => set('cotacao', v)} placeholder={t('club_modal.cotacao_placeholder')} />
             </Fld>
           )}
-          <p className="text-xs text-gray-500 -mt-2">
-            {t('club_modal.conversao_desc')}
-          </p>
         </>
       )}
 

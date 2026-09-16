@@ -1,9 +1,10 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { getAgentes, createAgente, updateAgente, syncAgentePlataformas, syncClubeAgentes, syncSubAgentes, getPlataformas } from '@/lib/cadastro-api'
-import type { Agente, AgenteForm, AgentePlataforma, Plataforma, ClubeVinculado } from '@/lib/types'
+import { getAgentes, createAgente, updateAgente, syncAgentePlataformas, syncClubeAgentes, syncSubAgentes, getPlataformas, getClubs } from '@/lib/cadastro-api'
+import type { Agente, AgenteForm, AgentePlataforma, Plataforma, ClubeVinculado, Club } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { AgenteModal } from '@/components/cadastro/AgenteModal'
+import { BuscaSelect } from '@/components/BuscaSelect'
 import { Plus } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 
@@ -11,6 +12,8 @@ export default function SuperAgentesPage() {
   const { t } = useI18n()
   const [todos, setTodos] = useState<Agente[]>([])
   const [plataformas, setPlataformas] = useState<Plataforma[]>([])
+  const [clubes, setClubes] = useState<Club[]>([])
+  const [clubeFiltro, setClubeFiltro] = useState('')
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Agente | null>(null)
@@ -20,8 +23,8 @@ export default function SuperAgentesPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [a, p] = await Promise.all([getAgentes(), getPlataformas()])
-      setTodos(a); setPlataformas(p)
+      const [a, p, c] = await Promise.all([getAgentes(), getPlataformas(), getClubs()])
+      setTodos(a); setPlataformas(p); setClubes(c)
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
   }, [])
@@ -29,8 +32,20 @@ export default function SuperAgentesPage() {
   useEffect(() => { load() }, [load])
 
   // Super Agente = agente que aparece como superagente_id de pelo menos um outro
-  const superAgentes = todos.filter(a => todos.some(o => o.superagente_id === a.id))
   const subAgentesDe = (id: string) => todos.filter(o => o.superagente_id === id).map(o => ({ id: o.id, nome: o.nome, email: o.email }))
+  // Clubes do super agente = os dele + os de todos os sub-agentes vinculados
+  // abaixo (o super agente pode não ter clube próprio nenhum, só os que vêm
+  // pelos agentes que reportam a ele).
+  const clubIdsDoSuperAgente = (sa: Agente): Set<string> => {
+    const ids = new Set<string>((sa.clube_agentes ?? []).map(ca => ca.clube_id))
+    for (const sub of todos.filter(o => o.superagente_id === sa.id)) {
+      for (const ca of sub.clube_agentes ?? []) ids.add(ca.clube_id)
+    }
+    return ids
+  }
+  const superAgentes = todos
+    .filter(a => todos.some(o => o.superagente_id === a.id))
+    .filter(a => !clubeFiltro || clubIdsDoSuperAgente(a).has(clubeFiltro))
 
   const vinculosIniciais = (item: Agente | null): AgentePlataforma[] =>
     item?.agente_plataformas?.map(v => ({
@@ -80,8 +95,21 @@ export default function SuperAgentesPage() {
         </button>
       </div>
 
+      <div className="flex items-center gap-3">
+        <div className="w-64">
+          <BuscaSelect
+            value={clubeFiltro}
+            onChange={setClubeFiltro}
+            opcoes={clubes.map(c => ({ id: c.id, nome: c.name }))}
+            placeholder={t('super_agentes.filtro_clube')}
+            vazio={t('super_agentes.todos_clubes')}
+          />
+        </div>
+        <span className="text-sm text-gray-500">{superAgentes.length} super agente{superAgentes.length !== 1 ? 's' : ''}</span>
+      </div>
+
       <p className="text-xs text-gray-500">
-        {superAgentes.length} super agente{superAgentes.length !== 1 ? 's' : ''} · Pra promover um Agente comum a Super Agente, vincule outro Agente a ele em "Agentes Vinculados".
+        Pra promover um Agente comum a Super Agente, vincule outro Agente a ele em "Agentes Vinculados".
       </p>
 
       {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}

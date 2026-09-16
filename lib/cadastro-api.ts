@@ -450,6 +450,15 @@ export async function removeJogadorFromAgente(agenteId: string, jogadorId: strin
   if (error) throw error
 }
 
+// Mapa completo agente<->jogador (não escopado a um agente só) — usado pra
+// filtrar a tela de Jogadores por Clube/SA/Agente, cruzando com os dados de
+// getAgentes() (que já traz clube_agentes e superagente_id de cada agente).
+export async function getTodosAgenteJogadores(): Promise<{ agente_id: string; jogador_id: string }[]> {
+  const { data, error } = await supabase.from('agente_jogadores').select('agente_id, jogador_id')
+  if (error) throw error
+  return data ?? []
+}
+
 // ─── CLUBE <-> AGENTE ────────────────────────────────────────
 
 export async function getAgentesByClube(clubeId: string): Promise<ClubeAgente[]> {
@@ -669,10 +678,17 @@ export async function getVinculos(regraId: string): Promise<RegraVinculo[]> {
   for (const v of vinculos) { registra(v.entidade_tipo, v.entidade_id); registra(v.de_tipo, v.de_id) }
 
   const nomesPorId = new Map<string, string>()
+  const subPorId = new Map<string, string>()
   for (const [tipo, ids] of idsPorTipo) {
     const { tabela, coluna } = TABELA_ENTIDADE[tipo]
-    const { data: rows } = await supabase.from(tabela).select(`id, ${coluna}`).in('id', [...ids])
-    for (const r of (rows ?? []) as any[]) nomesPorId.set(r.id, r[coluna])
+    // Clube: nomes se repetem entre plataformas diferentes — junta o nome
+    // da plataforma pra distinguir (mesmo motivo do buscarEntidades acima).
+    const select = tipo === 'clube' ? `id, ${coluna}, plataformas(nome)` : `id, ${coluna}`
+    const { data: rows } = await supabase.from(tabela).select(select).in('id', [...ids])
+    for (const r of (rows ?? []) as any[]) {
+      nomesPorId.set(r.id, r[coluna])
+      if (r.plataformas?.nome) subPorId.set(r.id, r.plataformas.nome)
+    }
   }
 
   return vinculos.map(v => ({
@@ -681,6 +697,7 @@ export async function getVinculos(regraId: string): Promise<RegraVinculo[]> {
     para_tipo: v.entidade_tipo,
     para_id: v.entidade_id,
     para_nome: nomesPorId.get(v.entidade_id) ?? '—',
+    para_sub: subPorId.get(v.entidade_id) ?? null,
     de_tipo: v.de_tipo,
     de_id: v.de_id,
     de_nome: v.de_id ? nomesPorId.get(v.de_id) ?? '—' : null,
@@ -728,13 +745,16 @@ export async function removeVinculo(vinculoId: string): Promise<void> {
   if (error) throw error
 }
 
-export async function buscarEntidades(tipo: EntidadeTipo, query: string, limit = 20): Promise<{ id: string; nome: string }[]> {
+export async function buscarEntidades(tipo: EntidadeTipo, query: string, limit = 20): Promise<{ id: string; nome: string; sub?: string }[]> {
   const { tabela, coluna } = TABELA_ENTIDADE[tipo]
-  let q = supabase.from(tabela).select(`id, ${coluna}`).order(coluna).limit(limit)
+  // Clube: nomes se repetem entre plataformas diferentes (ex: mais de um
+  // "PIXGAME") — junta o nome da plataforma pra distinguir na tela de Vínculos.
+  const select = tipo === 'clube' ? `id, ${coluna}, plataformas(nome)` : `id, ${coluna}`
+  let q = supabase.from(tabela).select(select).order(coluna).limit(limit)
   if (query.trim()) q = q.ilike(coluna, `%${query.trim()}%`)
   const { data, error } = await q
   if (error) throw error
-  return (data ?? []).map((r: any) => ({ id: r.id, nome: r[coluna] }))
+  return (data ?? []).map((r: any) => ({ id: r.id, nome: r[coluna], sub: r.plataformas?.nome }))
 }
 
 // Usado na tela de Vínculos pra avisar quando o campo escolhido não tem

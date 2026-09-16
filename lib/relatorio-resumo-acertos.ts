@@ -160,6 +160,9 @@ export async function buscarResumoAcertos(periodoFim: string): Promise<LinhaResu
     // agregarPagamentos em lib/pagamentos.ts) — contar aqui de novo dobra o
     // valor (mesmo ajuste feito no AcertosView/ClubAcertoCard).
     .neq('tipo', 'pagamento')
+    // Só conta no Acerto depois de Liberado (pedido do Cássio) — antes
+    // disso é só um lançamento pendente na tela de Lançamento.
+    .eq('liberado', true)
     .lte('data_lancamento', periodoFim)
   const extrasLancPorClube = new Map<string, number>()
   for (const l of (lancData ?? []) as { clube_id: string; natureza: string; valor: number; data_lancamento: string }[]) {

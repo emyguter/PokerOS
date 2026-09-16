@@ -1,10 +1,11 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { getAgentes, createAgente, updateAgente, deleteAgente, syncAgentePlataformas, syncClubeAgentes, syncSubAgentes, getPlataformas } from '@/lib/cadastro-api'
-import type { Agente, AgenteForm, AgentePlataforma, Plataforma, ClubeVinculado } from '@/lib/types'
+import { getAgentes, createAgente, updateAgente, deleteAgente, syncAgentePlataformas, syncClubeAgentes, syncSubAgentes, getPlataformas, getClubs } from '@/lib/cadastro-api'
+import type { Agente, AgenteForm, AgentePlataforma, Plataforma, ClubeVinculado, Club } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { AgenteModal } from '@/components/cadastro/AgenteModal'
+import { BuscaSelect } from '@/components/BuscaSelect'
 import { Plus } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 
@@ -12,6 +13,9 @@ export default function AgentesPage() {
   const { t } = useI18n()
   const [items, setItems] = useState<Agente[]>([])
   const [plataformas, setPlataformas] = useState<Plataforma[]>([])
+  const [clubes, setClubes] = useState<Club[]>([])
+  const [clubeFiltro, setClubeFiltro] = useState('')
+  const [saFiltro, setSaFiltro] = useState('')
   const [filter, setFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -23,13 +27,19 @@ export default function AgentesPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [a, p] = await Promise.all([getAgentes(filter || undefined), getPlataformas()])
-      setItems(a); setPlataformas(p)
+      const [a, p, c] = await Promise.all([getAgentes(filter || undefined), getPlataformas(), getClubs()])
+      setItems(a); setPlataformas(p); setClubes(c)
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
   }, [filter])
 
   useEffect(() => { load() }, [load])
+
+  // SA = agente que aparece como superagente_id de pelo menos um outro (mesma definição da tela de Super Agentes)
+  const superAgentesOpcoes = items.filter(a => items.some(o => o.superagente_id === a.id))
+  const itemsFiltrados = items
+    .filter(a => !clubeFiltro || (a.clube_agentes ?? []).some(ca => ca.clube_id === clubeFiltro))
+    .filter(a => !saFiltro || a.superagente_id === saFiltro)
 
   const vinculosIniciais = (item: Agente | null): AgentePlataforma[] =>
     item?.agente_plataformas?.map(v => ({
@@ -97,7 +107,25 @@ export default function AgentesPage() {
           placeholder={t('common.buscar_por_nome')}
           className="bg-surface2 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gold/50 w-64"
         />
-        <span className="text-sm text-gray-500">{items.length} agente{items.length !== 1 ? 's' : ''}</span>
+        <div className="w-56">
+          <BuscaSelect
+            value={clubeFiltro}
+            onChange={setClubeFiltro}
+            opcoes={clubes.map(c => ({ id: c.id, nome: c.name }))}
+            placeholder={t('agentes.filtro_clube')}
+            vazio={t('agentes.todos_clubes')}
+          />
+        </div>
+        <div className="w-56">
+          <BuscaSelect
+            value={saFiltro}
+            onChange={setSaFiltro}
+            opcoes={superAgentesOpcoes.map(a => ({ id: a.id, nome: a.nome }))}
+            placeholder={t('agentes.filtro_sa')}
+            vazio={t('agentes.todos_sa')}
+          />
+        </div>
+        <span className="text-sm text-gray-500">{itemsFiltrados.length} agente{itemsFiltrados.length !== 1 ? 's' : ''}</span>
       </div>
 
       {error && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{error}</div>}
@@ -115,7 +143,7 @@ export default function AgentesPage() {
             render: (v: Agente['clube_agentes']) => v?.length ? `${v.length} clube${v.length !== 1 ? 's' : ''}` : '—',
           },
         ]}
-        data={items}
+        data={itemsFiltrados}
         loading={loading}
         onEdit={item => { setEditing(item); setModalOpen(true) }}
         onDelete={item => setDeleteTarget(item)}
