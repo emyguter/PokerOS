@@ -442,6 +442,13 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const rebateDisplay = -rebateCalculado
   const lancamentosLiquido = lancamentosDisplay.reduce((s, l) => s + (l.natureza === 'credito' ? l.valor : -l.valor), 0)
   const dividasTotal = dividasDisplay.reduce((s, d) => s + d.valor, 0)
+  // Soma ao vivo (% cadastrado hoje × rake atual de quem foi indicado, ver
+  // indicacoesDetalhe acima) — achado pelo Cássio (CranberryFields): a linha
+  // "Indicação" aparecia certa no card, mas o Total continuava usando
+  // acerto.indicacao_valor, a "foto" gravada da última vez que o Acerto foi
+  // calculado, que não inclui indicação cadastrada/alterada depois. Mesmo
+  // padrão já usado pra Pendências/Antecipação (pendenciasLive).
+  const indicacaoLive = indicacoesDetalhe.reduce((s, d) => s + d.valor, 0)
 
   // Cada clube do grupo tem seu próprio "Acerto R$" (o total que ele sozinho
   // teria) — mostrado como quebra logo acima do Total combinado, pedido do
@@ -462,11 +469,16 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         const extras = extrasPorClube.get(r.club_id)
         const lancLiquido = (extras?.lancamentos ?? []).reduce((s, l) => s + (l.natureza === 'credito' ? l.valor : -l.valor), 0)
         const dividasT = (extras?.dividasItens ?? []).reduce((s, d) => s + d.valor, 0)
+        // Indicação ao vivo (indicacaoLive) só existe pro PRÓPRIO clube do
+        // card (indicacoesDetalhe busca só pra acerto.club_id) — pros demais
+        // membros do grupo, cai pra r.indicacao_valor (foto do último
+        // cálculo), mesma limitação de outros campos por-membro já aceita
+        // no resto do card.
         const total = calcularTotalAcerto(r.valor_acerto, {
           bilhetes: r.bilhetes,
           pendenciasAntecipacao: extras?.pendenciasAntecipacao ?? 0,
           security: extras?.security ?? 0,
-          indicacaoValor: r.indicacao_valor,
+          indicacaoValor: id === acerto.club_id ? indicacaoLive : r.indicacao_valor,
           lancamentosLiquido: lancLiquido,
           dividasTotal: dividasT,
         })
@@ -494,7 +506,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         bilhetes: acerto.bilhetes,
         pendenciasAntecipacao: pendenciasLive,
         security,
-        indicacaoValor: acerto.indicacao_valor,
+        indicacaoValor: indicacaoLive,
         lancamentosLiquido,
         dividasTotal,
       })
