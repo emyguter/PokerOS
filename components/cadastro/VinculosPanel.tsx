@@ -14,7 +14,7 @@ interface Props {
   onClose: () => void
 }
 
-interface Entidade { id: string; nome: string }
+interface Entidade { id: string; nome: string; sub?: string }
 
 interface Lado {
   tipo: EntidadeTipo
@@ -88,7 +88,7 @@ function SeletorEntidade({ titulo, opcional, multi, lado, onChange }: { titulo: 
         <div className="flex flex-wrap gap-1">
           {lado.selecionados.map(s => (
             <span key={s.id} className="flex items-center gap-1 px-2 py-1 rounded-lg border border-gold/40 bg-gold/5 text-xs text-white">
-              {s.nome}
+              {s.nome}{s.sub && <span className="text-gray-500"> · {s.sub}</span>}
               <button type="button" onClick={() => remover(s.id)} className="text-gray-500 hover:text-alert"><X size={11} /></button>
             </span>
           ))}
@@ -131,7 +131,7 @@ function SeletorEntidade({ titulo, opcional, multi, lado, onChange }: { titulo: 
                     onClick={() => toggle(r)}
                     className={`w-full text-left px-2 py-1.5 rounded-lg border text-xs transition-colors ${selecionado ? 'border-gold/50 bg-gold/5 text-white' : 'border-white/10 text-gray-300 hover:border-gold/40 hover:text-white'}`}
                   >
-                    {r.nome}
+                    {r.nome}{r.sub && <span className="text-gray-500"> · {r.sub}</span>}
                   </button>
                 )
               })
@@ -229,7 +229,7 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
   function editar(v: RegraVinculo) {
     setEditando(v)
     setLadoDe(v.de_id && v.de_tipo ? LADO_COM(v.de_tipo, { id: v.de_id, nome: v.de_nome ?? '—' }) : LADO_INICIAL('liga'))
-    setLadoPara(LADO_COM(v.para_tipo, { id: v.para_id, nome: v.para_nome }))
+    setLadoPara(LADO_COM(v.para_tipo, { id: v.para_id, nome: v.para_nome, sub: v.para_sub ?? undefined }))
   }
 
   async function handleSalvar() {
@@ -355,7 +355,7 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
                         <span className="text-xs text-gray-600 italic">{t('vinculos_panel.sem_origem')}</span>
                       )}
                       <span className="px-2 py-0.5 rounded-full bg-gold/10 border border-gold/30 text-gold text-xs">{LABEL_TIPO[v.para_tipo]}</span>
-                      <span className="text-gray-200">{v.para_nome}</span>
+                      <span className="text-gray-200">{v.para_nome}{v.para_sub && <span className="text-gray-500"> · {v.para_sub}</span>}</span>
                       {v.campo && (
                         <span className="px-2 py-0.5 rounded-full bg-surface border border-white/10 text-gray-400 text-xs">{LABEL_CAMPO[v.campo]}</span>
                       )}

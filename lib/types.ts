@@ -393,6 +393,7 @@ export type RegraVinculo = {
   para_tipo: EntidadeTipo
   para_id: string
   para_nome: string
+  para_sub: string | null
   campo: CampoClube | null
   prioridade: number
 }
