@@ -490,7 +490,12 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         // cadastrado (a maioria) já está em BRL, `total` entra sem alteração.
         const moeda = moedaPorClube.get(id)
         const cotacaoMembro = r.cotacao ?? moeda?.cotacao ?? null
-        const totalConvertido = moeda?.moeda_conversao && cotacaoMembro ? total / cotacaoMembro : total
+        // Cotação agora é "1 {moeda do clube} vale quantos {moeda_conversao}"
+        // (pedido do Cássio: mais natural com a moeda base sendo o dólar) —
+        // multiplica em vez de dividir. Clubes já cadastrados antes dessa
+        // mudança tiveram o valor migrado (ver migration), então continua
+        // dando o mesmo resultado de sempre.
+        const totalConvertido = moeda?.moeda_conversao && cotacaoMembro ? total * cotacaoMembro : total
         return { id, nome: r.club_name, ligaNome: ligaDoMembro, total, totalConvertido }
       })
     : []
@@ -556,8 +561,12 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   // como referência do "ideal": o lado vinculado nem tenta converter o
   // Total combinado, só mostra ele cru — a conversão é sempre uma conta
   // isolada do PRÓPRIO clube, nunca atravessa o vínculo.
+  // Cotação agora é "1 {moeda do clube} vale quantos {moeda_conversao}"
+  // (pedido do Cássio) — multiplica em vez de dividir. Valores já
+  // cadastrados antes dessa mudança foram migrados (ver migration), o
+  // resultado final continua o mesmo de sempre.
   const cotacaoUsada = acerto.cotacao ?? club?.cotacao ?? null
-  const totalConvertido = club?.moeda_conversao && cotacaoUsada ? totalProprio / cotacaoUsada : null
+  const totalConvertido = club?.moeda_conversao && cotacaoUsada ? totalProprio * cotacaoUsada : null
 
   // O layout (Regra vinculada ao clube) só decide QUAIS linhas aparecem e em
   // que ordem — o Total sempre soma tudo, igual já funciona no Liberar para
