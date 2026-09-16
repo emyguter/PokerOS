@@ -153,6 +153,9 @@ async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd
       // o valor se a data cair dentro da janela dessa semana (achado no
       // CHIP COIN: pagamento que fechou a semana anterior "vazando" pra cá).
       .neq('tipo', 'pagamento')
+      // Só conta no Acerto depois de Liberado (pedido do Cássio) — antes
+      // disso é só um lançamento pendente na tela de Lançamento.
+      .eq('liberado', true)
       .gte('data_lancamento', periodStart)
       .lte('data_lancamento', periodEnd || periodStart),
     getDividasAcertoDoClube(clubeId, periodEnd || periodStart, rakeTotal),
@@ -265,6 +268,9 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       // aqui de novo dobra o valor quando a data cai dentro da janela dessa
       // semana (ver mesmo comentário em buscarExtrasClube acima).
       .neq('tipo', 'pagamento')
+      // Só conta no Acerto depois de Liberado (pedido do Cássio) — antes
+      // disso é só um lançamento pendente na tela de Lançamento.
+      .eq('liberado', true)
       .gte('data_lancamento', periodStart)
       .lte('data_lancamento', periodEnd || periodStart)
       .then(({ data }) => setLancamentos(data ?? []))

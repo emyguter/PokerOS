@@ -155,6 +155,9 @@ async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart
           // semana anterior "vazando" pra essa por causa da data).
           .neq('tipo', 'antecipacao')
           .neq('tipo', 'pagamento')
+          // Só conta no Acerto depois de Liberado (pedido do Cássio) — antes
+          // disso é só um lançamento pendente na tela de Lançamento.
+          .eq('liberado', true)
           .gte('data_lancamento', periodStart)
           .lte('data_lancamento', periodEnd || periodStart)
       : Promise.resolve({ data: [] as { clube_id: string; natureza: 'credito' | 'debito'; valor: number }[] }),
