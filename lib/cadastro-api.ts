@@ -450,6 +450,15 @@ export async function removeJogadorFromAgente(agenteId: string, jogadorId: strin
   if (error) throw error
 }
 
+// Mapa completo agente<->jogador (não escopado a um agente só) — usado pra
+// filtrar a tela de Jogadores por Clube/SA/Agente, cruzando com os dados de
+// getAgentes() (que já traz clube_agentes e superagente_id de cada agente).
+export async function getTodosAgenteJogadores(): Promise<{ agente_id: string; jogador_id: string }[]> {
+  const { data, error } = await supabase.from('agente_jogadores').select('agente_id, jogador_id')
+  if (error) throw error
+  return data ?? []
+}
+
 // ─── CLUBE <-> AGENTE ────────────────────────────────────────
 
 export async function getAgentesByClube(clubeId: string): Promise<ClubeAgente[]> {

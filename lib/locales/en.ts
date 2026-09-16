@@ -82,9 +82,21 @@ export const en: typeof pt = {
     inativar_titulo: 'Deactivate club', inativar_confirm: 'Deactivate',
     inativar_desc: 'Are you sure you want to deactivate "{nome}"? It disappears from the list, but the record and history (settlements, stoploss, entries) remain intact — you can reactivate it later.',
   },
-  agentes: { titulo: 'Agents', subtitulo: 'Responsible for players within each club', novo: 'New Agent' },
-  super_agentes: { titulo: 'Super Agents', subtitulo: 'Agents that have other agents linked below', novo: 'New Super Agent' },
-  jogadores: { titulo: 'Players', subtitulo: 'Players linked to agents', novo: 'New Player' },
+  agentes: {
+    titulo: 'Agents', subtitulo: 'Responsible for players within each club', novo: 'New Agent',
+    filtro_clube: 'Filter by club...', todos_clubes: 'All clubs',
+    filtro_sa: 'Filter by SA...', todos_sa: 'All SAs',
+  },
+  super_agentes: {
+    titulo: 'Super Agents', subtitulo: 'Agents that have other agents linked below', novo: 'New Super Agent',
+    filtro_clube: 'Filter by club...', todos_clubes: 'All clubs',
+  },
+  jogadores: {
+    titulo: 'Players', subtitulo: 'Players linked to agents', novo: 'New Player',
+    filtro_clube: 'Filter by club...', todos_clubes: 'All clubs',
+    filtro_sa: 'Filter by SA...', todos_sa: 'All SAs',
+    filtro_agente: 'Filter by agent...', todos_agentes: 'All agents',
+  },
   acertos: {
     titulo: 'Settlements', subtitulo: 'Club, League and the Settlement Value — click a row to see the full detail',
     buscar_placeholder: 'Search club...', semana: 'Week',

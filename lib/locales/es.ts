@@ -82,9 +82,21 @@ export const es: typeof pt = {
     inativar_titulo: 'Desactivar club', inativar_confirm: 'Desactivar',
     inativar_desc: '¿Estás seguro de que deseas desactivar "{nome}"? Desaparece de la lista, pero el registro y el historial (liquidaciones, stoploss, movimientos) permanecen intactos — puedes reactivarlo después.',
   },
-  agentes: { titulo: 'Agentes', subtitulo: 'Responsables de los jugadores dentro de cada club', novo: 'Nuevo Agente' },
-  super_agentes: { titulo: 'Super Agentes', subtitulo: 'Agentes que tienen otros agentes vinculados debajo', novo: 'Nuevo Super Agente' },
-  jogadores: { titulo: 'Jugadores', subtitulo: 'Jugadores vinculados a los agentes', novo: 'Nuevo Jugador' },
+  agentes: {
+    titulo: 'Agentes', subtitulo: 'Responsables de los jugadores dentro de cada club', novo: 'Nuevo Agente',
+    filtro_clube: 'Filtrar por club...', todos_clubes: 'Todos los clubes',
+    filtro_sa: 'Filtrar por SA...', todos_sa: 'Todos los SA',
+  },
+  super_agentes: {
+    titulo: 'Super Agentes', subtitulo: 'Agentes que tienen otros agentes vinculados debajo', novo: 'Nuevo Super Agente',
+    filtro_clube: 'Filtrar por club...', todos_clubes: 'Todos los clubes',
+  },
+  jogadores: {
+    titulo: 'Jugadores', subtitulo: 'Jugadores vinculados a los agentes', novo: 'Nuevo Jugador',
+    filtro_clube: 'Filtrar por club...', todos_clubes: 'Todos los clubes',
+    filtro_sa: 'Filtrar por SA...', todos_sa: 'Todos los SA',
+    filtro_agente: 'Filtrar por agente...', todos_agentes: 'Todos los agentes',
+  },
   acertos: {
     titulo: 'Liquidaciones', subtitulo: 'Club, Liga y el Valor de la Liquidación — haz clic en una fila para ver el detalle completo',
     buscar_placeholder: 'Buscar club...', semana: 'Semana',

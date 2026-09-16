@@ -80,9 +80,21 @@ export const pt = {
     inativar_titulo: 'Inativar clube', inativar_confirm: 'Inativar',
     inativar_desc: 'Tem certeza que deseja inativar "{nome}"? Ele some da lista, mas o cadastro e o histórico (acertos, stoploss, lançamentos) continuam intactos — dá pra reativar depois.',
   },
-  agentes: { titulo: 'Agentes', subtitulo: 'Responsáveis pelos jogadores dentro de cada clube', novo: 'Novo Agente' },
-  super_agentes: { titulo: 'Super Agentes', subtitulo: 'Agentes que têm outros agentes vinculados abaixo', novo: 'Novo Super Agente' },
-  jogadores: { titulo: 'Jogadores', subtitulo: 'Jogadores vinculados aos agentes', novo: 'Novo Jogador' },
+  agentes: {
+    titulo: 'Agentes', subtitulo: 'Responsáveis pelos jogadores dentro de cada clube', novo: 'Novo Agente',
+    filtro_clube: 'Filtrar por clube...', todos_clubes: 'Todos os clubes',
+    filtro_sa: 'Filtrar por SA...', todos_sa: 'Todos os SAs',
+  },
+  super_agentes: {
+    titulo: 'Super Agentes', subtitulo: 'Agentes que têm outros agentes vinculados abaixo', novo: 'Novo Super Agente',
+    filtro_clube: 'Filtrar por clube...', todos_clubes: 'Todos os clubes',
+  },
+  jogadores: {
+    titulo: 'Jogadores', subtitulo: 'Jogadores vinculados aos agentes', novo: 'Novo Jogador',
+    filtro_clube: 'Filtrar por clube...', todos_clubes: 'Todos os clubes',
+    filtro_sa: 'Filtrar por SA...', todos_sa: 'Todos os SAs',
+    filtro_agente: 'Filtrar por agente...', todos_agentes: 'Todos os agentes',
+  },
   acertos: {
     titulo: 'Acertos', subtitulo: 'Clube, Liga e o Valor do Acerto — clique numa linha pra ver o detalhe completo',
     buscar_placeholder: 'Buscar clube...', semana: 'Semana',
