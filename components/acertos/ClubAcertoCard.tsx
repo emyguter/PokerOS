@@ -617,8 +617,17 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         // sozinho contava ela duas vezes (achado no caso AK AMAKHA club 2:
         // 19% mostrado, mas só 10% era taxa de verdade — os outros 9% já
         // apareciam de novo na linha de Taxa Operacional).
-        const valorTaxaLiga = taxaLigaValor !== 0 || acerto.settlement_type === 'taxa_dinamica' ? taxaLigaValor : feeCalculadoValor - feeOperacionalValor
-        const pct = rakeTotal > 0 ? (valorTaxaLiga / rakeTotal) * 100 : 0
+        const semTaxaLigaReal = taxaLigaValor === 0 && acerto.settlement_type !== 'taxa_dinamica'
+        const valorTaxaLiga = semTaxaLigaReal ? feeCalculadoValor - feeOperacionalValor : taxaLigaValor
+        // % mostrado: nesse fallback (sem Taxa da Liga de verdade, valor é só
+        // referência de outra taxa), NÃO recalcula dividendo o valor já
+        // arredondado pelo Rake — com Rake pequeno isso distorce muito (achado
+        // no clube Rigel: Rake 0,50, Fee 5% cadastrado arredondava o valor pra
+        // 0,03, e 0,03÷0,50 mostrava "6,00%" em vez de 5%, confirmado pelo
+        // Cássio: "ele deve informar o que está cadastrado apenas"). Usa o %
+        // cadastrado no clube direto — mesma fonte que gerou esse valor de
+        // referência (fee_calculado, sem Regra SE/ENTÃO, cai no % fixo).
+        const pct = semTaxaLigaReal ? (club?.fee_mtt_pct ?? 0) : (rakeTotal > 0 ? (valorTaxaLiga / rakeTotal) * 100 : 0)
         return <Linha key={campo} label={t('club_acerto_card.taxa_liga_label', { pct: fmtPct(pct) })} value={-valorTaxaLiga} />
       }
       case 'bilhetes':
