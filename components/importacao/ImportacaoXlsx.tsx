@@ -85,10 +85,9 @@ interface JogadorRow {
   superagente_id_ext: string;
   player_result: number;
   rake_clube: number;
-  // Mesma conta de components/importacao/ImportacaoXlsx.tsx (Geral da liga):
-  // Valor do ticket ganho (coluna S, índice 18) − Buy-in de ticket (coluna
-  // T, índice 19) — usado pra somar Bilhetes quando o clube não tem aba
-  // "Geral da liga" (arquivo de clube direto, ver parsePPPoker).
+  // "Valor do ticket entregue" + "Buy-in de ticket" (mesma conta da aba
+  // "Geral da liga" em parsePPPoker) — usado pra somar Bilhetes quando o
+  // clube não tem aba "Geral da liga" (arquivo de clube direto).
   bilhetes: number;
   clube_nome: string;
   clube_id_ext: string;
@@ -214,6 +213,13 @@ function safeStr(v: unknown): string {
   return s === "None" || s === "none" || s === "" ? "" : s;
 }
 
+// Acha uma coluna pelo texto exato do cabeçalho, -1 se não achar. Usado pra
+// colunas cuja posição variava por formato de relatório (ver Bilhetes
+// abaixo) em vez de supor índice fixo.
+function acharColuna(header: unknown[], texto: string): number {
+  return header.findIndex((c) => String(c ?? "").trim() === texto);
+}
+
 function detectPlataforma(wb: XLSX.WorkBook): "PPPoker" | "GGPoker" | "unknown" {
   if (wb.SheetNames.includes("Union Overview")) return "GGPoker";
   if (wb.SheetNames.some(s => s === "Geral da liga" || s === "Geral de clube" || s === "Geral")) return "PPPoker";
@@ -290,10 +296,12 @@ function parseJogadoresSheet(
   // do PPPoker — mesma situação já tratada na aba "Geral da liga" acima.
   const fimGanhosJogador = proximoCabecalho(header, idxGanhosJogador);
   const fimGanhosClube = proximoCabecalho(header, idxGanhosClube);
-  // "Valor do ticket ganho" é sempre a primeira coluna logo depois do bloco
-  // de Ganhos do jogador, com "Buy-in de ticket" na seguinte.
-  const idxTicketGanho = fimGanhosJogador;
-  const idxTicketBuyin = fimGanhosJogador + 1;
+  // Busca pelo texto do cabeçalho em vez de posição relativa ao bloco de
+  // Ganhos do jogador — a posição variava entre formatos de relatório e
+  // caía em colunas erradas, sempre lendo 0,00 (mesmo achado da aba "Geral
+  // da liga", ver parsePPPoker acima).
+  const idxTicketEntregue = achar(header, "Valor do ticket entregue");
+  const idxTicketBuyin = achar(header, "Buy-in de ticket");
 
   for (let s = 0; s < headerRows.length; s++) {
     const headerRowIdx = headerRows[s];
@@ -327,7 +335,10 @@ function parseJogadoresSheet(
         superagente_id_ext: safeStr(row[idxSuperId]),
         player_result: somaIntervalo(row, idxGanhosJogador, fimGanhosJogador),
         rake_clube: somaIntervalo(row, idxGanhosClube, fimGanhosClube),
-        bilhetes: safeNum(row[idxTicketGanho]) - safeNum(row[idxTicketBuyin]),
+        // Soma direta, não subtração — mesmo motivo do comentário da aba
+        // "Geral da liga" em parsePPPoker (ticket ganho positivo, buy-in
+        // gasto negativo, tendem a se cancelar ao longo do tempo).
+        bilhetes: safeNum(row[idxTicketEntregue]) + safeNum(row[idxTicketBuyin]),
         clube_nome: clubeNome,
         clube_id_ext: clubeIdExt,
       });
@@ -370,6 +381,13 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
       acao: t("importacao_xlsx.err_confirme_exportado"),
     };
 
+    // Busca pelo texto do cabeçalho em vez de índice fixo (18/19) — a
+    // posição variava entre formatos de relatório e caía em colunas
+    // erradas, sempre lendo 0,00 (achado nos casos DELUXE ED./Liga H&H: o
+    // -84,00 real ficava sem aparecer no Acerto).
+    const idxTicketEntregue = acharColuna(raw[3] as unknown[], "Valor do ticket entregue");
+    const idxTicketBuyin = acharColuna(raw[3] as unknown[], "Buy-in de ticket");
+
     for (let i = 4; i < raw.length; i++) {
       const row = raw[i] as unknown[];
       const clubName = String(row[1] ?? "").trim();
@@ -397,11 +415,13 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
       const rakeMtt = safeNum(row[23]) + safeNum(row[24]);
       const rakeCash = safeNum(row[25]) + safeNum(row[26]);
       const rakeSpinup = safeNum(row[27]) + safeNum(row[28]);
-      // Bilhetes = Valor do ticket ganho (coluna S, índice 18) − Buy-in de
-      // ticket (coluna T, índice 19) — confirmado com o Cássio. Essas duas
-      // colunas ficam no meio do bloco de Ganhos (9-17) e do bloco de Rake
-      // (23-28) sem nenhuma leitura hoje.
-      const bilhetes = safeNum(row[18]) - safeNum(row[19]);
+      // Bilhetes = "Valor do ticket entregue" + "Buy-in de ticket" — soma
+      // direta dos dois valores já assinados que vêm da planilha, não
+      // subtração (confirmado pelo Cássio: o ticket ganho numa semana entra
+      // positivo naquele Acerto; o buy-in gasto usando ticket numa semana
+      // seguinte já vem negativo — somando os dois ao longo do tempo tende a
+      // zerar).
+      const bilhetes = safeNum(row[idxTicketEntregue]) + safeNum(row[idxTicketBuyin]);
 
       rows.push({
         club_name: clubName,
