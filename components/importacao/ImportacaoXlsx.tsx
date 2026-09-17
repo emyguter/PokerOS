@@ -85,10 +85,9 @@ interface JogadorRow {
   superagente_id_ext: string;
   player_result: number;
   rake_clube: number;
-  // Mesma conta de components/importacao/ImportacaoXlsx.tsx (Geral da liga):
-  // Valor do ticket ganho (coluna S, índice 18) − Buy-in de ticket (coluna
-  // T, índice 19) — usado pra somar Bilhetes quando o clube não tem aba
-  // "Geral da liga" (arquivo de clube direto, ver parsePPPoker).
+  // "Valor do ticket entregue" + "Buy-in de ticket" (mesma conta da aba
+  // "Geral da liga" em parsePPPoker) — usado pra somar Bilhetes quando o
+  // clube não tem aba "Geral da liga" (arquivo de clube direto).
   bilhetes: number;
   clube_nome: string;
   clube_id_ext: string;
@@ -214,6 +213,13 @@ function safeStr(v: unknown): string {
   return s === "None" || s === "none" || s === "" ? "" : s;
 }
 
+// Acha uma coluna pelo texto exato do cabeçalho, -1 se não achar. Usado pra
+// colunas cuja posição variava por formato de relatório (ver Bilhetes
+// abaixo) em vez de supor índice fixo.
+function acharColuna(header: unknown[], texto: string): number {
+  return header.findIndex((c) => String(c ?? "").trim() === texto);
+}
+
 function detectPlataforma(wb: XLSX.WorkBook): "PPPoker" | "GGPoker" | "unknown" {
   if (wb.SheetNames.includes("Union Overview")) return "GGPoker";
   if (wb.SheetNames.some(s => s === "Geral da liga" || s === "Geral de clube" || s === "Geral")) return "PPPoker";
@@ -290,10 +296,12 @@ function parseJogadoresSheet(
   // do PPPoker — mesma situação já tratada na aba "Geral da liga" acima.
   const fimGanhosJogador = proximoCabecalho(header, idxGanhosJogador);
   const fimGanhosClube = proximoCabecalho(header, idxGanhosClube);
-  // "Valor do ticket ganho" é sempre a primeira coluna logo depois do bloco
-  // de Ganhos do jogador, com "Buy-in de ticket" na seguinte.
-  const idxTicketGanho = fimGanhosJogador;
-  const idxTicketBuyin = fimGanhosJogador + 1;
+  // Busca pelo texto do cabeçalho em vez de posição relativa ao bloco de
+  // Ganhos do jogador — a posição variava entre formatos de relatório e
+  // caía em colunas erradas, sempre lendo 0,00 (mesmo achado da aba "Geral
+  // da liga", ver parsePPPoker acima).
+  const idxTicketEntregue = achar(header, "Valor do ticket entregue");
+  const idxTicketBuyin = achar(header, "Buy-in de ticket");
 
   for (let s = 0; s < headerRows.length; s++) {
     const headerRowIdx = headerRows[s];
@@ -327,7 +335,10 @@ function parseJogadoresSheet(
         superagente_id_ext: safeStr(row[idxSuperId]),
         player_result: somaIntervalo(row, idxGanhosJogador, fimGanhosJogador),
         rake_clube: somaIntervalo(row, idxGanhosClube, fimGanhosClube),
-        bilhetes: safeNum(row[idxTicketGanho]) - safeNum(row[idxTicketBuyin]),
+        // Soma direta, não subtração — mesmo motivo do comentário da aba
+        // "Geral da liga" em parsePPPoker (ticket ganho positivo, buy-in
+        // gasto negativo, tendem a se cancelar ao longo do tempo).
+        bilhetes: safeNum(row[idxTicketEntregue]) + safeNum(row[idxTicketBuyin]),
         clube_nome: clubeNome,
         clube_id_ext: clubeIdExt,
       });
@@ -370,6 +381,13 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
       acao: t("importacao_xlsx.err_confirme_exportado"),
     };
 
+    // Busca pelo texto do cabeçalho em vez de índice fixo (18/19) — a
+    // posição variava entre formatos de relatório e caía em colunas
+    // erradas, sempre lendo 0,00 (achado nos casos DELUXE ED./Liga H&H: o
+    // -84,00 real ficava sem aparecer no Acerto).
+    const idxTicketEntregue = acharColuna(raw[3] as unknown[], "Valor do ticket entregue");
+    const idxTicketBuyin = acharColuna(raw[3] as unknown[], "Buy-in de ticket");
+
     for (let i = 4; i < raw.length; i++) {
       const row = raw[i] as unknown[];
       const clubName = String(row[1] ?? "").trim();
@@ -397,11 +415,13 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
       const rakeMtt = safeNum(row[23]) + safeNum(row[24]);
       const rakeCash = safeNum(row[25]) + safeNum(row[26]);
       const rakeSpinup = safeNum(row[27]) + safeNum(row[28]);
-      // Bilhetes = Valor do ticket ganho (coluna S, índice 18) − Buy-in de
-      // ticket (coluna T, índice 19) — confirmado com o Cássio. Essas duas
-      // colunas ficam no meio do bloco de Ganhos (9-17) e do bloco de Rake
-      // (23-28) sem nenhuma leitura hoje.
-      const bilhetes = safeNum(row[18]) - safeNum(row[19]);
+      // Bilhetes = "Valor do ticket entregue" + "Buy-in de ticket" — soma
+      // direta dos dois valores já assinados que vêm da planilha, não
+      // subtração (confirmado pelo Cássio: o ticket ganho numa semana entra
+      // positivo naquele Acerto; o buy-in gasto usando ticket numa semana
+      // seguinte já vem negativo — somando os dois ao longo do tempo tende a
+      // zerar).
+      const bilhetes = safeNum(row[idxTicketEntregue]) + safeNum(row[idxTicketBuyin]);
 
       rows.push({
         club_name: clubName,
@@ -477,6 +497,97 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
   if (!period.start) warnings.push(t("importacao_xlsx.warn_periodo_nao_encontrado_nome"));
 
   return { liga_nome, liga_id_ext, period_start: period.start, period_end: period.end, rows, jogadores, warnings };
+}
+
+// Cabeçalho de várias linhas onde a profundidade de aninhamento varia por
+// bloco de colunas (achado no relatório "Union Member Statistics": o bloco
+// "Member" categoriza a partir da linha 5, mas o bloco "Rake" mais à
+// direita categoriza a partir da linha 4 — cada bloco começa sua própria
+// hierarquia em uma altura diferente) — busca o texto em qualquer uma das
+// linhas de categoria (preenchendo célula mesclada em branco com o texto da
+// coluna à esquerda) mais a linha de rótulo específico, em vez de supor uma
+// única linha fixa.
+function acharColunaMultiLinha(raw: unknown[][], linhasCategoria: number[], linhaRotulo: number, textos: string[]): number {
+  const nCols = Math.max(
+    ...linhasCategoria.map((r) => ((raw[r] as unknown[] | undefined)?.length ?? 0)),
+    (raw[linhaRotulo] as unknown[] | undefined)?.length ?? 0
+  );
+  const preenchidas = linhasCategoria.map((r) => {
+    const linha = (raw[r] as unknown[]) ?? [];
+    const resultado: string[] = [];
+    let ultimo = "";
+    for (let c = 0; c < nCols; c++) {
+      const v = String(linha[c] ?? "").trim();
+      if (v) ultimo = v;
+      resultado.push(ultimo);
+    }
+    return resultado;
+  });
+  const rotulos = (raw[linhaRotulo] as unknown[]) ?? [];
+  for (let c = 0; c < nCols; c++) {
+    const partes = [...preenchidas.map((linha) => linha[c]), String(rotulos[c] ?? "").trim()].filter(Boolean);
+    if (textos.every((texto) => partes.includes(texto))) return c;
+  }
+  return -1;
+}
+
+// "Union Member Statistics" — Super Agent/Agent/Member (jogador) com Rake
+// por jogador, um bloco por clube da união (o nome do clube só vem
+// preenchido na primeira linha do bloco, "None"/"-" indica sem Agente ou
+// sem Super Agente naquele nível). Equivalente, no formato GGPoker, à aba
+// "Geral de clube" do PPPoker que alimenta o rateio de rakeback dos
+// Agentes (acertos_agentes) — sem isso, nenhum clube em liga GGPoker/Union
+// tinha rateio de Agente calculado (achado pelo Cássio no caso ŌRION).
+function parseUnionMemberStatistics(wb: XLSX.WorkBook): JogadorRow[] {
+  const ws = wb.Sheets["Union Member Statistics"];
+  if (!ws) return [];
+  const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+  const LINHAS_CATEGORIA = [3, 4, 5];
+  const LINHA_ROTULO = 6;
+  const idxClube = acharColunaMultiLinha(raw, LINHAS_CATEGORIA, LINHA_ROTULO, ["Club"]);
+  const idxSuperAgenteId = acharColunaMultiLinha(raw, LINHAS_CATEGORIA, LINHA_ROTULO, ["Super Agent", "ID"]);
+  const idxSuperAgenteNick = acharColunaMultiLinha(raw, LINHAS_CATEGORIA, LINHA_ROTULO, ["Super Agent", "Nickname"]);
+  const idxAgenteId = acharColunaMultiLinha(raw, LINHAS_CATEGORIA, LINHA_ROTULO, ["Agent", "ID"]);
+  const idxAgenteNick = acharColunaMultiLinha(raw, LINHAS_CATEGORIA, LINHA_ROTULO, ["Agent", "Nickname"]);
+  const idxMembroId = acharColunaMultiLinha(raw, LINHAS_CATEGORIA, LINHA_ROTULO, ["Member", "ID"]);
+  const idxMembroNick = acharColunaMultiLinha(raw, LINHAS_CATEGORIA, LINHA_ROTULO, ["Member", "Nickname"]);
+  const idxRakeTotal = acharColunaMultiLinha(raw, LINHAS_CATEGORIA, LINHA_ROTULO, ["Rake", "Total"]);
+  if (idxMembroId === -1 || idxRakeTotal === -1) return [];
+
+  // "-" é o "sem Agente/Super Agente" do GGPoker (safeStr só trata "None").
+  const semTraco = (v: unknown): string => { const s = safeStr(v); return s === "-" ? "" : s; };
+
+  const jogadores: JogadorRow[] = [];
+  let clubeNomeAtual = "";
+  let clubeIdAtual = "";
+  for (let i = LINHA_ROTULO + 1; i < raw.length; i++) {
+    const row = raw[i] as unknown[];
+    const clubeCel = String(row[idxClube] ?? "").trim();
+    if (clubeCel) {
+      const match = clubeCel.match(/^(.*?)\s*\(ID:(\d+)\)/);
+      clubeNomeAtual = match ? match[1].trim() : clubeCel;
+      clubeIdAtual = match ? match[2] : "";
+    }
+    const membroId = safeStr(row[idxMembroId]);
+    if (!membroId || !clubeIdAtual) continue;
+
+    jogadores.push({
+      jogador_id_ext: membroId,
+      jogador_apelido: safeStr(row[idxMembroNick]),
+      jogador_memo: "",
+      agente_nome: semTraco(row[idxAgenteNick]),
+      agente_id_ext: semTraco(row[idxAgenteId]),
+      superagente_nome: semTraco(row[idxSuperAgenteNick]),
+      superagente_id_ext: semTraco(row[idxSuperAgenteId]),
+      player_result: 0,
+      rake_clube: safeNum(row[idxRakeTotal]),
+      bilhetes: 0,
+      clube_nome: clubeNomeAtual,
+      clube_id_ext: clubeIdAtual,
+    });
+  }
+  return jogadores;
 }
 
 function parseGGPoker(wb: XLSX.WorkBook, t: T): Omit<ParsedFile, "plataforma"> {
@@ -581,7 +692,10 @@ function parseGGPoker(wb: XLSX.WorkBook, t: T): Omit<ParsedFile, "plataforma"> {
     acao: t("importacao_xlsx.err_verifique_periodo_dados"),
   };
 
-  return { liga_nome, liga_id_ext, period_start: period.start, period_end: period.end, rows, jogadores: [], warnings };
+  const jogadores = parseUnionMemberStatistics(wb);
+  if (jogadores.length === 0) warnings.push(t("importacao_xlsx.warn_nenhum_jogador_aba_clube"));
+
+  return { liga_nome, liga_id_ext, period_start: period.start, period_end: period.end, rows, jogadores, warnings };
 }
 
 function parseXlsx(file: File, t: T): Promise<ParsedFile> {
