@@ -33,11 +33,11 @@ function fmt(v: number): string {
 function cor(v: number): string {
   return v > 0 ? 'text-emerald-400' : v < 0 ? 'text-alert' : 'text-gray-400'
 }
-function normaliza(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+function normaliza(s: string | null | undefined): string {
+  return (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
 function nomeDoNode(p: PathEntry): string {
-  return p.tipo === 'clube' ? p.ref.acerto.club_name : p.ref.nome
+  return (p.tipo === 'clube' ? p.ref.acerto.club_name : p.ref.nome) ?? '—'
 }
 
 export function ArvoreAcertosView() {
