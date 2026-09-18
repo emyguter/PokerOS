@@ -852,14 +852,20 @@ async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promi
       }
       quitadoDiretoAnterior = quitadoDireto;
     }
-    // Sequência ainda em aberto hoje (nunca foi coberta por nenhum período
-    // seguinte): atualiza a multa mais uma vez contra a data de HOJE, já
-    // que continua contando enquanto ninguém paga. `multaFinal`/`pctFinal`
-    // ficam guardados pra expor em buscarMultaAtual (linha própria no card).
+    // Sequência ainda em aberto no fim do período pedido (nunca foi coberta
+    // por nenhum período seguinte): atualiza a multa mais uma vez contra
+    // `periodEnd` — o fim da SEMANA sendo exibida, não a data de hoje de
+    // verdade (achado pelo Cássio no DM Poker Team: sem Acerto novo há
+    // semanas, o card da própria semana em que a multa começou já pulava
+    // direto pra faixa mais alta, porque "hoje" tinha avançado muito mais
+    // que a semana do card). A multa fica "congelada" na faixa que valia no
+    // fim daquela semana — mesma lógica já usada pros períodos anteriores no
+    // loop acima (`p.end` em vez de "agora"). `multaFinal`/`pctFinal` ficam
+    // guardados pra expor em buscarMultaAtual (linha própria no card).
     let multaFinal = 0;
     let pctFinal = 0;
     if (sequenciaDesde !== null && !sequenciaSemMulta && faixas.length > 0) {
-      pctFinal = percentualMulta(diasDeAtrasoDivida(sequenciaDesde), faixas);
+      pctFinal = percentualMulta(diasDeAtrasoDivida(sequenciaDesde, new Date(periodEnd + "T00:00:00")), faixas);
       multaFinal = sequenciaPrincipal * (pctFinal / 100);
       saldo += multaFinal - sequenciaMultaCobrada;
     }
