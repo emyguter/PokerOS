@@ -349,6 +349,18 @@ export async function buscarArvoreClube(clubeId: string, periodoFim: string): Pr
     agentes: { superagente_id: string | null; superagente: { id: string; nome: string } | null } | null
   }
 
+  // PostgREST às vezes devolve um embed to-one como array de 1 item em vez
+  // de objeto direto (mais provável aqui por ser um self-join na mesma
+  // tabela `agentes`, duas vezes na mesma query — agente_id e depois
+  // superagente_id) — sem isso, `sa.nome` virava `undefined` (array não tem
+  // essa propriedade) e o título "Agentes de undefined" aparecia sem
+  // nenhum dado realmente quebrado no banco (achado pelo Cássio na ORION,
+  // conferido direto no banco: nenhum agente/superagente órfão ou sem nome).
+  function umObjeto<T>(v: T | T[] | null | undefined): T | null {
+    if (Array.isArray(v)) return v[0] ?? null
+    return v ?? null
+  }
+
   const porAgente = new Map<string, NoAgente>()
   const superagentePorAgente = new Map<string, { id: string; nome: string } | null>()
   const origensPorAgente = new Map<string, Set<string>>()
@@ -357,7 +369,8 @@ export async function buscarArvoreClube(clubeId: string, periodoFim: string): Pr
     atual.rakeTotal += r.rake_total ?? 0
     atual.valorRakeback += r.valor_rakeback ?? 0
     porAgente.set(r.agente_id, atual)
-    superagentePorAgente.set(r.agente_id, r.agentes?.superagente ?? null)
+    const agenteEmbed = umObjeto(r.agentes)
+    superagentePorAgente.set(r.agente_id, umObjeto(agenteEmbed?.superagente))
     const rotulo = rotuloPorClube.get(r.clube_id)
     if (rotulo) {
       const set = origensPorAgente.get(r.agente_id) ?? new Set<string>()

@@ -406,7 +406,7 @@ export function ArvoreAcertosView() {
       )}
 
       {atual?.tipo === 'liga' && (
-        <Secao titulo={`Clubes de ${atual.ref.nome}`} contagem={atual.ref.clubes.length}>
+        <Secao titulo={`Clubes de ${atual.ref.nome ?? '—'}`} contagem={atual.ref.clubes.length}>
           <Grade>
             {atual.ref.clubes.filter((c) => filtraNome(c.acerto.club_name)).map((c) => (
               <CardClube key={c.acerto.id} clube={c} onClick={() => push({ tipo: 'clube', ref: c })} />
@@ -446,7 +446,7 @@ export function ArvoreAcertosView() {
       )}
 
       {atual?.tipo === 'superagente' && (
-        <Secao titulo={`Agentes de ${atual.ref.nome}`} contagem={atual.ref.agentes.length}>
+        <Secao titulo={`Agentes de ${atual.ref.nome ?? '—'}`} contagem={atual.ref.agentes.length}>
           <Grade>
             {atual.ref.agentes.filter((a) => filtraNome(a.nome)).map((a) => (
               <CardAgente key={a.id} agente={a} onClick={() => push({ tipo: 'agente', ref: a })} />
@@ -459,7 +459,7 @@ export function ArvoreAcertosView() {
         jogadoresAgente === null ? (
           <p className="text-sm text-gray-500 italic py-4">Carregando…</p>
         ) : (
-          <Secao titulo={`Jogadores de ${atual.ref.nome}`} contagem={jogadoresAgente.length}>
+          <Secao titulo={`Jogadores de ${atual.ref.nome ?? '—'}`} contagem={jogadoresAgente.length}>
             <Grade>
               {jogadoresAgente.filter((j) => filtraNome(j.nome)).map((j) => (
                 <CardJogador key={j.id} jogador={j} onClick={() => push({ tipo: 'jogador', ref: j })} />
