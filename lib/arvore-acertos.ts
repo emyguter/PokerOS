@@ -275,6 +275,22 @@ export interface ArvoreClube {
   agentesSoltos: NoAgente[]
 }
 
+// Ids do grupo de Vínculo de Acerto (clubs.vinculo_acerto_grupo_id) que
+// devem entrar na Árvore desse clube — mesma regra já usada pro Total
+// combinado do ClubAcertoCard: só o clube PRINCIPAL (âncora, vínculo nulo)
+// mostra o grupo inteiro; um clube VINCULADO mostra só ele mesmo. Sem isso,
+// o Super Agente/Agente de um clube vinculado (ex: PIXGAME da ORION,
+// vinculado ao PIXGAME "principal" do PPPoker) nunca aparecia na Árvore do
+// principal — achado pelo Cássio: "ele precisaria vincular um agente ou
+// superagente pra aparecer no acerto", mas o rateio já existia, só estava
+// preso no clube_id errado (o vinculado, não o principal que a Árvore abre).
+async function idsGrupoAcerto(clubeId: string): Promise<string[]> {
+  const { data: clube } = await supabase.from('clubs').select('vinculo_acerto_grupo_id').eq('id', clubeId).maybeSingle()
+  if (clube?.vinculo_acerto_grupo_id != null) return [clubeId]
+  const { data: outros } = await supabase.from('clubs').select('id').eq('vinculo_acerto_grupo_id', clubeId)
+  return [clubeId, ...((outros ?? []) as { id: string }[]).map((c) => c.id)]
+}
+
 // Super Agente/Agente de um Clube num período — mesma fonte que
 // AgentesAcertosView (acertos_agentes), só reorganizada em árvore por
 // agentes.superagente_id. Um Agente sem Super Agente vinculado entra em
@@ -284,10 +300,11 @@ export async function buscarArvoreClube(clubeId: string, periodoFim: string): Pr
   const importIds = (imports ?? []).map((i) => i.id as string)
   if (importIds.length === 0) return { superAgentes: [], agentesSoltos: [] }
 
+  const grupoIds = await idsGrupoAcerto(clubeId)
   const { data } = await supabase
     .from('acertos_agentes')
     .select('agente_id, agente_nome, rake_total, rakeback_pct, valor_rakeback, agentes!agente_id(superagente_id, superagente:agentes!superagente_id(id, nome))')
-    .eq('clube_id', clubeId)
+    .in('clube_id', grupoIds)
     .in('import_id', importIds)
 
   type Row = {
@@ -346,11 +363,12 @@ export async function buscarJogadoresDoAgente(agenteId: string, clubeId: string,
   const importIds = (imports ?? []).map((i) => i.id as string)
   if (importIds.length === 0) return []
 
+  const grupoIds = await idsGrupoAcerto(clubeId)
   const { data } = await supabase
     .from('import_jogadores')
     .select('jogador_id, player_result, rake_total, jogadores(nome)')
     .eq('agente_id', agenteId)
-    .eq('clube_id', clubeId)
+    .in('clube_id', grupoIds)
     .in('import_id', importIds)
 
   type Row = { jogador_id: string; player_result: number | null; rake_total: number | null; jogadores: { nome: string } | null }
