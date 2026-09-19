@@ -253,6 +253,27 @@ export async function getVinculosAcerto(clubeId: string): Promise<VinculoAcertoR
     .map((c) => ({ id: c.id, nome: c.name, plataformaNome: c.plataformas?.nome ?? '—', ligaNome: c.leagues?.name ?? '—' }))
 }
 
+export interface ResumoAgentesClube {
+  agentes: number
+  superAgentes: number
+}
+
+// Quantos Agentes/Super Agentes já estão vinculados a esse clube
+// (clube_agentes) — usado pra um resumo discreto dentro do "Editar Clube",
+// sem duplicar a tela de cadastro de Agentes/Super Agentes inteira ali
+// dentro (pedido do Cássio: "quero ver aqui também, mas de forma
+// discreta"). SA = agente que aparece como superagente_id de outro agente
+// desse mesmo clube (mesma definição já usada na tela de Agentes).
+export async function getResumoAgentesClube(clubeId: string): Promise<ResumoAgentesClube> {
+  const { data } = await supabase.from('clube_agentes').select('agente_id, agentes!agente_id(superagente_id)').eq('clube_id', clubeId)
+  const linhas = (data ?? []) as unknown as { agente_id: string; agentes: { superagente_id: string | null } | null }[]
+  const idsDoClube = new Set(linhas.map((l) => l.agente_id))
+  const superAgentes = new Set(
+    linhas.map((l) => l.agentes?.superagente_id).filter((id): id is string => !!id && idsDoClube.has(id))
+  )
+  return { agentes: linhas.length, superAgentes: superAgentes.size }
+}
+
 export async function addVinculoAcerto(clubeId: string, outroClubeId: string): Promise<void> {
   const [a, b] = await Promise.all([buscarAncora(clubeId), buscarAncora(outroClubeId)])
   const ancoraA = a.vinculo_acerto_grupo_id ?? a.id

@@ -526,6 +526,8 @@ export const es: typeof pt = {
     clube_nao_encontrado: '⚠ Club no encontrado. Completa el nombre para registrarlo.',
     liga_opcional: 'Liga (opcional)', liga_vazio: '— Ninguna —',
     projeto_opcional: 'Proyecto (opcional)', projeto_placeholder: 'Ej: Sul HG — solo si este club no hereda de ninguna Liga',
+    resumo_agentes: '{agentes} agente(s) · {superAgentes} súper agente(s) vinculado(s)',
+    resumo_agentes_vazio: 'Ningún agente vinculado todavía',
     clube_vinculado_titulo: 'Club Vinculado',
     clube_vinculado_desc: 'El mismo club en más de una plataforma (ej: ClubGG + Sul HG) — quien esté vinculado aquí se vuelve una sola cuenta en el Resumen de Liquidaciones, con los valores sumados.',
     salve_primeiro_vincular: 'Guarda el registro primero para poder vincular otro club.',

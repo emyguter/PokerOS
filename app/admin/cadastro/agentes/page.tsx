@@ -1,5 +1,6 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { getAgentes, createAgente, updateAgente, deleteAgente, syncAgentePlataformas, syncClubeAgentes, syncSubAgentes, getPlataformas, getClubs } from '@/lib/cadastro-api'
 import type { Agente, AgenteForm, AgentePlataforma, Plataforma, ClubeVinculado, Club } from '@/lib/types'
 import { CadastroTable } from '@/components/cadastro/CadastroTable'
@@ -9,12 +10,25 @@ import { BuscaSelect } from '@/components/BuscaSelect'
 import { Plus } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 
+// `useSearchParams` precisa ficar isolado e coberto por Suspense (mesmo
+// padrão já usado em LancamentoView/RelatoriosView/etc — ver comentário em
+// components/Sidebar.tsx) — sem isso tira a página inteira da renderização
+// estática.
 export default function AgentesPage() {
+  return <Suspense fallback={null}><AgentesPageInner /></Suspense>
+}
+
+function AgentesPageInner() {
   const { t } = useI18n()
+  // ?clube=<id> vem do link discreto no "Editar Clube" (ClubModal, pedido
+  // do Cássio: "quero ver os SA e agentes aqui também") — abre essa tela já
+  // filtrada pro clube de onde a pessoa veio, sem precisar achar e aplicar
+  // o filtro na mão.
+  const clubeDaUrl = useSearchParams().get('clube')
   const [items, setItems] = useState<Agente[]>([])
   const [plataformas, setPlataformas] = useState<Plataforma[]>([])
   const [clubes, setClubes] = useState<Club[]>([])
-  const [clubeFiltro, setClubeFiltro] = useState('')
+  const [clubeFiltro, setClubeFiltro] = useState(clubeDaUrl ?? '')
   const [saFiltro, setSaFiltro] = useState('')
   const [filter, setFilter] = useState('')
   const [loading, setLoading] = useState(true)
