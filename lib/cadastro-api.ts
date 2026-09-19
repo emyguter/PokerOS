@@ -253,6 +253,91 @@ export async function getVinculosAcerto(clubeId: string): Promise<VinculoAcertoR
     .map((c) => ({ id: c.id, nome: c.name, plataformaNome: c.plataformas?.nome ?? '—', ligaNome: c.leagues?.name ?? '—' }))
 }
 
+export interface ResumoAgentesClube {
+  agentes: number
+  superAgentes: number
+}
+
+// Quantos Agentes/Super Agentes já estão vinculados a esse clube
+// (clube_agentes) — usado pra um resumo discreto dentro do "Editar Clube",
+// sem duplicar a tela de cadastro de Agentes/Super Agentes inteira ali
+// dentro (pedido do Cássio: "quero ver aqui também, mas de forma
+// discreta"). SA = agente que aparece como superagente_id de outro agente
+// desse mesmo clube (mesma definição já usada na tela de Agentes).
+// PostgREST às vezes devolve um embed to-one como array de 1 item em vez de
+// objeto direto (mais provável em self-join na mesma tabela, como
+// `agentes!agente_id(superagente_id)` aqui) — sem tratar isso o valor lido
+// vira `undefined` mesmo com o dado certo no banco (mesmo problema já
+// achado e corrigido na Árvore de Acertos, ver lib/arvore-acertos.ts).
+function umObjeto<T>(v: T | T[] | null | undefined): T | null {
+  if (Array.isArray(v)) return v[0] ?? null
+  return v ?? null
+}
+
+export async function getResumoAgentesClube(clubeId: string): Promise<ResumoAgentesClube> {
+  const { data } = await supabase.from('clube_agentes').select('agente_id, agentes!agente_id(superagente_id)').eq('clube_id', clubeId)
+  const linhas = (data ?? []) as unknown as { agente_id: string; agentes: { superagente_id: string | null } | { superagente_id: string | null }[] | null }[]
+  const idsDoClube = new Set(linhas.map((l) => l.agente_id))
+  const superAgentes = new Set(
+    linhas.map((l) => umObjeto(l.agentes)?.superagente_id).filter((id): id is string => !!id && idsDoClube.has(id))
+  )
+  return { agentes: linhas.length, superAgentes: superAgentes.size }
+}
+
+export interface AgenteDoClube {
+  id: string
+  nome: string
+  rakebackPct: number | null
+}
+export interface SuperAgenteDoClube {
+  id: string
+  nome: string
+  agentes: AgenteDoClube[]
+}
+export interface ArvoreAgentesClube {
+  superAgentes: SuperAgenteDoClube[]
+  agentesSoltos: AgenteDoClube[]
+}
+
+// Árvore Super Agente → Agente vinculada a esse clube (clube_agentes),
+// independente de semana/Acerto — usada no popup discreto dentro do
+// "Editar Clube" (pedido do Cássio: em vez de redirecionar pra tela de
+// Agentes, "abriria um pop up com a lista de SA + drill down de agentes de
+// cada um"). Diferente da Árvore de Acertos (lib/arvore-acertos.ts, que lê
+// `acertos_agentes` de uma semana específica), essa lê direto o CADASTRO
+// (`clube_agentes`/`agentes`), sem depender de nenhum import/período —
+// existe assim que o vínculo Agente↔Clube é criado, mesmo antes do
+// primeiro Acerto.
+export async function getArvoreAgentesClube(clubeId: string): Promise<ArvoreAgentesClube> {
+  const { data } = await supabase
+    .from('clube_agentes')
+    .select('agente_id, rakeback_pct, agentes!agente_id(id, nome, superagente_id, superagente:agentes!superagente_id(id, nome))')
+    .eq('clube_id', clubeId)
+  type Row = {
+    agente_id: string
+    rakeback_pct: number | null
+    agentes: { id: string; nome: string; superagente_id: string | null; superagente: { id: string; nome: string } | { id: string; nome: string }[] | null } | { id: string; nome: string; superagente_id: string | null; superagente: { id: string; nome: string } | { id: string; nome: string }[] | null }[] | null
+  }
+  const linhas = (data ?? []) as unknown as Row[]
+
+  const superAgentesPorId = new Map<string, SuperAgenteDoClube>()
+  const agentesSoltos: AgenteDoClube[] = []
+  for (const r of linhas) {
+    const agenteEmbed = umObjeto(r.agentes)
+    if (!agenteEmbed) continue
+    const agente: AgenteDoClube = { id: r.agente_id, nome: agenteEmbed.nome, rakebackPct: r.rakeback_pct }
+    const sa = umObjeto(agenteEmbed.superagente)
+    if (!sa) { agentesSoltos.push(agente); continue }
+    const node = superAgentesPorId.get(sa.id) ?? { id: sa.id, nome: sa.nome, agentes: [] }
+    node.agentes.push(agente)
+    superAgentesPorId.set(sa.id, node)
+  }
+  return {
+    superAgentes: [...superAgentesPorId.values()].sort((a, b) => a.nome.localeCompare(b.nome)),
+    agentesSoltos: agentesSoltos.sort((a, b) => a.nome.localeCompare(b.nome)),
+  }
+}
+
 export async function addVinculoAcerto(clubeId: string, outroClubeId: string): Promise<void> {
   const [a, b] = await Promise.all([buscarAncora(clubeId), buscarAncora(outroClubeId)])
   const ancoraA = a.vinculo_acerto_grupo_id ?? a.id

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Trash2, Search } from 'lucide-react'
+import { Plus, Trash2, Search, Users, ChevronRight } from 'lucide-react'
 import type { Club, ClubForm, League, Plataforma, CampoClube } from '@/lib/types'
 import { MOEDAS } from '@/lib/moedas'
 import { supabase } from '@/lib/supabase'
@@ -8,7 +8,8 @@ import { RegrasAplicadas } from './RegrasAplicadas'
 import { StepModal, type ModalStep } from './StepModal'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { getStoplossAtual } from '@/lib/stoploss'
-import { getIndicacoes, addIndicacao, atualizarPercentualIndicacao, removeIndicacao, type IndicacaoRow, getVinculosAcerto, addVinculoAcerto, removeVinculoAcerto, type VinculoAcertoRow, getRegrasDaEntidade } from '@/lib/cadastro-api'
+import { getIndicacoes, addIndicacao, atualizarPercentualIndicacao, removeIndicacao, type IndicacaoRow, getVinculosAcerto, addVinculoAcerto, removeVinculoAcerto, type VinculoAcertoRow, getRegrasDaEntidade, getResumoAgentesClube, type ResumoAgentesClube } from '@/lib/cadastro-api'
+import { AgentesDoClubePopup } from './AgentesDoClubePopup'
 import { errMsg } from '@/lib/errors'
 import { useI18n } from '@/lib/i18n'
 
@@ -117,6 +118,8 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   // vinculada — o % digitado na etapa Taxas não é usado nesses, a Regra
   // sempre manda. Trava o input correspondente em vez de deixar preencher.
   const [camposComRegra, setCamposComRegra] = useState<Set<CampoClube>>(new Set())
+  const [resumoAgentes, setResumoAgentes] = useState<ResumoAgentesClube | null>(null)
+  const [agentesPopupOpen, setAgentesPopupOpen] = useState(false)
 
   useEffect(() => {
     setForm(editing ? toForm(editing) : (prefill ? { ...EMPTY, name: prefill.name, external_id: prefill.external_id } : EMPTY))
@@ -134,6 +137,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     setClubeLocked(!!editing?.name && !!editing?.external_id)
     setStoplossAtual(null)
     setCamposComRegra(new Set())
+    setResumoAgentes(null)
     if (editing) {
       getStoplossAtual(editing.id).then(setStoplossAtual)
       getIndicacoes(editing.id).then(setIndicacoes).catch(e => setErroIndicacao(errMsg(e)))
@@ -141,6 +145,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       getRegrasDaEntidade('clube', editing.id).then((regras) => {
         setCamposComRegra(new Set(regras.map((r) => r.campo).filter((c): c is CampoClube => !!c)))
       }).catch(() => setCamposComRegra(new Set()))
+      getResumoAgentesClube(editing.id).then(setResumoAgentes).catch(() => setResumoAgentes(null))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing, open])
@@ -300,6 +305,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   }
 
   return (
+    <>
     <StepModal
       open={open}
       title={editing ? t('club_modal.title_edit') : t('club_modal.title_new')}
@@ -356,6 +362,30 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
             <input type="text" value={form.projeto ?? ''} onChange={e => set('projeto', e.target.value || null)} placeholder={t('club_modal.projeto_placeholder')} className={inputCls} />
           </Fld>
         </div>
+      )}
+
+      {/* Resumo discreto de Agentes/SA vinculados — pedido do Cássio
+          ("cadê os SA e agentes aqui?" → "quero ver aqui também, mas de
+          forma discreta" → "em vez de redirecionar, eu abriria um pop up
+          com a lista de SA + drill down de agentes de cada um"). Abre um
+          popup leve (AgentesDoClubePopup) em vez de navegar pra tela de
+          Agentes — não perde o que já foi preenchido nas outras etapas
+          (Taxas/Regras/Garantias) do form, e já deixa o % de rakeback
+          editável ali mesmo. */}
+      {step === 'identificacao' && editing && (
+        <button
+          type="button"
+          onClick={() => setAgentesPopupOpen(true)}
+          className="mt-4 flex items-center gap-2 text-xs text-gray-500 hover:text-gold transition-colors w-fit"
+        >
+          <Users size={13} />
+          {resumoAgentes
+            ? resumoAgentes.agentes > 0
+              ? t('club_modal.resumo_agentes', { agentes: resumoAgentes.agentes, superAgentes: resumoAgentes.superAgentes })
+              : t('club_modal.resumo_agentes_vazio')
+            : ' '}
+          <ChevronRight size={12} />
+        </button>
       )}
 
       {step === 'identificacao' && (
@@ -655,5 +685,14 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
         </>
       )}
     </StepModal>
+    {editing && (
+      <AgentesDoClubePopup
+        open={agentesPopupOpen}
+        clubeId={editing.id}
+        clubeNome={editing.name}
+        onClose={() => setAgentesPopupOpen(false)}
+      />
+    )}
+    </>
   )
 }
