@@ -254,6 +254,13 @@ export interface NoJogador {
   nome: string
   rake: number
   resultado: number
+  // Nome do clube (+ Liga dele) de onde esse jogador veio, só preenchido
+  // quando a Árvore está mostrando o grupo de Vínculo de Acerto (clube
+  // principal + vinculados) — mesmo formato "{clube} [{Liga}]" já usado no
+  // ClubAcertoCard (achado no PIXGAME: sem isso, um jogador do PIXGAME/ORION
+  // aparecia misturado com os do PIXGAME/PPPoker sem nenhuma indicação de
+  // qual plataforma/clube ele realmente joga).
+  origem?: string
 }
 
 export interface NoAgente {
@@ -262,6 +269,12 @@ export interface NoAgente {
   rakeTotal: number
   rakebackPct: number
   valorRakeback: number
+  // Mesma ideia de NoJogador.origem: nome(s) do(s) clube(s) do grupo (além
+  // do clube que a Árvore está mostrando) que contribuíram pro rake/rakeback
+  // desse Agente — sem isso, o total de um Agente vinha silenciosamente
+  // somado com o clube vinculado, sem nenhum sinal visual de onde vinha a
+  // diferença.
+  origens?: string
 }
 
 export interface NoSuperAgente {
@@ -291,6 +304,23 @@ async function idsGrupoAcerto(clubeId: string): Promise<string[]> {
   return [clubeId, ...((outros ?? []) as { id: string }[]).map((c) => c.id)]
 }
 
+// Rótulo "{clube} [{Liga}]" de cada clube do grupo ALÉM do `clubeId` sendo
+// exibido (mesmo formato já usado na quebra "Acerto R$" do ClubAcertoCard)
+// — usado pra marcar visualmente Agente/Jogador que vem de um clube
+// vinculado diferente do que a Árvore está mostrando (achado no PIXGAME:
+// sem isso, o rateio da ORION aparecia igualzinho ao do próprio PPPoker,
+// sem nenhuma pista de qual plataforma/Liga era de verdade).
+async function rotulosOutrosClubes(clubeId: string, grupoIds: string[]): Promise<Map<string, string>> {
+  const rotuloPorClube = new Map<string, string>()
+  const outrosIds = grupoIds.filter((id) => id !== clubeId)
+  if (outrosIds.length === 0) return rotuloPorClube
+  const { data: outrosClubes } = await supabase.from('clubs').select('id, name, leagues(name)').in('id', outrosIds)
+  for (const c of (outrosClubes ?? []) as unknown as { id: string; name: string; leagues: { name: string } | null }[]) {
+    rotuloPorClube.set(c.id, `${c.name} [${c.leagues?.name ?? '—'}]`)
+  }
+  return rotuloPorClube
+}
+
 // Super Agente/Agente de um Clube num período — mesma fonte que
 // AgentesAcertosView (acertos_agentes), só reorganizada em árvore por
 // agentes.superagente_id. Um Agente sem Super Agente vinculado entra em
@@ -301,15 +331,18 @@ export async function buscarArvoreClube(clubeId: string, periodoFim: string): Pr
   if (importIds.length === 0) return { superAgentes: [], agentesSoltos: [] }
 
   const grupoIds = await idsGrupoAcerto(clubeId)
+  const rotuloPorClube = await rotulosOutrosClubes(clubeId, grupoIds)
+
   const { data } = await supabase
     .from('acertos_agentes')
-    .select('agente_id, agente_nome, rake_total, rakeback_pct, valor_rakeback, agentes!agente_id(superagente_id, superagente:agentes!superagente_id(id, nome))')
+    .select('agente_id, agente_nome, clube_id, rake_total, rakeback_pct, valor_rakeback, agentes!agente_id(superagente_id, superagente:agentes!superagente_id(id, nome))')
     .in('clube_id', grupoIds)
     .in('import_id', importIds)
 
   type Row = {
     agente_id: string
     agente_nome: string
+    clube_id: string
     rake_total: number
     rakeback_pct: number
     valor_rakeback: number
@@ -318,12 +351,23 @@ export async function buscarArvoreClube(clubeId: string, periodoFim: string): Pr
 
   const porAgente = new Map<string, NoAgente>()
   const superagentePorAgente = new Map<string, { id: string; nome: string } | null>()
+  const origensPorAgente = new Map<string, Set<string>>()
   for (const r of (data ?? []) as unknown as Row[]) {
     const atual = porAgente.get(r.agente_id) ?? { id: r.agente_id, nome: r.agente_nome, rakeTotal: 0, rakebackPct: r.rakeback_pct, valorRakeback: 0 }
     atual.rakeTotal += r.rake_total ?? 0
     atual.valorRakeback += r.valor_rakeback ?? 0
     porAgente.set(r.agente_id, atual)
     superagentePorAgente.set(r.agente_id, r.agentes?.superagente ?? null)
+    const rotulo = rotuloPorClube.get(r.clube_id)
+    if (rotulo) {
+      const set = origensPorAgente.get(r.agente_id) ?? new Set<string>()
+      set.add(rotulo)
+      origensPorAgente.set(r.agente_id, set)
+    }
+  }
+  for (const [agenteId, origens] of origensPorAgente) {
+    const agente = porAgente.get(agenteId)
+    if (agente) agente.origens = [...origens].join(', ')
   }
 
   const superAgentesPorId = new Map<string, NoSuperAgente>()
@@ -364,19 +408,22 @@ export async function buscarJogadoresDoAgente(agenteId: string, clubeId: string,
   if (importIds.length === 0) return []
 
   const grupoIds = await idsGrupoAcerto(clubeId)
+  const rotuloPorClube = await rotulosOutrosClubes(clubeId, grupoIds)
   const { data } = await supabase
     .from('import_jogadores')
-    .select('jogador_id, player_result, rake_total, jogadores(nome)')
+    .select('jogador_id, player_result, rake_total, clube_id, jogadores(nome)')
     .eq('agente_id', agenteId)
     .in('clube_id', grupoIds)
     .in('import_id', importIds)
 
-  type Row = { jogador_id: string; player_result: number | null; rake_total: number | null; jogadores: { nome: string } | null }
+  type Row = { jogador_id: string; player_result: number | null; rake_total: number | null; clube_id: string; jogadores: { nome: string } | null }
   const porJogador = new Map<string, NoJogador>()
   for (const r of (data ?? []) as unknown as Row[]) {
     const atual = porJogador.get(r.jogador_id) ?? { id: r.jogador_id, nome: r.jogadores?.nome ?? '—', rake: 0, resultado: 0 }
     atual.rake += r.rake_total ?? 0
     atual.resultado += r.player_result ?? 0
+    const rotulo = rotuloPorClube.get(r.clube_id)
+    if (rotulo) atual.origem = rotulo
     porJogador.set(r.jogador_id, atual)
   }
   return [...porJogador.values()].sort((a, b) => a.nome.localeCompare(b.nome))

@@ -747,11 +747,16 @@ function CardClube({ clube, onClick }: { clube: LinhaMeuAcerto; onClick: () => v
 }
 function CardSuperAgente({ sa, onClick }: { sa: NoSuperAgente; onClick: () => void }) {
   const total = sa.agentes.reduce((s, a) => s + a.valorRakeback, 0)
-  return <NodeCard icone="SA" nome={sa.nome} sub={`${sa.agentes.length} agente(s)`} valor={fmt(total)} onClick={onClick} />
+  // Badge com o(s) clube(s) vinculado(s) que contribuem pra esse SA (ver
+  // NoAgente.origens) — se algum Agente dele veio de um clube do Vínculo de
+  // Acerto diferente do que a Árvore está mostrando, avisa aqui também, sem
+  // precisar abrir o SA pra descobrir.
+  const origensSA = [...new Set(sa.agentes.flatMap((a) => (a.origens ? a.origens.split(', ') : [])))].join(', ')
+  return <NodeCard icone="SA" nome={sa.nome} sub={`${sa.agentes.length} agente(s)`} valor={fmt(total)} badge={origensSA || undefined} onClick={onClick} />
 }
 function CardAgente({ agente, onClick }: { agente: NoAgente; onClick: () => void }) {
-  return <NodeCard icone="A" nome={agente.nome} sub={`${agente.rakebackPct}% rakeback`} valor={fmt(agente.valorRakeback)} onClick={onClick} />
+  return <NodeCard icone="A" nome={agente.nome} sub={`${agente.rakebackPct}% rakeback`} valor={fmt(agente.valorRakeback)} badge={agente.origens} onClick={onClick} />
 }
 function CardJogador({ jogador, onClick }: { jogador: NoJogador; onClick: () => void }) {
-  return <NodeCard icone="J" nome={jogador.nome} sub={`rake gerado ${fmt(jogador.rake)}`} valor={fmt(jogador.resultado)} onClick={onClick} />
+  return <NodeCard icone="J" nome={jogador.nome} sub={`rake gerado ${fmt(jogador.rake)}`} valor={fmt(jogador.resultado)} badge={jogador.origem} onClick={onClick} />
 }
