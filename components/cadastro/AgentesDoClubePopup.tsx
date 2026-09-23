@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { X, ChevronLeft, ChevronRight, Loader2, Plus, Search } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Loader2, Plus, Search, Check } from 'lucide-react'
 import { getArvoreAgentesClube, setRakebackClubeAgente, addAgenteToClube, getAgentes, type ArvoreAgentesClube, type AgenteDoClube } from '@/lib/cadastro-api'
 import type { Agente } from '@/lib/types'
 import { useI18n } from '@/lib/i18n'
@@ -25,6 +25,12 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
   const [arvore, setArvore] = useState<ArvoreAgentesClube | null>(null)
   const [saAberto, setSaAberto] = useState<string | null>(null)
   const [salvandoId, setSalvandoId] = useState<string | null>(null)
+  // Achado pelo Cássio no PIXGAME: digitou o % e não achou onde salvar —
+  // só salvava no blur (clicar fora do campo), sem nenhum botão nem aviso
+  // disso. Agora salva sozinho enquanto digita (debounced) e mostra um
+  // check por 1,5s confirmando, pra não depender de perceber o blur.
+  const [salvoId, setSalvoId] = useState<string | null>(null)
+  const pctTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
   // Busca pra vincular um Agente/SA já cadastrado a esse clube — achado
   // pelo Cássio no GETSTAR 5 (clube sem nenhum agente ainda): o popup só
@@ -47,6 +53,8 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
     setResultados([])
     setLoading(true)
     getArvoreAgentesClube(clubeId).then(setArvore).finally(() => setLoading(false))
+    const timers = pctTimers.current
+    return () => { timers.forEach(clearTimeout); timers.clear() }
   }, [open, clubeId])
 
   useEffect(() => {
@@ -69,12 +77,23 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
   const resultadosFiltrados = resultados.filter(a => !idsJaVinculados.has(a.id))
 
   async function salvarPct(agenteId: string, pct: number | null) {
+    const timer = pctTimers.current.get(agenteId)
+    if (timer) { clearTimeout(timer); pctTimers.current.delete(agenteId) }
     setSalvandoId(agenteId)
     try {
       await setRakebackClubeAgente(clubeId, agenteId, pct)
+      setSalvoId(agenteId)
+      setTimeout(() => setSalvoId(atual => (atual === agenteId ? null : atual)), 1500)
     } finally {
-      setSalvandoId(null)
+      setSalvandoId(atual => (atual === agenteId ? null : atual))
     }
+  }
+
+  function editarPct(agenteId: string, pct: number | null) {
+    atualizarLocal(agenteId, pct)
+    const timer = pctTimers.current.get(agenteId)
+    if (timer) clearTimeout(timer)
+    pctTimers.current.set(agenteId, setTimeout(() => salvarPct(agenteId, pct), 600))
   }
 
   async function vincular(agente: Agente) {
@@ -106,12 +125,16 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
           <input
             type="number" step="any" placeholder="0"
             value={agente.rakebackPct ?? ''}
-            onChange={e => atualizarLocal(agente.id, e.target.value === '' ? null : Number(e.target.value))}
+            onChange={e => editarPct(agente.id, e.target.value === '' ? null : Number(e.target.value))}
             onBlur={e => salvarPct(agente.id, e.target.value === '' ? null : Number(e.target.value))}
             className="w-16 bg-surface border border-white/10 rounded-lg px-2 py-1 text-white text-xs text-right focus:outline-none focus:border-gold/50"
           />
           <span className="text-xs text-gray-500">%</span>
-          {salvandoId === agente.id && <Loader2 size={12} className="animate-spin text-gold" />}
+          {salvandoId === agente.id ? (
+            <Loader2 size={12} className="animate-spin text-gold" />
+          ) : salvoId === agente.id ? (
+            <Check size={12} className="text-emerald-400" />
+          ) : null}
         </div>
       </div>
     )
