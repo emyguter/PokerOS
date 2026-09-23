@@ -1,7 +1,8 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
-import { getArvoreAgentesClube, setRakebackClubeAgente, type ArvoreAgentesClube, type AgenteDoClube } from '@/lib/cadastro-api'
+import { useState, useEffect, useRef } from 'react'
+import { X, ChevronLeft, ChevronRight, Loader2, Plus, Search } from 'lucide-react'
+import { getArvoreAgentesClube, setRakebackClubeAgente, addAgenteToClube, getAgentes, type ArvoreAgentesClube, type AgenteDoClube } from '@/lib/cadastro-api'
+import type { Agente } from '@/lib/types'
 import { useI18n } from '@/lib/i18n'
 
 interface Props {
@@ -25,14 +26,47 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
   const [saAberto, setSaAberto] = useState<string | null>(null)
   const [salvandoId, setSalvandoId] = useState<string | null>(null)
 
+  // Busca pra vincular um Agente/SA já cadastrado a esse clube — achado
+  // pelo Cássio no GETSTAR 5 (clube sem nenhum agente ainda): o popup só
+  // deixava editar o % de quem já estava vinculado, não tinha como
+  // vincular ninguém novo aqui ("não encontrei onde vincular o SA ou
+  // Agente no clube"). Reaproveita addAgenteToClube (mesma função que a
+  // tela de Agentes já usa) — só a busca/gatilho são novos.
+  const [buscaAberta, setBuscaAberta] = useState(false)
+  const [busca, setBusca] = useState('')
+  const [buscando, setBuscando] = useState(false)
+  const [resultados, setResultados] = useState<Agente[]>([])
+  const [vinculandoId, setVinculandoId] = useState<string | null>(null)
+  const buscaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   useEffect(() => {
     if (!open) return
     setSaAberto(null)
+    setBuscaAberta(false)
+    setBusca('')
+    setResultados([])
     setLoading(true)
     getArvoreAgentesClube(clubeId).then(setArvore).finally(() => setLoading(false))
   }, [open, clubeId])
 
+  useEffect(() => {
+    if (buscaTimer.current) clearTimeout(buscaTimer.current)
+    if (!busca.trim()) { setResultados([]); return }
+    buscaTimer.current = setTimeout(async () => {
+      setBuscando(true)
+      try { setResultados(await getAgentes(busca.trim())) }
+      finally { setBuscando(false) }
+    }, 400)
+    return () => { if (buscaTimer.current) clearTimeout(buscaTimer.current) }
+  }, [busca])
+
   if (!open) return null
+
+  const idsJaVinculados = new Set([
+    ...(arvore?.superAgentes.flatMap(sa => sa.agentes.map(a => a.id)) ?? []),
+    ...(arvore?.agentesSoltos.map(a => a.id) ?? []),
+  ])
+  const resultadosFiltrados = resultados.filter(a => !idsJaVinculados.has(a.id))
 
   async function salvarPct(agenteId: string, pct: number | null) {
     setSalvandoId(agenteId)
@@ -40,6 +74,17 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
       await setRakebackClubeAgente(clubeId, agenteId, pct)
     } finally {
       setSalvandoId(null)
+    }
+  }
+
+  async function vincular(agente: Agente) {
+    setVinculandoId(agente.id)
+    try {
+      await addAgenteToClube(clubeId, agente.id)
+      setArvore(await getArvoreAgentesClube(clubeId))
+      setBuscaAberta(false); setBusca(''); setResultados([])
+    } finally {
+      setVinculandoId(null)
     }
   }
 
@@ -92,6 +137,53 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
           </div>
           <button type="button" onClick={onClose} className="text-gray-500 hover:text-white shrink-0"><X size={18} /></button>
         </div>
+
+        {!saSelecionado && (
+          <div className="px-5 py-3 border-b border-white/10 shrink-0">
+            {!buscaAberta ? (
+              <button
+                type="button"
+                onClick={() => setBuscaAberta(true)}
+                className="flex items-center gap-1.5 text-xs text-gold hover:text-gold/80 transition-colors"
+              >
+                <Plus size={13} />{t('club_modal.agentes_popup_vincular')}
+              </button>
+            ) : (
+              <div>
+                <div className="relative">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <input
+                    type="text" autoFocus value={busca} onChange={e => setBusca(e.target.value)}
+                    placeholder={t('club_modal.agentes_popup_buscar_placeholder')}
+                    className="w-full bg-surface border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-white text-xs placeholder-gray-600 focus:outline-none focus:border-gold/50"
+                  />
+                </div>
+                {busca.trim() && (
+                  <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-white/10 divide-y divide-white/5">
+                    {buscando ? (
+                      <p className="text-xs text-gray-500 italic text-center py-3">{t('common.carregando')}</p>
+                    ) : resultadosFiltrados.length === 0 ? (
+                      <p className="text-xs text-gray-500 italic text-center py-3">{t('club_modal.agentes_popup_nenhum_resultado')}</p>
+                    ) : (
+                      resultadosFiltrados.map(a => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => vincular(a)}
+                          disabled={vinculandoId === a.id}
+                          className="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-white/[0.03] text-left disabled:opacity-50"
+                        >
+                          <span className="text-xs text-white truncate">{a.nome}</span>
+                          {vinculandoId === a.id && <Loader2 size={12} className="animate-spin text-gold shrink-0" />}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="overflow-y-auto">
           {loading ? (
