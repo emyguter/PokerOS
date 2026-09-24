@@ -151,7 +151,7 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
     clube: t('regras_aplicadas.entidade_clube'), agente: t('regras_aplicadas.entidade_agente'), jogador: t('regras_aplicadas.entidade_jogador'),
   }
   const LABEL_CAMPO: Record<CampoClube, string> = {
-    fee_mtt: t('regra_modal.campo_fee_mtt'), fee_cash: t('regra_modal.campo_fee_cash'), taxa_op: t('regra_modal.campo_taxa_op'), spinup: t('regra_modal.campo_spinup'), rake_total: t('regra_modal.campo_rake_total'), taxa_liga: t('regra_modal.campo_taxa_liga'),
+    fee_mtt: t('regra_modal.campo_fee_mtt'), fee_cash: t('regra_modal.campo_fee_cash'), taxa_op: t('regra_modal.campo_taxa_op'), spinup: t('regra_modal.campo_spinup'), rake_total: t('regra_modal.campo_rake_total'), taxa_liga: t('regra_modal.campo_taxa_liga'), taxa_app: t('regra_modal.campo_taxa_app'),
   }
   const [vinculos, setVinculos] = useState<RegraVinculo[]>([])
   const [loading, setLoading] = useState(false)
@@ -210,12 +210,15 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
   if (!open || !regra) return null
 
   // taxa_liga tem efeito numa Liga (fonte principal) ou num Clube (fallback
-  // quando a Liga não tem nada configurado nesse campo); os outros campos só
-  // tem efeito vinculados a um Clube — e mesmo aí, só se o settlement_type
-  // daquele clube usar aquele campo de verdade (CAMPOS_POR_SETTLEMENT).
+  // quando a Liga não tem nada configurado nesse campo); taxa_app tem efeito
+  // em Clube, Liga ou SuperLiga sempre (não depende de settlement_type
+  // nenhum — soma o Rake de todo mundo do escopo, ver lib/taxa-app.ts); os
+  // outros campos só tem efeito vinculados a um Clube — e mesmo aí, só se o
+  // settlement_type daquele clube usar aquele campo de verdade
+  // (CAMPOS_POR_SETTLEMENT).
   function campoTemEfeito(tipo: EntidadeTipo, entidadeId: string, campo: CampoClube): boolean | null {
     if (!campoAplicavelAoTipo(campo, tipo)) return false
-    if (tipo !== 'clube') return true // taxa_liga numa Liga: sempre tem efeito, Liga não tem settlement_type
+    if (tipo !== 'clube' || campo === 'taxa_app') return true // taxa_liga numa Liga, ou taxa_app em qualquer tipo aplicável: sempre tem efeito
     const settlementType = settlementPorClube.get(entidadeId)
     if (settlementType === undefined) return null // ainda carregando — não afirma nada
     return (CAMPOS_POR_SETTLEMENT[settlementType] ?? []).includes(campo)

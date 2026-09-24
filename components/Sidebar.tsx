@@ -127,6 +127,14 @@ function ComTabAtivo({ children }: { children: (tab: string | null) => React.Rea
   return <>{children(tab)}</>
 }
 
+// Duas abas dentro de Acertos — a árvore de sempre (sem ?tab=, comportamento
+// padrão da página) e a nova Taxa App (pedido do Cássio: "penso que pode
+// ser criado sub menus abaixo de acertos", ver TaxaAppView/lib/taxa-app.ts).
+const ACERTOS_SUB: SubNavItem[] = [
+  { key: 'arvore', labelKey: 'acertos_menu.aba_arvore', href: '/acertos?tab=arvore' },
+  { key: 'taxa_app', labelKey: 'acertos_menu.aba_taxa_app', href: '/acertos?tab=taxa_app' },
+]
+
 const NAV = [
   { href: '/admin/cadastro/superligas', labelKey: 'nav.cadastros', icon: BookOpen, chaves: CADASTRO_CHAVES, subItems: CADASTRO_SUB },
   { href: '/importacao', labelKey: 'nav.importacao', icon: Upload, chaves: ['importacao'] },
@@ -135,7 +143,7 @@ const NAV = [
   { href: '/seguranca', labelKey: 'nav.seguranca', icon: ShieldAlert, chaves: ['seguranca'], subItems: SEGURANCA_SUB },
   { href: '/stoploss', labelKey: 'nav.stoploss', icon: Gauge, chaves: ['stoploss'], subItems: STOPLOSS_SUB },
   { href: '/dividas', labelKey: 'nav.dividas', icon: Banknote, chaves: ['dividas'] },
-  { href: '/acertos', labelKey: 'nav.acertos', icon: Receipt, chaves: ['acertos.ver'] },
+  { href: '/acertos', labelKey: 'nav.acertos', icon: Receipt, chaves: ['acertos.ver'], subItems: ACERTOS_SUB },
   { href: '/relatorios', labelKey: 'nav.relatorios', icon: FileText, chaves: ['relatorios', 'relatorios.lancamentos', 'relatorios.taxas', 'relatorios.resumo_acertos', 'relatorios.acertos_pendentes', 'lancamento', 'seguranca', 'stoploss', 'vip.relatorio', 'lancamento.genia'], subItems: RELATORIOS_SUB },
   { href: '/admin/regras', labelKey: 'nav.regras', icon: ListChecks, chaves: ['regras'] },
 ]

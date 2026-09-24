@@ -309,7 +309,15 @@ export type EntidadeTipo = 'plataforma' | 'mega_liga' | 'superliga' | 'liga' | '
 // campo daqui que não é do clube — é da Liga (regra_entidades.entidade_tipo
 // = 'liga'), incide sobre Rake Total + SpinUp Rake somados, em cima de
 // qualquer tipo de cobrança do clube.
-export type CampoClube = 'fee_mtt' | 'fee_cash' | 'taxa_op' | 'spinup' | 'rake_total' | 'taxa_liga'
+//
+// taxa_app: quanto a operação inteira deve pro APP (PokerOS), não é uma fee
+// de clube nenhuma — não desconta nada de Acerto nenhum, é só um relatório
+// à parte (Acertos → Taxa App). Pode vincular numa Liga, SuperLiga ou Clube
+// direto; o valor soma o Rake Total de TODO CLUBE daquele escopo no período
+// e avalia a faixa SE/ENTÃO em cima da soma (pedido do Cássio: "o uso do
+// app tem um custo que pagamos pro app... vai depender de como ele
+// vincular, tem que ser feita a conta pra cada liga, ou pra cada clube").
+export type CampoClube = 'fee_mtt' | 'fee_cash' | 'taxa_op' | 'spinup' | 'rake_total' | 'taxa_liga' | 'taxa_app'
 
 // Quais campos o motor de cálculo (lib/acertos-engine.ts, switch por
 // club.settlement_type) realmente lê pra cada tipo de cobrança — precisa
@@ -329,10 +337,14 @@ export const CAMPOS_POR_SETTLEMENT: Record<string, CampoClube[]> = {
 
 // taxa_liga vale tanto numa Liga (fonte principal) quanto num Clube (fallback
 // quando a Liga não tem nada configurado — nem % fixo, nem Regra vinculada a
-// ela nesse campo; ver calcularAcerto). Os outros campos só fazem sentido
-// vinculados a um Clube (aí sim, checar CAMPOS_POR_SETTLEMENT pra saber se o
-// settlement_type daquele clube específico realmente usa).
+// ela nesse campo; ver calcularAcerto). taxa_app vale em Clube, Liga ou
+// SuperLiga (soma o Rake de todo mundo daquele escopo — ver buscarTaxaApp em
+// lib/taxa-app.ts), sem depender do settlement_type de ninguém. Os outros
+// campos só fazem sentido vinculados a um Clube (aí sim, checar
+// CAMPOS_POR_SETTLEMENT pra saber se o settlement_type daquele clube
+// específico realmente usa).
 export function campoAplicavelAoTipo(campo: CampoClube, entidadeTipo: EntidadeTipo): boolean {
+  if (campo === 'taxa_app') return entidadeTipo === 'clube' || entidadeTipo === 'liga' || entidadeTipo === 'superliga'
   return campo === 'taxa_liga' ? entidadeTipo === 'liga' || entidadeTipo === 'clube' : entidadeTipo === 'clube'
 }
 
