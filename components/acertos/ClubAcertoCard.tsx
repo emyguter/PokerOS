@@ -718,7 +718,21 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         </div>
 
         <div className="overflow-y-auto flex-1 divide-y divide-white/10">
-          {layout.filter((c) => c.visivel).map((c) => renderCampo(c.campo))}
+          {/* Taxa MTT/Taxa Cash não podem ficar ocultas num clube taxa_dinamica,
+              mesmo que a Regra de Layout (compartilhada entre clubes de tipos
+              diferentes, ex: "Órion Layout") tenha marcado invisível — são a
+              ÚNICA linha que mostra a taxa de verdade cobrada desse clube (%
+              cadastrado, ex: 7%). "Taxa da Liga" nunca vira fallback delas em
+              taxa_dinamica (ver case 'taxa_liga' abaixo — já vem itemizado
+              aqui), então escondê-las cobra a taxa mas não mostra nada em
+              lugar nenhum do card (achado pelo Cássio no CAZZINO: "segue com
+              erro na taxa, deveria vir o cadastrado 7%" — o layout compartilhado
+              com clubes taxa_fixa_variavel escondia as duas, e pra esses outros
+              tipos tudo bem esconder, só taxa_dinamica depende delas). */}
+          {layout
+            .map((c) => (acerto.settlement_type === 'taxa_dinamica' && (c.campo === 'taxa_mtt' || c.campo === 'taxa_cash') ? { ...c, visivel: true } : c))
+            .filter((c) => c.visivel)
+            .map((c) => renderCampo(c.campo))}
 
           {agrupado && (
             <>
