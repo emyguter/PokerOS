@@ -52,7 +52,7 @@ interface AcertoRow {
   valor_acerto: number
 }
 
-interface AcertoCompletoRow extends AcertoRow {
+export interface AcertoCompletoRow extends AcertoRow {
   club_id: string | null
   bilhetes: number
   indicacao_valor: number
@@ -135,7 +135,14 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
 // `extraPorClube` (Bônus+Promoção+Outro, já somado aqui dentro de Valor do
 // Acerto) é devolvido separado só pra UI mostrar como referência na coluna
 // "Extra" (pedido do Cássio) — não é somado de novo em nada.
-async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart: string, periodEnd: string): Promise<{ valorAcertoPorId: Map<string, number>; extraPorClube: Map<string, number> }> {
+//
+// Exportada porque o seletor "Qual Acerto está sendo pago?" do Lançamento
+// (LancarForm) também precisa dela — antes lia acertos.valor_acerto cru
+// (só o motor, sem Indicação/Bilhetes/Segurança/Lançamentos), diferente do
+// valor que o Controle de Pagamentos já mostra pro mesmo Acerto. Pedido do
+// Cássio: "se escolheu Pagamento, tem que constar exatamente o mesmo valor
+// do acerto, pra não ter problemas depois".
+export async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart: string, periodEnd: string): Promise<{ valorAcertoPorId: Map<string, number>; extraPorClube: Map<string, number> }> {
   const clubIds = [...new Set(lista.map((a) => a.club_id).filter((id): id is string => !!id))]
   const rakeTotalPorClube = new Map(lista.filter((a) => a.club_id).map((a) => [a.club_id as string, a.rake_total]))
 

@@ -7,6 +7,8 @@ import { errMsg } from '@/lib/errors'
 import { desvincularConciliacao } from '@/lib/lancamentos'
 import { tentarConciliarAoLancar } from './useConciliacao'
 import { corrigirValorCrypto } from '@/lib/relatorio-acerto'
+import { valorAcertoCompletoPorRow, type AcertoCompletoRow } from '@/lib/pagamentos'
+import { buscarPendenciasEAntecipacaoAoVivo } from '@/lib/acertos-engine'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { TIPOS, ehTipoSeguranca, aguardandoConfirmacao } from './ExtratoView'
@@ -106,15 +108,41 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
         .then(({ data }) => setClubeCryptoPct(data?.crypto_rebate_pct ?? 0))
     }
     if (!ehPagamentoComAcerto || !clubeId) { setAcertosClube([]); setAcertoId(''); return }
+    let cancelado = false
     supabase
       .from('acertos')
-      .select('id, valor_acerto, imports(period_start, period_end)')
+      .select('id, valor_acerto, bilhetes, indicacao_valor, rake_total, imports(period_start, period_end)')
       .eq('club_id', clubeId)
       .order('created_at', { ascending: false })
       .limit(20)
-      .then(({ data }) => {
-        const lista = ((data ?? []) as unknown as { id: string; valor_acerto: number; imports: { period_start: string | null; period_end: string | null } | null }[])
-          .map((a) => ({ id: a.id, valor_acerto: a.valor_acerto, period_start: a.imports?.period_start ?? null, period_end: a.imports?.period_end ?? null }))
+      .then(async ({ data }) => {
+        const brutos = ((data ?? []) as unknown as { id: string; valor_acerto: number; bilhetes: number; indicacao_valor: number; rake_total: number; imports: { period_start: string | null; period_end: string | null } | null }[])
+          .map((a) => ({ ...a, period_start: a.imports?.period_start ?? null, period_end: a.imports?.period_end ?? null }))
+        // Valor do Acerto mostrado aqui precisa ser o MESMO do card "Ver
+        // acerto completo" (Bilhetes/Indicação/Segurança/Lançamentos E
+        // Pendência/Antecipação ao vivo) — pedido explícito do Cássio: "eu
+        // quero que o valor do resumo do acerto seja o valor que aparece no
+        // acerto quando eu seleciono pagamento... esquece o Controle de
+        // Pagamento" (lá a Antecipação fica de fora de propósito, pra não
+        // contar 2x com o Envio itemizado — aqui é o contrário, o Lançamento
+        // usa o total cheio do card). Antes lia valor_acerto cru (só o
+        // motor), sem somar nada disso — pra um clube com Indicação (achado
+        // no LEGENDARY pe) ou Pendência (achado no CashOut-) o valor aqui
+        // vinha errado. Cada linha é de uma semana diferente, então chama por
+        // linha (as duas funções são bateladas só dentro de UMA semana).
+        const completos = await Promise.all(brutos.map(async (a) => {
+          if (!a.period_start || !a.period_end) return a.valor_acerto
+          const row: AcertoCompletoRow = { id: a.id, club_external_id: '', club_name: '', valor_acerto: a.valor_acerto, club_id: clubeId, bilhetes: a.bilhetes, indicacao_valor: a.indicacao_valor, rake_total: a.rake_total }
+          const [{ valorAcertoPorId }, pendenciasPorClube] = await Promise.all([
+            valorAcertoCompletoPorRow([row], a.period_start, a.period_end),
+            buscarPendenciasEAntecipacaoAoVivo([clubeId], a.period_start, a.period_end),
+          ])
+          const base = valorAcertoPorId.get(a.id) ?? a.valor_acerto
+          return base + (pendenciasPorClube.get(clubeId) ?? 0)
+        }))
+        if (cancelado) return
+        const lista = brutos
+          .map((a, i) => ({ id: a.id, valor_acerto: completos[i], period_start: a.period_start, period_end: a.period_end }))
           // `created_at` (quando foi calculado) não é a mesma ordem de qual
           // semana é — um Acerto recalculado depois de outros mais recentes
           // aparecia fora de ordem no seletor (achado no Royal Star). Reordena
@@ -123,6 +151,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
         setAcertosClube(lista)
         setAcertoId('')
       })
+    return () => { cancelado = true }
   }, [ehPagamentoComAcerto, clubeId])
 
   const loadRecentes = useCallback(async () => {
