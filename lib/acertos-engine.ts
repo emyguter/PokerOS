@@ -216,6 +216,15 @@ export function calcularAcerto(
   let taxa_cash_pct_aplicada: number | null = null;
   let tipoReconhecido = true;
 
+  // Arredonda cada componente ANTES de somar no Valor do Acerto — não só o
+  // resultado final. Sem isso, o Total batia certo em precisão cheia, mas
+  // cada linha do card (Taxa da Liga, Rebate...) mostra só 2 casas — somando
+  // essas linhas na mão dava um centavo de diferença do Total exibido
+  // (achado pelo Cássio no G G Poker: Ganhos 125,16 + Rake 109,39 − Taxa da
+  // Liga 5,47 − Rebate 23,46 = 205,62 na mão, mas o Total mostrava 205,63).
+  // "Precisa arredondar na segunda casa decimal antes de somar."
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+
   const rake_mtt    = Math.abs(row.rake_mtt ?? 0);
   const rake_cash   = Math.abs(row.rake_cash ?? 0);
   const rake_spinup = Math.abs(row.rake_spinup ?? 0);
@@ -275,11 +284,15 @@ export function calcularAcerto(
         fee_spinup_valor = rake_spinup * ((club.spinup_pct ?? 0) / 100);
       }
 
+      fee_mtt_valor = r2(fee_mtt_valor);
+      fee_cash_valor = r2(fee_cash_valor);
+      fee_operacional_valor = r2(fee_operacional_valor);
+      fee_spinup_valor = r2(fee_spinup_valor);
       // SpinUp NÃO é uma fee que a liga cobra do clube, ao contrário de Fee
       // MTT/Fee Cash/Taxa Operacional — é um crédito que o clube ganha
       // (confirmado pelo Cássio), por isso fica de fora do fee_calculado e
       // entra somando no Valor do Acerto, não subtraindo.
-      fee_calculado = fee_mtt_valor + fee_cash_valor + fee_operacional_valor;
+      fee_calculado = r2(fee_mtt_valor + fee_cash_valor + fee_operacional_valor);
       // Rebate % (cadastro do clube) — até aqui só entrava pros tipos
       // rakeback/weekly_usd, ficando sempre 0 aqui mesmo com % cadastrado
       // (achado no caso 7 Eleven: 10% cadastrado, card sempre mostrava
@@ -291,13 +304,15 @@ export function calcularAcerto(
       // crédito) quando a perda supera o Rake, e positivo aqui (exibido
       // negativo/cobrança) quando o Rake é maior que a perda do jogador
       // (achado no Arena do Baralho, confirmado pelo Cássio).
-      rebate_calculado = (row.player_result + rake_total) * ((club.rebate_pct ?? 0) / 100);
+      rebate_calculado = r2((row.player_result + rake_total) * ((club.rebate_pct ?? 0) / 100));
       // Valor do Acerto = soma de todas as variáveis do período (confirmado
       // com a planilha manual do Cássio, fórmula =ARRED(SOMA(...);2)): Rake
       // Total + Ganhos/Perdas do jogador + SpinUp (crédito) − a taxa cobrada
       // (custo do clube) − Rebate (que aqui já vem com o sinal invertido do
-      // que é exibido, ver comentário acima).
-      valor_acerto = rake_total + row.player_result + fee_spinup_valor - fee_calculado - rebate_calculado;
+      // que é exibido, ver comentário acima). Cada parcela já vem
+      // arredondada (ver r2 acima) — soma na mão do que o card mostra bate
+      // com o Total.
+      valor_acerto = r2(rake_total) + r2(row.player_result) + fee_spinup_valor - fee_calculado - rebate_calculado;
       break;
     }
     case "taxa_fixa_variavel": {
@@ -312,7 +327,7 @@ export function calcularAcerto(
       const condRakeTotal = condicoesPorCampo.rake_total.length > 0
         ? avaliarCondicoes(condicoesPorCampo.rake_total, row, wtr4Semanas)
         : null;
-      const taxaFixaVariavel = rake_total * ((condRakeTotal ?? club.fee_mtt_pct) / 100);
+      const taxaFixaVariavel = r2(rake_total * ((condRakeTotal ?? club.fee_mtt_pct) / 100));
 
       if (condicoesPorCampo.taxa_op.length > 0) {
         const pct = avaliarCondicoes(condicoesPorCampo.taxa_op, row, wtr4Semanas);
@@ -320,25 +335,26 @@ export function calcularAcerto(
       } else if (club.taxa_op_ativo) {
         fee_operacional_valor = rake_total * (club.taxa_op_pct / 100);
       }
+      fee_operacional_valor = r2(fee_operacional_valor);
 
-      fee_calculado = taxaFixaVariavel + fee_operacional_valor;
+      fee_calculado = r2(taxaFixaVariavel + fee_operacional_valor);
       // Rebate % (cadastro do clube) — mesmo bug e mesma fórmula/convenção de
       // sinal do case "taxa_dinamica" acima (ver comentário lá): (Ganhos/
       // Perdas + Rake Total) × Rebate%.
-      rebate_calculado = (row.player_result + rake_total) * ((club.rebate_pct ?? 0) / 100);
-      valor_acerto = rake_total + row.player_result - fee_calculado - rebate_calculado;
+      rebate_calculado = r2((row.player_result + rake_total) * ((club.rebate_pct ?? 0) / 100));
+      valor_acerto = r2(rake_total) + r2(row.player_result) - fee_calculado - rebate_calculado;
       break;
     }
     case "rakeback":
-      rebate_calculado = rake_total * (club.rakeback_pct / 100);
+      rebate_calculado = r2(rake_total * (club.rakeback_pct / 100));
       valor_acerto = -rebate_calculado;
       break;
     case "weekly_usd": {
       const condRakeTotal = condicoesPorCampo.rake_total.length > 0
         ? avaliarCondicoes(condicoesPorCampo.rake_total, row, wtr4Semanas)
         : null;
-      rebate_calculado = rake_total * (club.rebate_pct / 100);
-      fee_calculado = rake_total * ((condRakeTotal ?? club.fee_mtt_pct) / 100);
+      rebate_calculado = r2(rake_total * (club.rebate_pct / 100));
+      fee_calculado = r2(rake_total * ((condRakeTotal ?? club.fee_mtt_pct) / 100));
       valor_acerto = fee_calculado - rebate_calculado;
       break;
     }
@@ -391,11 +407,12 @@ export function calcularAcerto(
     }
 
     const pctTaxaLiga = pctTaxaLigaReal ?? pctTaxaLigaReferencia;
-    taxa_liga_valor = baseTaxaLiga * ((pctTaxaLiga ?? 0) / 100);
+    taxa_liga_valor = r2(baseTaxaLiga * ((pctTaxaLiga ?? 0) / 100));
     // Só desconta do Valor do Acerto quando veio de uma fonte "de verdade"
     // da Taxa da Liga (Liga ou Clube no campo certo) — o valor de
     // referência (achado em outro campo) fica só na linha, pra não descontar
-    // o Fee duas vezes.
+    // o Fee duas vezes. taxa_liga_valor já vem arredondada (ver r2 acima) —
+    // mesmo motivo do resto da função: soma na mão do card bate com o Total.
     if (pctTaxaLigaReal != null) valor_acerto -= taxa_liga_valor;
   }
 
