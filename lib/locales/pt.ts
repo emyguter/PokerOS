@@ -699,7 +699,7 @@ export const pt = {
     aba_super_agentes: 'Super Agentes', aba_agentes: 'Agentes', aba_jogadores: 'Jogadores',
   },
   taxa_app: {
-    legenda: 'Quanto a operação deve pro app, por Regra vinculada num Clube, Liga ou SuperLiga — soma o Rake Total de todo clube do escopo na semana.',
+    legenda: 'Quanto a operação deve pro app, por Regra vinculada em qualquer nível (Mega Liga, SuperLiga, Liga, Clube, Agente ou Jogador) — soma o Rake Total do escopo na semana.',
     semana_label: 'Semana', vazio: 'Nenhuma Regra de Taxa App vinculada ainda.',
     col_tipo: 'Tipo', col_entidade: 'Vinculado a', col_regra: 'Regra', col_clubes: 'Clubes', col_rake_total: 'Rake Total', col_pct: '%', col_valor_devido: 'Valor devido',
     total_devido: 'Total devido ao app',

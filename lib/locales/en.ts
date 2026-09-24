@@ -701,7 +701,7 @@ export const en: typeof pt = {
     aba_super_agentes: 'Super Agents', aba_agentes: 'Agents', aba_jogadores: 'Players',
   },
   taxa_app: {
-    legenda: 'How much the operation owes to the app, per Rule linked to a Club, League or SuperLeague — sums the Total Rake of every club in that scope for the week.',
+    legenda: 'How much the operation owes to the app, per Rule linked at any level (Mega League, SuperLeague, League, Club, Agent or Player) — sums the Total Rake in that scope for the week.',
     semana_label: 'Week', vazio: 'No App Fee Rule linked yet.',
     col_tipo: 'Type', col_entidade: 'Linked to', col_regra: 'Rule', col_clubes: 'Clubs', col_rake_total: 'Total Rake', col_pct: '%', col_valor_devido: 'Amount owed',
     total_devido: 'Total owed to the app',

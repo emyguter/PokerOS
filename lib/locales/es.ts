@@ -701,7 +701,7 @@ export const es: typeof pt = {
     aba_super_agentes: 'Super Agentes', aba_agentes: 'Agentes', aba_jogadores: 'Jugadores',
   },
   taxa_app: {
-    legenda: 'Cuánto debe la operación a la app, por Regla vinculada a un Club, Liga o SuperLiga — suma el Rake Total de cada club del alcance en la semana.',
+    legenda: 'Cuánto debe la operación a la app, por Regla vinculada en cualquier nivel (Mega Liga, SuperLiga, Liga, Club, Agente o Jugador) — suma el Rake Total del alcance en la semana.',
     semana_label: 'Semana', vazio: 'Todavía no hay ninguna Regla de Tasa App vinculada.',
     col_tipo: 'Tipo', col_entidade: 'Vinculado a', col_regra: 'Regla', col_clubes: 'Clubes', col_rake_total: 'Rake Total', col_pct: '%', col_valor_devido: 'Valor debido',
     total_devido: 'Total debido a la app',

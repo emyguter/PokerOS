@@ -211,11 +211,11 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
 
   // taxa_liga tem efeito numa Liga (fonte principal) ou num Clube (fallback
   // quando a Liga não tem nada configurado nesse campo); taxa_app tem efeito
-  // em Clube, Liga ou SuperLiga sempre (não depende de settlement_type
-  // nenhum — soma o Rake de todo mundo do escopo, ver lib/taxa-app.ts); os
-  // outros campos só tem efeito vinculados a um Clube — e mesmo aí, só se o
-  // settlement_type daquele clube usar aquele campo de verdade
-  // (CAMPOS_POR_SETTLEMENT).
+  // em qualquer nível da hierarquia sempre (Mega Liga/SuperLiga/Liga/Clube/
+  // Agente/Jogador — não depende de settlement_type nenhum, soma o Rake do
+  // escopo daquela entidade, ver lib/taxa-app.ts); os outros campos só tem
+  // efeito vinculados a um Clube — e mesmo aí, só se o settlement_type
+  // daquele clube usar aquele campo de verdade (CAMPOS_POR_SETTLEMENT).
   function campoTemEfeito(tipo: EntidadeTipo, entidadeId: string, campo: CampoClube): boolean | null {
     if (!campoAplicavelAoTipo(campo, tipo)) return false
     if (tipo !== 'clube' || campo === 'taxa_app') return true // taxa_liga numa Liga, ou taxa_app em qualquer tipo aplicável: sempre tem efeito
