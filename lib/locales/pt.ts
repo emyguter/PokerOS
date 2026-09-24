@@ -695,7 +695,7 @@ export const pt = {
     title_variavel: 'Faixa variável, via Regra vinculada', title_fixo: 'Percentual fixo do cadastro',
   },
   acertos_menu: {
-    aba_arvore: 'Acertos', aba_taxa_app: 'Taxa App',
+    aba_arvore: 'Acertos dos Clubes', aba_taxa_app: 'Taxa App',
   },
   taxa_app: {
     legenda: 'Quanto a operação deve pro app, por Regra vinculada num Clube, Liga ou SuperLiga — soma o Rake Total de todo clube do escopo na semana.',

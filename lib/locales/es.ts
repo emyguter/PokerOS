@@ -697,7 +697,7 @@ export const es: typeof pt = {
     title_variavel: 'Escalón variable, vía Regla vinculada', title_fixo: 'Porcentaje fijo del registro',
   },
   acertos_menu: {
-    aba_arvore: 'Liquidaciones', aba_taxa_app: 'Tasa App',
+    aba_arvore: 'Liquidaciones de Clubes', aba_taxa_app: 'Tasa App',
   },
   taxa_app: {
     legenda: 'Cuánto debe la operación a la app, por Regla vinculada a un Club, Liga o SuperLiga — suma el Rake Total de cada club del alcance en la semana.',

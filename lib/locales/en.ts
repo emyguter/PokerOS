@@ -697,7 +697,7 @@ export const en: typeof pt = {
     title_variavel: 'Variable tier, via linked Rule', title_fixo: 'Fixed percentage from the record',
   },
   acertos_menu: {
-    aba_arvore: 'Settlements', aba_taxa_app: 'App Fee',
+    aba_arvore: 'Club Settlements', aba_taxa_app: 'App Fee',
   },
   taxa_app: {
     legenda: 'How much the operation owes to the app, per Rule linked to a Club, League or SuperLeague — sums the Total Rake of every club in that scope for the week.',
