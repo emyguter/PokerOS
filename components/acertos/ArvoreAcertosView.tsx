@@ -179,18 +179,28 @@ export function ArvoreAcertosView() {
       if (atual?.tipo === 'clube' && atual.ref.acerto.club_id) {
         const clubeId = atual.ref.acerto.club_id
         buscarArvoreClube(clubeId, periodoFiltro).then(setClubeArvore)
-        // Sem isso, o clube aberto (breadcrumb/faixa) e o card "Ver acerto
-        // completo" (se estiver aberto) continuavam mostrando os números de
-        // antes do recálculo — load() só atualiza `raiz` (a lista), não o
-        // `path`/`cardAberto` já montados com a referência antiga (achado
+        // Sem isso, o clube aberto (breadcrumb/faixa) continuava mostrando os
+        // números de antes do recálculo — load() só atualiza `raiz` (a
+        // lista), não o `path` já montado com a referência antiga (achado
         // pelo Cássio: editou a % de Fee MTT do clube, recalculou, o rótulo
         // mudou — lê o cadastro ao vivo — mas o valor em R$ continuou o de
         // antes, porque vinha direto do objeto acerto congelado no card).
         const clubeAtualizado = novaRaiz ? acharClubeNaArvore(novaRaiz, clubeId) : null
         if (clubeAtualizado) {
           setPath((p) => (p.length > 0 ? [...p.slice(0, -1), { tipo: 'clube', ref: clubeAtualizado }] : p))
-          setCardAberto((prev) => (prev && prev.acerto.club_id === clubeId ? clubeAtualizado : prev))
         }
+      }
+      // cardAberto ("Ver acerto completo") é um modal à parte, independente
+      // do `path` — só entrava no bloco acima quando `atual.tipo === 'clube'`,
+      // ou seja, só quando o recálculo era disparado DENTRO do próprio clube.
+      // Recalculando pela Liga/"Todas as Ligas" (achado pelo Cássio: card do
+      // G G Poker aberto, clicou "Recalcular semana" na ORION inteira) o
+      // modal ficava travado com fee_calculado/taxa_liga de antes do
+      // recálculo, mesmo já certo no banco. Atualiza sempre que tiver um
+      // card aberto, sem depender de onde o recálculo foi disparado.
+      if (cardAberto?.acerto.club_id && novaRaiz) {
+        const clubeAtualizado = acharClubeNaArvore(novaRaiz, cardAberto.acerto.club_id)
+        if (clubeAtualizado) setCardAberto(clubeAtualizado)
       }
     } finally {
       setCalculando(false)
