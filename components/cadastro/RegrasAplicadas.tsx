@@ -62,7 +62,7 @@ export function RegrasAplicadas({ entidadeTipo, entidadeId, settlementType, feeC
     { campo: 'fee_mtt', label: t('regra_modal.campo_fee_mtt') },
   ]
   const LABEL_CAMPO: Record<CampoClube, string> = {
-    fee_mtt: t('regra_modal.campo_fee_mtt'), fee_cash: t('regra_modal.campo_fee_cash'), taxa_op: t('regra_modal.campo_taxa_op'), spinup: t('regra_modal.campo_spinup'), rake_total: t('regra_modal.campo_rake_total'), taxa_liga: t('regra_modal.campo_taxa_liga'),
+    fee_mtt: t('regra_modal.campo_fee_mtt'), fee_cash: t('regra_modal.campo_fee_cash'), taxa_op: t('regra_modal.campo_taxa_op'), spinup: t('regra_modal.campo_spinup'), rake_total: t('regra_modal.campo_rake_total'), taxa_liga: t('regra_modal.campo_taxa_liga'), taxa_app: t('regra_modal.campo_taxa_app'),
   }
   const [regras, setRegras] = useState<RegraAplicada[]>([])
   const [loading, setLoading] = useState(false)

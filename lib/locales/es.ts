@@ -566,7 +566,7 @@ export const es: typeof pt = {
   },
   regra_modal: {
     tipo_faixa: 'Cálculo de Liquidación', tipo_multa: 'Multa de Liquidación', tipo_layout: 'Diseño de la Liquidación',
-    campo_fee_mtt: 'Rake MTT', campo_fee_cash: 'Rake Cash', campo_taxa_op: 'Tasa Operacional', campo_spinup: 'SpinUp', campo_rake_total: 'Rake', campo_taxa_liga: 'Tasa de la Liga',
+    campo_fee_mtt: 'Rake MTT', campo_fee_cash: 'Rake Cash', campo_taxa_op: 'Tasa Operacional', campo_spinup: 'SpinUp', campo_rake_total: 'Rake', campo_taxa_liga: 'Tasa de la Liga', campo_taxa_app: 'Tasa App',
     editar_titulo: 'Editar {tipo}', nova_regra_titulo: 'Nueva Regla', nova_multa_titulo: 'Nueva Multa Independiente', novo_layout_titulo: 'Nuevo Diseño de la Liquidación', novo_calculo_titulo: 'Nuevo Cálculo de Liquidación',
     o_que_criar: '¿Qué quieres crear?',
     calculo_titulo: 'Cálculo de Liquidación', calculo_desc: '% que varía por Rake/Ganancias — ya viene con el Diseño de la tarjeta de Liquidación junto, y Multa por atraso si quieres',
@@ -695,6 +695,15 @@ export const es: typeof pt = {
     col_rebate: 'Rebate', col_crypto_rebate: 'Crypto Rebate', col_rakeback: 'Rakeback', col_termos_especiais: 'Términos especiales',
     nenhum_clube_ativo: 'Ningún club activo registrado.',
     title_variavel: 'Escalón variable, vía Regla vinculada', title_fixo: 'Porcentaje fijo del registro',
+  },
+  acertos_menu: {
+    aba_arvore: 'Liquidaciones', aba_taxa_app: 'Tasa App',
+  },
+  taxa_app: {
+    legenda: 'Cuánto debe la operación a la app, por Regla vinculada a un Club, Liga o SuperLiga — suma el Rake Total de cada club del alcance en la semana.',
+    semana_label: 'Semana', vazio: 'Todavía no hay ninguna Regla de Tasa App vinculada.',
+    col_tipo: 'Tipo', col_entidade: 'Vinculado a', col_regra: 'Regla', col_clubes: 'Clubes', col_rake_total: 'Rake Total', col_pct: '%', col_valor_devido: 'Valor debido',
+    total_devido: 'Total debido a la app',
   },
   relatorio_resumo_acertos: {
     desc: 'Una fila por club, cruzando todas las Ligas de la semana elegida — los mismos valores que ya aparecen en Liquidaciones, solo que uno al lado del otro. Peso es la fracción de este club sobre el Fee total cobrado en la semana. Un club con Vínculo de Liquidación (registro del club) se agrupa en una sola fila, con los valores de todas las plataformas vinculadas sumados.',

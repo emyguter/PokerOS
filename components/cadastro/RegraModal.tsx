@@ -77,7 +77,7 @@ export function RegraModal({ open, editing, layoutFilho, multaFilha, onClose, on
   const LABEL_TIPO: Record<RegraTipo, string> = { faixa: t('regra_modal.tipo_faixa'), multa_atraso: t('regra_modal.tipo_multa'), layout_acerto: t('regra_modal.tipo_layout') }
   // Nome diferente de LABEL_CAMPO (importado acima) pra não colidir — aquele é
   // dos campos do Layout do Acerto, esse é sobre qual taxa do clube a regra incide.
-  const LABEL_CAMPO_CLUBE: Record<CampoClube, string> = { fee_mtt: t('regra_modal.campo_fee_mtt'), fee_cash: t('regra_modal.campo_fee_cash'), taxa_op: t('regra_modal.campo_taxa_op'), spinup: t('regra_modal.campo_spinup'), rake_total: t('regra_modal.campo_rake_total'), taxa_liga: t('regra_modal.campo_taxa_liga') }
+  const LABEL_CAMPO_CLUBE: Record<CampoClube, string> = { fee_mtt: t('regra_modal.campo_fee_mtt'), fee_cash: t('regra_modal.campo_fee_cash'), taxa_op: t('regra_modal.campo_taxa_op'), spinup: t('regra_modal.campo_spinup'), rake_total: t('regra_modal.campo_rake_total'), taxa_liga: t('regra_modal.campo_taxa_liga'), taxa_app: t('regra_modal.campo_taxa_app') }
   const [nome, setNome] = useState('')
   const [campo, setCampo] = useState<CampoClube | null>(null)
   const [condicoes, setCondicoes] = useState<RegraCondicaoForm[]>([])

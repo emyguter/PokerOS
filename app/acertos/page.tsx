@@ -1,13 +1,17 @@
 'use client'
+import { Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Lock } from 'lucide-react'
 import { usePermissions } from '@/lib/permissions'
 import { useI18n } from '@/lib/i18n'
 import { MeusAcertosView } from '@/components/acertos/MeusAcertosView'
 import AcertosView from '@/components/acertos/AcertosView'
+import { TaxaAppView } from '@/components/acertos/TaxaAppView'
 
-export default function Page() {
+function AcertosPageInner() {
   const { loading, profile, hasPermission } = usePermissions()
   const { t } = useI18n()
+  const tab = useSearchParams().get('tab')
 
   if (loading) return null
 
@@ -22,8 +26,15 @@ export default function Page() {
     )
   }
 
+  // Aba "Taxa App" (ver Sidebar.tsx, ACERTOS_SUB) — pedido do Cássio.
+  if (tab === 'taxa_app') return <TaxaAppView />
+
   // Login de Clube/Liga/SuperLiga/MegaLiga (visão isolada, sem Recalcular —
   // ver ehEntidadeRestrita em Sidebar.tsx) vê o resumo simples dos próprios
   // Acertos. Suporte/Admin vê a tela de cálculo de verdade (Recalcular).
   return temEntidade ? <MeusAcertosView /> : <AcertosView />
+}
+
+export default function Page() {
+  return <Suspense fallback={null}><AcertosPageInner /></Suspense>
 }

@@ -40,7 +40,7 @@ function resumoRegra(r: Regra, indicadores: Map<string, IndicadorInfo>, t: (path
 export default function RegrasPage() {
   const { t } = useI18n()
   const LABEL_CAMPO: Record<CampoClube, string> = {
-    fee_mtt: t('regra_modal.campo_fee_mtt'), fee_cash: t('regra_modal.campo_fee_cash'), taxa_op: t('regra_modal.campo_taxa_op'), spinup: t('regra_modal.campo_spinup'), rake_total: t('regra_modal.campo_rake_total'), taxa_liga: t('regra_modal.campo_taxa_liga'),
+    fee_mtt: t('regra_modal.campo_fee_mtt'), fee_cash: t('regra_modal.campo_fee_cash'), taxa_op: t('regra_modal.campo_taxa_op'), spinup: t('regra_modal.campo_spinup'), rake_total: t('regra_modal.campo_rake_total'), taxa_liga: t('regra_modal.campo_taxa_liga'), taxa_app: t('regra_modal.campo_taxa_app'),
   }
   const [items, setItems] = useState<Regra[]>([])
   const [indicadores, setIndicadores] = useState<Map<string, IndicadorInfo>>(new Map())
