@@ -609,12 +609,21 @@ export async function clubesComDiferencaQuitada(clubIds: string[], periodEnd: st
 
   const { data: acertosData } = await supabase
     .from("acertos")
-    .select("id, club_id, valor_acerto")
+    .select("id, club_id, valor_acerto, indicacao_valor, bilhetes")
     .in("import_id", importIds)
     .in("club_id", clubIds);
   const porClube = new Map<string, { acertoId: string; valorAcerto: number }>();
-  for (const a of (acertosData ?? []) as { id: string; club_id: string | null; valor_acerto: number }[]) {
-    if (a.club_id) porClube.set(a.club_id, { acertoId: a.id, valorAcerto: a.valor_acerto });
+  for (const a of (acertosData ?? []) as { id: string; club_id: string | null; valor_acerto: number; indicacao_valor: number | null; bilhetes: number | null }[]) {
+    // Compara o Pagamento contra o valor COMPLETO (valor_acerto + Indicação +
+    // Bilhetes), não só o valor cru do motor — Indicação/Bilhetes também
+    // entram no Total que o Suporte de fato paga (calcularTotalAcerto, "nada
+    // pode ficar de fora"). Achado pelo Cássio: LEGENDARY pe pagou 844,20 (o
+    // Total certo, valor_acerto -874,90 + Indicação +30,70) e mesmo assim a
+    // semana seguinte mostrava -30,70 de Pendência arrastada + multa em cima
+    // — comparando só contra o valor_acerto cru (-874,90), sobrava
+    // exatamente o valor da Indicação como "dívida" fantasma, porque ela
+    // nunca entrava dos dois lados da conta.
+    if (a.club_id) porClube.set(a.club_id, { acertoId: a.id, valorAcerto: a.valor_acerto + (a.indicacao_valor ?? 0) + (a.bilhetes ?? 0) });
   }
   if (porClube.size === 0) return quitados;
 
@@ -754,16 +763,21 @@ async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promi
 
   const { data: acertosData } = await supabase
     .from("acertos")
-    .select("id, club_id, valor_acerto, rollover_sem_multa, imports(period_start, period_end)")
+    .select("id, club_id, valor_acerto, indicacao_valor, bilhetes, rollover_sem_multa, imports(period_start, period_end)")
     .in("club_id", clubIds);
-  type AcertoComPeriodo = { id: string; club_id: string | null; valor_acerto: number; rollover_sem_multa: boolean | null; imports: { period_start: string; period_end: string } | { period_start: string; period_end: string }[] | null };
+  type AcertoComPeriodo = { id: string; club_id: string | null; valor_acerto: number; indicacao_valor: number | null; bilhetes: number | null; rollover_sem_multa: boolean | null; imports: { period_start: string; period_end: string } | { period_start: string; period_end: string }[] | null };
   type PeriodoClube = { acertoId: string; valorAcerto: number; start: string; end: string; semMulta: boolean };
   const porClube = new Map<string, PeriodoClube[]>();
   for (const a of (acertosData ?? []) as AcertoComPeriodo[]) {
     const imp = Array.isArray(a.imports) ? a.imports[0] : a.imports;
     if (!a.club_id || !imp || imp.period_end >= periodEnd) continue;
     const lista = porClube.get(a.club_id) ?? [];
-    lista.push({ acertoId: a.id, valorAcerto: a.valor_acerto, start: imp.period_start, end: imp.period_end, semMulta: !!a.rollover_sem_multa });
+    // valorAcerto aqui já é o COMPLETO (+ Indicação + Bilhetes), mesmo motivo
+    // do fix em clubesComDiferencaQuitada acima — o Suporte paga o Total de
+    // verdade (com Indicação), não o valor cru do motor, então comparar só
+    // contra o cru sobrava "dívida" fantasma do tamanho da Indicação, que
+    // depois ainda pegava multa em cima (achado no LEGENDARY pe).
+    lista.push({ acertoId: a.id, valorAcerto: a.valor_acerto + (a.indicacao_valor ?? 0) + (a.bilhetes ?? 0), start: imp.period_start, end: imp.period_end, semMulta: !!a.rollover_sem_multa });
     porClube.set(a.club_id, lista);
   }
   if (porClube.size === 0) return mapa;
