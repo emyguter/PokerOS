@@ -8,6 +8,7 @@ import { desvincularConciliacao } from '@/lib/lancamentos'
 import { tentarConciliarAoLancar } from './useConciliacao'
 import { corrigirValorCrypto } from '@/lib/relatorio-acerto'
 import { valorAcertoCompletoPorRow, type AcertoCompletoRow } from '@/lib/pagamentos'
+import { buscarPendenciasEAntecipacaoAoVivo } from '@/lib/acertos-engine'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { TIPOS, ehTipoSeguranca, aguardandoConfirmacao } from './ExtratoView'
@@ -117,19 +118,27 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
       .then(async ({ data }) => {
         const brutos = ((data ?? []) as unknown as { id: string; valor_acerto: number; bilhetes: number; indicacao_valor: number; rake_total: number; imports: { period_start: string | null; period_end: string | null } | null }[])
           .map((a) => ({ ...a, period_start: a.imports?.period_start ?? null, period_end: a.imports?.period_end ?? null }))
-        // Valor do Acerto mostrado aqui precisa ser o COMPLETO, igual o
-        // Controle de Pagamentos (Indicação/Bilhetes/Segurança/Lançamentos —
-        // só Antecipação fica de fora, de propósito) — pedido do Cássio: "se
-        // escolheu Pagamento, tem que constar exatamente o mesmo valor do
-        // acerto, pra não ter problemas depois". Antes lia valor_acerto cru
-        // (só o motor), sem somar Indicação/Bilhetes — pra um clube com
-        // Indicação (achado no LEGENDARY pe) o valor aqui vinha errado. Cada
-        // linha é de uma semana diferente, então chama por linha (a função é
-        // batelada só dentro de UMA semana).
-        const completos = await Promise.all(brutos.map((a) => {
-          if (!a.period_start || !a.period_end) return Promise.resolve(a.valor_acerto)
+        // Valor do Acerto mostrado aqui precisa ser o MESMO do card "Ver
+        // acerto completo" (Bilhetes/Indicação/Segurança/Lançamentos E
+        // Pendência/Antecipação ao vivo) — pedido explícito do Cássio: "eu
+        // quero que o valor do resumo do acerto seja o valor que aparece no
+        // acerto quando eu seleciono pagamento... esquece o Controle de
+        // Pagamento" (lá a Antecipação fica de fora de propósito, pra não
+        // contar 2x com o Envio itemizado — aqui é o contrário, o Lançamento
+        // usa o total cheio do card). Antes lia valor_acerto cru (só o
+        // motor), sem somar nada disso — pra um clube com Indicação (achado
+        // no LEGENDARY pe) ou Pendência (achado no CashOut-) o valor aqui
+        // vinha errado. Cada linha é de uma semana diferente, então chama por
+        // linha (as duas funções são bateladas só dentro de UMA semana).
+        const completos = await Promise.all(brutos.map(async (a) => {
+          if (!a.period_start || !a.period_end) return a.valor_acerto
           const row: AcertoCompletoRow = { id: a.id, club_external_id: '', club_name: '', valor_acerto: a.valor_acerto, club_id: clubeId, bilhetes: a.bilhetes, indicacao_valor: a.indicacao_valor, rake_total: a.rake_total }
-          return valorAcertoCompletoPorRow([row], a.period_start, a.period_end).then((r) => r.valorAcertoPorId.get(a.id) ?? a.valor_acerto)
+          const [{ valorAcertoPorId }, pendenciasPorClube] = await Promise.all([
+            valorAcertoCompletoPorRow([row], a.period_start, a.period_end),
+            buscarPendenciasEAntecipacaoAoVivo([clubeId], a.period_start, a.period_end),
+          ])
+          const base = valorAcertoPorId.get(a.id) ?? a.valor_acerto
+          return base + (pendenciasPorClube.get(clubeId) ?? 0)
         }))
         if (cancelado) return
         const lista = brutos
