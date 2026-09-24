@@ -221,7 +221,16 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
     return (CAMPOS_POR_SETTLEMENT[settlementType] ?? []).includes(campo)
   }
 
-  const incompativeisNovo = regra.campo && (ladoPara.tipo === 'clube' || ladoPara.tipo === 'liga')
+  // Antes só verificava incompatibilidade pra "Para" = Clube ou Liga — um
+  // vínculo pra SuperLiga/Mega Liga/App/Agente/Jogador nunca passava por
+  // aqui, então o aviso "isso só funciona em..." nunca aparecia e o botão
+  // Vincular nunca ficava bloqueado, mesmo campoAplicavelAoTipo já sabendo
+  // que esses tipos são sempre incompatíveis com qualquer CampoClube (achado
+  // pelo Cássio: vinculou "Taxa App — LP" numa SuperLiga e em Ligas sem
+  // nenhum aviso — o motor nunca lê regra_entidades fora de entidade_tipo
+  // 'clube' [qualquer campo] ou 'liga' [só taxa_liga], então esses vínculos
+  // ficam mortos, sem efeito nenhum no cálculo nem em nenhum relatório).
+  const incompativeisNovo = regra.campo
     ? ladoPara.selecionados.filter(s => campoTemEfeito(ladoPara.tipo, s.id, regra.campo!) === false)
     : []
   const precisaConfirmar = incompativeisNovo.length > 0 && !cienteIncompatibilidade
@@ -356,12 +365,17 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
                       )}
                       <span className="px-2 py-0.5 rounded-full bg-gold/10 border border-gold/30 text-gold text-xs">{LABEL_TIPO[v.para_tipo]}</span>
                       <span className="text-gray-200">{v.para_nome}{v.para_sub && <span className="text-gray-500"> · {v.para_sub}</span>}</span>
-                      {v.campo && (
-                        <span className="px-2 py-0.5 rounded-full bg-surface border border-white/10 text-gray-400 text-xs">{LABEL_CAMPO[v.campo]}</span>
+                      {regra.campo && (
+                        <span className="px-2 py-0.5 rounded-full bg-surface border border-white/10 text-gray-400 text-xs">{LABEL_CAMPO[regra.campo]}</span>
                       )}
-                      {v.campo && campoTemEfeito(v.para_tipo, v.para_id, v.campo) === false && (
+                      {/* Checa contra regra.campo (o campo real da Regra), não v.campo — um
+                          vínculo incompatível (ver incompativeisNovo acima) é salvo com
+                          campo=null de propósito (addVinculo/handleSalvar), então v.campo
+                          nunca acusava a incompatibilidade dos vínculos já existentes, só
+                          dos novos sendo criados na hora. */}
+                      {regra.campo && campoTemEfeito(v.para_tipo, v.para_id, regra.campo) === false && (
                         <span
-                          title={t('vinculos_panel.sem_efeito_title', { campo: LABEL_CAMPO[v.campo] })}
+                          title={t('vinculos_panel.sem_efeito_title', { campo: LABEL_CAMPO[regra.campo] })}
                           className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-alert/10 border border-alert/30 text-alert text-xs"
                         >
                           <AlertTriangle size={11} />{t('vinculos_panel.sem_efeito_badge')}
