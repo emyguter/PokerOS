@@ -127,12 +127,17 @@ function ComTabAtivo({ children }: { children: (tab: string | null) => React.Rea
   return <>{children(tab)}</>
 }
 
-// Duas abas dentro de Acertos — a árvore de sempre (sem ?tab=, comportamento
-// padrão da página) e a nova Taxa App (pedido do Cássio: "penso que pode
-// ser criado sub menus abaixo de acertos", ver TaxaAppView/lib/taxa-app.ts).
+// Abas dentro de Acertos — a árvore de sempre ("Acertos dos Clubes", sem
+// ?tab= além do padrão), Taxa App, e Super Agentes/Agentes/Jogadores
+// (pedido do Cássio: visão cruzando todos os clubes, fora da árvore —
+// reaproveita AgentesAcertosView, que já existia só no extrato do próprio
+// Agente, e a nova JogadoresAcertosView).
 const ACERTOS_SUB: SubNavItem[] = [
   { key: 'arvore', labelKey: 'acertos_menu.aba_arvore', href: '/acertos?tab=arvore' },
   { key: 'taxa_app', labelKey: 'acertos_menu.aba_taxa_app', href: '/acertos?tab=taxa_app' },
+  { key: 'super_agentes', labelKey: 'acertos_menu.aba_super_agentes', href: '/acertos?tab=super_agentes' },
+  { key: 'agentes', labelKey: 'acertos_menu.aba_agentes', href: '/acertos?tab=agentes' },
+  { key: 'jogadores', labelKey: 'acertos_menu.aba_jogadores', href: '/acertos?tab=jogadores' },
 ]
 
 const NAV = [

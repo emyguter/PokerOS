@@ -18,9 +18,18 @@ interface AcertoAgenteRow {
 
 const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-export function AgentesAcertosView({ agenteIdFixo }: { agenteIdFixo?: string } = {}) {
+// `modo` separa Super Agente de Agente comum, mesma definição já usada em
+// app/admin/cadastro/super-agentes/page.tsx: "Super Agente = agente que
+// aparece como superagente_id de pelo menos um outro" — não é um jeito
+// diferente de calcular rakeback (acertos_agentes já trata Superagente
+// igual Agente normal, com repasse do rake dos agentes abaixo somado na
+// própria linha dele, ver processarAcertosAgentes), só filtra quem entra
+// em qual sub-menu (pedido do Cássio: Sub Menus separados pra Super
+// Agentes, Agentes e Jogadores dentro de Acertos).
+export function AgentesAcertosView({ agenteIdFixo, modo }: { agenteIdFixo?: string; modo?: 'super_agentes' | 'agentes' } = {}) {
   const { t } = useI18n()
   const [rows, setRows] = useState<AcertoAgenteRow[]>([])
+  const [superagenteIds, setSuperagenteIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
@@ -34,21 +43,27 @@ export function AgentesAcertosView({ agenteIdFixo }: { agenteIdFixo?: string } =
       .select('id, agente_id, agente_nome, clube_id, clube_nome, rake_total, rakeback_pct, valor_rakeback, imports(period_start, period_end)')
       .order('agente_nome')
     if (agenteIdFixo) query = query.eq('agente_id', agenteIdFixo)
-    query.then(({ data }) => {
+    Promise.all([
+      query,
+      modo ? supabase.from('agentes').select('superagente_id').not('superagente_id', 'is', null) : Promise.resolve({ data: [] }),
+    ]).then(([{ data }, { data: superIds }]) => {
       setRows((data ?? []) as unknown as AcertoAgenteRow[])
+      setSuperagenteIds(new Set((superIds ?? []).map((s) => s.superagente_id as string)))
       setLoading(false)
     })
-  }, [agenteIdFixo])
+  }, [agenteIdFixo, modo])
 
   const filtradas = useMemo(() => {
     return rows.filter((r) => {
+      if (modo === 'super_agentes' && !superagenteIds.has(r.agente_id)) return false
+      if (modo === 'agentes' && superagenteIds.has(r.agente_id)) return false
       const p = r.imports?.period_start
       if (dataInicio && (!p || p < dataInicio)) return false
       if (dataFim && (!p || p > dataFim)) return false
       if (busca && !r.agente_nome.toLowerCase().includes(busca.toLowerCase())) return false
       return true
     })
-  }, [rows, dataInicio, dataFim, busca])
+  }, [rows, modo, superagenteIds, dataInicio, dataFim, busca])
 
   const porAgente = useMemo(() => {
     const mapa = new Map<string, { agente_id: string; agente_nome: string; rake_total: number; valor_rakeback: number; clubes: Map<string, { clube_nome: string; rake_total: number; rakeback_pct: number; valor_rakeback: number }> }>()

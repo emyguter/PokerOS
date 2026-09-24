@@ -698,6 +698,7 @@ export const es: typeof pt = {
   },
   acertos_menu: {
     aba_arvore: 'Liquidaciones de Clubes', aba_taxa_app: 'Tasa App',
+    aba_super_agentes: 'Super Agentes', aba_agentes: 'Agentes', aba_jogadores: 'Jugadores',
   },
   taxa_app: {
     legenda: 'Cuánto debe la operación a la app, por Regla vinculada a un Club, Liga o SuperLiga — suma el Rake Total de cada club del alcance en la semana.',
@@ -725,6 +726,13 @@ export const es: typeof pt = {
     clubes_count_singular: '{n} club', clubes_count_plural: '{n} clubes',
     rake_inline: 'Rake {v}', sem_clube: '— sin club —',
     col_clube: 'Club', col_rake: 'Rake', col_rakeback: 'Rakeback',
+  },
+  jogadores_acertos_view: {
+    buscar_jogador_label: 'Buscar jugador', buscar_jogador_placeholder: 'Nombre del jugador...',
+    rake_total_label: 'Rake Total', sem_nome: '— sin nombre —',
+    nenhum_jogador_desc: 'Ningún jugador encontrado en este período.',
+    col_jogador: 'Jugador', col_clube: 'Club', col_agente: 'Agente', col_rake: 'Rake Total', col_resultado: 'Resultado',
+    pagina_anterior: '← Anterior', proxima_pagina: 'Siguiente →', pagina_contador: 'Página {atual} de {total}',
   },
   mapeamento_colunas_modal: {
     campo_club_name: 'Nombre del Club', campo_club_external_id: 'ID del Club (en la plataforma)',
