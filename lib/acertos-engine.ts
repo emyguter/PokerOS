@@ -78,6 +78,22 @@ export interface AcertoCalculado {
   // % de cash efetivamente aplicado no período (fixo ou resolvido pela
   // condição SE/ENTÃO quando taxa_tipo é variável) — pra mostrar no card.
   taxa_cash_pct_aplicada: number | null;
+  // % efetivamente aplicado de cada componente no período (fixo ou resolvido
+  // por condição SE/ENTÃO) — gravado junto do Acerto pra permitir detectar
+  // divergência num recálculo futuro (ver verificarDivergenciasTaxa):
+  // comparar esse valor gravado contra o que seria aplicado HOJE, se o
+  // cadastro do clube mudou depois desse cálculo. fee_mtt_pct_aplicado
+  // também cobre a "taxa fixa/variável" de taxa_fixa_variavel/weekly_usd
+  // (mesmo campo do cadastro reaproveitado pros dois, ver switch abaixo).
+  // rebate_pct_aplicado cobre tanto club.rebate_pct quanto club.rakeback_pct
+  // (mutuamente exclusivos por settlement_type, mesmo "papel" de crédito ao
+  // clube). null quando o campo não se aplica a esse settlement_type — não
+  // confundir com 0%, que é um valor aplicado de verdade.
+  fee_mtt_pct_aplicado: number | null;
+  taxa_op_pct_aplicado: number | null;
+  spinup_pct_aplicado: number | null;
+  rebate_pct_aplicado: number | null;
+  taxa_liga_pct_aplicada: number | null;
   // Taxa da Liga — incide sobre Rake Total + SpinUp Rake, em cima de
   // qualquer tipo de cobrança do clube (ver calcularAcerto). Já descontada
   // de valor_acerto; guardada separada só pra mostrar a linha no card.
@@ -214,6 +230,11 @@ export function calcularAcerto(
   let fee_spinup_valor = 0;
   let taxa_liga_valor = 0;
   let taxa_cash_pct_aplicada: number | null = null;
+  let fee_mtt_pct_aplicado: number | null = null;
+  let taxa_op_pct_aplicado: number | null = null;
+  let spinup_pct_aplicado: number | null = null;
+  let rebate_pct_aplicado: number | null = null;
+  let taxa_liga_pct_aplicada: number | null = null;
   let tipoReconhecido = true;
 
   // Arredonda cada componente ANTES de somar no Valor do Acerto — não só o
@@ -263,24 +284,33 @@ export function calcularAcerto(
 
       if (condicoesPorCampo.fee_mtt.length > 0) {
         const pct = avaliarCondicoes(condicoesPorCampo.fee_mtt, row, wtr4Semanas);
+        fee_mtt_pct_aplicado = pct ?? 0;
         fee_mtt_valor = rake_mtt * ((pct ?? 0) / 100);
       } else if (condRakeTotal != null) {
+        fee_mtt_pct_aplicado = condRakeTotal;
         fee_mtt_valor = rake_mtt * (condRakeTotal / 100);
       } else {
+        fee_mtt_pct_aplicado = club.fee_mtt_pct;
         fee_mtt_valor = rake_mtt * (club.fee_mtt_pct / 100);
       }
 
       if (condicoesPorCampo.taxa_op.length > 0) {
         const pct = avaliarCondicoes(condicoesPorCampo.taxa_op, row, wtr4Semanas);
+        taxa_op_pct_aplicado = pct ?? 0;
         fee_operacional_valor = rake_total * ((pct ?? 0) / 100);
       } else if (club.taxa_op_ativo) {
+        taxa_op_pct_aplicado = club.taxa_op_pct;
         fee_operacional_valor = rake_total * (club.taxa_op_pct / 100);
+      } else {
+        taxa_op_pct_aplicado = 0;
       }
 
       if (condicoesPorCampo.spinup.length > 0) {
         const pct = avaliarCondicoes(condicoesPorCampo.spinup, row, wtr4Semanas);
+        spinup_pct_aplicado = pct ?? 0;
         fee_spinup_valor = rake_spinup * ((pct ?? 0) / 100);
       } else {
+        spinup_pct_aplicado = club.spinup_pct ?? 0;
         fee_spinup_valor = rake_spinup * ((club.spinup_pct ?? 0) / 100);
       }
 
@@ -304,6 +334,7 @@ export function calcularAcerto(
       // crédito) quando a perda supera o Rake, e positivo aqui (exibido
       // negativo/cobrança) quando o Rake é maior que a perda do jogador
       // (achado no Arena do Baralho, confirmado pelo Cássio).
+      rebate_pct_aplicado = club.rebate_pct ?? 0;
       rebate_calculado = r2((row.player_result + rake_total) * ((club.rebate_pct ?? 0) / 100));
       // Valor do Acerto = soma de todas as variáveis do período (confirmado
       // com a planilha manual do Cássio, fórmula =ARRED(SOMA(...);2)): Rake
@@ -327,13 +358,18 @@ export function calcularAcerto(
       const condRakeTotal = condicoesPorCampo.rake_total.length > 0
         ? avaliarCondicoes(condicoesPorCampo.rake_total, row, wtr4Semanas)
         : null;
+      fee_mtt_pct_aplicado = condRakeTotal ?? club.fee_mtt_pct;
       const taxaFixaVariavel = r2(rake_total * ((condRakeTotal ?? club.fee_mtt_pct) / 100));
 
       if (condicoesPorCampo.taxa_op.length > 0) {
         const pct = avaliarCondicoes(condicoesPorCampo.taxa_op, row, wtr4Semanas);
+        taxa_op_pct_aplicado = pct ?? 0;
         fee_operacional_valor = rake_total * ((pct ?? 0) / 100);
       } else if (club.taxa_op_ativo) {
+        taxa_op_pct_aplicado = club.taxa_op_pct;
         fee_operacional_valor = rake_total * (club.taxa_op_pct / 100);
+      } else {
+        taxa_op_pct_aplicado = 0;
       }
       fee_operacional_valor = r2(fee_operacional_valor);
 
@@ -341,11 +377,13 @@ export function calcularAcerto(
       // Rebate % (cadastro do clube) — mesmo bug e mesma fórmula/convenção de
       // sinal do case "taxa_dinamica" acima (ver comentário lá): (Ganhos/
       // Perdas + Rake Total) × Rebate%.
+      rebate_pct_aplicado = club.rebate_pct ?? 0;
       rebate_calculado = r2((row.player_result + rake_total) * ((club.rebate_pct ?? 0) / 100));
       valor_acerto = r2(rake_total) + r2(row.player_result) - fee_calculado - rebate_calculado;
       break;
     }
     case "rakeback":
+      rebate_pct_aplicado = club.rakeback_pct ?? 0;
       rebate_calculado = r2(rake_total * (club.rakeback_pct / 100));
       valor_acerto = -rebate_calculado;
       break;
@@ -353,7 +391,9 @@ export function calcularAcerto(
       const condRakeTotal = condicoesPorCampo.rake_total.length > 0
         ? avaliarCondicoes(condicoesPorCampo.rake_total, row, wtr4Semanas)
         : null;
+      rebate_pct_aplicado = club.rebate_pct ?? 0;
       rebate_calculado = r2(rake_total * (club.rebate_pct / 100));
+      fee_mtt_pct_aplicado = condRakeTotal ?? club.fee_mtt_pct;
       fee_calculado = r2(rake_total * ((condRakeTotal ?? club.fee_mtt_pct) / 100));
       valor_acerto = fee_calculado - rebate_calculado;
       break;
@@ -414,6 +454,9 @@ export function calcularAcerto(
     // o Fee duas vezes. taxa_liga_valor já vem arredondada (ver r2 acima) —
     // mesmo motivo do resto da função: soma na mão do card bate com o Total.
     if (pctTaxaLigaReal != null) valor_acerto -= taxa_liga_valor;
+    // Só guarda a % "de verdade" (a de referência não muda o Total, então
+    // uma divergência nela não é motivo pra avisar no recálculo).
+    taxa_liga_pct_aplicada = pctTaxaLigaReal;
   }
 
   return {
@@ -437,6 +480,11 @@ export function calcularAcerto(
     fee_spinup_valor:       Math.round(fee_spinup_valor       * 100) / 100,
     taxa_liga_valor:        Math.round(taxa_liga_valor        * 100) / 100,
     taxa_cash_pct_aplicada,
+    fee_mtt_pct_aplicado,
+    taxa_op_pct_aplicado,
+    spinup_pct_aplicado,
+    rebate_pct_aplicado,
+    taxa_liga_pct_aplicada,
     cotacao: club.cotacao ?? null,
     status: "calculado",
   };
@@ -922,7 +970,12 @@ export interface ClubeNovo {
   external_id: string;
 }
 
-export async function processarAcertos(importId: string): Promise<{
+// club_id -> "manter a % que já estava gravada no Acerto anterior desse
+// clube/período, em vez da % atual do cadastro" — usado quando o usuário
+// escolhe "manter taxa da época" no modal de divergência (ver
+// verificarDivergenciasTaxa/DivergenciaTaxaModal). Sem entrada pro clube,
+// comportamento de sempre: usa o cadastro (e Regras) ao vivo.
+export async function processarAcertos(importId: string, overridesEpoca?: Set<string>): Promise<{
   success: boolean;
   count: number;
   error?: string;
@@ -993,6 +1046,40 @@ export async function processarAcertos(importId: string): Promise<{
         ? { pctFixo: taxaAppPctPorLiga.get(c.league_id) ?? null, condicoes: condicoesTaxaLigaPorLiga.get(c.league_id) ?? [] }
         : TAXA_LIGA_VAZIA;
 
+    // Acertos já existentes desse import (recálculo, não primeiro cálculo) —
+    // buscado cedo (não só lá embaixo pra decidir update x insert) porque o
+    // override "taxa da época" (overridesEpoca) precisa da % gravada da vez
+    // anterior ANTES de rodar calcularAcerto de novo aqui embaixo.
+    const { data: acertosExistentes } = await supabase
+      .from("acertos")
+      .select("id, club_external_id, fee_mtt_pct_aplicado, taxa_cash_pct_aplicada, taxa_op_pct_aplicado, spinup_pct_aplicado, rebate_pct_aplicado, taxa_liga_pct_aplicada")
+      .eq("import_id", importId);
+    const idExistentePorClube = new Map(
+      ((acertosExistentes ?? []) as { id: string; club_external_id: string }[]).map((a) => [a.club_external_id, a.id])
+    );
+    const snapshotExistentePorExtId = new Map(
+      (acertosExistentes ?? []).map((a) => [a.club_external_id as string, a])
+    );
+
+    // Reconstrói um ClubSettings "congelado" na % gravada da última vez que
+    // esse clube foi calculado nesse período — usado só quando o usuário
+    // escolheu "manter taxa da época" no modal de divergência. Zera junto o
+    // taxa_op_ativo em cima do próprio snapshot (0% gravado = taxa
+    // desativada naquela época, mesmo efeito matemático de já cair pra 0 no
+    // motor de cálculo — não precisa de uma coluna própria só pra isso).
+    function clubComTaxaEpoca(club: ClubSettings, snap: NonNullable<ReturnType<typeof snapshotExistentePorExtId.get>>): ClubSettings {
+      return {
+        ...club,
+        fee_mtt_pct: snap.fee_mtt_pct_aplicado ?? club.fee_mtt_pct,
+        fee_cash_pct: snap.taxa_cash_pct_aplicada ?? club.fee_cash_pct,
+        taxa_op_pct: snap.taxa_op_pct_aplicado ?? 0,
+        taxa_op_ativo: (snap.taxa_op_pct_aplicado ?? 0) > 0,
+        spinup_pct: snap.spinup_pct_aplicado ?? club.spinup_pct,
+        rebate_pct: snap.rebate_pct_aplicado ?? club.rebate_pct,
+        rakeback_pct: snap.rebate_pct_aplicado ?? club.rakeback_pct,
+      };
+    }
+
     const acertos: AcertoCalculado[] = [];
 
     const clubesNovos: ClubeNovo[] = [];
@@ -1047,6 +1134,7 @@ export async function processarAcertos(importId: string): Promise<{
             fee_calculado: 0, rebate_calculado: 0, valor_acerto: 0,
             fee_mtt_valor: 0, fee_cash_valor: 0, fee_operacional_valor: 0, fee_spinup_valor: 0, taxa_liga_valor: 0,
             taxa_cash_pct_aplicada: null,
+            fee_mtt_pct_aplicado: null, taxa_op_pct_aplicado: null, spinup_pct_aplicado: null, rebate_pct_aplicado: null, taxa_liga_pct_aplicada: null,
             cotacao: null,
             status: "sem_regra",
           });
@@ -1069,7 +1157,21 @@ export async function processarAcertos(importId: string): Promise<{
         historicoWtr.length < 3 && club.wtr4_semanas_manual != null
           ? club.wtr4_semanas_manual
           : calcularWtr4Semanas(row as ImportRow, historicoWtr);
-      acertos.push(calcularAcerto(row as ImportRow, club, condicoesPorClube.get(club.id) ?? CONDICOES_VAZIAS, wtr4Semanas, taxaLigaDoClube(club)));
+
+      // "Manter taxa da época": clube escolhido no modal de divergência (ver
+      // verificarDivergenciasTaxa) — recalcula travado na % que já estava
+      // gravada da última vez, ignorando cadastro/Regras ao vivo (que já
+      // podem ter mudado desde então). Só funciona quando existe um Acerto
+      // anterior desse clube nesse período pra puxar o snapshot de.
+      const snapshotEpoca = snapshotExistentePorExtId.get(row.club_external_id);
+      const usarEpoca = overridesEpoca?.has(club.id) && snapshotEpoca;
+      const clubParaCalculo = usarEpoca ? clubComTaxaEpoca(club, snapshotEpoca) : club;
+      const condicoesParaCalculo = usarEpoca ? CONDICOES_VAZIAS : (condicoesPorClube.get(club.id) ?? CONDICOES_VAZIAS);
+      const taxaLigaParaCalculo = usarEpoca
+        ? { pctFixo: snapshotEpoca.taxa_liga_pct_aplicada, condicoes: [] }
+        : taxaLigaDoClube(club);
+
+      acertos.push(calcularAcerto(row as ImportRow, clubParaCalculo, condicoesParaCalculo, wtr4Semanas, taxaLigaParaCalculo));
     }
 
     // Soma, não sobrescreve — um import pode ter mais de uma linha pro
@@ -1121,15 +1223,8 @@ export async function processarAcertos(importId: string): Promise<{
     // investigando o PIXGAME, reportado pelo Cássio). Atualiza em cima da
     // mesma linha (mesmo id) quando o clube já tinha Acerto nesse import —
     // preserva o vínculo de Pagamento — e só insere linha nova pra clube
-    // que ainda não tinha.
-    const { data: acertosExistentes } = await supabase
-      .from("acertos")
-      .select("id, club_external_id")
-      .eq("import_id", importId);
-    const idExistentePorClube = new Map(
-      ((acertosExistentes ?? []) as { id: string; club_external_id: string }[]).map((a) => [a.club_external_id, a.id])
-    );
-
+    // que ainda não tinha. (idExistentePorClube já buscado lá em cima, antes
+    // do loop, pro override de taxa da época.)
     const paraAtualizar = acertosComExtras.filter((a) => idExistentePorClube.has(a.club_external_id));
     const paraInserir = acertosComExtras.filter((a) => !idExistentePorClube.has(a.club_external_id));
 
@@ -1179,6 +1274,104 @@ export async function processarAcertos(importId: string): Promise<{
   } catch (err) {
     return { success: false, count: 0, error: err instanceof Error ? err.message : "Erro", clubesNovos: [] };
   }
+}
+
+export interface DivergenciaTaxa {
+  clubId: string;
+  clubName: string;
+  campo: "fee_mtt" | "fee_cash" | "taxa_op" | "spinup" | "rebate" | "taxa_liga";
+  pctEpoca: number | null;
+  pctAtual: number | null;
+}
+
+const CAMPOS_DIVERGENCIA: { campo: DivergenciaTaxa["campo"]; chave: "fee_mtt_pct_aplicado" | "taxa_cash_pct_aplicada" | "taxa_op_pct_aplicado" | "spinup_pct_aplicado" | "rebate_pct_aplicado" | "taxa_liga_pct_aplicada" }[] = [
+  { campo: "fee_mtt", chave: "fee_mtt_pct_aplicado" },
+  { campo: "fee_cash", chave: "taxa_cash_pct_aplicada" },
+  { campo: "taxa_op", chave: "taxa_op_pct_aplicado" },
+  { campo: "spinup", chave: "spinup_pct_aplicado" },
+  { campo: "rebate", chave: "rebate_pct_aplicado" },
+  { campo: "taxa_liga", chave: "taxa_liga_pct_aplicada" },
+];
+
+// Roda ANTES de recalcular (rodarImports em ArvoreAcertosView.tsx) pra achar
+// clubes cuja % efetivamente aplicada mudaria em relação à última vez que
+// foram calculados nesse mesmo período — sinal de que o cadastro (ou uma
+// Regra vinculada) mudou depois. Não escreve nada no banco, só compara: uma
+// prévia de calcularAcerto (com o cadastro/Regras ao vivo de agora) contra a
+// % que já está gravada no Acerto existente. Pedido do Cássio, depois de
+// levantar o risco de "recalcular sem querer uma semana antiga com a taxa
+// de hoje": "pode exibir um modal avisando sobre a taxa e o usuário escolhe
+// se quer manter a taxa que tava naquele momento ou se quer considerar a
+// atual".
+export async function verificarDivergenciasTaxa(importIds: string[]): Promise<DivergenciaTaxa[]> {
+  const divergencias: DivergenciaTaxa[] = [];
+
+  for (const importId of importIds) {
+    const { data: rows } = await supabase.from("import_rows").select("*").eq("import_id", importId);
+    if (!rows || rows.length === 0) continue;
+
+    const { data: existentes } = await supabase
+      .from("acertos")
+      .select("club_external_id, fee_mtt_pct_aplicado, taxa_cash_pct_aplicada, taxa_op_pct_aplicado, spinup_pct_aplicado, rebate_pct_aplicado, taxa_liga_pct_aplicada")
+      .eq("import_id", importId);
+    // Sem Acerto anterior nesse período nenhum clube tem o que divergir —
+    // não vale a pena buscar clube/condições/etc só pra confirmar isso.
+    if (!existentes || existentes.length === 0) continue;
+    const existentePorExtId = new Map(existentes.map((e) => [e.club_external_id as string, e]));
+
+    const { data: clubs } = await supabase
+      .from("clubs")
+      .select("id, name, external_id, settlement_type, taxa_tipo, fee_mtt_pct, fee_cash_pct, taxa_op_pct, taxa_op_ativo, rebate_pct, crypto_rebate_pct, rakeback_pct, spinup_pct, wtr4_semanas_manual, league_id, cotacao");
+    const clubByExtId = new Map<string, ClubSettings>((clubs ?? []).filter((c) => c.external_id).map((c) => [String(c.external_id), c]));
+    const clubByName = new Map<string, ClubSettings>((clubs ?? []).map((c) => [c.name.toLowerCase().trim(), c]));
+
+    const condicoesPorClube = await buscarCondicoesPorClube((clubs ?? []).map((c) => c.id));
+    const historicoWtrPorClube = await buscarHistoricoWtr(
+      [...new Set((rows as ImportRow[]).map((r) => r.club_external_id))],
+      importId
+    );
+    const leagueIds = new Set((clubs ?? []).map((c) => c.league_id).filter((id): id is string => !!id));
+    const { data: leaguesData } = await supabase.from("leagues").select("id, taxa_app_pct").in("id", [...leagueIds]);
+    const taxaAppPctPorLiga = new Map<string, number | null>((leaguesData ?? []).map((l) => [l.id as string, l.taxa_app_pct as number | null]));
+    const condicoesTaxaLigaPorLiga = await buscarCondicoesTaxaLigaPorLiga([...leagueIds]);
+    const taxaLigaDoClube = (c: ClubSettings): TaxaLigaConfig =>
+      c.league_id
+        ? { pctFixo: taxaAppPctPorLiga.get(c.league_id) ?? null, condicoes: condicoesTaxaLigaPorLiga.get(c.league_id) ?? [] }
+        : TAXA_LIGA_VAZIA;
+
+    const clubesJaVistos = new Set<string>();
+    for (const row of rows as ImportRow[]) {
+      const existente = existentePorExtId.get(row.club_external_id);
+      if (!existente) continue; // clube novo nesse período, nada anterior pra comparar
+      const club = clubByExtId.get(String(row.club_external_id)) ?? clubByName.get(row.club_name.toLowerCase().trim());
+      if (!club || clubesJaVistos.has(club.id)) continue; // sem cadastro ainda (sem_regra), ou já comparado (2ª linha do mesmo clube)
+      clubesJaVistos.add(club.id);
+
+      const historicoWtr = historicoWtrPorClube.get(row.club_external_id) ?? [];
+      const wtr4Semanas =
+        historicoWtr.length < 3 && club.wtr4_semanas_manual != null
+          ? club.wtr4_semanas_manual
+          : calcularWtr4Semanas(row, historicoWtr);
+      const atual = calcularAcerto(row, club, condicoesPorClube.get(club.id) ?? CONDICOES_VAZIAS, wtr4Semanas, taxaLigaDoClube(club));
+
+      for (const { campo, chave } of CAMPOS_DIVERGENCIA) {
+        const pctEpoca = existente[chave];
+        const pctAtual = atual[chave];
+        // pctEpoca null não é, por si só, motivo de aviso: além de significar
+        // "esse campo não se aplica a esse settlement_type" (não é uma
+        // divergência de verdade), também é o estado de TODO Acerto gravado
+        // antes dessa feature existir (colunas novas, nunca preenchidas
+        // retroativamente) — sem isso, a primeira vez que alguém recalculasse
+        // qualquer coisa depois do deploy veria aviso de divergência em todo
+        // clube do sistema, sem ter mudado nada de verdade.
+        if (pctEpoca == null) continue;
+        if (pctAtual != null && Math.abs(pctEpoca - pctAtual) < 0.005) continue;
+        divergencias.push({ clubId: club.id, clubName: club.name, campo, pctEpoca, pctAtual });
+      }
+    }
+  }
+
+  return divergencias;
 }
 
 export interface AcertoAgenteCalculado {
