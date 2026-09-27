@@ -7,6 +7,8 @@ import { useI18n } from '@/lib/i18n'
 import { MeusAcertosView } from '@/components/acertos/MeusAcertosView'
 import AcertosView from '@/components/acertos/AcertosView'
 import { TaxaAppView } from '@/components/acertos/TaxaAppView'
+import { AgentesAcertosView } from '@/components/acertos/AgentesAcertosView'
+import { JogadoresAcertosView } from '@/components/acertos/JogadoresAcertosView'
 
 function AcertosPageInner() {
   const { loading, profile, hasPermission } = usePermissions()
@@ -26,8 +28,13 @@ function AcertosPageInner() {
     )
   }
 
-  // Aba "Taxa App" (ver Sidebar.tsx, ACERTOS_SUB) — pedido do Cássio.
+  // Abas dentro de Acertos (ver Sidebar.tsx, ACERTOS_SUB) — pedido do
+  // Cássio: Taxa App, e Super Agentes/Agentes/Jogadores cruzando todos os
+  // clubes (fora da árvore).
   if (tab === 'taxa_app') return <TaxaAppView />
+  if (tab === 'super_agentes') return <AgentesAcertosView modo="super_agentes" />
+  if (tab === 'agentes') return <AgentesAcertosView modo="agentes" />
+  if (tab === 'jogadores') return <JogadoresAcertosView />
 
   // Login de Clube/Liga/SuperLiga/MegaLiga (visão isolada, sem Recalcular —
   // ver ehEntidadeRestrita em Sidebar.tsx) vê o resumo simples dos próprios

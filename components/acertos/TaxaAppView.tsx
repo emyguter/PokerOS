@@ -9,13 +9,15 @@ function fmt(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-const LABEL_TIPO: Record<TaxaAppLinha['entidadeTipo'], string> = { clube: 'Clube', liga: 'Liga', superliga: 'SuperLiga' }
+const LABEL_TIPO: Record<TaxaAppLinha['entidadeTipo'], string> = {
+  plataforma: 'Plataforma', mega_liga: 'Mega Liga', superliga: 'SuperLiga', liga: 'Liga', clube: 'Clube', agente: 'Agente', jogador: 'Jogador',
+}
 
-// Quanto a operação deve pro APP (PokerOS) — Regra de faixa vinculada num
-// Clube, Liga ou SuperLiga (campo='taxa_app', ver lib/taxa-app.ts), somando
-// o Rake Total de todo clube do escopo daquela entidade na semana. Pedido
-// do Cássio: "o uso do app tem um custo que pagamos pro app... penso que
-// pode ser criado sub menus abaixo de acertos" — Acertos → Taxa App.
+// Quanto a operação deve pro APP (PokerOS) — Regra de faixa vinculada em
+// qualquer nível da hierarquia (campo='taxa_app', ver lib/taxa-app.ts),
+// somando o Rake Total do escopo daquela entidade na semana. Pedido do
+// Cássio: "o uso do app tem um custo que pagamos pro app... considerar
+// todas as possibilidades... o céu deve ser o limite" — Acertos → Taxa App.
 export function TaxaAppView() {
   const { t } = useI18n()
   const [periodos, setPeriodos] = useState<PeriodoAcerto[]>([])

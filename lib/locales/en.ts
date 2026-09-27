@@ -697,10 +697,11 @@ export const en: typeof pt = {
     title_variavel: 'Variable tier, via linked Rule', title_fixo: 'Fixed percentage from the record',
   },
   acertos_menu: {
-    aba_arvore: 'Settlements', aba_taxa_app: 'App Fee',
+    aba_arvore: 'Club Settlements', aba_taxa_app: 'App Fee',
+    aba_super_agentes: 'Super Agents', aba_agentes: 'Agents', aba_jogadores: 'Players',
   },
   taxa_app: {
-    legenda: 'How much the operation owes to the app, per Rule linked to a Club, League or SuperLeague — sums the Total Rake of every club in that scope for the week.',
+    legenda: 'How much the operation owes to the app, per Rule linked at any level (Mega League, SuperLeague, League, Club, Agent or Player) — sums the Total Rake in that scope for the week.',
     semana_label: 'Week', vazio: 'No App Fee Rule linked yet.',
     col_tipo: 'Type', col_entidade: 'Linked to', col_regra: 'Rule', col_clubes: 'Clubs', col_rake_total: 'Total Rake', col_pct: '%', col_valor_devido: 'Amount owed',
     total_devido: 'Total owed to the app',
@@ -725,6 +726,13 @@ export const en: typeof pt = {
     clubes_count_singular: '{n} club', clubes_count_plural: '{n} clubs',
     rake_inline: 'Rake {v}', sem_clube: '— no club —',
     col_clube: 'Club', col_rake: 'Rake', col_rakeback: 'Rakeback',
+  },
+  jogadores_acertos_view: {
+    buscar_jogador_label: 'Search player', buscar_jogador_placeholder: "Player's name...",
+    rake_total_label: 'Total Rake', sem_nome: '— no name —',
+    nenhum_jogador_desc: 'No player found for this period.',
+    col_jogador: 'Player', col_clube: 'Club', col_agente: 'Agent', col_rake: 'Total Rake', col_resultado: 'Result',
+    pagina_anterior: '← Previous', proxima_pagina: 'Next →', pagina_contador: 'Page {atual} of {total}',
   },
   mapeamento_colunas_modal: {
     campo_club_name: 'Club Name', campo_club_external_id: 'Club ID (on the platform)',

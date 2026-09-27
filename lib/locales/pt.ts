@@ -695,10 +695,11 @@ export const pt = {
     title_variavel: 'Faixa variável, via Regra vinculada', title_fixo: 'Percentual fixo do cadastro',
   },
   acertos_menu: {
-    aba_arvore: 'Acertos', aba_taxa_app: 'Taxa App',
+    aba_arvore: 'Acertos dos Clubes', aba_taxa_app: 'Taxa App',
+    aba_super_agentes: 'Super Agentes', aba_agentes: 'Agentes', aba_jogadores: 'Jogadores',
   },
   taxa_app: {
-    legenda: 'Quanto a operação deve pro app, por Regra vinculada num Clube, Liga ou SuperLiga — soma o Rake Total de todo clube do escopo na semana.',
+    legenda: 'Quanto a operação deve pro app, por Regra vinculada em qualquer nível (Mega Liga, SuperLiga, Liga, Clube, Agente ou Jogador) — soma o Rake Total do escopo na semana.',
     semana_label: 'Semana', vazio: 'Nenhuma Regra de Taxa App vinculada ainda.',
     col_tipo: 'Tipo', col_entidade: 'Vinculado a', col_regra: 'Regra', col_clubes: 'Clubes', col_rake_total: 'Rake Total', col_pct: '%', col_valor_devido: 'Valor devido',
     total_devido: 'Total devido ao app',
@@ -723,6 +724,13 @@ export const pt = {
     clubes_count_singular: '{n} clube', clubes_count_plural: '{n} clubes',
     rake_inline: 'Rake {v}', sem_clube: '— sem clube —',
     col_clube: 'Clube', col_rake: 'Rake', col_rakeback: 'Rakeback',
+  },
+  jogadores_acertos_view: {
+    buscar_jogador_label: 'Buscar jogador', buscar_jogador_placeholder: 'Nome do jogador...',
+    rake_total_label: 'Rake Total', sem_nome: '— sem nome —',
+    nenhum_jogador_desc: 'Nenhum jogador encontrado nesse período.',
+    col_jogador: 'Jogador', col_clube: 'Clube', col_agente: 'Agente', col_rake: 'Rake Total', col_resultado: 'Resultado',
+    pagina_anterior: '← Anterior', proxima_pagina: 'Próxima →', pagina_contador: 'Página {atual} de {total}',
   },
   mapeamento_colunas_modal: {
     campo_club_name: 'Nome do Clube', campo_club_external_id: 'ID do Clube (na plataforma)',

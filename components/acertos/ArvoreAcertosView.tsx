@@ -10,9 +10,10 @@ import {
 } from '@/lib/arvore-acertos'
 import { supabase } from '@/lib/supabase'
 import type { LinhaMeuAcerto } from '@/lib/meus-acertos'
-import { processarAcertos, processarAcertosAgentes } from '@/lib/acertos-engine'
+import { processarAcertos, processarAcertosAgentes, verificarDivergenciasTaxa, type DivergenciaTaxa } from '@/lib/acertos-engine'
 import { ClubAcertoCard } from './ClubAcertoCard'
 import { ConfirmCotacaoModal } from './ConfirmCotacaoModal'
+import { DivergenciaTaxaModal } from './DivergenciaTaxaModal'
 
 type PathEntry =
   | { tipo: 'liga'; ref: LigaNode }
@@ -58,6 +59,7 @@ export function ArvoreAcertosView() {
 
   const [cardAberto, setCardAberto] = useState<LinhaMeuAcerto | null>(null)
   const [recalcAlvo, setRecalcAlvo] = useState<{ nome: string; importIds: string[] } | null>(null)
+  const [divergenciaAlvo, setDivergenciaAlvo] = useState<{ importIds: string[]; divergencias: DivergenciaTaxa[] } | null>(null)
   const [calculando, setCalculando] = useState(false)
   const [filaImports, setFilaImports] = useState<string[]>([])
   const [filaCotacao, setFilaCotacao] = useState<{ id: string; name: string }[]>([])
@@ -158,7 +160,7 @@ export function ArvoreAcertosView() {
 
   // ── calcular/recalcular ──────────────────────────────────────────────
 
-  async function rodarImports(importIds: string[]) {
+  async function rodarImports(importIds: string[], overridesEpoca?: Set<string>) {
     setCalculando(true)
     try {
       for (const importId of importIds) {
@@ -169,7 +171,7 @@ export function ArvoreAcertosView() {
           setCalculando(false)
           return
         }
-        const result = await processarAcertos(importId)
+        const result = await processarAcertos(importId, overridesEpoca)
         if (!result.success) { alert('Erro ao calcular: ' + result.error); continue }
         const resultAgentes = await processarAcertosAgentes(importId)
         if (!resultAgentes.success) alert('Acertos por clube ok, mas erro no acerto de agentes: ' + resultAgentes.error)
@@ -246,13 +248,34 @@ export function ArvoreAcertosView() {
   async function confirmarRecalculo() {
     if (!recalcAlvo) return
     const importIds = recalcAlvo.importIds
+    if (importIds.length === 0) { setRecalcAlvo(null); return }
     // Não fecha o modal antes de terminar (achado pelo Cássio: fechava na
     // hora e não dava nenhum aviso de "ainda tá calculando", só um botão
     // meio apagado lá longe — fácil de achar que travou ou nem clicou
     // direito e ir pra outra tela no meio do recálculo). Fica aberto com o
-    // spinner (ver botão "Recalcular" abaixo) até rodarImports terminar.
-    if (importIds.length > 0) await rodarImports(importIds)
+    // spinner (ver botão "Recalcular" abaixo) até terminar.
+    setCalculando(true)
+    // Antes de recalcular de verdade, checa se algum clube desse período teve
+    // a % de alguma taxa mudada desde o último cálculo (cadastro editado, ou
+    // Regra vinculada trocada) — recalcular sem avisar sobrescreveria um
+    // valor histórico correto com a taxa de HOJE, sem deixar rastro (ponto de
+    // segurança levantado pelo Cássio). Achando divergência, troca esse modal
+    // pelo de escolha em vez de seguir direto.
+    const divergencias = await verificarDivergenciasTaxa(importIds)
+    if (divergencias.length > 0) {
+      setCalculando(false)
+      setRecalcAlvo(null)
+      setDivergenciaAlvo({ importIds, divergencias })
+      return
+    }
+    await rodarImports(importIds)
     setRecalcAlvo(null)
+  }
+
+  async function confirmarRecalculoComEscolha(overridesEpoca: Set<string>) {
+    if (!divergenciaAlvo) return
+    await rodarImports(divergenciaAlvo.importIds, overridesEpoca)
+    setDivergenciaAlvo(null)
   }
 
   // ── filtro de busca no nível atual ───────────────────────────────────
@@ -519,6 +542,15 @@ export function ArvoreAcertosView() {
             </div>
           </div>
         </div>
+      )}
+
+      {divergenciaAlvo && (
+        <DivergenciaTaxaModal
+          divergencias={divergenciaAlvo.divergencias}
+          calculando={calculando}
+          onConfirmar={confirmarRecalculoComEscolha}
+          onCancelar={() => setDivergenciaAlvo(null)}
+        />
       )}
 
       {filaCotacao.length > 0 && (

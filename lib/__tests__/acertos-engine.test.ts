@@ -469,3 +469,81 @@ describe('calcularAcerto — Taxa da Liga', () => {
     expect(resultado.valor_acerto).toBe(1000 - 100 - 200) // NÃO subtrai a Taxa da Liga de novo
   })
 })
+
+// % efetivamente aplicada de cada componente, gravada junto do Acerto pra
+// permitir detectar divergência num recálculo futuro (ver
+// verificarDivergenciasTaxa) — pedido do Cássio depois de levantar o risco
+// de recalcular uma semana antiga com a taxa de HOJE sem perceber.
+describe('calcularAcerto — % aplicada gravada por componente (fee_mtt_pct_aplicado, taxa_op_pct_aplicado, spinup_pct_aplicado, rebate_pct_aplicado, taxa_liga_pct_aplicada)', () => {
+  it('taxa_dinamica com tudo fixo: grava a % de cada campo do cadastro, mesmo Taxa Operacional desligada gravando 0 (não null)', () => {
+    const r = row({ rake_total: 1000, rake_mtt: 400, rake_cash: 500, rake_spinup: 100 })
+    const c = club({ fee_mtt_pct: 10, fee_cash_pct: 5, taxa_op_pct: 2, taxa_op_ativo: false, spinup_pct: 3, rebate_pct: 7 })
+    const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
+    expect(resultado.fee_mtt_pct_aplicado).toBe(10)
+    expect(resultado.taxa_cash_pct_aplicada).toBe(5)
+    expect(resultado.taxa_op_pct_aplicado).toBe(0) // desligada — 0%, não null (mesmo efeito numérico de "não se aplica")
+    expect(resultado.spinup_pct_aplicado).toBe(3)
+    expect(resultado.rebate_pct_aplicado).toBe(7)
+  })
+
+  it('taxa_dinamica com Regra SE/ENTÃO: grava a % RESOLVIDA pela condição, não o % fixo do cadastro', () => {
+    const r = row({ rake_total: 1000, rake_mtt: 400 })
+    const c = club({ fee_mtt_pct: 10 })
+    const condicoesPorCampo = { ...CONDICOES_VAZIAS, fee_mtt: [condicao({ operador: '>', valor: 0, resultado_pct: 25 })] }
+    const resultado = calcularAcerto(r, c, condicoesPorCampo, null)
+    expect(resultado.fee_mtt_pct_aplicado).toBe(25) // a Regra venceu, não os 10% do cadastro
+  })
+
+  it('taxa_fixa_variavel: fee_mtt_pct_aplicado guarda a taxa fixa/variável (reaproveita o mesmo campo), taxa_op_pct_aplicado guarda a Taxa Operacional', () => {
+    const r = row({ rake_total: 1000 })
+    const c = club({ settlement_type: 'taxa_fixa_variavel', fee_mtt_pct: 12, taxa_op_pct: 1, taxa_op_ativo: true })
+    const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
+    expect(resultado.fee_mtt_pct_aplicado).toBe(12)
+    expect(resultado.taxa_op_pct_aplicado).toBe(1)
+    expect(resultado.spinup_pct_aplicado).toBeNull() // taxa_fixa_variavel não usa SpinUp — fica null, não 0
+  })
+
+  it('rakeback: rebate_pct_aplicado guarda club.rakeback_pct (não club.rebate_pct)', () => {
+    const r = row({ rake_total: 1000 })
+    const c = club({ settlement_type: 'rakeback', rakeback_pct: 18, rebate_pct: 999 })
+    const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
+    expect(resultado.rebate_pct_aplicado).toBe(18)
+    expect(resultado.fee_mtt_pct_aplicado).toBeNull() // rakeback não usa Fee MTT
+  })
+
+  it('weekly_usd: guarda tanto o fee_mtt_pct_aplicado (taxa) quanto o rebate_pct_aplicado', () => {
+    const r = row({ rake_total: 1000 })
+    const c = club({ settlement_type: 'weekly_usd', fee_mtt_pct: 8, rebate_pct: 4 })
+    const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
+    expect(resultado.fee_mtt_pct_aplicado).toBe(8)
+    expect(resultado.rebate_pct_aplicado).toBe(4)
+  })
+
+  it('taxa_liga_pct_aplicada guarda a % de verdade (que desconta do Total), fica null quando só tem valor de referência', () => {
+    const r = row({ rake_total: 1000, rake_mtt: 500, rake_cash: 500, rake_spinup: 0, player_result: -100 })
+    const c = club({ settlement_type: 'taxa_dinamica', fee_mtt_pct: 0, fee_cash_pct: 0, taxa_op_ativo: false, spinup_pct: 0 })
+
+    // com % fixo de verdade na Liga: grava a %.
+    const comLiga = calcularAcerto(r, c, CONDICOES_VAZIAS, null, { pctFixo: 10, condicoes: [] })
+    expect(comLiga.taxa_liga_pct_aplicada).toBe(10)
+
+    // só com valor de referência (Regra de Rake do clube, sem Liga nem
+    // Regra própria de Taxa da Liga): fica null, mesmo a linha mostrando
+    // um valor — não é uma fonte "de verdade" (ver comentário na função).
+    const condicoesPorCampo = { ...CONDICOES_VAZIAS, rake_total: [condicao({ operador: '>', valor: 0, resultado_pct: 20 })] }
+    const soReferencia = calcularAcerto(r, c, condicoesPorCampo, null)
+    expect(soReferencia.taxa_liga_valor).toBe(200) // a linha mostra o valor de referência...
+    expect(soReferencia.taxa_liga_pct_aplicada).toBeNull() // ...mas não é gravado como "aplicado de verdade"
+  })
+
+  it('tipo não reconhecido ("sem_regra" no motor de import): todas as % aplicadas ficam null', () => {
+    const r = row({ rake_total: 1000 })
+    const c = club({ settlement_type: 'tipo_inexistente' })
+    const resultado = calcularAcerto(r, c, CONDICOES_VAZIAS, null)
+    expect(resultado.fee_mtt_pct_aplicado).toBeNull()
+    expect(resultado.taxa_op_pct_aplicado).toBeNull()
+    expect(resultado.spinup_pct_aplicado).toBeNull()
+    expect(resultado.rebate_pct_aplicado).toBeNull()
+    expect(resultado.taxa_liga_pct_aplicada).toBeNull()
+  })
+})
