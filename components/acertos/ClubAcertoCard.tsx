@@ -830,16 +830,12 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
             <>
               <div className="py-1 border-t border-white/10 mt-1">
                 <p className="px-3 pt-2 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">{t('club_acerto_card.acerto_como_agente_titulo', { nome: acertoComoAgente.nome })}</p>
-                {acertoComoAgente.linhas.length === 0 ? (
-                  <p className="px-3 py-1 text-xs text-gray-600 italic">{t('club_acerto_card.acerto_como_agente_vazio')}</p>
-                ) : (
-                  acertoComoAgente.linhas.map((l) => (
-                    <div key={l.clubeId ?? '—'} className="flex items-center justify-between py-1 px-3 text-sm">
-                      <span className="text-gray-400">{l.clubeNome ?? '—'} <span className="text-gray-600">({fmtPct(l.rakebackPct)}%)</span></span>
-                      <span className="text-white font-medium">{fmt(l.valorRakeback)}</span>
-                    </div>
-                  ))
-                )}
+                {acertoComoAgente.linhas.map((l) => (
+                  <div key={l.clubeId ?? '—'} className="flex items-center justify-between py-1 px-3 text-sm">
+                    <span className="text-gray-400">{l.clubeNome ?? '—'} <span className="text-gray-600">({fmtPct(l.rakebackPct)}%)</span></span>
+                    <span className="text-white font-medium">{fmt(l.valorRakeback)}</span>
+                  </div>
+                ))}
                 <div className="flex items-center justify-between py-1 px-3 text-sm">
                   <span className="text-gray-400">{t('club_acerto_card.acerto_como_agente_total')}</span>
                   <span className="text-white font-medium">{fmt(acertoComoAgente.total)}</span>

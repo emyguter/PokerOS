@@ -430,7 +430,6 @@ export const en: typeof pt = {
     acerto_com_crypto: 'Settlement with Crypto',
     desconto_pct: 'Discount ({pct}%)',
     acerto_como_agente_titulo: 'Settlement as Agent — {nome}',
-    acerto_como_agente_vazio: 'No rake as Agent this week.',
     acerto_como_agente_total: 'Total as Agent',
     total_grupo_economico: 'Total',
   },

@@ -428,7 +428,6 @@ export const pt = {
     acerto_com_crypto: 'Acerto com Crypto',
     desconto_pct: 'Desconto ({pct}%)',
     acerto_como_agente_titulo: 'Acerto como Agente — {nome}',
-    acerto_como_agente_vazio: 'Sem rake como Agente nessa semana.',
     acerto_como_agente_total: 'Total como Agente',
     total_grupo_economico: 'Total',
   },
