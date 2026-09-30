@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { Info } from 'lucide-react'
 import { buscarTaxaApp, type TaxaAppLinha } from '@/lib/taxa-app'
 import { buscarPeriodosAcerto, type PeriodoAcerto } from '@/lib/relatorio-resumo-acertos'
 import { errMsg } from '@/lib/errors'
@@ -47,8 +48,12 @@ export function TaxaAppView() {
     load(fim)
   }
 
-  const totalRake = linhas.reduce((s, l) => s + l.rakeTotal, 0)
-  const totalDevido = linhas.reduce((s, l) => s + (l.valorDevido ?? 0), 0)
+  // Linha sombreada (escopo de clubes já contado em outra linha da lista —
+  // ver sombreadaPorNome em lib/taxa-app.ts) fica de fora dos totais, senão
+  // o mesmo Rake conta em dobro (achado pelo Cássio: "se as LPs estão no
+  // PPST/PPSR não deveria soma-las").
+  const totalRake = linhas.reduce((s, l) => s + (l.sombreadaPorNome ? 0 : l.rakeTotal), 0)
+  const totalDevido = linhas.reduce((s, l) => s + (l.sombreadaPorNome ? 0 : l.valorDevido ?? 0), 0)
 
   return (
     <div className="space-y-4">
@@ -104,9 +109,17 @@ export function TaxaAppView() {
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {linhas.map((l) => (
-                    <tr key={l.vinculoId} className="hover:bg-white/[0.02]">
+                    <tr key={l.vinculoId} className={`hover:bg-white/[0.02] ${l.sombreadaPorNome ? 'opacity-50' : ''}`}>
                       <td className="px-4 py-3 text-gray-400">{LABEL_TIPO[l.entidadeTipo]}</td>
-                      <td className="px-4 py-3 text-white">{l.entidadeNome}</td>
+                      <td className="px-4 py-3 text-white">
+                        {l.entidadeNome}
+                        {l.sombreadaPorNome && (
+                          <span className="flex items-center gap-1 mt-0.5 text-[11px] text-gray-500 font-normal">
+                            <Info size={11} />
+                            {t('taxa_app.sombreada_por', { nome: l.sombreadaPorNome })}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-gray-400">{l.regraNome}</td>
                       <td className="px-4 py-3 text-right text-gray-300">{l.clubesNoEscopo}</td>
                       <td className="px-4 py-3 text-right text-gray-300">{fmt(l.rakeTotal)}</td>

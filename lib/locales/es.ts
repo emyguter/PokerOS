@@ -534,6 +534,10 @@ export const es: typeof pt = {
     agentes_popup_vincular: 'Vincular Agente/Súper Agente ya registrado',
     agentes_popup_buscar_placeholder: 'Buscar por nombre...',
     agentes_popup_nenhum_resultado: 'Ningún agente encontrado',
+    agentes_popup_nao_salvo: 'Todavía no guardado',
+    agentes_popup_salvar: 'Guardar',
+    agentes_popup_salvo: '¡Guardado!',
+    agentes_popup_descartar_confirm: 'Hay porcentajes editados sin guardar. ¿Cerrar de todos modos y perder esa edición?',
     clube_vinculado_titulo: 'Club Vinculado',
     clube_vinculado_desc: 'El mismo club en más de una plataforma (ej: ClubGG + Sul HG) — quien esté vinculado aquí se vuelve una sola cuenta en el Resumen de Liquidaciones, con los valores sumados.',
     salve_primeiro_vincular: 'Guarda el registro primero para poder vincular otro club.',
@@ -705,6 +709,7 @@ export const es: typeof pt = {
     semana_label: 'Semana', vazio: 'Todavía no hay ninguna Regla de Tasa App vinculada.',
     col_tipo: 'Tipo', col_entidade: 'Vinculado a', col_regra: 'Regla', col_clubes: 'Clubes', col_rake_total: 'Rake Total', col_pct: '%', col_valor_devido: 'Valor debido',
     total_devido: 'Total debido a la app',
+    sombreada_por: 'ya contado en {nome} — fuera del Total',
   },
   relatorio_resumo_acertos: {
     desc: 'Una fila por club, cruzando todas las Ligas de la semana elegida — los mismos valores que ya aparecen en Liquidaciones, solo que uno al lado del otro. Peso es la fracción de este club sobre el Fee total cobrado en la semana. Un club con Vínculo de Liquidación (registro del club) se agrupa en una sola fila, con los valores de todas las plataformas vinculadas sumados.',

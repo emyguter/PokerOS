@@ -532,6 +532,10 @@ export const pt = {
     agentes_popup_vincular: 'Vincular Agente/Super Agente já cadastrado',
     agentes_popup_buscar_placeholder: 'Buscar por nome...',
     agentes_popup_nenhum_resultado: 'Nenhum agente encontrado',
+    agentes_popup_nao_salvo: 'Ainda não salvo',
+    agentes_popup_salvar: 'Salvar',
+    agentes_popup_salvo: 'Salvo!',
+    agentes_popup_descartar_confirm: 'Tem % editado sem salvar. Fechar mesmo assim e perder essa edição?',
     clube_vinculado_titulo: 'Clube Vinculado',
     clube_vinculado_desc: 'Mesmo clube em mais de uma plataforma (ex: ClubGG + Sul HG) — quem estiver vinculado aqui vira 1 conta só no Resumo de Acertos, com os valores somados.',
     salve_primeiro_vincular: 'Salve o cadastro primeiro pra poder vincular outro clube.',
@@ -703,6 +707,7 @@ export const pt = {
     semana_label: 'Semana', vazio: 'Nenhuma Regra de Taxa App vinculada ainda.',
     col_tipo: 'Tipo', col_entidade: 'Vinculado a', col_regra: 'Regra', col_clubes: 'Clubes', col_rake_total: 'Rake Total', col_pct: '%', col_valor_devido: 'Valor devido',
     total_devido: 'Total devido ao app',
+    sombreada_por: 'já contado em {nome} — fora do Total',
   },
   relatorio_resumo_acertos: {
     desc: 'Uma linha por clube, cruzando todas as Ligas da semana escolhida — mesmos valores que já aparecem em Acertos, só lado a lado. Peso é a fatia desse clube sobre o Fee total cobrado na semana. Clube com Vínculo de Acerto (cadastro do clube) some numa linha só, com os valores de todas as plataformas vinculadas somados.',
