@@ -24,13 +24,18 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
   const [loading, setLoading] = useState(true)
   const [arvore, setArvore] = useState<ArvoreAgentesClube | null>(null)
   const [saAberto, setSaAberto] = useState<string | null>(null)
-  const [salvandoId, setSalvandoId] = useState<string | null>(null)
-  // Achado pelo Cássio no PIXGAME: digitou o % e não achou onde salvar —
-  // só salvava no blur (clicar fora do campo), sem nenhum botão nem aviso
-  // disso. Agora salva sozinho enquanto digita (debounced) e mostra um
-  // check por 1,5s confirmando, pra não depender de perceber o blur.
-  const [salvoId, setSalvoId] = useState<string | null>(null)
-  const pctTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const [salvando, setSalvando] = useState(false)
+  const [salvo, setSalvo] = useState(false)
+  const salvoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Achado pelo Cássio no PIXGAME: digitou o % e não achou onde salvar — só
+  // salvava no blur (clicar fora do campo), sem nenhum botão nem aviso disso.
+  // A correção original virou auto-save (debounced) — depois o próprio
+  // Cássio pediu de volta o modelo de digitar livre + clicar em Salvar
+  // ("muda esse role ai e deixa o cara digitar e salvar clicando no botao
+  // salvar"). `alterados` guarda só o que foi editado nessa sessão do popup
+  // (id do agente -> % novo), pra o botão Salvar gravar só as linhas
+  // mexidas, não a lista inteira.
+  const [alterados, setAlterados] = useState<Map<string, number | null>>(new Map())
 
   // Busca pra vincular um Agente/SA já cadastrado a esse clube — achado
   // pelo Cássio no GETSTAR 5 (clube sem nenhum agente ainda): o popup só
@@ -51,10 +56,9 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
     setBuscaAberta(false)
     setBusca('')
     setResultados([])
+    setAlterados(new Map())
     setLoading(true)
     getArvoreAgentesClube(clubeId).then(setArvore).finally(() => setLoading(false))
-    const timers = pctTimers.current
-    return () => { timers.forEach(clearTimeout); timers.clear() }
   }, [open, clubeId])
 
   useEffect(() => {
@@ -76,24 +80,23 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
   ])
   const resultadosFiltrados = resultados.filter(a => !idsJaVinculados.has(a.id))
 
-  async function salvarPct(agenteId: string, pct: number | null) {
-    const timer = pctTimers.current.get(agenteId)
-    if (timer) { clearTimeout(timer); pctTimers.current.delete(agenteId) }
-    setSalvandoId(agenteId)
-    try {
-      await setRakebackClubeAgente(clubeId, agenteId, pct)
-      setSalvoId(agenteId)
-      setTimeout(() => setSalvoId(atual => (atual === agenteId ? null : atual)), 1500)
-    } finally {
-      setSalvandoId(atual => (atual === agenteId ? null : atual))
-    }
-  }
-
   function editarPct(agenteId: string, pct: number | null) {
     atualizarLocal(agenteId, pct)
-    const timer = pctTimers.current.get(agenteId)
-    if (timer) clearTimeout(timer)
-    pctTimers.current.set(agenteId, setTimeout(() => salvarPct(agenteId, pct), 600))
+    setAlterados(prev => new Map(prev).set(agenteId, pct))
+  }
+
+  async function salvarAlterados() {
+    if (alterados.size === 0) return
+    setSalvando(true)
+    try {
+      await Promise.all([...alterados].map(([agenteId, pct]) => setRakebackClubeAgente(clubeId, agenteId, pct)))
+      setAlterados(new Map())
+      setSalvo(true)
+      if (salvoTimer.current) clearTimeout(salvoTimer.current)
+      salvoTimer.current = setTimeout(() => setSalvo(false), 1500)
+    } finally {
+      setSalvando(false)
+    }
   }
 
   async function vincular(agente: Agente) {
@@ -118,6 +121,7 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
   }
 
   function LinhaAgente({ agente }: { agente: AgenteDoClube }) {
+    const alterado = alterados.has(agente.id)
     return (
       <div className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-white/[0.03]">
         <span className="text-sm text-white truncate">{agente.nome}</span>
@@ -126,15 +130,10 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
             type="number" step="any" placeholder="0"
             value={agente.rakebackPct ?? ''}
             onChange={e => editarPct(agente.id, e.target.value === '' ? null : Number(e.target.value))}
-            onBlur={e => salvarPct(agente.id, e.target.value === '' ? null : Number(e.target.value))}
-            className="w-16 bg-surface border border-white/10 rounded-lg px-2 py-1 text-white text-xs text-right focus:outline-none focus:border-gold/50"
+            className={`w-16 bg-surface border rounded-lg px-2 py-1 text-white text-xs text-right focus:outline-none focus:border-gold/50 ${alterado ? 'border-gold/50' : 'border-white/10'}`}
           />
           <span className="text-xs text-gray-500">%</span>
-          {salvandoId === agente.id ? (
-            <Loader2 size={12} className="animate-spin text-gold" />
-          ) : salvoId === agente.id ? (
-            <Check size={12} className="text-emerald-400" />
-          ) : null}
+          {alterado && <span className="w-1.5 h-1.5 rounded-full bg-gold" title={t('club_modal.agentes_popup_nao_salvo')} />}
         </div>
       </div>
     )
@@ -142,9 +141,17 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
 
   const saSelecionado = arvore?.superAgentes.find(sa => sa.id === saAberto) ?? null
 
+  // Fechar (X ou clicar fora) com % editado e ainda não salvo perderia a
+  // edição silenciosamente — confirma antes, já que salvar agora depende só
+  // do clique em Salvar (sem auto-save de rede pra segurar o dado).
+  function fechar() {
+    if (alterados.size > 0 && !confirm(t('club_modal.agentes_popup_descartar_confirm'))) return
+    onClose()
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={fechar} />
       <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-md mx-4 shadow-2xl flex flex-col max-h-[80vh]">
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/10 shrink-0">
           <div className="min-w-0">
@@ -158,7 +165,7 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
             </h2>
             {!saSelecionado && <p className="text-xs text-gray-500">{t('club_modal.agentes_popup_subtitulo')}</p>}
           </div>
-          <button type="button" onClick={onClose} className="text-gray-500 hover:text-white shrink-0"><X size={18} /></button>
+          <button type="button" onClick={fechar} className="text-gray-500 hover:text-white shrink-0"><X size={18} /></button>
         </div>
 
         {!saSelecionado && (
@@ -236,6 +243,19 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
           ) : (
             <p className="text-sm text-gray-500 italic text-center py-8">{t('club_modal.resumo_agentes_vazio')}</p>
           )}
+        </div>
+
+        <div className="flex items-center justify-end gap-3 px-5 py-3 border-t border-white/10 shrink-0">
+          {salvo && <span className="flex items-center gap-1 text-xs text-emerald-400"><Check size={13} />{t('club_modal.agentes_popup_salvo')}</span>}
+          <button
+            type="button"
+            onClick={salvarAlterados}
+            disabled={alterados.size === 0 || salvando}
+            className="flex items-center gap-2 px-4 py-2 bg-gold text-surface rounded-lg text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {salvando && <Loader2 size={14} className="animate-spin" />}
+            {t('club_modal.agentes_popup_salvar')}{alterados.size > 0 ? ` (${alterados.size})` : ''}
+          </button>
         </div>
       </div>
     </div>
