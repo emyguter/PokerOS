@@ -1,7 +1,9 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { X, ChevronLeft, ChevronRight, Loader2, Plus, Search, Check } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Loader2, Plus, Search, Check, RotateCcw } from 'lucide-react'
 import { getArvoreAgentesClube, setRakebackClubeAgente, addAgenteToClube, getAgentes, type ArvoreAgentesClube, type AgenteDoClube } from '@/lib/cadastro-api'
+import { processarAcertosAgentes } from '@/lib/acertos-engine'
+import { supabase } from '@/lib/supabase'
 import type { Agente } from '@/lib/types'
 import { useI18n } from '@/lib/i18n'
 
@@ -36,6 +38,15 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
   // (id do agente -> % novo), pra o botão Salvar gravar só as linhas
   // mexidas, não a lista inteira.
   const [alterados, setAlterados] = useState<Map<string, number | null>>(new Map())
+
+  // Pedido do Cássio depois de ver o botão Salvar: "gostaria... um botão de
+  // recalcular para acertos de s.a. e agents" — recalcula os Acertos de
+  // Agentes (processarAcertosAgentes) do import mais recente desse clube,
+  // pra refletir na hora um % de rakeback (flat ou por Regra) que acabou de
+  // mudar, sem precisar ir até a tela de Acertos pra achar o botão de lá.
+  const [recalculando, setRecalculando] = useState(false)
+  const [recalculado, setRecalculado] = useState(false)
+  const recalculadoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Busca pra vincular um Agente/SA já cadastrado a esse clube — achado
   // pelo Cássio no GETSTAR 5 (clube sem nenhum agente ainda): o popup só
@@ -99,6 +110,26 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
     }
   }
 
+  async function recalcular() {
+    setRecalculando(true)
+    try {
+      const { data } = await supabase
+        .from('acertos')
+        .select('import_id, imports(period_end)')
+        .eq('club_id', clubeId)
+        .order('imports(period_end)', { ascending: false })
+        .limit(1)
+      const importId = (data?.[0] as { import_id: string } | undefined)?.import_id
+      if (!importId) { alert(t('club_modal.agentes_popup_recalcular_sem_import')); return }
+      await processarAcertosAgentes(importId)
+      setRecalculado(true)
+      if (recalculadoTimer.current) clearTimeout(recalculadoTimer.current)
+      recalculadoTimer.current = setTimeout(() => setRecalculado(false), 1500)
+    } finally {
+      setRecalculando(false)
+    }
+  }
+
   async function vincular(agente: Agente) {
     setVinculandoId(agente.id)
     try {
@@ -130,7 +161,7 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
             type="number" step="any" placeholder="0"
             value={agente.rakebackPct ?? ''}
             onChange={e => editarPct(agente.id, e.target.value === '' ? null : Number(e.target.value))}
-            className={`w-16 bg-surface border rounded-lg px-2 py-1 text-white text-xs text-right focus:outline-none focus:border-gold/50 ${alterado ? 'border-gold/50' : 'border-white/10'}`}
+            className={`pct-input w-16 bg-surface border rounded-lg px-2 py-1 text-white text-xs text-right focus:outline-none focus:border-gold/50 ${alterado ? 'border-gold/50' : 'border-white/10'}`}
           />
           <span className="text-xs text-gray-500">%</span>
           {alterado && <span className="w-1.5 h-1.5 rounded-full bg-gold" title={t('club_modal.agentes_popup_nao_salvo')} />}
@@ -151,6 +182,7 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <style>{`.pct-input::-webkit-outer-spin-button,.pct-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.pct-input{-moz-appearance:textfield}`}</style>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={fechar} />
       <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-md mx-4 shadow-2xl flex flex-col max-h-[80vh]">
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/10 shrink-0">
@@ -246,7 +278,18 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
         </div>
 
         <div className="flex items-center justify-end gap-3 px-5 py-3 border-t border-white/10 shrink-0">
+          {recalculado && <span className="flex items-center gap-1 text-xs text-emerald-400"><Check size={13} />{t('club_modal.agentes_popup_recalculado')}</span>}
           {salvo && <span className="flex items-center gap-1 text-xs text-emerald-400"><Check size={13} />{t('club_modal.agentes_popup_salvo')}</span>}
+          <button
+            type="button"
+            onClick={recalcular}
+            disabled={recalculando}
+            title={t('club_modal.agentes_popup_recalcular')}
+            className="flex items-center gap-2 px-3 py-2 border border-white/10 text-gray-300 hover:text-white hover:border-white/20 rounded-lg text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {recalculando ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+            {t('club_modal.agentes_popup_recalcular')}
+          </button>
           <button
             type="button"
             onClick={salvarAlterados}
