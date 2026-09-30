@@ -705,6 +705,7 @@ export const en: typeof pt = {
     semana_label: 'Week', vazio: 'No App Fee Rule linked yet.',
     col_tipo: 'Type', col_entidade: 'Linked to', col_regra: 'Rule', col_clubes: 'Clubs', col_rake_total: 'Total Rake', col_pct: '%', col_valor_devido: 'Amount owed',
     total_devido: 'Total owed to the app',
+    sombreada_por: 'already counted in {nome} — excluded from Total',
   },
   relatorio_resumo_acertos: {
     desc: "One row per club, crossing every League for the chosen week — the same values already shown in Settlements, just side by side. Weight is this club's slice of the total Fee charged that week. A club with a Settlement Link (in the club record) collapses into a single row, with the values of every linked platform added together.",

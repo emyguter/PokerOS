@@ -27,10 +27,23 @@ export interface TaxaAppLinha {
   rakeTotal: number
   pctAplicado: number | null
   valorDevido: number | null
+  // Quando o escopo de clubes dessa linha está TOTALMENTE contido no escopo
+  // de outra linha da lista (ex: uma Liga vinculada e a Mega Liga que a
+  // contém, também vinculada) — o Rake dela já está contado na outra linha,
+  // então soma-la nos totais dobraria a cobrança (achado pelo Cássio: "se as
+  // LPs estão no PPST/PPSR não deveria soma-las"). Continua aparecendo na
+  // tabela — só sai do Total Rake/Total devido — com o nome de quem já
+  // cobre esse escopo. null quando não tem sobreposição (ou é Agente/
+  // Jogador, que não entram nessa checagem — ver TIPOS_DE_CLUBE).
+  sombreadaPorNome: string | null
 }
 
 type EntidadeTipoDeClube = 'plataforma' | 'mega_liga' | 'superliga' | 'liga' | 'clube'
 const TIPOS_DE_CLUBE = new Set<EntidadeTipo>(['plataforma', 'mega_liga', 'superliga', 'liga', 'clube'])
+// Pra desempatar quando duas linhas cobrem EXATAMENTE o mesmo conjunto de
+// clubes (raro) — a de nível mais alto na hierarquia "vence" (fica sem
+// sombra), a outra é considerada redundante.
+const NIVEL_HIERARQUIA: Record<EntidadeTipo, number> = { plataforma: 4, mega_liga: 3, superliga: 2, liga: 1, clube: 0, agente: -1, jogador: -1 }
 
 type RegraEntidadeTaxaAppRow = {
   id: string
@@ -112,15 +125,22 @@ export async function buscarTaxaApp(periodEnd: string): Promise<TaxaAppLinha[]> 
   const importIds = (importsData ?? []).map((i) => i.id as string)
 
   const resultado: TaxaAppLinha[] = []
+  // Guarda o conjunto de clube_id de cada linha "de clube" (índice paralelo a
+  // `resultado`, null pra Agente/Jogador) — usado só depois do loop pra achar
+  // sobreposição de escopo (ver NIVEL_HIERARQUIA acima).
+  const clubeIdsPorLinha: (Set<string> | null)[] = []
+
   for (const v of linhas) {
     const entidadeNome = await nomeDaEntidade(v.entidade_tipo, v.entidade_id)
 
     let rowSomado: ImportRow
     let clubesNoEscopo: number
+    let clubeIdsDaLinha: Set<string> | null = null
 
     if (TIPOS_DE_CLUBE.has(v.entidade_tipo)) {
       const clubeIds = await clubesDoEscopo(v.entidade_tipo as EntidadeTipoDeClube, v.entidade_id)
       clubesNoEscopo = clubeIds.length
+      clubeIdsDaLinha = new Set(clubeIds)
       let acertosDoEscopo: { rake_total: number; rake_mtt: number; rake_cash: number; rake_spinup: number; player_result: number }[] = []
       if (clubeIds.length > 0 && importIds.length > 0) {
         const { data } = await supabase
@@ -206,7 +226,36 @@ export async function buscarTaxaApp(periodEnd: string): Promise<TaxaAppLinha[]> 
       rakeTotal: Math.round(somaRakeTotal * 100) / 100,
       pctAplicado: pct,
       valorDevido: pct != null ? Math.round(somaRakeTotal * (pct / 100) * 100) / 100 : null,
+      sombreadaPorNome: null, // calculado abaixo, depois que todas as linhas existem
     })
+    clubeIdsPorLinha.push(clubeIdsDaLinha)
+  }
+
+  // Sobreposição de escopo: uma linha "de clube" cujo conjunto de clubes está
+  // contido no de outra fica sombreada por ela (sai do Total, mas continua
+  // na tabela). Compara todo par — a lista de vínculos de Taxa App é sempre
+  // pequena (uma por entidade vinculada), então O(n²) não pesa aqui.
+  for (let i = 0; i < resultado.length; i++) {
+    const clubesA = clubeIdsPorLinha[i]
+    if (!clubesA || clubesA.size === 0) continue
+    for (let j = 0; j < resultado.length; j++) {
+      if (i === j) continue
+      const clubesB = clubeIdsPorLinha[j]
+      if (!clubesB || clubesB.size === 0 || clubesB.size < clubesA.size) continue
+      const ehSuperset = [...clubesA].every((id) => clubesB.has(id))
+      if (!ehSuperset) continue
+      if (clubesB.size === clubesA.size) {
+        // Mesmo escopo exato — só uma das duas pode "vencer" (senão sombreiam
+        // uma à outra e nenhuma entra no Total). Hierarquia mais alta vence;
+        // empatada também, desempate estável pelo nome.
+        const nivelA = NIVEL_HIERARQUIA[resultado[i].entidadeTipo]
+        const nivelB = NIVEL_HIERARQUIA[resultado[j].entidadeTipo]
+        if (nivelB < nivelA) continue
+        if (nivelB === nivelA && resultado[j].entidadeNome >= resultado[i].entidadeNome) continue
+      }
+      resultado[i].sombreadaPorNome = resultado[j].entidadeNome
+      break
+    }
   }
 
   return resultado.sort((a, b) => a.entidadeNome.localeCompare(b.entidadeNome))

@@ -703,6 +703,7 @@ export const pt = {
     semana_label: 'Semana', vazio: 'Nenhuma Regra de Taxa App vinculada ainda.',
     col_tipo: 'Tipo', col_entidade: 'Vinculado a', col_regra: 'Regra', col_clubes: 'Clubes', col_rake_total: 'Rake Total', col_pct: '%', col_valor_devido: 'Valor devido',
     total_devido: 'Total devido ao app',
+    sombreada_por: 'já contado em {nome} — fora do Total',
   },
   relatorio_resumo_acertos: {
     desc: 'Uma linha por clube, cruzando todas as Ligas da semana escolhida — mesmos valores que já aparecem em Acertos, só lado a lado. Peso é a fatia desse clube sobre o Fee total cobrado na semana. Clube com Vínculo de Acerto (cadastro do clube) some numa linha só, com os valores de todas as plataformas vinculadas somados.',
