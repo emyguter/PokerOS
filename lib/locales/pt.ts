@@ -430,7 +430,7 @@ export const pt = {
     acerto_como_agente_titulo: 'Acerto como Agente — {nome}',
     acerto_como_agente_vazio: 'Sem rake como Agente nessa semana.',
     acerto_como_agente_total: 'Total como Agente',
-    total_grupo_economico: 'Total do Grupo Econômico',
+    total_grupo_economico: 'Total',
   },
   dividas_view: {
     titulo: 'Dívidas e Acordos', subtitulo: 'Clubes com dívida simples ou Acordo parcelado, com juros e multa por atraso',

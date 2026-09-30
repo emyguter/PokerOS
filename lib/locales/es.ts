@@ -432,7 +432,7 @@ export const es: typeof pt = {
     acerto_como_agente_titulo: 'Liquidación como Agente — {nome}',
     acerto_como_agente_vazio: 'Sin rake como Agente esta semana.',
     acerto_como_agente_total: 'Total como Agente',
-    total_grupo_economico: 'Total del Grupo Económico',
+    total_grupo_economico: 'Total',
   },
   dividas_view: {
     titulo: 'Deudas y Acuerdos', subtitulo: 'Clubes con deuda simple o Acuerdo en cuotas, con interés y multa por atraso',
