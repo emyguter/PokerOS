@@ -1520,3 +1520,40 @@ export async function processarAcertosAgentes(importId: string): Promise<{
     return { success: false, count: 0, error: err instanceof Error ? err.message : "Erro" };
   }
 }
+
+export interface AcertoComoAgenteLinha {
+  clubeId: string | null;
+  clubeNome: string | null;
+  rakeTotal: number;
+  rakebackPct: number;
+  valorRakeback: number;
+}
+
+// Acerto de um Clube que também é (na vida real) um Agente/Super Agente em
+// outro Clube/Liga — ver clubs.agente_vinculado_id, lib/cadastro-api.ts
+// (getAgenteVinculado/setAgenteVinculado). Já lê acertos_agentes (gravado por
+// processarAcertosAgentes acima, que já aplica a Regra de faixa vinculada ao
+// Agente quando existir) — não recalcula nada, só soma o que já está
+// calculado, quebrado por clube (um Agente pode atuar em mais de um Clube).
+export async function buscarAcertoComoAgente(agenteId: string, periodEnd: string): Promise<{ nome: string; linhas: AcertoComoAgenteLinha[]; total: number }> {
+  const { data: importsData } = await supabase.from("imports").select("id").eq("period_end", periodEnd);
+  const importIds = (importsData ?? []).map((i) => i.id as string);
+
+  const [{ data: rows }, { data: agenteData }] = await Promise.all([
+    importIds.length > 0
+      ? supabase.from("acertos_agentes").select("clube_id, clube_nome, rake_total, rakeback_pct, valor_rakeback").eq("agente_id", agenteId).in("import_id", importIds)
+      : Promise.resolve({ data: [] as { clube_id: string | null; clube_nome: string | null; rake_total: number; rakeback_pct: number; valor_rakeback: number }[] }),
+    supabase.from("agentes").select("nome").eq("id", agenteId).maybeSingle(),
+  ]);
+
+  const linhas: AcertoComoAgenteLinha[] = (rows ?? []).map((r) => ({
+    clubeId: r.clube_id,
+    clubeNome: r.clube_nome,
+    rakeTotal: r.rake_total,
+    rakebackPct: r.rakeback_pct,
+    valorRakeback: r.valor_rakeback,
+  }));
+  const total = Math.round(linhas.reduce((s, l) => s + l.valorRakeback, 0) * 100) / 100;
+
+  return { nome: (agenteData?.nome as string | undefined) ?? "—", linhas, total };
+}

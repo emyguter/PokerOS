@@ -5,8 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { getLayoutDoClube, resolverLayout, calcularTotalAcerto, corrigirValorCrypto, type CampoAcerto, type CampoResolvido } from '@/lib/relatorio-acerto'
 import { getDividasAcertoDoClube, type ItemDividaAcerto } from '@/lib/dividas'
-import { getVinculosAcerto, getIndicacoes } from '@/lib/cadastro-api'
-import { calcularIndicacao, buscarPendenciasEAntecipacaoAoVivo, buscarMultaAtual } from '@/lib/acertos-engine'
+import { getVinculosAcerto, getIndicacoes, getAgenteVinculado } from '@/lib/cadastro-api'
+import { calcularIndicacao, buscarPendenciasEAntecipacaoAoVivo, buscarMultaAtual, buscarAcertoComoAgente, type AcertoComoAgenteLinha } from '@/lib/acertos-engine'
 
 export interface AcertoCard {
   id: string
@@ -192,6 +192,14 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   // antes de entrar na soma (confirmado pelo Cássio).
   const [moedaPorClube, setMoedaPorClube] = useState<Map<string, { moeda_conversao: string | null; cotacao: number | null }>>(new Map())
   const [indicacoesDetalhe, setIndicacoesDetalhe] = useState<{ nome: string; pct: number; valor: number }[]>([])
+  // Esse clube também é, na vida real, um Agente/Super Agente em outro
+  // Clube/Liga (ver clubs.agente_vinculado_id, lib/cadastro-api.ts) — caso
+  // "GetStar": clube na Liga Particular + Orion, Super Agente no
+  // SulHomeGaming. O Acerto dele como Agente entra no "Total do Grupo
+  // Econômico" no fim do card (pedido do Cássio: "não sei como dizer que ele
+  // é um agente"), sem se misturar com o Total (Clube + Vinculado) de cima.
+  const [agenteVinculado, setAgenteVinculado] = useState<{ id: string; nome: string } | null>(null)
+  const [acertoComoAgente, setAcertoComoAgente] = useState<{ nome: string; linhas: AcertoComoAgenteLinha[]; total: number } | null>(null)
 
   useEffect(() => {
     if (acerto.club_id) {
@@ -199,6 +207,15 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         .then(({ data }) => setClub(data as unknown as ClubSettings))
     }
   }, [acerto.club_id])
+
+  useEffect(() => {
+    if (!acerto.club_id) { setAgenteVinculado(null); setAcertoComoAgente(null); return }
+    getAgenteVinculado(acerto.club_id).then((a) => {
+      setAgenteVinculado(a)
+      if (!a) { setAcertoComoAgente(null); return }
+      buscarAcertoComoAgente(a.id, periodEnd || periodStart).then(setAcertoComoAgente)
+    })
+  }, [acerto.club_id, periodStart, periodEnd])
 
   useEffect(() => {
     // Win to Rake das últimas 4 semanas: média de (Ganhos de Cash / Rake
@@ -798,6 +815,32 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
               <div className="flex items-center justify-between py-2 px-3">
                 <span className="text-gray-400 text-sm">{t('club_acerto_card.desconto_pct', { pct: fmtPct(club?.crypto_rebate_pct ?? null) })}</span>
                 <span className="text-gray-400 text-sm">{fmt(descontoCrypto)}</span>
+              </div>
+            </>
+          )}
+
+          {agenteVinculado && acertoComoAgente && (
+            <>
+              <div className="py-1 border-t border-white/10 mt-1">
+                <p className="px-3 pt-2 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">{t('club_acerto_card.acerto_como_agente_titulo', { nome: acertoComoAgente.nome })}</p>
+                {acertoComoAgente.linhas.length === 0 ? (
+                  <p className="px-3 py-1 text-xs text-gray-600 italic">{t('club_acerto_card.acerto_como_agente_vazio')}</p>
+                ) : (
+                  acertoComoAgente.linhas.map((l) => (
+                    <div key={l.clubeId ?? '—'} className="flex items-center justify-between py-1 px-3 text-sm">
+                      <span className="text-gray-400">{l.clubeNome ?? '—'} <span className="text-gray-600">({fmtPct(l.rakebackPct)}%)</span></span>
+                      <span className="text-white font-medium">{fmt(l.valorRakeback)}</span>
+                    </div>
+                  ))
+                )}
+                <div className="flex items-center justify-between py-1 px-3 text-sm">
+                  <span className="text-gray-400">{t('club_acerto_card.acerto_como_agente_total')}</span>
+                  <span className="text-white font-medium">{fmt(acertoComoAgente.total)}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between py-3 px-3 bg-gold/10 border-t border-gold/30">
+                <span className="text-gold font-semibold text-sm">{t('club_acerto_card.total_grupo_economico')}</span>
+                <span className={`font-bold text-base ${(total + acertoComoAgente.total) >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(total + acertoComoAgente.total)}</span>
               </div>
             </>
           )}
