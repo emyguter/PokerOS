@@ -1427,20 +1427,30 @@ export interface AcertoAgenteCalculado {
 // já persistido desde a colheita bronze/silver) agrupado por Agente x Clube,
 // aplica o rakeback_pct daquele par específico (cada clube pode negociar um %
 // diferente com o mesmo agente) e grava em acertos_agentes.
-export async function processarAcertosAgentes(importId: string): Promise<{
+// clubeId opcional: recalcula só os Agentes/Super Agentes desse clube nesse
+// import (usado pelo botão "Recalcular" do AgentesDoClubePopup — Cássio: "o
+// recalcular, quando clicado DENTRO do clube, precisa recalcular APENAS o
+// clube", não os outros clubes que também têm acertos_agentes nesse mesmo
+// import). Sem clubeId, recalcula o import inteiro (uso já existente na tela
+// de Acertos).
+export async function processarAcertosAgentes(importId: string, clubeId?: string): Promise<{
   success: boolean;
   count: number;
   error?: string;
 }> {
   try {
-    const { data: jogadores, error: jogadoresError } = await supabase
+    let jogadoresQuery = supabase
       .from("import_jogadores")
       .select("agente_id, clube_id, rake_total")
       .eq("import_id", importId)
       .not("agente_id", "is", null);
+    if (clubeId) jogadoresQuery = jogadoresQuery.eq("clube_id", clubeId);
+    const { data: jogadores, error: jogadoresError } = await jogadoresQuery;
     if (jogadoresError) throw new Error(jogadoresError.message);
 
-    await supabase.from("acertos_agentes").delete().eq("import_id", importId);
+    let deleteQuery = supabase.from("acertos_agentes").delete().eq("import_id", importId);
+    if (clubeId) deleteQuery = deleteQuery.eq("clube_id", clubeId);
+    await deleteQuery;
 
     if (!jogadores || jogadores.length === 0) return { success: true, count: 0 };
 
