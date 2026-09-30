@@ -121,7 +121,7 @@ export function AgentesDoClubePopup({ open, clubeId, clubeNome, onClose }: Props
         .limit(1)
       const importId = (data?.[0] as { import_id: string } | undefined)?.import_id
       if (!importId) { alert(t('club_modal.agentes_popup_recalcular_sem_import')); return }
-      await processarAcertosAgentes(importId)
+      await processarAcertosAgentes(importId, clubeId)
       setRecalculado(true)
       if (recalculadoTimer.current) clearTimeout(recalculadoTimer.current)
       recalculadoTimer.current = setTimeout(() => setRecalculado(false), 1500)
