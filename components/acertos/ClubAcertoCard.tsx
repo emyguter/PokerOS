@@ -791,13 +791,20 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
               etiqueta de moeda da linha "Total {clube}". Quando agrupado, o
               Total aqui já é a soma convertida pra moeda comum (ver
               totaisPorMembro), não precisa de etiqueta. */}
-          <div className="flex items-center justify-between py-3 px-3 bg-surface2">
-            <span className="text-white font-semibold text-sm">
-              {t('club_acerto_card.total')}
-              {!agrupado && club?.moeda && club.moeda !== 'BRL' && <span className="text-gray-500 font-normal ml-1">({club.moeda})</span>}
-            </span>
-            <span className={`font-bold text-base ${total >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(total)}</span>
-          </div>
+          {/* Quando o clube tem Agente vinculado, esse Total já reaparece lá
+              embaixo somado ao "Acerto como Agente" (mesmo valor quando o
+              Agente não teve rake na semana) — Cássio, vendo os dois: "o
+              total esta repetido, deixe só um". Só o de baixo (que já cobre
+              esse valor) fica. */}
+          {!(agenteVinculado && acertoComoAgente) && (
+            <div className="flex items-center justify-between py-3 px-3 bg-surface2">
+              <span className="text-white font-semibold text-sm">
+                {t('club_acerto_card.total')}
+                {!agrupado && club?.moeda && club.moeda !== 'BRL' && <span className="text-gray-500 font-normal ml-1">({club.moeda})</span>}
+              </span>
+              <span className={`font-bold text-base ${total >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(total)}</span>
+            </div>
+          )}
 
           {totalConvertido != null && (
             <div className="flex items-center justify-between py-2 px-3 bg-surface2">
@@ -823,16 +830,12 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
             <>
               <div className="py-1 border-t border-white/10 mt-1">
                 <p className="px-3 pt-2 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">{t('club_acerto_card.acerto_como_agente_titulo', { nome: acertoComoAgente.nome })}</p>
-                {acertoComoAgente.linhas.length === 0 ? (
-                  <p className="px-3 py-1 text-xs text-gray-600 italic">{t('club_acerto_card.acerto_como_agente_vazio')}</p>
-                ) : (
-                  acertoComoAgente.linhas.map((l) => (
-                    <div key={l.clubeId ?? '—'} className="flex items-center justify-between py-1 px-3 text-sm">
-                      <span className="text-gray-400">{l.clubeNome ?? '—'} <span className="text-gray-600">({fmtPct(l.rakebackPct)}%)</span></span>
-                      <span className="text-white font-medium">{fmt(l.valorRakeback)}</span>
-                    </div>
-                  ))
-                )}
+                {acertoComoAgente.linhas.map((l) => (
+                  <div key={l.clubeId ?? '—'} className="flex items-center justify-between py-1 px-3 text-sm">
+                    <span className="text-gray-400">{l.clubeNome ?? '—'} <span className="text-gray-600">({fmtPct(l.rakebackPct)}%)</span></span>
+                    <span className="text-white font-medium">{fmt(l.valorRakeback)}</span>
+                  </div>
+                ))}
                 <div className="flex items-center justify-between py-1 px-3 text-sm">
                   <span className="text-gray-400">{t('club_acerto_card.acerto_como_agente_total')}</span>
                   <span className="text-white font-medium">{fmt(acertoComoAgente.total)}</span>

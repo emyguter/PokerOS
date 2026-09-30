@@ -430,9 +430,8 @@ export const en: typeof pt = {
     acerto_com_crypto: 'Settlement with Crypto',
     desconto_pct: 'Discount ({pct}%)',
     acerto_como_agente_titulo: 'Settlement as Agent — {nome}',
-    acerto_como_agente_vazio: 'No rake as Agent this week.',
     acerto_como_agente_total: 'Total as Agent',
-    total_grupo_economico: 'Economic Group Total',
+    total_grupo_economico: 'Total',
   },
   dividas_view: {
     titulo: 'Debts and Agreements', subtitulo: 'Clubs with a simple debt or an installment Agreement, with interest and late-payment fines',
