@@ -342,11 +342,17 @@ export const CAMPOS_POR_SETTLEMENT: Record<string, CampoClube[]> = {
 // ela nesse campo; ver calcularAcerto). taxa_app vale em qualquer nível da
 // hierarquia (Mega Liga, SuperLiga, Liga, Clube, Agente ou Jogador — ver
 // buscarTaxaApp em lib/taxa-app.ts), sem depender do settlement_type de
-// ninguém. Os outros campos só fazem sentido vinculados a um Clube (aí sim,
-// checar CAMPOS_POR_SETTLEMENT pra saber se o settlement_type daquele clube
+// ninguém. rake_total também vale vinculado direto a um Agente — faixa
+// SE/ENTÃO de rakeback variável por Rake Total, substituindo o % fixo digitado
+// em clube_agentes.rakeback_pct (mesmo campo/mecânica já usada pro clube,
+// aplicada ao Agente — ver processarAcertosAgentes, achado no caso "Rakeback
+// SULHG": Regra vinculada ao Agente, mas nunca lida no cálculo). Os outros
+// campos só fazem sentido vinculados a um Clube (aí sim, checar
+// CAMPOS_POR_SETTLEMENT pra saber se o settlement_type daquele clube
 // específico realmente usa).
 export function campoAplicavelAoTipo(campo: CampoClube, entidadeTipo: EntidadeTipo): boolean {
   if (campo === 'taxa_app') return true
+  if (campo === 'rake_total') return entidadeTipo === 'clube' || entidadeTipo === 'agente'
   return campo === 'taxa_liga' ? entidadeTipo === 'liga' || entidadeTipo === 'clube' : entidadeTipo === 'clube'
 }
 

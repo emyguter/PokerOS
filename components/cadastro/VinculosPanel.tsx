@@ -299,8 +299,8 @@ export function VinculosPanel({ open, regra, resumo, onClose }: Props) {
               <ArrowRight size={16} className="text-gray-600 shrink-0 mt-6" />
               <SeletorEntidade titulo={t('vinculos_panel.para_label')} multi lado={ladoPara} onChange={setLadoParaEZerarAviso} />
             </div>
-            {(ladoPara.tipo === 'clube' || ladoPara.tipo === 'liga') && regra.campo && (
-              <p className="text-xs text-gray-500">{t('vinculos_panel.substituir_desc', { campo: LABEL_CAMPO[regra.campo], ligaOuClube: ladoPara.tipo === 'liga' ? t('vinculos_panel.da_liga') : t('vinculos_panel.do_clube') })}</p>
+            {(ladoPara.tipo === 'clube' || ladoPara.tipo === 'liga' || ladoPara.tipo === 'agente') && regra.campo && (
+              <p className="text-xs text-gray-500">{t('vinculos_panel.substituir_desc', { campo: LABEL_CAMPO[regra.campo], ligaOuClube: ladoPara.tipo === 'liga' ? t('vinculos_panel.da_liga') : ladoPara.tipo === 'agente' ? t('vinculos_panel.do_agente') : t('vinculos_panel.do_clube') })}</p>
             )}
             {incompativeisNovo.length > 0 && regra.campo && (
               <div className="flex items-start gap-2 p-3 rounded-lg border border-alert/30 bg-alert/10 text-alert text-xs">

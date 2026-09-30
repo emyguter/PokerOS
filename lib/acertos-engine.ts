@@ -567,6 +567,44 @@ async function buscarCondicoesTaxaLigaPorLiga(leagueIds: string[]): Promise<Map<
   return mapa;
 }
 
+// Mesma ideia de buscarCondicoesTaxaLigaPorLiga, mas pro rakeback de Agente —
+// vinculada ao Agente (entidade_tipo='agente'), sempre no campo rake_total.
+// Faixa SE/ENTÃO de % de rakeback por Rake Total, substituindo o % fixo
+// digitado em clube_agentes.rakeback_pct quando existir (ver
+// processarAcertosAgentes) — achado no caso "Rakeback SULHG *1": Cássio já
+// tinha vinculado essa Regra ao Agente (TT/LP/Stars Poker), mas o cálculo
+// nunca lia Regra nenhuma pra Agente, só o % fixo.
+async function buscarCondicoesPorAgente(agenteIds: string[]): Promise<Map<string, CondicaoAvaliavel[]>> {
+  const mapa = new Map<string, CondicaoAvaliavel[]>();
+  if (agenteIds.length === 0) return mapa;
+
+  const { data: indicadores } = await supabase.from("indicadores").select("id, nome");
+  const nomeIndicadorPorId = new Map<string, string>((indicadores ?? []).map((i) => [i.id, i.nome]));
+
+  const { data: regraEntidades } = await supabase
+    .from("regra_entidades")
+    .select("entidade_id, campo, regras(regra_condicoes(operador, valor, resultado_pct, is_fallback, ordem, regra_condicao_termos(indicador_id)))")
+    .eq("entidade_tipo", "agente")
+    .eq("campo", "rake_total")
+    .in("entidade_id", agenteIds);
+
+  for (const re of (regraEntidades ?? []) as RegraEntidadeRow[]) {
+    const condicoesBrutas = [...(re.regras?.regra_condicoes ?? [])].sort((a, b) => a.ordem - b.ordem);
+    const condicoes: CondicaoAvaliavel[] = condicoesBrutas.map((c) => ({
+      operador: c.operador,
+      valor: c.valor,
+      resultado_pct: c.resultado_pct,
+      is_fallback: c.is_fallback,
+      indicadorNomes: (c.regra_condicao_termos ?? [])
+        .map((t) => nomeIndicadorPorId.get(t.indicador_id))
+        .filter((nome): nome is string => !!nome),
+    }));
+    mapa.set(re.entidade_id, condicoes);
+  }
+
+  return mapa;
+}
+
 // Últimos até-3 acertos anteriores de cada clube (excluindo o import atual),
 // pra compor o WtR 4 Semanas junto com a linha sendo calculada agora — mesma
 // lógica já usada no card de Acerto (ClubAcertoCard: média de Ganhos/Rake dos
@@ -1439,10 +1477,11 @@ export async function processarAcertosAgentes(importId: string): Promise<{
     const agenteIds = [...new Set([...grupos.values()].map((g) => g.agente_id))];
     const clubeIds = [...new Set([...grupos.values()].map((g) => g.clube_id).filter((id): id is string => !!id))];
 
-    const [{ data: agentes }, { data: clubes }, { data: rakebacks }] = await Promise.all([
+    const [{ data: agentes }, { data: clubes }, { data: rakebacks }, condicoesPorAgente] = await Promise.all([
       supabase.from("agentes").select("id, nome").in("id", agenteIds),
       supabase.from("clubs").select("id, name").in("id", clubeIds),
       supabase.from("clube_agentes").select("agente_id, clube_id, rakeback_pct").in("agente_id", agenteIds),
+      buscarCondicoesPorAgente(agenteIds),
     ]);
 
     const nomeAgentePorId = new Map((agentes ?? []).map((a) => [a.id as string, a.nome as string]));
@@ -1452,7 +1491,15 @@ export async function processarAcertosAgentes(importId: string): Promise<{
     );
 
     const acertosAgentes: AcertoAgenteCalculado[] = [...grupos.values()].map((g) => {
-      const pct = g.clube_id ? rakebackPorChave.get(`${g.agente_id}:${g.clube_id}`) ?? 0 : 0;
+      // Regra de faixa vinculada ao Agente (campo rake_total) tem prioridade
+      // sobre o % fixo de clube_agentes — mesmo padrão de fallback usado nos
+      // campos do clube (Regra vence, % fixo é o reserva quando não tem
+      // Regra vinculada ou nenhuma condição bate e não tem SENÃO).
+      const condicoes = condicoesPorAgente.get(g.agente_id);
+      const pctRegra = condicoes && condicoes.length > 0
+        ? avaliarCondicoes(condicoes, { id: "", import_id: "", club_name: "", club_external_id: "", rake_total: g.rake_total, rake_mtt: 0, rake_cash: 0, rake_spinup: 0, player_result: 0, player_result_cash: 0, bilhetes: 0 }, null)
+        : null;
+      const pct = pctRegra ?? (g.clube_id ? rakebackPorChave.get(`${g.agente_id}:${g.clube_id}`) ?? 0 : 0);
       return {
         import_id: importId,
         agente_id: g.agente_id,
@@ -1472,4 +1519,41 @@ export async function processarAcertosAgentes(importId: string): Promise<{
   } catch (err) {
     return { success: false, count: 0, error: err instanceof Error ? err.message : "Erro" };
   }
+}
+
+export interface AcertoComoAgenteLinha {
+  clubeId: string | null;
+  clubeNome: string | null;
+  rakeTotal: number;
+  rakebackPct: number;
+  valorRakeback: number;
+}
+
+// Acerto de um Clube que também é (na vida real) um Agente/Super Agente em
+// outro Clube/Liga — ver clubs.agente_vinculado_id, lib/cadastro-api.ts
+// (getAgenteVinculado/setAgenteVinculado). Já lê acertos_agentes (gravado por
+// processarAcertosAgentes acima, que já aplica a Regra de faixa vinculada ao
+// Agente quando existir) — não recalcula nada, só soma o que já está
+// calculado, quebrado por clube (um Agente pode atuar em mais de um Clube).
+export async function buscarAcertoComoAgente(agenteId: string, periodEnd: string): Promise<{ nome: string; linhas: AcertoComoAgenteLinha[]; total: number }> {
+  const { data: importsData } = await supabase.from("imports").select("id").eq("period_end", periodEnd);
+  const importIds = (importsData ?? []).map((i) => i.id as string);
+
+  const [{ data: rows }, { data: agenteData }] = await Promise.all([
+    importIds.length > 0
+      ? supabase.from("acertos_agentes").select("clube_id, clube_nome, rake_total, rakeback_pct, valor_rakeback").eq("agente_id", agenteId).in("import_id", importIds)
+      : Promise.resolve({ data: [] as { clube_id: string | null; clube_nome: string | null; rake_total: number; rakeback_pct: number; valor_rakeback: number }[] }),
+    supabase.from("agentes").select("nome").eq("id", agenteId).maybeSingle(),
+  ]);
+
+  const linhas: AcertoComoAgenteLinha[] = (rows ?? []).map((r) => ({
+    clubeId: r.clube_id,
+    clubeNome: r.clube_nome,
+    rakeTotal: r.rake_total,
+    rakebackPct: r.rakeback_pct,
+    valorRakeback: r.valor_rakeback,
+  }));
+  const total = Math.round(linhas.reduce((s, l) => s + l.valorRakeback, 0) * 100) / 100;
+
+  return { nome: (agenteData?.nome as string | undefined) ?? "—", linhas, total };
 }

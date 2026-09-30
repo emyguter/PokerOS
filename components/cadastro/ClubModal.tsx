@@ -1,14 +1,14 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { Plus, Trash2, Search, Users, ChevronRight } from 'lucide-react'
-import type { Club, ClubForm, League, Plataforma, CampoClube } from '@/lib/types'
+import type { Club, ClubForm, League, Plataforma, CampoClube, Agente } from '@/lib/types'
 import { MOEDAS } from '@/lib/moedas'
 import { supabase } from '@/lib/supabase'
 import { RegrasAplicadas } from './RegrasAplicadas'
 import { StepModal, type ModalStep } from './StepModal'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { getStoplossAtual } from '@/lib/stoploss'
-import { getIndicacoes, addIndicacao, atualizarPercentualIndicacao, removeIndicacao, type IndicacaoRow, getVinculosAcerto, addVinculoAcerto, removeVinculoAcerto, type VinculoAcertoRow, getRegrasDaEntidade, getResumoAgentesClube, type ResumoAgentesClube } from '@/lib/cadastro-api'
+import { getIndicacoes, addIndicacao, atualizarPercentualIndicacao, removeIndicacao, type IndicacaoRow, getVinculosAcerto, addVinculoAcerto, removeVinculoAcerto, type VinculoAcertoRow, getRegrasDaEntidade, getResumoAgentesClube, type ResumoAgentesClube, getAgenteVinculado, setAgenteVinculado, getAgentes } from '@/lib/cadastro-api'
 import { AgentesDoClubePopup } from './AgentesDoClubePopup'
 import { errMsg } from '@/lib/errors'
 import { useI18n } from '@/lib/i18n'
@@ -108,6 +108,16 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
   const [buscandoVinculoClub, setBuscandoVinculoClub] = useState(false)
   const vinculoClubTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Agente Vinculado — 1 Clube -> 1 Agente só, diferente do grupo aberto do
+  // Clube Vinculado acima (ver lib/cadastro-api.ts).
+  const [agenteVinculado, setAgenteVinculadoState] = useState<{ id: string; nome: string } | null>(null)
+  const [salvandoAgenteVinculado, setSalvandoAgenteVinculado] = useState(false)
+  const [erroAgenteVinculado, setErroAgenteVinculado] = useState<string | null>(null)
+  const [buscaAgenteVinculado, setBuscaAgenteVinculado] = useState('')
+  const [resultadosAgenteVinculado, setResultadosAgenteVinculado] = useState<Agente[]>([])
+  const [buscandoAgenteVinculado, setBuscandoAgenteVinculado] = useState(false)
+  const agenteVinculadoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const [clubeLocked, setClubeLocked] = useState(false)
   const [searchingClube, setSearchingClube] = useState(false)
   const [clubeNaoEncontrado, setClubeNaoEncontrado] = useState(false)
@@ -134,6 +144,10 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
     setErroVinculo(null)
     setBuscaVinculoClub('')
     setResultadosVinculoClub([])
+    setAgenteVinculadoState(null)
+    setErroAgenteVinculado(null)
+    setBuscaAgenteVinculado('')
+    setResultadosAgenteVinculado([])
     setClubeLocked(!!editing?.name && !!editing?.external_id)
     setStoplossAtual(null)
     setCamposComRegra(new Set())
@@ -142,6 +156,7 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       getStoplossAtual(editing.id).then(setStoplossAtual)
       getIndicacoes(editing.id).then(setIndicacoes).catch(e => setErroIndicacao(errMsg(e)))
       getVinculosAcerto(editing.id).then(setVinculos).catch(e => setErroVinculo(errMsg(e)))
+      getAgenteVinculado(editing.id).then(setAgenteVinculadoState).catch(e => setErroAgenteVinculado(errMsg(e)))
       getRegrasDaEntidade('clube', editing.id).then((regras) => {
         setCamposComRegra(new Set(regras.map((r) => r.campo).filter((c): c is CampoClube => !!c)))
       }).catch(() => setCamposComRegra(new Set()))
@@ -248,6 +263,43 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
       setErroVinculo(errMsg(e))
     } finally {
       setSalvandoVinculo(false)
+    }
+  }
+
+  useEffect(() => {
+    if (agenteVinculadoTimer.current) clearTimeout(agenteVinculadoTimer.current)
+    if (!buscaAgenteVinculado.trim()) { setResultadosAgenteVinculado([]); return }
+    agenteVinculadoTimer.current = setTimeout(async () => {
+      setBuscandoAgenteVinculado(true)
+      try { setResultadosAgenteVinculado(await getAgentes(buscaAgenteVinculado.trim())) }
+      finally { setBuscandoAgenteVinculado(false) }
+    }, 400)
+  }, [buscaAgenteVinculado])
+
+  async function vincularAgente(agente: { id: string; nome: string }) {
+    if (!editing) return
+    setSalvandoAgenteVinculado(true); setErroAgenteVinculado(null)
+    try {
+      await setAgenteVinculado(editing.id, agente.id)
+      setAgenteVinculadoState(agente)
+      setBuscaAgenteVinculado(''); setResultadosAgenteVinculado([])
+    } catch (e) {
+      setErroAgenteVinculado(errMsg(e))
+    } finally {
+      setSalvandoAgenteVinculado(false)
+    }
+  }
+
+  async function removerAgenteVinculado() {
+    if (!editing) return
+    setSalvandoAgenteVinculado(true); setErroAgenteVinculado(null)
+    try {
+      await setAgenteVinculado(editing.id, null)
+      setAgenteVinculadoState(null)
+    } catch (e) {
+      setErroAgenteVinculado(errMsg(e))
+    } finally {
+      setSalvandoAgenteVinculado(false)
     }
   }
 
@@ -502,6 +554,49 @@ export function ClubModal({ open, editing, leagues, plataformas, onClose, onSave
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {step === 'identificacao' && (
+        <div className="mt-4 space-y-3">
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-white/10 pb-2">{t('club_modal.agente_vinculado_titulo')}</h3>
+          <p className="text-xs text-gray-500">{t('club_modal.agente_vinculado_desc')}</p>
+          {!editing ? (
+            <p className="text-xs text-gray-500 italic">{t('club_modal.salve_primeiro_vincular_agente')}</p>
+          ) : (
+            <>
+              {erroAgenteVinculado && <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-alert text-sm">{erroAgenteVinculado}</div>}
+              {agenteVinculado ? (
+                <div className="flex items-center justify-between p-2 bg-surface rounded-lg border border-white/10 text-sm max-w-md">
+                  <span className="text-gray-300">{agenteVinculado.nome}</span>
+                  <button type="button" onClick={removerAgenteVinculado} disabled={salvandoAgenteVinculado} className="text-gray-500 hover:text-alert disabled:opacity-40"><Trash2 size={13} /></button>
+                </div>
+              ) : (
+                <div className="relative max-w-md">
+                  <input
+                    type="text" value={buscaAgenteVinculado} onChange={e => setBuscaAgenteVinculado(e.target.value)}
+                    disabled={salvandoAgenteVinculado}
+                    placeholder={t('club_modal.buscar_agente_placeholder')} className={inputCls}
+                  />
+                  {(buscandoAgenteVinculado || salvandoAgenteVinculado) && <Search size={14} className="absolute right-3 top-3 text-gold animate-pulse" />}
+                  {resultadosAgenteVinculado.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-surface2 border border-white/10 rounded-lg overflow-hidden shadow-xl">
+                      {resultadosAgenteVinculado.map(a => (
+                        <button
+                          key={a.id} type="button"
+                          onClick={() => vincularAgente({ id: a.id, nome: a.nome })}
+                          disabled={salvandoAgenteVinculado}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-white/5 transition-colors disabled:opacity-40"
+                        >
+                          {a.nome}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 

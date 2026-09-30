@@ -374,6 +374,31 @@ export async function removeVinculoAcerto(clubeIdParaRemover: string): Promise<v
   }
 }
 
+// ─── AGENTE VINCULADO (o mesmo Clube é, na vida real, também um Agente/Super
+// Agente em outra Liga/Clube — caso "GetStar": clube na Liga Particular +
+// Orion, e Super Agente no SulHomeGaming. Diferente do Clube Vinculado acima
+// (grupo aberto entre Clubes): aqui é 1 Clube -> 1 Agente só, uma declaração
+// de identidade, não uma soma de Acertos de clube. Usado em
+// ClubAcertoCard.tsx pra somar o Acerto como Agente no Total do Grupo
+// Econômico — pedido do Cássio depois de "não sei como dizer que ele é um
+// agente") ──
+
+export async function getAgenteVinculado(clubeId: string): Promise<{ id: string; nome: string } | null> {
+  const { data, error } = await supabase
+    .from('clubs')
+    .select('agente_vinculado_id, agentes:agente_vinculado_id(id, nome)')
+    .eq('id', clubeId)
+    .maybeSingle()
+  if (error) throw error
+  const a = umObjeto((data as unknown as { agentes: { id: string; nome: string } | { id: string; nome: string }[] | null } | null)?.agentes)
+  return a ? { id: a.id, nome: a.nome } : null
+}
+
+export async function setAgenteVinculado(clubeId: string, agenteId: string | null): Promise<void> {
+  const { error } = await supabase.from('clubs').update({ agente_vinculado_id: agenteId }).eq('id', clubeId)
+  if (error) throw error
+}
+
 // Primeira vez que o Stoploss Inicial é definido (cadastro trava depois
 // disso — ver ClubModal): abre a primeira linha do histórico, pra sempre dar
 // pra ver de onde o clube partiu (Stoploss Atual é calculado ao vivo a
