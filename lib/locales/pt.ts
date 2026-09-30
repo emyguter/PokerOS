@@ -679,7 +679,7 @@ export const pt = {
     editando_vinculo: 'Editando vínculo', novo_vinculo: 'Novo vínculo — de quem, pra quem', cancelar_edicao: 'cancelar edição',
     de_label: 'De (quem define/cobra)', para_label: 'Para (quem recebe a regra)',
     substituir_desc: 'Essa regra vai substituir {campo} {ligaOuClube}.',
-    da_liga: 'da liga', do_clube: 'do clube',
+    da_liga: 'da liga', do_clube: 'do clube', do_agente: 'do agente (substitui o % fixo de rakeback)',
     incompat_desc: '{nomes}: o tipo de cobrança desse clube não usa {campo} no cálculo — o vínculo seria salvo, mas sem nenhum efeito. Só clubes {settlements} usam esse campo.',
     entendi_vincular_mesmo: 'Entendi, vincular mesmo assim (sem efeito nesse clube)',
     salvar_edicao: 'Salvar edição', salvar_edicao_mais: 'Salvar edição + vincular a mais {n}',

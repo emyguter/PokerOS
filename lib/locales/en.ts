@@ -681,7 +681,7 @@ export const en: typeof pt = {
     editando_vinculo: 'Editing link', novo_vinculo: 'New link — from whom, to whom', cancelar_edicao: 'cancel edit',
     de_label: 'From (who sets/charges it)', para_label: 'To (who receives the rule)',
     substituir_desc: 'This rule will replace {campo} {ligaOuClube}.',
-    da_liga: "of the league", do_clube: "of the club",
+    da_liga: "of the league", do_clube: "of the club", do_agente: "of the agent (replaces the fixed rakeback %)",
     incompat_desc: "{nomes}: this club's fee type doesn't use {campo} in the calculation — the link would be saved, but with no effect. Only {settlements} clubs use this field.",
     entendi_vincular_mesmo: 'Understood, link anyway (no effect on this club)',
     salvar_edicao: 'Save edit', salvar_edicao_mais: 'Save edit + link {n} more',

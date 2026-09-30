@@ -681,7 +681,7 @@ export const es: typeof pt = {
     editando_vinculo: 'Editando vínculo', novo_vinculo: 'Nuevo vínculo — de quién, a quién', cancelar_edicao: 'cancelar edición',
     de_label: 'De (quién lo define/cobra)', para_label: 'Para (quién recibe la regla)',
     substituir_desc: 'Esta regla va a reemplazar {campo} {ligaOuClube}.',
-    da_liga: 'de la liga', do_clube: 'del club',
+    da_liga: 'de la liga', do_clube: 'del club', do_agente: 'del agente (reemplaza el % fijo de rakeback)',
     incompat_desc: '{nomes}: el tipo de cobro de este club no usa {campo} en el cálculo — el vínculo se guardaría, pero sin ningún efecto. Solo clubes {settlements} usan este campo.',
     entendi_vincular_mesmo: 'Entendido, vincular de todos modos (sin efecto en este club)',
     salvar_edicao: 'Guardar edición', salvar_edicao_mais: 'Guardar edición + vincular {n} más',
