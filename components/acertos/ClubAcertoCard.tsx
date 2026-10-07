@@ -6,7 +6,7 @@ import { useI18n } from '@/lib/i18n'
 import { getLayoutDoClube, resolverLayout, calcularTotalAcerto, corrigirValorCrypto, type CampoAcerto, type CampoResolvido } from '@/lib/relatorio-acerto'
 import { getDividasAcertoDoClube, type ItemDividaAcerto } from '@/lib/dividas'
 import { getVinculosAcerto, getIndicacoes, getAgenteVinculado } from '@/lib/cadastro-api'
-import { calcularIndicacao, buscarPendenciasEAntecipacaoAoVivo, buscarMultaAtual, buscarAcertoComoAgente, type AcertoComoAgenteLinha } from '@/lib/acertos-engine'
+import { calcularIndicacao, buscarPendenciasEAntecipacaoAoVivo, buscarMultaAtual, buscarAcertoComoAgente, buscarRakebackAgentesPorClube, type AcertoComoAgenteLinha } from '@/lib/acertos-engine'
 
 export interface AcertoCard {
   id: string
@@ -177,6 +177,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const [dividasItens, setDividasItens] = useState<ItemDividaAcerto[]>([])
   const [pendenciasLive, setPendenciasLive] = useState(0)
   const [multaLive, setMultaLive] = useState<{ valor: number; pct: number } | null>(null)
+  const [rakebackAgentesLive, setRakebackAgentesLive] = useState(0)
   const [layout, setLayout] = useState<CampoResolvido[]>(() => resolverLayout(null))
   // Clube Vinculado (mesmo clube em outra plataforma, ex: ClubGG + Sul HG) —
   // esse card ("Common Settlement / Acerto Geral") é o único lugar que soma
@@ -186,6 +187,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const [outrosMembros, setOutrosMembros] = useState<{ id: string; nome: string; plataformaNome: string; ligaNome: string }[]>([])
   const [acertosGrupo, setAcertosGrupo] = useState<AcertoGrupoRow[]>([])
   const [extrasPorClube, setExtrasPorClube] = useState<Map<string, ExtrasClube>>(new Map())
+  const [rakebackAgentesGrupo, setRakebackAgentesGrupo] = useState<Map<string, number>>(new Map())
   // Moeda de cada membro do grupo (ver totaisPorMembro abaixo) — achado no
   // caso CAZZINO (USD) + Believe Poker 3 (BRL): a soma do Acerto combinado
   // não pode misturar moeda crua, cada membro precisa converter pro BRL
@@ -326,6 +328,17 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   }, [acerto.club_id, periodStart, periodEnd])
 
   useEffect(() => {
+    // Quanto esse clube deve pagar de rakeback pra sua rede de Agentes/Super
+    // Agentes nesse import (ver campo opcional 'rakeback_agentes' do Layout
+    // do Acerto) — só maior que 0 em clubes "só rateio" tipo Sul Home Game,
+    // que não têm cobrança de clube nenhuma, só repasse de rakeback.
+    if (!acerto.club_id) { setRakebackAgentesLive(0); return }
+    buscarRakebackAgentesPorClube([{ clubeId: acerto.club_id, importId: acerto.import_id }])
+      .then((mapa) => setRakebackAgentesLive(mapa.get(`${acerto.club_id}:${acerto.import_id}`) ?? 0))
+      .catch((err) => { console.error('Erro ao buscar Rakeback Agentes ao vivo:', err); setRakebackAgentesLive(0) })
+  }, [acerto.club_id, acerto.import_id])
+
+  useEffect(() => {
     // Parcela de Acordo em aberto (ou dívida Simples ativa) desse clube
     // também reduz o Acerto — continua entrando toda semana até o Suporte
     // marcar como paga em Dívidas e Acordos.
@@ -405,7 +418,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
     ;(async () => {
       const { data: importsData } = await supabase.from('imports').select('id').eq('period_end', periodEnd)
       const importIds = (importsData ?? []).map((i) => i.id as string)
-      if (importIds.length === 0) { if (!cancelado) { setAcertosGrupo([]); setExtrasPorClube(new Map()); setMoedaPorClube(new Map()) }; return }
+      if (importIds.length === 0) { if (!cancelado) { setAcertosGrupo([]); setExtrasPorClube(new Map()); setRakebackAgentesGrupo(new Map()); setMoedaPorClube(new Map()) }; return }
       const [{ data }, { data: clubesData }] = await Promise.all([
         supabase
           .from('acertos')
@@ -415,10 +428,14 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         supabase.from('clubs').select('id, moeda_conversao, cotacao').in('id', idsGrupo),
       ])
       const linhas = (data ?? []) as AcertoGrupoRow[]
-      const extras = await Promise.all(linhas.map(async (r) => [r.club_id, await buscarExtrasClube(r.club_id, periodStart, periodEnd, r.rake_total)] as const))
+      const [extras, rakebackAgentes] = await Promise.all([
+        Promise.all(linhas.map(async (r) => [r.club_id, await buscarExtrasClube(r.club_id, periodStart, periodEnd, r.rake_total)] as const)),
+        buscarRakebackAgentesPorClube(linhas.map((r) => ({ clubeId: r.club_id, importId: r.import_id }))),
+      ])
       if (cancelado) return
       setAcertosGrupo(linhas)
       setExtrasPorClube(new Map(extras))
+      setRakebackAgentesGrupo(rakebackAgentes)
       setMoedaPorClube(new Map(((clubesData ?? []) as { id: string; moeda_conversao: string | null; cotacao: number | null }[]).map((c) => [c.id, { moeda_conversao: c.moeda_conversao, cotacao: c.cotacao }])))
     })()
     return () => { cancelado = true }
@@ -504,6 +521,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           indicacaoValor: id === acerto.club_id ? indicacaoLive : r.indicacao_valor,
           lancamentosLiquido: lancLiquido,
           dividasTotal: dividasT,
+          rakebackAgentes: rakebackAgentesGrupo.get(`${r.club_id}:${r.import_id}`) ?? 0,
         })
         // Converte pra uma moeda comum (BRL) ANTES de somar no grupo — achado
         // no caso CAZZINO (USD) + Believe Poker 3 (BRL): sem isso, o Total
@@ -536,6 +554,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         security,
         indicacaoValor: indicacaoLive,
         lancamentosLiquido,
+        rakebackAgentes: rakebackAgentesLive,
         dividasTotal,
       })
   const outrosTotais = totaisPorMembro.filter((m) => m.id !== acerto.club_id)
@@ -673,6 +692,15 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         return <Linha key={campo} label={t('club_acerto_card.seguranca_label')} value={security} />
       case 'rebate':
         return <Linha key={campo} label={t('club_acerto_card.rebate_label')} value={rebateDisplay} />
+      case 'rakeback_agentes': {
+        // Só aparece em clubes "só rateio" tipo Sul Home Game, que não têm
+        // cobrança de clube nenhuma — em qualquer clube normal essa soma é 0
+        // (ninguém reporta rake pra um Agente sob ele), fica escondida. Corpo
+        // do card é sempre só do PRÓPRIO clube (mesma regra de tudo aqui,
+        // mesmo agrupado) — rakebackAgentesLive já é só dele.
+        if (!rakebackAgentesLive) return null
+        return <Linha key={campo} label={t('club_acerto_card.rakeback_agentes_label')} value={-rakebackAgentesLive} />
+      }
       case 'indicacao': {
         if (indicacoesDetalhe.length === 0) return null
         // Uma linha por clube indicado, mesmo formato da planilha de

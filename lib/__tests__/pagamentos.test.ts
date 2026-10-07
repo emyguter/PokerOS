@@ -5,7 +5,7 @@ import { agregarPagamentos, corDiferenca, diferencaDaLiga } from '../pagamentos'
 // Pagamentos) — mesma convenção usada no resto do app (positivo = clube vai
 // receber, ver corDiferenca/diferencaDaLiga).
 function acerto(overrides: Partial<Parameters<typeof agregarPagamentos>[0][number]> = {}) {
-  return { id: 'acerto-1', club_external_id: '123', club_name: 'Clube Teste', valor_acerto: -1000, ...overrides }
+  return { id: 'acerto-1', import_id: 'import-1', club_external_id: '123', club_name: 'Clube Teste', valor_acerto: -1000, ...overrides }
 }
 
 describe('agregarPagamentos', () => {

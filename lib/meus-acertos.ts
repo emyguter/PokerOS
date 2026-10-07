@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { buscarSecurityEDividasPorClube, calcularTotalAcerto } from './relatorio-acerto'
-import { buscarPendenciasEAntecipacaoAoVivo } from './acertos-engine'
+import { buscarPendenciasEAntecipacaoAoVivo, buscarRakebackAgentesPorClube } from './acertos-engine'
 import type { AcertoCard } from '@/components/acertos/ClubAcertoCard'
 
 export interface LinhaMeuAcerto {
@@ -80,8 +80,9 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
     if (a.club_id) periodStartPorClube.set(a.club_id, a.imports?.period_start ?? periodoFim)
   }
 
-  const [extrasPorClube, { data: lancData }, ...mapasPendencias] = await Promise.all([
+  const [extrasPorClube, rakebackAgentesPorChave, { data: lancData }, ...mapasPendencias] = await Promise.all([
     buscarSecurityEDividasPorClube(clubIds, periodoFim, rakeTotalPorClube),
+    buscarRakebackAgentesPorClube(linhasBase.filter((a) => a.club_id).map((a) => ({ clubeId: a.club_id as string, importId: a.import_id }))),
     supabase
       .from('lancamentos')
       .select('clube_id, natureza, valor, data_lancamento')
@@ -123,6 +124,7 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
         indicacaoValor: a.indicacao_valor,
         lancamentosLiquido: a.club_id ? lancPorClube.get(a.club_id) ?? 0 : 0,
         dividasTotal: extras?.dividasTotal ?? 0,
+        rakebackAgentes: a.club_id ? rakebackAgentesPorChave.get(`${a.club_id}:${a.import_id}`) ?? 0 : 0,
       })
       return {
         acerto: a,

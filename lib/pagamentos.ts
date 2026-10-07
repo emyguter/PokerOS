@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { calcularTotalAcerto, buscarSecurityEDividasPorClube } from './relatorio-acerto'
-import { diaSeguinte, maisDias, diaAnterior, clubesComDiferencaQuitada } from './acertos-engine'
+import { diaSeguinte, maisDias, diaAnterior, clubesComDiferencaQuitada, buscarRakebackAgentesPorClube } from './acertos-engine'
 
 export type TipoEnvio = 'pagamento' | 'antecipacao'
 
@@ -47,6 +47,7 @@ export interface AcertoPagamento {
 
 interface AcertoRow {
   id: string
+  import_id: string
   club_external_id: string
   club_name: string
   valor_acerto: number
@@ -146,7 +147,7 @@ export async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], peri
   const clubIds = [...new Set(lista.map((a) => a.club_id).filter((id): id is string => !!id))]
   const rakeTotalPorClube = new Map(lista.filter((a) => a.club_id).map((a) => [a.club_id as string, a.rake_total]))
 
-  const [{ data: lancamentosData }, extrasPorClube] = await Promise.all([
+  const [{ data: lancamentosData }, extrasPorClube, rakebackAgentesPorChave] = await Promise.all([
     clubIds.length > 0 && periodStart
       ? supabase
           .from('lancamentos')
@@ -169,6 +170,7 @@ export async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], peri
           .lte('data_lancamento', periodEnd || periodStart)
       : Promise.resolve({ data: [] as { clube_id: string; natureza: 'credito' | 'debito'; valor: number }[] }),
     buscarSecurityEDividasPorClube(clubIds, periodEnd || periodStart, rakeTotalPorClube),
+    buscarRakebackAgentesPorClube(lista.filter((a) => a.club_id).map((a) => ({ clubeId: a.club_id as string, importId: a.import_id }))),
   ])
 
   const extraPorClube = new Map<string, number>()
@@ -186,6 +188,7 @@ export async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], peri
       indicacaoValor: a.indicacao_valor,
       lancamentosLiquido: a.club_id ? extraPorClube.get(a.club_id) ?? 0 : 0,
       dividasTotal: extras?.dividasTotal ?? 0,
+      rakebackAgentes: a.club_id ? rakebackAgentesPorChave.get(`${a.club_id}:${a.import_id}`) ?? 0 : 0,
     }))
   }
   return { valorAcertoPorId, extraPorClube }
@@ -275,7 +278,7 @@ function converterParaEnvios(rows: LancamentoBrutoRow[], acertoIdPorClube: Map<s
 export async function buscarPagamentosPorImport(importId: string): Promise<AcertoPagamento[]> {
   const { data: acertos } = await supabase
     .from('acertos')
-    .select('id, club_id, club_external_id, club_name, valor_acerto, bilhetes, indicacao_valor, rake_total')
+    .select('id, import_id, club_id, club_external_id, club_name, valor_acerto, bilhetes, indicacao_valor, rake_total')
     .eq('import_id', importId)
     .order('club_name')
 
@@ -475,7 +478,7 @@ export async function buscarPagamentosPorPeriodo(periodoInicio: string, periodoF
 
   const { data: acertos } = await supabase
     .from('acertos')
-    .select('id, club_id, club_external_id, club_name, valor_acerto, bilhetes, indicacao_valor, rake_total')
+    .select('id, import_id, club_id, club_external_id, club_name, valor_acerto, bilhetes, indicacao_valor, rake_total')
     .in('import_id', importIds)
     .order('club_name')
 
