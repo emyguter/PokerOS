@@ -1467,6 +1467,7 @@ export interface AcertoAgenteCalculado {
   agente_nome: string;
   clube_nome: string | null;
   rake_total: number;
+  player_result: number;
   rakeback_pct: number;
   valor_rakeback: number;
 }
@@ -1489,7 +1490,7 @@ export async function processarAcertosAgentes(importId: string, clubeId?: string
   try {
     let jogadoresQuery = supabase
       .from("import_jogadores")
-      .select("agente_id, clube_id, rake_total")
+      .select("agente_id, clube_id, rake_total, player_result")
       .eq("import_id", importId)
       .not("agente_id", "is", null);
     if (clubeId) jogadoresQuery = jogadoresQuery.eq("clube_id", clubeId);
@@ -1502,11 +1503,12 @@ export async function processarAcertosAgentes(importId: string, clubeId?: string
 
     if (!jogadores || jogadores.length === 0) return { success: true, count: 0 };
 
-    const grupos = new Map<string, { agente_id: string; clube_id: string | null; rake_total: number }>();
-    for (const j of jogadores as { agente_id: string; clube_id: string | null; rake_total: number }[]) {
+    const grupos = new Map<string, { agente_id: string; clube_id: string | null; rake_total: number; player_result: number }>();
+    for (const j of jogadores as { agente_id: string; clube_id: string | null; rake_total: number; player_result: number }[]) {
       const chave = `${j.agente_id}:${j.clube_id ?? "sem_clube"}`;
-      const atual = grupos.get(chave) ?? { agente_id: j.agente_id, clube_id: j.clube_id, rake_total: 0 };
+      const atual = grupos.get(chave) ?? { agente_id: j.agente_id, clube_id: j.clube_id, rake_total: 0, player_result: 0 };
       atual.rake_total += j.rake_total ?? 0;
+      atual.player_result += j.player_result ?? 0;
       grupos.set(chave, atual);
     }
 
@@ -1527,8 +1529,9 @@ export async function processarAcertosAgentes(importId: string, clubeId?: string
       const superagenteId = superagentePorAgente.get(g.agente_id);
       if (!superagenteId) continue;
       const chaveSuper = `${superagenteId}:${g.clube_id ?? "sem_clube"}`;
-      const atual = grupos.get(chaveSuper) ?? { agente_id: superagenteId, clube_id: g.clube_id, rake_total: 0 };
+      const atual = grupos.get(chaveSuper) ?? { agente_id: superagenteId, clube_id: g.clube_id, rake_total: 0, player_result: 0 };
       atual.rake_total += g.rake_total;
+      atual.player_result += g.player_result;
       grupos.set(chaveSuper, atual);
     }
 
@@ -1565,6 +1568,7 @@ export async function processarAcertosAgentes(importId: string, clubeId?: string
         agente_nome: nomeAgentePorId.get(g.agente_id) ?? "—",
         clube_nome: g.clube_id ? nomeClubePorId.get(g.clube_id) ?? "—" : null,
         rake_total: Math.round(g.rake_total * 100) / 100,
+        player_result: Math.round(g.player_result * 100) / 100,
         rakeback_pct: pct,
         valor_rakeback: Math.round(g.rake_total * (pct / 100) * 100) / 100,
       };
