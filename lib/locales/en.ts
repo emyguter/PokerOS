@@ -419,6 +419,7 @@ export const en: typeof pt = {
     multa_label: 'Late Settlement Fee ({pct}%)',
     seguranca_label: 'Security',
     rebate_label: 'Rebate',
+    rakeback_agentes_label: 'Agent Rakeback',
     indicacao_label: 'Referral ({pct}%) {nome}',
     lancamentos_periodo_titulo: 'Period entries',
     dividas_acordos_titulo: 'Debts / Agreements',

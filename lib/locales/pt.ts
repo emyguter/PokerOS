@@ -417,6 +417,7 @@ export const pt = {
     multa_label: 'Multa Atraso Acerto ({pct}%)',
     seguranca_label: 'Segurança',
     rebate_label: 'Rebate',
+    rakeback_agentes_label: 'Rakeback Agentes',
     indicacao_label: 'Indicação ({pct}%) {nome}',
     lancamentos_periodo_titulo: 'Lançamentos do período',
     dividas_acordos_titulo: 'Dívidas / Acordos',

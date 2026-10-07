@@ -1008,6 +1008,47 @@ export interface ClubeNovo {
   external_id: string;
 }
 
+// Clube cujo import só traz dados de Agente (import_jogadores), sem nenhuma
+// linha de clube (import_rows) — caso do Sul Home Game: relatório
+// Superagente/Agente/Jogador, não tem Rake/Taxa de clube nenhum, só rateio
+// de rakeback. Antes disso esse clube nunca ganhava um Acerto, então nunca
+// aparecia na tela — cria um Acerto zerado nos campos de clube (rake, fee,
+// taxa) pra esse clube existir no período; o total de Rakeback Agentes (ver
+// campo opcional do Layout do Acerto, somado ao vivo de acertos_agentes em
+// ClubAcertoCard) é o que carrega o valor de verdade.
+async function sincronizarClubesSoAgentes(importId: string): Promise<number> {
+  const { data: jogadores } = await supabase
+    .from("import_jogadores")
+    .select("clube_id")
+    .eq("import_id", importId)
+    .not("clube_id", "is", null);
+  const clubeIds = [...new Set((jogadores ?? []).map((j) => j.clube_id as string))];
+  if (clubeIds.length === 0) return 0;
+
+  const { data: existentes } = await supabase
+    .from("acertos")
+    .select("club_id")
+    .eq("import_id", importId)
+    .in("club_id", clubeIds);
+  const jaTemAcerto = new Set((existentes ?? []).map((a) => a.club_id as string));
+  const faltando = clubeIds.filter((id) => !jaTemAcerto.has(id));
+  if (faltando.length === 0) return 0;
+
+  const { data: clubes } = await supabase.from("clubs").select("id, name, external_id, settlement_type").in("id", faltando);
+  const novos = (clubes ?? []).map((c) => ({
+    import_id: importId,
+    club_id: c.id,
+    club_name: c.name,
+    club_external_id: c.external_id,
+    settlement_type: c.settlement_type,
+  }));
+  if (novos.length === 0) return 0;
+
+  const { error } = await supabase.from("acertos").insert(novos);
+  if (error) throw new Error(error.message);
+  return novos.length;
+}
+
 // club_id -> "manter a % que já estava gravada no Acerto anterior desse
 // clube/período, em vez da % atual do cadastro" — usado quando o usuário
 // escolhe "manter taxa da época" no modal de divergência (ver
@@ -1038,9 +1079,16 @@ export async function processarAcertos(importId: string, overridesEpoca?: Set<st
     // guard e travava com "Nenhuma linha encontrada", impedindo até
     // processarAcertosAgentes de rodar (AcertosView só chama ele quando
     // processarAcertos retorna success). Sucesso com 0 clubes é o resultado
-    // certo pra esse tipo de import, não um erro.
-    if (!rows || rows.length === 0)
-      return { success: true, count: 0, clubesNovos: [] };
+    // certo pra esse tipo de import, não um erro — mas o clube (ex: Sul Home
+    // Game) ainda precisa aparecer na tela de Acertos, só que mostrando o
+    // total de Rakeback Agentes em vez de Rake/Taxa (pedido do Cássio: "a
+    // ideia era que abrisse o mesmo card dos outros"). sincronizarClubesSoAgentes
+    // cobre exatamente esse caso: cria o Acerto zerado nos campos de clube pra
+    // cada clube que só apareceu em import_jogadores desse import.
+    if (!rows || rows.length === 0) {
+      const count = await sincronizarClubesSoAgentes(importId);
+      return { success: true, count, clubesNovos: [] };
+    }
 
     const { data: clubs, error: clubsError } = await supabase
       .from("clubs")
@@ -1566,4 +1614,29 @@ export async function buscarAcertoComoAgente(agenteId: string, periodEnd: string
   const total = Math.round(linhas.reduce((s, l) => s + l.valorRakeback, 0) * 100) / 100;
 
   return { nome: (agenteData?.nome as string | undefined) ?? "—", linhas, total };
+}
+
+// Soma de acertos_agentes.valor_rakeback por (clube_id, import_id) — o total
+// que o CLUBE (plataforma, ex: Sul Home Game) deve pagar de rakeback pra sua
+// rede de Agentes/Super Agentes naquele import. Usado pelo campo opcional
+// 'rakeback_agentes' do Layout do Acerto (ver lib/relatorio-acerto.ts) — em
+// clubes normais (sem Agentes reportando rake sob eles) essa soma é sempre 0.
+// Chave do Map é `${clubeId}:${importId}` (um clube pode aparecer em vários
+// imports/semanas na mesma chamada em lote).
+export async function buscarRakebackAgentesPorClube(pares: { clubeId: string; importId: string }[]): Promise<Map<string, number>> {
+  const mapa = new Map<string, number>();
+  if (pares.length === 0) return mapa;
+  const clubeIds = [...new Set(pares.map((p) => p.clubeId))];
+  const importIds = [...new Set(pares.map((p) => p.importId))];
+  const { data } = await supabase
+    .from("acertos_agentes")
+    .select("clube_id, import_id, valor_rakeback")
+    .in("clube_id", clubeIds)
+    .in("import_id", importIds);
+  for (const row of (data ?? []) as { clube_id: string | null; import_id: string; valor_rakeback: number }[]) {
+    if (!row.clube_id) continue;
+    const chave = `${row.clube_id}:${row.import_id}`;
+    mapa.set(chave, Math.round(((mapa.get(chave) ?? 0) + row.valor_rakeback) * 100) / 100);
+  }
+  return mapa;
 }

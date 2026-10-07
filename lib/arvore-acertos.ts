@@ -128,6 +128,10 @@ async function buscarClubesZerados(
       indicacaoValor: 0,
       lancamentosLiquido: 0,
       dividasTotal: extras?.dividasTotal ?? 0,
+      // "Zerado" é, por definição, um clube sem nenhum movimento (nem Acerto
+      // nem rateio de Agentes) na semana — se tivesse acertos_agentes ele já
+      // teria caído em buscarClubesSoRateio, não aqui.
+      rakebackAgentes: 0,
     })
     return {
       acerto: {

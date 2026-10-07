@@ -419,6 +419,7 @@ export const es: typeof pt = {
     multa_label: 'Multa por Atraso ({pct}%)',
     seguranca_label: 'Seguridad',
     rebate_label: 'Rebate',
+    rakeback_agentes_label: 'Rakeback Agentes',
     indicacao_label: 'Referido ({pct}%) {nome}',
     lancamentos_periodo_titulo: 'Movimientos del período',
     dividas_acordos_titulo: 'Deudas / Acuerdos',

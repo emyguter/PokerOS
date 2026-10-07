@@ -111,12 +111,12 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
     let cancelado = false
     supabase
       .from('acertos')
-      .select('id, valor_acerto, bilhetes, indicacao_valor, rake_total, imports(period_start, period_end)')
+      .select('id, import_id, valor_acerto, bilhetes, indicacao_valor, rake_total, imports(period_start, period_end)')
       .eq('club_id', clubeId)
       .order('created_at', { ascending: false })
       .limit(20)
       .then(async ({ data }) => {
-        const brutos = ((data ?? []) as unknown as { id: string; valor_acerto: number; bilhetes: number; indicacao_valor: number; rake_total: number; imports: { period_start: string | null; period_end: string | null } | null }[])
+        const brutos = ((data ?? []) as unknown as { id: string; import_id: string; valor_acerto: number; bilhetes: number; indicacao_valor: number; rake_total: number; imports: { period_start: string | null; period_end: string | null } | null }[])
           .map((a) => ({ ...a, period_start: a.imports?.period_start ?? null, period_end: a.imports?.period_end ?? null }))
         // Valor do Acerto mostrado aqui precisa ser o MESMO do card "Ver
         // acerto completo" (Bilhetes/Indicação/Segurança/Lançamentos E
@@ -132,7 +132,7 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
         // linha (as duas funções são bateladas só dentro de UMA semana).
         const completos = await Promise.all(brutos.map(async (a) => {
           if (!a.period_start || !a.period_end) return a.valor_acerto
-          const row: AcertoCompletoRow = { id: a.id, club_external_id: '', club_name: '', valor_acerto: a.valor_acerto, club_id: clubeId, bilhetes: a.bilhetes, indicacao_valor: a.indicacao_valor, rake_total: a.rake_total }
+          const row: AcertoCompletoRow = { id: a.id, import_id: a.import_id, club_external_id: '', club_name: '', valor_acerto: a.valor_acerto, club_id: clubeId, bilhetes: a.bilhetes, indicacao_valor: a.indicacao_valor, rake_total: a.rake_total }
           const [{ valorAcertoPorId }, pendenciasPorClube] = await Promise.all([
             valorAcertoCompletoPorRow([row], a.period_start, a.period_end),
             buscarPendenciasEAntecipacaoAoVivo([clubeId], a.period_start, a.period_end),
