@@ -46,8 +46,18 @@ export function AgentesAcertosView({ agenteIdFixo, modo }: { agenteIdFixo?: stri
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
   const [busca, setBusca] = useState('')
+  // Lista de Clubes pro filtro vem do cadastro inteiro, não das linhas já
+  // carregadas do período — achado pelo Cássio ("faltou filtro de CLUBE SA
+  // AGENTE" na tela de Jogadores, mesmo padrão aqui): num período sem
+  // nenhum acerto de Agente, as opções do filtro (antes derivadas só das
+  // linhas do próprio período) ficavam vazias e o select sumia da tela.
+  const [clubesCadastro, setClubesCadastro] = useState<{ id: string; name: string }[]>([])
   const [clubeFiltro, setClubeFiltro] = useState('')
   const [expandido, setExpandido] = useState<Set<string>>(new Set(agenteIdFixo ? [agenteIdFixo] : []))
+
+  useEffect(() => {
+    supabase.from('clubs').select('id, name').order('name').then(({ data }) => setClubesCadastro((data ?? []) as { id: string; name: string }[]))
+  }, [])
 
   useEffect(() => {
     if (agenteIdFixo) return
@@ -95,12 +105,6 @@ export function AgentesAcertosView({ agenteIdFixo, modo }: { agenteIdFixo?: stri
     })
   }, [agenteIdFixo, periodoFiltro, modo])
 
-  const clubesDisponiveis = useMemo(() => {
-    const set = new Set<string>()
-    for (const r of rows) if (r.clube_nome) set.add(r.clube_nome)
-    return [...set].sort()
-  }, [rows])
-
   const filtradas = useMemo(() => {
     return rows.filter((r) => {
       if (modo === 'super_agentes' && !superagenteIds.has(r.agente_id)) return false
@@ -111,7 +115,7 @@ export function AgentesAcertosView({ agenteIdFixo, modo }: { agenteIdFixo?: stri
         if (dataFim && (!p || p > dataFim)) return false
       }
       if (busca && !r.agente_nome.toLowerCase().includes(busca.toLowerCase())) return false
-      if (clubeFiltro && r.clube_nome !== clubeFiltro) return false
+      if (clubeFiltro && r.clube_id !== clubeFiltro) return false
       return true
     })
   }, [rows, modo, superagenteIds, agenteIdFixo, dataInicio, dataFim, busca, clubeFiltro])
@@ -170,14 +174,14 @@ export function AgentesAcertosView({ agenteIdFixo, modo }: { agenteIdFixo?: stri
             />
           </div>
         )}
-        {!agenteIdFixo && clubesDisponiveis.length > 0 && (
+        {!agenteIdFixo && clubesCadastro.length > 0 && (
           <select
             value={clubeFiltro}
             onChange={(e) => setClubeFiltro(e.target.value)}
             className="bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50"
           >
             <option value="">{t('agentes_acertos_view.todos_clubes')}</option>
-            {clubesDisponiveis.map((c) => <option key={c} value={c}>{c}</option>)}
+            {clubesCadastro.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         )}
         {agenteIdFixo ? (

@@ -48,6 +48,14 @@ export function JogadoresAcertosView() {
   const [periodos, setPeriodos] = useState<PeriodoAcerto[]>([])
   const [periodoFiltro, setPeriodoFiltro] = useState('')
   const [busca, setBusca] = useState('')
+  // Lista de Clubes/Agentes pro filtro vem do cadastro inteiro, não das
+  // linhas já carregadas da semana — achado pelo Cássio ("faltou filtro de
+  // CLUBE SA AGENTE"): numa semana sem nenhum jogador, as opções do filtro
+  // (antes derivadas só das linhas da própria semana) ficavam vazias e os
+  // selects somem da tela, bem na hora que mais precisava navegar pra achar
+  // uma semana com dado.
+  const [clubesCadastro, setClubesCadastro] = useState<{ id: string; name: string }[]>([])
+  const [agentesCadastro, setAgentesCadastro] = useState<{ id: string; nome: string }[]>([])
   const [clubeFiltro, setClubeFiltro] = useState('')
   const [agenteFiltro, setAgenteFiltro] = useState('')
   const [pagina, setPagina] = useState(1)
@@ -58,6 +66,8 @@ export function JogadoresAcertosView() {
       if (lista.length > 0) setPeriodoFiltro(lista[0].fim)
       else setLoading(false)
     })
+    supabase.from('clubs').select('id, name').order('name').then(({ data }) => setClubesCadastro((data ?? []) as { id: string; name: string }[]))
+    supabase.from('agentes').select('id, nome').order('nome').then(({ data }) => setAgentesCadastro((data ?? []) as { id: string; nome: string }[]))
   }, [])
 
   useEffect(() => {
@@ -91,23 +101,11 @@ export function JogadoresAcertosView() {
     })
   }, [periodoFiltro])
 
-  const clubesDisponiveis = useMemo(() => {
-    const set = new Set<string>()
-    for (const r of rows) if (r.clubs?.name) set.add(r.clubs.name)
-    return [...set].sort()
-  }, [rows])
-
-  const agentesDisponiveis = useMemo(() => {
-    const set = new Set<string>()
-    for (const r of rows) if (r.agentes?.nome) set.add(r.agentes.nome)
-    return [...set].sort()
-  }, [rows])
-
   const filtradas = useMemo(() => {
     return rows.filter((r) => {
       if (busca && !(r.jogadores?.nome ?? '').toLowerCase().includes(busca.toLowerCase())) return false
-      if (clubeFiltro && r.clubs?.name !== clubeFiltro) return false
-      if (agenteFiltro && r.agentes?.nome !== agenteFiltro) return false
+      if (clubeFiltro && r.clube_id !== clubeFiltro) return false
+      if (agenteFiltro && r.agente_id !== agenteFiltro) return false
       return true
     })
   }, [rows, busca, clubeFiltro, agenteFiltro])
@@ -159,16 +157,16 @@ export function JogadoresAcertosView() {
             className="w-full bg-surface border border-white/10 rounded-lg pl-9 pr-3 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50"
           />
         </div>
-        {clubesDisponiveis.length > 0 && (
+        {clubesCadastro.length > 0 && (
           <select value={clubeFiltro} onChange={(e) => setClubeFiltro(e.target.value)} className="bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50">
             <option value="">{t('jogadores_acertos_view.todos_clubes')}</option>
-            {clubesDisponiveis.map((c) => <option key={c} value={c}>{c}</option>)}
+            {clubesCadastro.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         )}
-        {agentesDisponiveis.length > 0 && (
+        {agentesCadastro.length > 0 && (
           <select value={agenteFiltro} onChange={(e) => setAgenteFiltro(e.target.value)} className="bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50">
             <option value="">{t('jogadores_acertos_view.todos_agentes')}</option>
-            {agentesDisponiveis.map((a) => <option key={a} value={a}>{a}</option>)}
+            {agentesCadastro.map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
           </select>
         )}
         {periodos.length > 0 && (
