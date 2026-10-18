@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { propagarParaSuperagentes } from "@/lib/rateio-agentes";
 import { marcarDividasPagasComRake, getFaixasMultaDeClubes, percentualMulta, diasDeAtraso as diasDeAtrasoDivida, type FaixaMulta } from "@/lib/dividas";
 
 export interface ClubSettings {
@@ -1519,21 +1520,21 @@ export async function processarAcertosAgentes(importId: string, clubeId?: string
     // (clube_agentes). Jogador sem Agente no meio (reporta direto pro
     // Superagente) já entra direto na linha dele — ver
     // harmonizar-import/index.ts (agenteEfetivoId) — esse passo só cobre
-    // quem tem Agente cadastrado. Hierarquia é só 1 nível (Superagente >
-    // Agente), sem repasse encadeado.
-    const agenteIdsDiretos = [...new Set([...grupos.values()].map((g) => g.agente_id))];
-    const { data: agentesInfo } = await supabase.from("agentes").select("id, superagente_id").in("id", agenteIdsDiretos);
-    const superagentePorAgente = new Map((agentesInfo ?? []).map((a) => [a.id as string, a.superagente_id as string | null]));
-
-    for (const g of [...grupos.values()]) {
-      const superagenteId = superagentePorAgente.get(g.agente_id);
-      if (!superagenteId) continue;
-      const chaveSuper = `${superagenteId}:${g.clube_id ?? "sem_clube"}`;
-      const atual = grupos.get(chaveSuper) ?? { agente_id: superagenteId, clube_id: g.clube_id, rake_total: 0, player_result: 0 };
-      atual.rake_total += g.rake_total;
-      atual.player_result += g.player_result;
-      grupos.set(chaveSuper, atual);
+    // quem tem Agente cadastrado.
+    // Agora sobe a cadeia inteira (Agente > Superagente > Superagente
+    // dele...), ver propagarParaSuperagentes. Busca os ancestrais em
+    // rodadas, até não aparecer ninguém novo.
+    const superagentePorAgente = new Map<string, string | null>();
+    let pendentes = [...new Set([...grupos.values()].map((g) => g.agente_id))];
+    for (let rodada = 0; rodada < 10 && pendentes.length > 0; rodada++) {
+      const { data: agentesInfo } = await supabase.from("agentes").select("id, superagente_id").in("id", pendentes);
+      for (const a of agentesInfo ?? []) superagentePorAgente.set(a.id as string, (a.superagente_id as string | null) ?? null);
+      pendentes = [...new Set((agentesInfo ?? []).map((a) => a.superagente_id as string | null))]
+        .filter((id): id is string => !!id && !superagentePorAgente.has(id));
     }
+    const gruposBase = [...grupos.values()];
+    grupos.clear();
+    for (const [k, g] of propagarParaSuperagentes(gruposBase, superagentePorAgente)) grupos.set(k, g);
 
     const agenteIds = [...new Set([...grupos.values()].map((g) => g.agente_id))];
     const clubeIds = [...new Set([...grupos.values()].map((g) => g.clube_id).filter((id): id is string => !!id))];
