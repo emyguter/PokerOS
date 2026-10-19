@@ -11,6 +11,7 @@ import { ClubModal } from "@/components/cadastro/ClubModal";
 import { getLeagues, getPlataformas as getPlataformasCadastro, createClub } from "@/lib/cadastro-api";
 import type { ClubForm, League, Plataforma as PlataformaCadastro } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { acharColunasTaxa } from "@/lib/rateio-agentes";
 
 type T = (path: string, vars?: Record<string, string | number>) => string;
 
@@ -302,6 +303,9 @@ function parseJogadoresSheet(
   // da liga", ver parsePPPoker acima).
   const idxTicketEntregue = achar(header, "Valor do ticket entregue");
   const idxTicketBuyin = achar(header, "Buy-in de ticket");
+  // Rake = só as 4 colunas de Taxa (ver lib/rateio-agentes.ts). Se o
+  // relatório não trouxer essa quebra, mantém a soma do bloco inteiro.
+  const idxTaxas = acharColunasTaxa((raw[headerRows[0] + 1] as unknown[]) ?? [], idxGanhosClube, fimGanhosClube);
 
   for (let s = 0; s < headerRows.length; s++) {
     const headerRowIdx = headerRows[s];
@@ -334,7 +338,9 @@ function parseJogadoresSheet(
         superagente_nome: safeStr(row[idxSuperNome]),
         superagente_id_ext: safeStr(row[idxSuperId]),
         player_result: somaIntervalo(row, idxGanhosJogador, fimGanhosJogador),
-        rake_clube: somaIntervalo(row, idxGanhosClube, fimGanhosClube),
+        rake_clube: idxTaxas.length > 0
+          ? idxTaxas.reduce((acc, idx) => acc + safeNum(row[idx]), 0)
+          : somaIntervalo(row, idxGanhosClube, fimGanhosClube),
         // Soma direta, não subtração — mesmo motivo do comentário da aba
         // "Geral da liga" em parsePPPoker (ticket ganho positivo, buy-in
         // gasto negativo, tendem a se cancelar ao longo do tempo).
@@ -468,7 +474,12 @@ function parsePPPoker(wb: XLSX.WorkBook, fileName: string, t: T): Omit<ParsedFil
     liga_nome = clubeNome;
     liga_id_ext = clubeIdExt;
 
-    if (!clubeIdExt) warnings.push(t("importacao_xlsx.warn_id_clube_nao_extraido", { clubeHeader }));
+    // Sem ID não dá pra amarrar os jogadores a um clube (import_jogadores
+    // fica com clube_id null e o rateio sai 0%, caso SUL HG) — a tela de
+    // confirmação pede pra escolher o clube antes de deixar importar. Não
+    // ecoa a célula inteira: no relatório Superagente ela é um parágrafo de
+    // explicação do PPPoker, não um nome de clube.
+    if (!clubeIdExt) warnings.push(t("importacao_xlsx.warn_id_clube_nao_extraido", { clubeHeader: clubeHeader.length > 60 ? clubeHeader.slice(0, 60) + "…" : clubeHeader }));
 
     // Lê jogadores (acha a linha de cabeçalho sozinho — ver parseJogadoresSheet)
     jogadores = parseJogadoresSheet(ws, clubeNome, clubeIdExt);
@@ -878,6 +889,35 @@ export default function ImportacaoXlsx() {
   const [cadastroLeagues, setCadastroLeagues] = useState<League[]>([]);
   const [cadastroPlataformas, setCadastroPlataformas] = useState<PlataformaCadastro[]>([]);
 
+  // Arquivo só-rateio (Superagente/Agente/Jogador) sem ID de clube em lugar
+  // nenhum (caso SUL HG: nem "Nome (ID)" no cabeçalho, nem aba Transações,
+  // nem ID no nome do arquivo) — pede pra escolher o clube na mão. Sem isso
+  // o import passava com clube_id null em todo jogador, o rateio saía 0% e
+  // a aba Agentes ficava vazia sem dizer por quê.
+  const [clubesEscolha, setClubesEscolha] = useState<{ id: string; name: string; external_id: string }[]>([]);
+  const [clubeEscolhidoId, setClubeEscolhidoId] = useState("");
+  const precisaEscolherClube = !!parsed && parsed.rows.length === 0 && parsed.jogadores.length > 0
+    && parsed.jogadores.some((j) => !j.clube_id_ext);
+
+  useEffect(() => {
+    if (!precisaEscolherClube || clubesEscolha.length > 0) return;
+    supabase.from("clubs").select("id, name, external_id").not("external_id", "is", null).order("name")
+      .then(({ data }) => setClubesEscolha((data ?? []) as { id: string; name: string; external_id: string }[]));
+  }, [precisaEscolherClube, clubesEscolha.length]);
+
+  function aplicarClubeEscolhido() {
+    const clube = clubesEscolha.find((c) => c.id === clubeEscolhidoId);
+    if (!parsed || !clube) return;
+    setParsed({
+      ...parsed,
+      liga_nome: parsed.liga_nome || clube.name,
+      liga_id_ext: clube.external_id,
+      jogadores: parsed.jogadores.map((j) => (j.clube_id_ext ? j : { ...j, clube_id_ext: clube.external_id, clube_nome: clube.name })),
+      warnings: parsed.warnings.filter((w) => !w.startsWith(t("importacao_xlsx.warn_id_clube_nao_extraido", { clubeHeader: "" }).split('"')[0])),
+    });
+    setClubeEscolhidoId("");
+  }
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadPlataformas(); loadHistory(); }, []);
@@ -1171,7 +1211,7 @@ export default function ImportacaoXlsx() {
   function reset() {
     setStep("idle"); setFile(null); setParsed(null); setImportError(null); setImportingId(null);
     setResolvedPlatformId(null); setPlatformAction(null); setNewPlatformName(""); setSelectedExistingPlatform(""); setJogadorStats(null);
-    setClubCheckDone(false); setClubModalOpen(false); setClubPrefill(null);
+    setClubCheckDone(false); setClubModalOpen(false); setClubPrefill(null); setClubeEscolhidoId("");
   }
 
   const onDrop = useCallback((e: React.DragEvent) => {
@@ -1299,8 +1339,21 @@ export default function ImportacaoXlsx() {
             {parsed.warnings.map((w, i) => (
               <p key={i} style={{ color: "#C9A84C", fontSize: 12, marginTop: 4 }}>⚠ {w}</p>
             ))}
+            {precisaEscolherClube && (
+              <div style={{ marginTop: 12 }}>
+                <p className="label">{t("importacao_xlsx.escolher_clube_label")}</p>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <select className="select-field" value={clubeEscolhidoId} onChange={(e) => setClubeEscolhidoId(e.target.value)}>
+                    <option value="">{t("importacao_xlsx.selecione_reticencias")}</option>
+                    {clubesEscolha.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.external_id})</option>)}
+                  </select>
+                  <button className="btn-ghost" disabled={!clubeEscolhidoId} onClick={aplicarClubeEscolhido}>{t("importacao_xlsx.usar_clube")}</button>
+                </div>
+                <p style={{ color: "#5a5a52", fontSize: 12, marginTop: 4 }}>{t("importacao_xlsx.escolher_clube_desc")}</p>
+              </div>
+            )}
             <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-              <button className="btn-gold" onClick={handleConfirmImport}>{t("importacao_xlsx.confirmar_importacao")}</button>
+              <button className="btn-gold" disabled={precisaEscolherClube} onClick={handleConfirmImport}>{t("importacao_xlsx.confirmar_importacao")}</button>
               <button className="btn-ghost" onClick={reset}>{t("common.cancelar")}</button>
             </div>
           </div>
