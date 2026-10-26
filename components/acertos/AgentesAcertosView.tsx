@@ -4,6 +4,7 @@ import { Search, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/lib/i18n'
 import { buscarPeriodosAcerto, type PeriodoAcerto } from '@/lib/relatorio-resumo-acertos'
+import { processarAcertosAgentes } from '@/lib/acertos-engine'
 
 interface AcertoAgenteRow {
   id: string
@@ -53,6 +54,27 @@ export function AgentesAcertosView({ agenteIdFixo, modo }: { agenteIdFixo?: stri
   // linhas do próprio período) ficavam vazias e o select sumia da tela.
   const [clubesCadastro, setClubesCadastro] = useState<{ id: string; name: string }[]>([])
   const [clubeFiltro, setClubeFiltro] = useState('')
+  // Botão "Calcular rateio" direto aqui — antes o rateio só rodava pelo
+  // Recalcular da Árvore (aba Por Clube), e import só-rateio (relatório
+  // Superagente/Agente/Jogador, caso SUL HG) não gera Acerto de clube, então
+  // nunca aparecia lá pra ser calculado (Cássio: "o problema agora é onde
+  // recalcular?").
+  const [recarregar, setRecarregar] = useState(0)
+  const [calculando, setCalculando] = useState(false)
+  async function calcularRateio() {
+    if (!periodoFiltro) return
+    setCalculando(true)
+    try {
+      const { data: importsData } = await supabase.from('imports').select('id').eq('period_end', periodoFiltro)
+      for (const imp of importsData ?? []) {
+        const r = await processarAcertosAgentes(imp.id as string)
+        if (!r.success) { alert(t('agentes_acertos_view.erro_rateio', { msg: r.error ?? '' })); break }
+      }
+      setRecarregar((n) => n + 1)
+    } finally {
+      setCalculando(false)
+    }
+  }
   const [expandido, setExpandido] = useState<Set<string>>(new Set(agenteIdFixo ? [agenteIdFixo] : []))
 
   useEffect(() => {
@@ -103,7 +125,7 @@ export function AgentesAcertosView({ agenteIdFixo, modo }: { agenteIdFixo?: stri
         setLoading(false)
       })
     })
-  }, [agenteIdFixo, periodoFiltro, modo])
+  }, [agenteIdFixo, periodoFiltro, modo, recarregar])
 
   const filtradas = useMemo(() => {
     return rows.filter((r) => {
@@ -197,6 +219,15 @@ export function AgentesAcertosView({ agenteIdFixo, modo }: { agenteIdFixo?: stri
           >
             {periodos.map((p) => <option key={p.fim} value={p.fim}>{t('acertos.semana')}: {formatPeriodo(p)}</option>)}
           </select>
+        )}
+        {!agenteIdFixo && periodoFiltro && (
+          <button
+            onClick={calcularRateio}
+            disabled={calculando}
+            className="px-4 py-2 rounded-lg border border-gold/40 text-gold text-sm hover:bg-gold/10 disabled:opacity-50"
+          >
+            {calculando ? t('agentes_acertos_view.calculando_rateio') : t(rows.length > 0 ? 'agentes_acertos_view.recalcular_rateio' : 'agentes_acertos_view.calcular_rateio')}
+          </button>
         )}
         <div className="px-5 py-2.5 rounded-lg border border-white/10 bg-surface">
           <p className="text-xs uppercase tracking-wider text-gray-500 mb-0.5">{t('agentes_acertos_view.total_rakeback_label')}</p>
