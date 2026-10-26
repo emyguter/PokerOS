@@ -246,6 +246,23 @@ function somaIntervalo(row: unknown[], inicio: number, fim: number): number {
   return total;
 }
 
+// A primeira sub-coluna de "Ganhos do jogador"/"Ganhos do clube" é "Geral" —
+// o total do bloco, já somado pelo PPPoker. Em alguns relatórios ela vem
+// vazia (daí somar as sub-colunas por tipo de jogo/taxa como reserva, ver
+// parseJogadoresSheet), mas quando vem preenchida é a fonte confiável — as
+// sub-colunas têm hierarquia aninhada (ex: "Taxa" já é a soma de "Taxa PPST"
+// + "Taxa não PPST" + "Taxa PPSR" + "Taxa não PPSR", e "Geral" soma "Taxa" +
+// outras taxas por fora), então somar o intervalo inteiro junto com "Geral"
+// conta o mesmo valor 2-3x (achado no caso Sul Home Game: Cássio comparou
+// com a planilha de acerto manual dele e viu o Rake triplicado e o Ganhos
+// dobrado — "Geral" repetia o que já estava em "Taxa (jogos não PPST)" e em
+// "MTT, SitNGo" respectivamente, nenhuma das duas vazia nesse arquivo).
+function lerBlocoGeralOuSomar(row: unknown[], idxGeral: number, fim: number): number {
+  const valorGeral = row[idxGeral];
+  if (valorGeral !== "" && valorGeral != null) return safeNum(valorGeral);
+  return somaIntervalo(row, idxGeral + 1, fim);
+}
+
 // Header/índices de coluna variam entre exportações PPPoker — o relatório
 // Superagente/Agente/Jogador (sem "Geral da liga") não tem a coluna
 // "Classificação PPSR" que o "Geral de clube" normal tem, empurrando todo o
@@ -292,9 +309,10 @@ function parseJogadoresSheet(
   const idxSuperId = achar(header, "ID do superagente");
   const idxGanhosJogador = achar(header, "Ganhos do jogador");
   const idxGanhosClube = achar(header, "Ganhos do clube");
-  // Sub-colunas de tipo de jogo (Ring Games, MTT/SitNGo, SPINUP...) somadas
-  // porque a coluna "Geral" (total) do bloco vem sempre vazia nesse relatório
-  // do PPPoker — mesma situação já tratada na aba "Geral da liga" acima.
+  // Fim do bloco "Ganhos do jogador" — usado só como reserva quando a
+  // sub-coluna "Geral" vem vazia (ver lerBlocoGeralOuSomar acima). Fim do
+  // bloco "Ganhos do clube" — limite para achar as colunas de Taxa (ver
+  // acharColunasTaxa abaixo).
   const fimGanhosJogador = proximoCabecalho(header, idxGanhosJogador);
   const fimGanhosClube = proximoCabecalho(header, idxGanhosClube);
   // Busca pelo texto do cabeçalho em vez de posição relativa ao bloco de
@@ -337,7 +355,13 @@ function parseJogadoresSheet(
         agente_id_ext: safeStr(row[idxAgenteId]),
         superagente_nome: safeStr(row[idxSuperNome]),
         superagente_id_ext: safeStr(row[idxSuperId]),
-        player_result: somaIntervalo(row, idxGanhosJogador, fimGanhosJogador),
+        // Ganhos do jogador: a sub-coluna "Geral" já é o total do bloco;
+        // somar o intervalo inteiro conta "Geral" + o tipo de jogo de novo
+        // (dobra o valor). Ver lerBlocoGeralOuSomar acima.
+        player_result: lerBlocoGeralOuSomar(row, idxGanhosJogador, fimGanhosJogador),
+        // Rake: só as 4 colunas de Taxa (ver lib/rateio-agentes.ts) — "Geral"
+        // do bloco de Ganhos do clube inclui taxas que não são rake
+        // (Jackpot etc.), então não pode ser usado como atalho aqui.
         rake_clube: idxTaxas.length > 0
           ? idxTaxas.reduce((acc, idx) => acc + safeNum(row[idx]), 0)
           : somaIntervalo(row, idxGanhosClube, fimGanhosClube),
@@ -1051,7 +1075,10 @@ export default function ImportacaoXlsx() {
     // Arquivo só-Geral (sem Liga): parsed.liga_id_ext aqui é o ID do clube
     // detectado (ver parsePPPoker) — se ainda não existe cadastrado, oferece
     // o popup de Identificação antes de seguir. Só pergunta uma vez por
-    // arquivo (clubCheckDone).
+    // arquivo (clubCheckDone). Arquivo sem ID de clube nenhum (caso Sul Home
+    // Game) passa por aqui só depois de escolhido manualmente via
+    // precisaEscolherClube/aplicarClubeEscolhido — o botão de confirmar fica
+    // desabilitado até lá.
     if (!clubCheckDone && parsed.rows.length === 0 && parsed.jogadores.length > 0 && parsed.liga_id_ext) {
       const { data: clubeExistente } = await supabase.from("clubs").select("id").eq("external_id", parsed.liga_id_ext).maybeSingle();
       setClubCheckDone(true);
