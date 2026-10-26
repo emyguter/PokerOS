@@ -8,8 +8,8 @@ import { errMsg } from "@/lib/errors";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { MapeamentoColunasModal } from "./MapeamentoColunasModal";
 import { ClubModal } from "@/components/cadastro/ClubModal";
-import { getLeagues, getPlataformas as getPlataformasCadastro, createClub } from "@/lib/cadastro-api";
-import type { ClubForm, League, Plataforma as PlataformaCadastro } from "@/lib/types";
+import { getLeagues, getPlataformas as getPlataformasCadastro, createClub, getClubs } from "@/lib/cadastro-api";
+import type { ClubForm, League, Plataforma as PlataformaCadastro, Club } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 
 type T = (path: string, vars?: Record<string, string | number>) => string;
@@ -245,6 +245,23 @@ function somaIntervalo(row: unknown[], inicio: number, fim: number): number {
   return total;
 }
 
+// A primeira sub-coluna de "Ganhos do jogador"/"Ganhos do clube" é "Geral" —
+// o total do bloco, já somado pelo PPPoker. Em alguns relatórios ela vem
+// vazia (daí somar as sub-colunas por tipo de jogo/taxa como reserva, ver
+// parseJogadoresSheet), mas quando vem preenchida é a fonte confiável — as
+// sub-colunas têm hierarquia aninhada (ex: "Taxa" já é a soma de "Taxa PPST"
+// + "Taxa não PPST" + "Taxa PPSR" + "Taxa não PPSR", e "Geral" soma "Taxa" +
+// outras taxas por fora), então somar o intervalo inteiro junto com "Geral"
+// conta o mesmo valor 2-3x (achado no caso Sul Home Game: Cássio comparou
+// com a planilha de acerto manual dele e viu o Rake triplicado e o Ganhos
+// dobrado — "Geral" repetia o que já estava em "Taxa (jogos não PPST)" e em
+// "MTT, SitNGo" respectivamente, nenhuma das duas vazia nesse arquivo).
+function lerBlocoGeralOuSomar(row: unknown[], idxGeral: number, fim: number): number {
+  const valorGeral = row[idxGeral];
+  if (valorGeral !== "" && valorGeral != null) return safeNum(valorGeral);
+  return somaIntervalo(row, idxGeral + 1, fim);
+}
+
 // Header/índices de coluna variam entre exportações PPPoker — o relatório
 // Superagente/Agente/Jogador (sem "Geral da liga") não tem a coluna
 // "Classificação PPSR" que o "Geral de clube" normal tem, empurrando todo o
@@ -291,9 +308,9 @@ function parseJogadoresSheet(
   const idxSuperId = achar(header, "ID do superagente");
   const idxGanhosJogador = achar(header, "Ganhos do jogador");
   const idxGanhosClube = achar(header, "Ganhos do clube");
-  // Sub-colunas de tipo de jogo (Ring Games, MTT/SitNGo, SPINUP...) somadas
-  // porque a coluna "Geral" (total) do bloco vem sempre vazia nesse relatório
-  // do PPPoker — mesma situação já tratada na aba "Geral da liga" acima.
+  // Fim de cada bloco ("Ganhos do jogador"/"Ganhos do clube") — usado só
+  // como reserva quando a sub-coluna "Geral" vem vazia (ver
+  // lerBlocoGeralOuSomar acima).
   const fimGanhosJogador = proximoCabecalho(header, idxGanhosJogador);
   const fimGanhosClube = proximoCabecalho(header, idxGanhosClube);
   // Busca pelo texto do cabeçalho em vez de posição relativa ao bloco de
@@ -333,8 +350,8 @@ function parseJogadoresSheet(
         agente_id_ext: safeStr(row[idxAgenteId]),
         superagente_nome: safeStr(row[idxSuperNome]),
         superagente_id_ext: safeStr(row[idxSuperId]),
-        player_result: somaIntervalo(row, idxGanhosJogador, fimGanhosJogador),
-        rake_clube: somaIntervalo(row, idxGanhosClube, fimGanhosClube),
+        player_result: lerBlocoGeralOuSomar(row, idxGanhosJogador, fimGanhosJogador),
+        rake_clube: lerBlocoGeralOuSomar(row, idxGanhosClube, fimGanhosClube),
         // Soma direta, não subtração — mesmo motivo do comentário da aba
         // "Geral da liga" em parsePPPoker (ticket ganho positivo, buy-in
         // gasto negativo, tendem a se cancelar ao longo do tempo).
@@ -878,6 +895,19 @@ export default function ImportacaoXlsx() {
   const [cadastroLeagues, setCadastroLeagues] = useState<League[]>([]);
   const [cadastroPlataformas, setCadastroPlataformas] = useState<PlataformaCadastro[]>([]);
 
+  // Arquivo só-Geral sem NENHUM ID de clube achado (sem "Nome (ID)" no
+  // cabeçalho, sem aba Transações, nome do arquivo sem o prefixo numérico
+  // esperado) — caso real "Sul Home Game": o clube já existe cadastrado,
+  // só não dava pra saber QUAL era (achado pelo Cássio: toda linha de
+  // import_jogadores ficava com clube_id nulo, o que também zerava o %RB —
+  // a busca por regra/flat % de clube_agentes depende de clube_id). Deixa
+  // escolher entre os já cadastrados em vez de seguir importando sem clube
+  // nenhum vinculado.
+  const [clubeFaltandoModalOpen, setClubeFaltandoModalOpen] = useState(false);
+  const [buscaClubeFaltando, setBuscaClubeFaltando] = useState("");
+  const [clubesCadastrados, setClubesCadastrados] = useState<Club[]>([]);
+  const [confirmarAposSelecaoClube, setConfirmarAposSelecaoClube] = useState(false);
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadPlataformas(); loadHistory(); }, []);
@@ -1009,24 +1039,65 @@ export default function ImportacaoXlsx() {
     if (!file || !parsed || !resolvedPlatformId) return;
 
     // Arquivo só-Geral (sem Liga): parsed.liga_id_ext aqui é o ID do clube
-    // detectado (ver parsePPPoker) — se ainda não existe cadastrado, oferece
-    // o popup de Identificação antes de seguir. Só pergunta uma vez por
-    // arquivo (clubCheckDone).
-    if (!clubCheckDone && parsed.rows.length === 0 && parsed.jogadores.length > 0 && parsed.liga_id_ext) {
-      const { data: clubeExistente } = await supabase.from("clubs").select("id").eq("external_id", parsed.liga_id_ext).maybeSingle();
-      setClubCheckDone(true);
-      if (!clubeExistente) {
-        const [leagues, plats] = await Promise.all([getLeagues(), getPlataformasCadastro()]);
-        setCadastroLeagues(leagues);
-        setCadastroPlataformas(plats);
-        setClubPrefill({ name: parsed.liga_nome || file.name.replace(".xlsx", ""), external_id: parsed.liga_id_ext });
-        setClubModalOpen(true);
+    // detectado (ver parsePPPoker). Achou um ID mas ele ainda não existe
+    // cadastrado → oferece o popup de Identificação antes de seguir. Não
+    // achou ID nenhum (sem "Nome (ID)" no cabeçalho, sem Transações, nome do
+    // arquivo sem o padrão esperado — caso Sul Home Game) → deixa escolher
+    // entre os clubes já cadastrados, já que o clube quase sempre já existe,
+    // só não dava pra casar pelo arquivo. Só pergunta uma vez por arquivo
+    // (clubCheckDone).
+    if (!clubCheckDone && parsed.rows.length === 0 && parsed.jogadores.length > 0) {
+      if (parsed.liga_id_ext) {
+        const { data: clubeExistente } = await supabase.from("clubs").select("id").eq("external_id", parsed.liga_id_ext).maybeSingle();
+        setClubCheckDone(true);
+        if (!clubeExistente) {
+          const [leagues, plats] = await Promise.all([getLeagues(), getPlataformasCadastro()]);
+          setCadastroLeagues(leagues);
+          setCadastroPlataformas(plats);
+          setClubPrefill({ name: parsed.liga_nome || file.name.replace(".xlsx", ""), external_id: parsed.liga_id_ext });
+          setClubModalOpen(true);
+          return;
+        }
+      } else {
+        setClubCheckDone(true);
+        setBuscaClubeFaltando("");
+        setClubesCadastrados(await getClubs());
+        setClubeFaltandoModalOpen(true);
         return;
       }
     }
 
     await confirmarImportacao();
   }
+
+  // Clube escolhido no popup "qual clube é esse arquivo?" — propaga o
+  // external_id pra parsed.liga_id_ext (usado na checagem de reimportação
+  // duplicada) e pra cada jogador já parseado (clube_id_ext, que
+  // harmonizar-import usa pra resolver clube_id — sem isso ficava null em
+  // todo mundo, e junto foi o %RB: a busca de rakeback_pct em
+  // processarAcertosAgentes só olha clube_agentes quando tem clube_id).
+  // Arquivo só-Geral só tem uma seção/clube, então vale pra todo jogador.
+  // confirmarImportacao só roda depois (useEffect abaixo) porque setParsed é
+  // assíncrono — chamar direto aqui ainda leria o `parsed` antigo (sem o
+  // clube escolhido) por causa do closure da função.
+  function selecionarClubeFaltando(clube: Club) {
+    if (!parsed || !clube.external_id) return;
+    setParsed({
+      ...parsed,
+      liga_id_ext: clube.external_id,
+      liga_nome: clube.name,
+      jogadores: parsed.jogadores.map((j) => ({ ...j, clube_id_ext: clube.external_id as string, clube_nome: clube.name })),
+    });
+    setClubeFaltandoModalOpen(false);
+    setConfirmarAposSelecaoClube(true);
+  }
+
+  useEffect(() => {
+    if (!confirmarAposSelecaoClube || !parsed?.liga_id_ext) return;
+    setConfirmarAposSelecaoClube(false);
+    confirmarImportacao();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmarAposSelecaoClube, parsed]);
 
   async function handleClubModalSave(form: ClubForm) {
     setSavingClub(true); setClubModalError(null);
@@ -1415,6 +1486,43 @@ export default function ImportacaoXlsx() {
         saving={savingClub}
         error={clubModalError}
       />
+
+      {clubeFaltandoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setClubeFaltandoModalOpen(false)} />
+          <div className="relative bg-surface border border-white/10 rounded-2xl w-full max-w-md mx-4 shadow-2xl flex flex-col max-h-[80vh]">
+            <div className="px-5 py-4 border-b border-white/10 shrink-0">
+              <h2 className="text-base font-semibold text-white">{t("importacao_xlsx.clube_faltando_titulo")}</h2>
+              <p className="text-xs text-gray-500 mt-1">{t("importacao_xlsx.clube_faltando_desc")}</p>
+            </div>
+            <div className="px-5 py-3 border-b border-white/10 shrink-0">
+              <input
+                type="text" autoFocus value={buscaClubeFaltando} onChange={(e) => setBuscaClubeFaltando(e.target.value)}
+                placeholder={t("importacao_xlsx.clube_faltando_buscar_placeholder")}
+                className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50"
+              />
+            </div>
+            <div className="overflow-y-auto divide-y divide-white/5">
+              {clubesCadastrados
+                .filter((c) => !c.external_id ? false : c.name.toLowerCase().includes(buscaClubeFaltando.trim().toLowerCase()) || c.external_id.includes(buscaClubeFaltando.trim()))
+                .map((c) => (
+                  <button
+                    key={c.id} type="button" onClick={() => selecionarClubeFaltando(c)}
+                    className="w-full flex items-center justify-between gap-2 px-5 py-2.5 hover:bg-white/[0.03] text-left transition-colors"
+                  >
+                    <span className="text-sm text-white truncate">{c.name}</span>
+                    <span className="text-xs text-gray-500 shrink-0">{c.external_id}</span>
+                  </button>
+                ))}
+            </div>
+            <div className="flex items-center justify-end px-5 py-3 border-t border-white/10 shrink-0">
+              <button type="button" onClick={() => setClubeFaltandoModalOpen(false)} className="px-4 py-2 border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">
+                {t("common.cancelar")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmModal
         open={!!duplicado}
