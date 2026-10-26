@@ -1588,6 +1588,13 @@ export interface AcertoComoAgenteLinha {
   clubeId: string | null;
   clubeNome: string | null;
   rakeTotal: number;
+  // Ganhos/Perdas do jogador que esse Agente/Super Agente recebeu de rake
+  // nesse clube (acertos_agentes.player_result) — entra no Total igual na
+  // planilha de referência do Cássio (Ganhos/Perdas + Rake Back), não só o
+  // valor do rakeback sozinho (achado no caso Sul Home Game/TT-LP-Stars
+  // Poker: Total mostrava só os 42,00 do Rake Back, ignorando os -400,00 de
+  // Ganhos/Perdas — "você tá considerando só 42 reais... a conta é outra").
+  playerResult: number;
   rakebackPct: number;
   valorRakeback: number;
 }
@@ -1604,8 +1611,8 @@ export async function buscarAcertoComoAgente(agenteId: string, periodEnd: string
 
   const [{ data: rows }, { data: agenteData }] = await Promise.all([
     importIds.length > 0
-      ? supabase.from("acertos_agentes").select("clube_id, clube_nome, rake_total, rakeback_pct, valor_rakeback").eq("agente_id", agenteId).in("import_id", importIds)
-      : Promise.resolve({ data: [] as { clube_id: string | null; clube_nome: string | null; rake_total: number; rakeback_pct: number; valor_rakeback: number }[] }),
+      ? supabase.from("acertos_agentes").select("clube_id, clube_nome, rake_total, player_result, rakeback_pct, valor_rakeback").eq("agente_id", agenteId).in("import_id", importIds)
+      : Promise.resolve({ data: [] as { clube_id: string | null; clube_nome: string | null; rake_total: number; player_result: number; rakeback_pct: number; valor_rakeback: number }[] }),
     supabase.from("agentes").select("nome").eq("id", agenteId).maybeSingle(),
   ]);
 
@@ -1613,10 +1620,14 @@ export async function buscarAcertoComoAgente(agenteId: string, periodEnd: string
     clubeId: r.clube_id,
     clubeNome: r.clube_nome,
     rakeTotal: r.rake_total,
+    playerResult: r.player_result ?? 0,
     rakebackPct: r.rakeback_pct,
     valorRakeback: r.valor_rakeback,
   }));
-  const total = Math.round(linhas.reduce((s, l) => s + l.valorRakeback, 0) * 100) / 100;
+  // Total = Ganhos/Perdas + Rake Back, mesma fórmula da planilha de
+  // referência do Cássio — não só o valor do rakeback isolado (ver comentário
+  // em AcertoComoAgenteLinha.playerResult acima).
+  const total = Math.round(linhas.reduce((s, l) => s + l.valorRakeback + l.playerResult, 0) * 100) / 100;
 
   return { nome: (agenteData?.nome as string | undefined) ?? "—", linhas, total };
 }
