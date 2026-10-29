@@ -1,0 +1,23 @@
+-- Trava contra duplicação silenciosa em acertos_agentes: nada impedia duas
+-- chamadas de processarAcertosAgentes (ex: duplo clique em "Recalcular
+-- rateio", duas abas abertas) de rodarem ao mesmo tempo — cada uma faz um
+-- delete seguido de um insert, em duas idas ao banco separadas, sem
+-- transação nem trava nenhuma. Se as duas disputarem (delete de A, delete
+-- de B, insert de A, insert de B), o resultado é 2 linhas pro mesmo
+-- agente+clube+import, dobrando o Rake/Ganhos/Rakeback mostrado em Acertos
+-- > Agentes/Super Agentes (achado pelo Cássio no Sul Home Game: "ele está
+-- somando os dados das importações quando recalculei").
+--
+-- Índice por expressão (não uma UNIQUE constraint simples) porque clube_id
+-- pode ser null (grupo "sem_clube") — Postgres trata NULL como distinto de
+-- NULL numa UNIQUE normal, então duas linhas sem_clube não seriam pegas por
+-- ela. Usar coalesce fecha esse buraco também.
+--
+-- Não é uma trava "elegante" que evita a corrida (continua sendo possível
+-- as duas chamadas colidirem) — é uma rede de segurança: a segunda
+-- inserção falha alto (erro 23505), processarAcertosAgentes já devolve
+-- {success:false, error} nesse caso, e a UI (calcularRateio em
+-- AgentesAcertosView.tsx) já mostra isso como alert() — vira um erro visível
+-- em vez de uma duplicação silenciosa.
+create unique index if not exists acertos_agentes_import_agente_clube_uniq
+  on acertos_agentes (import_id, agente_id, coalesce(clube_id, '00000000-0000-0000-0000-000000000000'::uuid));

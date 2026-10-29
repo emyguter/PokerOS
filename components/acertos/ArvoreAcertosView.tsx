@@ -640,9 +640,21 @@ function NoFaixa({ path, raiz, onVerCompleto, onRecalcular, onRecalcularLiga, on
     // buscarClubesZerados) — não tem Acerto de verdade nem import próprio
     // pra recalcular/abrir, só o Total já com Pendências/Antecipação/
     // Dívidas/Multa (pode dever ou ter a receber mesmo sem ter jogado).
+    // Quebra em linhas (em vez de só o Total junto) — achado pelo Cássio,
+    // comparando o Total ao vivo com a planilha de referência dele: "que nao
+    // tem tipo o card explicando como ta chegando nesse valor" (sem isso não
+    // dava pra ver que o Total incluía uma Multa de 10%, não os 2% que ele
+    // esperava — mesmas linhas que o ClubAcertoCard já mostra pro Acerto
+    // normal, ver club_acerto_card.pendencias_label/multa_label/
+    // seguranca_label/dividas_acordos_titulo).
     if (l.zerado) {
+      const d = l.detalheZerado
       return (
         <Faixa titulo={l.acerto.club_name} meta={l.acerto.club_external_id} tag="Sem movimento essa semana">
+          {d && <Fig k="Pendências / Antecipação" v={fmt(d.pendenciasAntecipacao)} className={cor(d.pendenciasAntecipacao)} />}
+          {d?.multa && <Fig k={`Multa Atraso Acerto (${d.multa.pct}%)`} v={fmt(d.multa.valor)} className={cor(d.multa.valor)} />}
+          {d && Math.abs(d.security) > 0.005 && <Fig k="Segurança" v={fmt(d.security)} className={cor(d.security)} />}
+          {d && Math.abs(d.dividasTotal) > 0.005 && <Fig k="Dívidas / Acordos" v={fmt(d.dividasTotal)} className={cor(d.dividasTotal)} />}
           <Fig k="Total (Pendências/Dívidas)" v={fmt(l.valorFinal)} className={cor(l.valorFinal)} destaque />
         </Faixa>
       )

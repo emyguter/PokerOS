@@ -24,6 +24,19 @@ export interface LinhaMeuAcerto {
   // clube sem movimento não pode "esconder" o que ele já deve ou tem a
   // receber) — só o Rake/Ganhos/Fee é que ficam zerados.
   zerado?: boolean
+  // Quebra de valorFinal pro card "zerado" mostrar cada parte separada
+  // (igual o ClubAcertoCard já faz pro Acerto normal) — antes só aparecia o
+  // Total junto, sem dar pra ver quanto vinha de Pendências/Antecipação vs
+  // Multa vs Segurança/Dívidas (achado pelo Cássio, comparando o Total ao
+  // vivo com a planilha de referência dele: "que nao tem tipo o card
+  // explicando como ta chegando nesse valor"). Só preenchido quando
+  // zerado=true.
+  detalheZerado?: {
+    pendenciasAntecipacao: number
+    multa: { valor: number; pct: number } | null
+    security: number
+    dividasTotal: number
+  }
 }
 
 interface AcertoRow extends AcertoCard {

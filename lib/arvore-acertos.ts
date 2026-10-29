@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { buscarMeusAcertos, type LinhaMeuAcerto } from './meus-acertos'
-import { buscarPendenciasEAntecipacaoAoVivo } from './acertos-engine'
+import { buscarPendenciasEAntecipacaoAoVivo, buscarMultaAtual } from './acertos-engine'
 import { calcularTotalAcerto, buscarSecurityEDividasPorClube } from './relatorio-acerto'
 
 // ─── Árvore de Acertos: Liga → Clube → Super Agente → Agente → Jogador ────
@@ -114,20 +114,28 @@ async function buscarClubesZerados(
 
   const clubIds = clubes.map((c) => c.id)
   const rakeTotalZero = new Map<string, number>()
-  const [extrasPorClube, pendenciasPorClube] = await Promise.all([
+  const [extrasPorClube, pendenciasPorClube, multaPorClube] = await Promise.all([
     buscarSecurityEDividasPorClube(clubIds, periodoFim, rakeTotalZero),
     buscarPendenciasEAntecipacaoAoVivo(clubIds, periodoFim, periodoFim),
+    // Só pra expor o % vigente + R$ da Multa como linha própria em
+    // detalheZerado — o valor dela já está embutido dentro de
+    // pendenciasPorClube (buscarSaldoArrastado soma ela no saldo corrido),
+    // igual já documentado em ClubAcertoCard.
+    buscarMultaAtual(clubIds, periodoFim),
   ])
 
   return clubes.map((c) => {
     const extras = extrasPorClube.get(c.id)
+    const pendencias = pendenciasPorClube.get(c.id) ?? 0
+    const security = extras?.security ?? 0
+    const dividasTotal = extras?.dividasTotal ?? 0
     const valorFinal = calcularTotalAcerto(0, {
       bilhetes: 0,
-      pendenciasAntecipacao: pendenciasPorClube.get(c.id) ?? 0,
-      security: extras?.security ?? 0,
+      pendenciasAntecipacao: pendencias,
+      security,
       indicacaoValor: 0,
       lancamentosLiquido: 0,
-      dividasTotal: extras?.dividasTotal ?? 0,
+      dividasTotal,
       // "Zerado" é, por definição, um clube sem nenhum movimento (nem Acerto
       // nem rateio de Agentes) na semana — se tivesse acertos_agentes ele já
       // teria caído em buscarClubesSoRateio, não aqui.
@@ -152,6 +160,12 @@ async function buscarClubesZerados(
       periodStart: periodoFim,
       periodEnd: periodoFim,
       zerado: true,
+      detalheZerado: {
+        pendenciasAntecipacao: pendencias,
+        multa: multaPorClube.get(c.id) ?? null,
+        security,
+        dividasTotal,
+      },
     }
   })
 }
