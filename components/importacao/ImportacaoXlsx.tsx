@@ -1128,25 +1128,52 @@ export default function ImportacaoXlsx() {
       // arquivo + período, que pega o caso mais comum de verdade
       // (reimportar o MESMO arquivo) sem arriscar casar com a Liga errada.
       if (parsed.period_start && parsed.period_end) {
-        const { data: existenteMesmaSemana } = leagueId
-          ? await supabase
-              .from("imports")
-              .select("id, file_name, created_at")
-              .eq("league_id", leagueId)
-              .eq("period_start", parsed.period_start)
-              .eq("period_end", parsed.period_end)
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .maybeSingle()
-          : await supabase
-              .from("imports")
-              .select("id, file_name, created_at")
-              .eq("file_name", file.name)
-              .eq("period_start", parsed.period_start)
-              .eq("period_end", parsed.period_end)
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .maybeSingle();
+        let existenteMesmaSemana: { id: string; file_name: string; created_at: string } | null = null;
+        if (leagueId) {
+          const { data } = await supabase
+            .from("imports")
+            .select("id, file_name, created_at")
+            .eq("league_id", leagueId)
+            .eq("period_start", parsed.period_start)
+            .eq("period_end", parsed.period_end)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          existenteMesmaSemana = data;
+        } else if (parsed.rows.length === 0 && parsed.jogadores.length > 0) {
+          // "Só rateio de Agentes" (ex: Sul Home Game) não tem Liga nenhuma
+          // pra comparar — cai pra achar por Plataforma + período, só entre
+          // OUTRAS importações do mesmo formato (sem linha de clube, só
+          // jogadores/agentes — import_rows vazio), senão um nome de arquivo
+          // diferente da mesma semana reexportada passava direto e dobrava
+          // o rateio de Super Agentes/Agentes (achado no Sul Home Game: uma
+          // reimportação parcial/quebrada criou um 2º import pra mesma
+          // semana, com nome de arquivo diferente do original — a checagem
+          // só por file_name não pegava).
+          const { data: candidatos } = await supabase
+            .from("imports")
+            .select("id, file_name, created_at")
+            .eq("plataforma_id", resolvedPlatformId)
+            .eq("period_start", parsed.period_start)
+            .eq("period_end", parsed.period_end)
+            .order("created_at", { ascending: false })
+            .limit(5);
+          for (const c of candidatos ?? []) {
+            const { count } = await supabase.from("import_rows").select("id", { count: "exact", head: true }).eq("import_id", c.id);
+            if (!count) { existenteMesmaSemana = c; break; }
+          }
+        } else {
+          const { data } = await supabase
+            .from("imports")
+            .select("id, file_name, created_at")
+            .eq("file_name", file.name)
+            .eq("period_start", parsed.period_start)
+            .eq("period_end", parsed.period_end)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          existenteMesmaSemana = data;
+        }
         if (existenteMesmaSemana) {
           setDuplicado({ id: existenteMesmaSemana.id, fileName: existenteMesmaSemana.file_name, createdAt: existenteMesmaSemana.created_at, leagueId });
           return;
