@@ -701,6 +701,72 @@ export function diaAnterior(dataISO: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Extras de calcularTotalAcerto que PRECISAM entrar na checagem de
+// "quitado" (o Suporte paga o Total de verdade, não só valor_acerto +
+// Indicação + Bilhetes — mesmo motivo do fix LEGENDARY pe acima, agora
+// estendido pros outros componentes do Total: achado no Agreste_Poker,
+// onde um Bônus "VIP Cashback" de 135,87 liberado dentro da semana fazia o
+// Pagamento que cobriu o Total completo (com o Bônus) sobrar como
+// Pendência fantasma do tamanho do Bônus, pegando Multa em cima). Cobre
+// Segurança (cadastro fixo do clube) + Lançamentos do período liberados
+// (Bônus/Promoção/Outro) + Rakeback de Agentes — os três são fatos
+// históricos fixos daquela semana, não mudam depois.
+//
+// Dívidas/Acordos fica de FORA de propósito: seu valor depende do
+// saldo_restante ATUAL de cada dívida (mutável, vai sendo abatido toda
+// semana), não é um fato fixo por semana passada — recalcular uma semana
+// antiga usando o saldo de HOJE não reconstrói o que foi cobrado de
+// verdade naquela época, só desvirtuaria o histórico. Fica só no Total ao
+// vivo (calcularTotalAcerto), não entra na checagem retroativa de quitação.
+async function buscarExtrasQuitacaoPorPeriodo(
+  pedidos: { clubId: string; importId: string; start: string; end: string }[]
+): Promise<Map<string, number>> {
+  const resultado = new Map<string, number>();
+  if (pedidos.length === 0) return resultado;
+  const clubIds = [...new Set(pedidos.map((p) => p.clubId))];
+  const importIds = [...new Set(pedidos.map((p) => p.importId))];
+  const minStart = pedidos.reduce((m, p) => (p.start < m ? p.start : m), pedidos[0].start);
+  const maxEnd = pedidos.reduce((m, p) => (p.end > m ? p.end : m), pedidos[0].end);
+  const [{ data: clubsData }, { data: lancData }, { data: rakebackData }] = await Promise.all([
+    supabase.from("clubs").select("id, security").in("id", clubIds),
+    supabase
+      .from("lancamentos")
+      .select("clube_id, natureza, valor, data_lancamento")
+      .in("clube_id", clubIds)
+      .in("origem", ["suporte", "seguranca"])
+      .neq("tipo", "caucao")
+      .neq("tipo", "antecipacao")
+      .neq("tipo", "pagamento")
+      .eq("liberado", true)
+      .gte("data_lancamento", minStart)
+      .lte("data_lancamento", maxEnd),
+    supabase.from("acertos_agentes").select("clube_id, import_id, valor_rakeback").in("clube_id", clubIds).in("import_id", importIds),
+  ]);
+  const securityPorClube = new Map((clubsData ?? []).map((c) => [c.id as string, (c.security as number | null) ?? 0]));
+  const lancPorClube = new Map<string, { natureza: "credito" | "debito"; valor: number; data: string }[]>();
+  for (const l of (lancData ?? []) as { clube_id: string; natureza: "credito" | "debito"; valor: number; data_lancamento: string }[]) {
+    const lista = lancPorClube.get(l.clube_id) ?? [];
+    lista.push({ natureza: l.natureza, valor: l.valor, data: l.data_lancamento });
+    lancPorClube.set(l.clube_id, lista);
+  }
+  const rakebackPorChave = new Map<string, number>();
+  for (const r of (rakebackData ?? []) as { clube_id: string | null; import_id: string; valor_rakeback: number }[]) {
+    if (!r.clube_id) continue;
+    const chave = `${r.clube_id}:${r.import_id}`;
+    rakebackPorChave.set(chave, (rakebackPorChave.get(chave) ?? 0) + r.valor_rakeback);
+  }
+  for (const p of pedidos) {
+    const chave = `${p.clubId}:${p.importId}`;
+    const security = securityPorClube.get(p.clubId) ?? 0;
+    const lancamentosLiquido = (lancPorClube.get(p.clubId) ?? [])
+      .filter((l) => l.data >= p.start && l.data <= p.end)
+      .reduce((s, l) => s + (l.natureza === "credito" ? l.valor : -l.valor), 0);
+    const rakebackAgentes = rakebackPorChave.get(chave) ?? 0;
+    resultado.set(chave, security + lancamentosLiquido - rakebackAgentes);
+  }
+  return resultado;
+}
+
 // Clubes cujo Acerto do período (achado pelo period_end) já foi 100% quitado
 // por um Pagamento vinculado DIRETO (acerto_id, não por data) — usado pra
 // decidir se uma Antecipação datada na semana seguinte a esse período ainda
@@ -722,17 +788,18 @@ export async function clubesComDiferencaQuitada(clubIds: string[], periodEnd: st
   const quitados = new Set(clubIds);
   if (clubIds.length === 0 || !periodEnd) return quitados;
 
-  const { data: importsData } = await supabase.from("imports").select("id").eq("period_end", periodEnd);
+  const { data: importsData } = await supabase.from("imports").select("id, period_start").eq("period_end", periodEnd);
   const importIds = (importsData ?? []).map((i) => i.id as string);
   if (importIds.length === 0) return quitados;
+  const periodStartPorImport = new Map((importsData ?? []).map((i) => [i.id as string, i.period_start as string]));
 
   const { data: acertosData } = await supabase
     .from("acertos")
-    .select("id, club_id, valor_acerto, indicacao_valor, bilhetes")
+    .select("id, import_id, club_id, valor_acerto, indicacao_valor, bilhetes")
     .in("import_id", importIds)
     .in("club_id", clubIds);
-  const porClube = new Map<string, { acertoId: string; valorAcerto: number }>();
-  for (const a of (acertosData ?? []) as { id: string; club_id: string | null; valor_acerto: number; indicacao_valor: number | null; bilhetes: number | null }[]) {
+  const porClube = new Map<string, { acertoId: string; importId: string; valorAcerto: number }>();
+  for (const a of (acertosData ?? []) as { id: string; import_id: string; club_id: string | null; valor_acerto: number; indicacao_valor: number | null; bilhetes: number | null }[]) {
     // Compara o Pagamento contra o valor COMPLETO (valor_acerto + Indicação +
     // Bilhetes), não só o valor cru do motor — Indicação/Bilhetes também
     // entram no Total que o Suporte de fato paga (calcularTotalAcerto, "nada
@@ -741,16 +808,24 @@ export async function clubesComDiferencaQuitada(clubIds: string[], periodEnd: st
     // semana seguinte mostrava -30,70 de Pendência arrastada + multa em cima
     // — comparando só contra o valor_acerto cru (-874,90), sobrava
     // exatamente o valor da Indicação como "dívida" fantasma, porque ela
-    // nunca entrava dos dois lados da conta.
-    if (a.club_id) porClube.set(a.club_id, { acertoId: a.id, valorAcerto: a.valor_acerto + (a.indicacao_valor ?? 0) + (a.bilhetes ?? 0) });
+    // nunca entrava dos dois lados da conta. Segurança/Lançamentos
+    // liberados/Rakeback de Agentes entram logo abaixo (ver
+    // buscarExtrasQuitacaoPorPeriodo), mesmo motivo, achado no Agreste_Poker.
+    if (a.club_id) porClube.set(a.club_id, { acertoId: a.id, importId: a.import_id, valorAcerto: a.valor_acerto + (a.indicacao_valor ?? 0) + (a.bilhetes ?? 0) });
   }
   if (porClube.size === 0) return quitados;
 
   const acertoIds = [...porClube.values()].map((v) => v.acertoId);
   const acertoIdParaClube = new Map([...porClube].map(([clubId, v]) => [v.acertoId, clubId]));
+  const pedidosExtras = [...porClube].map(([clubId, v]) => ({
+    clubId,
+    importId: v.importId,
+    start: periodStartPorImport.get(v.importId) ?? periodEnd,
+    end: periodEnd,
+  }));
   // Só o lado Suporte, não o par da Genia — senão dobra o Valor Pago (mesma
   // regra usada em toda soma de Pagamento/Envio no resto do app).
-  const [{ data: pagamentosData }, { data: clubsCryptoData }] = await Promise.all([
+  const [{ data: pagamentosData }, { data: clubsCryptoData }, extrasPorChave] = await Promise.all([
     supabase
       .from("lancamentos")
       .select("acerto_id, natureza, valor, pago_crypto")
@@ -758,6 +833,7 @@ export async function clubesComDiferencaQuitada(clubIds: string[], periodEnd: st
       .eq("tipo", "pagamento")
       .eq("origem", "suporte"),
     supabase.from("clubs").select("id, crypto_rebate_pct").in("id", clubIds),
+    buscarExtrasQuitacaoPorPeriodo(pedidosExtras),
   ]);
   const pctCryptoPorClube = new Map((clubsCryptoData ?? []).map((c) => [c.id as string, (c.crypto_rebate_pct as number | null) ?? 0]));
   const pagoPorAcerto = new Map<string, number>();
@@ -768,7 +844,8 @@ export async function clubesComDiferencaQuitada(clubIds: string[], periodEnd: st
     const valor = p.pago_crypto && pct ? regrossarValorCrypto(p.valor, pct) : p.valor;
     pagoPorAcerto.set(p.acerto_id, (pagoPorAcerto.get(p.acerto_id) ?? 0) + (p.natureza === "credito" ? valor : -valor));
   }
-  for (const [clubId, { acertoId, valorAcerto }] of porClube) {
+  for (const [clubId, { acertoId, importId, valorAcerto: valorAcertoBase }] of porClube) {
+    const valorAcerto = valorAcertoBase + (extrasPorChave.get(`${clubId}:${importId}`) ?? 0);
     const pago = pagoPorAcerto.get(acertoId) ?? 0;
     const resto = valorAcerto + pago;
     // "Quitado" não é só bater exatamente em zero — um Pagamento que
@@ -920,7 +997,7 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
   const [{ data: acertosData }, { data: segurancaData }] = await Promise.all([
     supabase
       .from("acertos")
-      .select("id, club_id, valor_acerto, indicacao_valor, bilhetes, rollover_sem_multa, imports(period_start, period_end)")
+      .select("id, import_id, club_id, valor_acerto, indicacao_valor, bilhetes, rollover_sem_multa, imports(period_start, period_end)")
       .in("club_id", clubIds),
     supabase
       .from("lancamentos")
@@ -937,8 +1014,8 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
     segurancaNetPorClube.set(s.clube_id, (segurancaNetPorClube.get(s.clube_id) ?? 0) + delta);
   }
 
-  type AcertoComPeriodo = { id: string; club_id: string | null; valor_acerto: number; indicacao_valor: number | null; bilhetes: number | null; rollover_sem_multa: boolean | null; imports: { period_start: string; period_end: string } | { period_start: string; period_end: string }[] | null };
-  type PeriodoClube = { acertoId: string; valorAcerto: number; start: string; end: string; semMulta: boolean };
+  type AcertoComPeriodo = { id: string; import_id: string; club_id: string | null; valor_acerto: number; indicacao_valor: number | null; bilhetes: number | null; rollover_sem_multa: boolean | null; imports: { period_start: string; period_end: string } | { period_start: string; period_end: string }[] | null };
+  type PeriodoClube = { acertoId: string; importId: string; valorAcerto: number; start: string; end: string; semMulta: boolean };
   const porClube = new Map<string, PeriodoClube[]>();
   for (const a of (acertosData ?? []) as AcertoComPeriodo[]) {
     const imp = Array.isArray(a.imports) ? a.imports[0] : a.imports;
@@ -948,9 +1025,20 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
     // do fix em clubesComDiferencaQuitada acima — o Suporte paga o Total de
     // verdade (com Indicação), não o valor cru do motor, então comparar só
     // contra o cru sobrava "dívida" fantasma do tamanho da Indicação, que
-    // depois ainda pegava multa em cima (achado no LEGENDARY pe).
-    lista.push({ acertoId: a.id, valorAcerto: a.valor_acerto + (a.indicacao_valor ?? 0) + (a.bilhetes ?? 0), start: imp.period_start, end: imp.period_end, semMulta: !!a.rollover_sem_multa });
+    // depois ainda pegava multa em cima (achado no LEGENDARY pe). Segurança/
+    // Lançamentos liberados/Rakeback de Agentes somados logo abaixo (ver
+    // buscarExtrasQuitacaoPorPeriodo), mesmo motivo, achado no Agreste_Poker.
+    lista.push({ acertoId: a.id, importId: a.import_id, valorAcerto: a.valor_acerto + (a.indicacao_valor ?? 0) + (a.bilhetes ?? 0), start: imp.period_start, end: imp.period_end, semMulta: !!a.rollover_sem_multa });
     porClube.set(a.club_id, lista);
+  }
+  {
+    const pedidosExtras = [...porClube].flatMap(([clubId, periodos]) =>
+      periodos.map((p) => ({ clubId, importId: p.importId, start: p.start, end: p.end }))
+    );
+    const extrasPorChave = await buscarExtrasQuitacaoPorPeriodo(pedidosExtras);
+    for (const [clubId, periodos] of porClube) {
+      for (const p of periodos) p.valorAcerto += extrasPorChave.get(`${clubId}:${p.importId}`) ?? 0;
+    }
   }
   if (porClube.size === 0) {
     // Sem Acerto nenhum, mas pode ter Bloqueio de Segurança mesmo assim.
