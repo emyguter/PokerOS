@@ -667,23 +667,37 @@ export function calcularWtr4Semanas(row: ImportRow, historico: { player_result_c
 // (start+1 até end+1), não só o limite inferior — assim uma data igual ao
 // period_start da PRÓXIMA semana também sai da semana atual e vai pra lá,
 // a regra vale "sucessivamente" pra toda virada, não só a de cima.
+// `new Date(iso + "T00:00:00")` é interpretado no fuso LOCAL do navegador,
+// não UTC — dois usuários em fusos diferentes acessando a mesma tela podiam
+// calcular janelas de data_lancamento diferentes pra mesma Antecipação,
+// fazendo ela entrar (ou não) na janela de "deslocada"/"própria" conforme o
+// fuso de quem está olhando (achado no 7 Eleven: Pendências/Antecipação
+// aparecendo 3.000,40 pro Cássio e 1.500,20 — o valor certo — pra outra
+// pessoa, mesmos dados, mesma tela). Usa Date.UTC a partir dos componentes
+// da própria string, sem round-trip por fuso local nenhum — determinístico
+// em qualquer navegador.
+function paraUTC(dataISO: string): Date {
+  const [y, m, d] = dataISO.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
 export function diaSeguinte(dataISO: string): string {
-  const d = new Date(dataISO + "T00:00:00");
-  d.setDate(d.getDate() + 1);
+  const d = paraUTC(dataISO);
+  d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().slice(0, 10);
 }
 
 export function maisDias(dataISO: string, dias: number): string {
-  const d = new Date(dataISO + "T00:00:00");
-  d.setDate(d.getDate() + dias);
+  const d = paraUTC(dataISO);
+  d.setUTCDate(d.getUTCDate() + dias);
   return d.toISOString().slice(0, 10);
 }
 
 // Espelho de diaSeguinte — usado pra achar o period_end do período ANTERIOR
 // a um period_start (períodos são semanas contíguas, sem buraco).
 export function diaAnterior(dataISO: string): string {
-  const d = new Date(dataISO + "T00:00:00");
-  d.setDate(d.getDate() - 1);
+  const d = paraUTC(dataISO);
+  d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
 }
 

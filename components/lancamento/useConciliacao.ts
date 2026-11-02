@@ -63,9 +63,15 @@ const TIPOS_SEM_CONCILIACAO = ['caucao', 'bonus', 'promocao', 'outro']
 
 type EntradaMinima = Pick<Entrada, 'id' | 'clube_id' | 'tipo' | 'natureza' | 'valor'>
 
+// `new Date(iso + "T00:00:00")` é interpretado no fuso LOCAL do navegador,
+// não UTC — dois usuários em fusos diferentes podiam calcular a janela de
+// match diferente pra mesma Antecipação (mesmo bug encontrado em
+// lib/acertos-engine.ts: diaSeguinte/maisDias/diaAnterior, achado no 7
+// Eleven). Usa Date.UTC a partir dos componentes da própria string, sem
+// round-trip por fuso local.
 function maisDias(dataISO: string, dias: number): string {
-  const d = new Date(dataISO + 'T00:00:00')
-  d.setDate(d.getDate() + dias)
+  const [y, m, d2] = dataISO.split('-').map(Number)
+  const d = new Date(Date.UTC(y, m - 1, d2 + dias))
   return d.toISOString().slice(0, 10)
 }
 
