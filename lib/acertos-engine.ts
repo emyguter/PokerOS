@@ -788,7 +788,20 @@ export async function clubesComDiferencaQuitada(clubIds: string[], periodEnd: st
 //     Diferença do período ANTERIOR a P já tiver sido quitada por Pagamento
 //     vinculado (senão essa mesma Antecipação já foi contada lá, pela fonte
 //     1 do período anterior — contar dos dois lados dobraria o valor).
-export async function buscarPendenciasAntecipacao(clubIds: string[], periodStart: string, periodEnd: string): Promise<Map<string, number>> {
+export async function buscarPendenciasAntecipacao(
+  clubIds: string[],
+  periodStart: string,
+  periodEnd: string,
+  // Opcional: quando o chamador já tem o saldo arrastado calculado pra
+  // outra coisa (ex: buscarClubesZerados também precisa dele pra montar a
+  // linha de Multa — ver buscarMultaAtual), passa aqui pra não rodar
+  // buscarSaldoArrastado (a parte mais pesada: histórico de Acertos de
+  // CADA clube desde sempre) duas vezes na mesma tela. Achado pelo Cássio:
+  // "porque o resumo de acerto tem demorado tanto pra carregar" logo
+  // depois da PR que buscava Multa — a Árvore "Todas as Ligas" com dezenas
+  // de clubes "sem movimento" calculava o saldo arrastado 2x cada.
+  arrastadoPreCalculado?: Map<string, { total: number; multa: number; pct: number }>
+): Promise<Map<string, number>> {
   const mapa = new Map<string, number>();
   if (clubIds.length === 0 || !periodStart) return mapa;
 
@@ -807,7 +820,7 @@ export async function buscarPendenciasAntecipacao(clubIds: string[], periodStart
     baseQuery().gte("data_lancamento", periodStart).lte("data_lancamento", fim),
     clubesComDiferencaQuitada(clubIds, fim),
     clubesComDiferencaQuitada(clubIds, diaAnterior(periodStart)),
-    buscarSaldoArrastado(clubIds, fim),
+    arrastadoPreCalculado ? Promise.resolve(arrastadoPreCalculado) : buscarSaldoArrastado(clubIds, fim),
   ]);
 
   for (const row of (deslocadas ?? []) as { clube_id: string; natureza: "credito" | "debito"; valor: number }[]) {
@@ -861,7 +874,11 @@ export async function buscarMultaAtual(clubIds: string[], periodEnd: string): Pr
 // própria(P) só entra se o período ANTERIOR a P foi quitado por Pagamento
 // direto — mesmo par de regras, pra não contar a mesma Antecipação duas
 // vezes (uma como deslocada do período antigo, outra como própria do novo).
-async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promise<Map<string, { total: number; multa: number; pct: number }>> {
+// Exportada pra quem precisa do saldo arrastado E de outra coisa derivada
+// dele (ex: buscarClubesZerados, que monta Pendências E Multa a partir do
+// mesmo cálculo) poder rodar só uma vez e reaproveitar — ver
+// arrastadoPreCalculado em buscarPendenciasAntecipacao acima.
+export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promise<Map<string, { total: number; multa: number; pct: number }>> {
   const mapa = new Map<string, { total: number; multa: number; pct: number }>();
   if (clubIds.length === 0 || !periodEnd) return mapa;
 
