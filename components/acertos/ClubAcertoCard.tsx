@@ -485,6 +485,15 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const taxaLigaValor = acerto.taxa_liga_valor
   const bilhetesValor = acerto.bilhetes
   const pendenciasValor = pendenciasLive
+  // Exibição da linha "Pendências/Antecipação": tira a Multa de dentro, já
+  // que ela aparece numa linha PRÓPRIA logo abaixo (pedido do Cássio) — sem
+  // isso, o mesmo valor da Multa aparecia contado nas duas linhas ao mesmo
+  // tempo (113,77 com Multa embutida + -2,21 de novo na linha de Multa),
+  // dando a impressão de dobrar, mesmo o Total somando certo só uma vez
+  // (achado no All American: Pendências mostrava -112,77 e Multa -2,21,
+  // quando a Pendência "pura" era -110,56). Só exibição — `pendenciasLive`
+  // continua completo (com Multa) em calcularTotalAcerto, o Total não muda.
+  const pendenciasDisplay = multaLive ? pendenciasValor - multaLive.valor : pendenciasValor
   const rebateCalculado = acerto.rebate_calculado
   const clubNameDisplay = acerto.club_name
 
@@ -697,7 +706,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       case 'bilhetes':
         return <Linha key={campo} label={t('club_acerto_card.bilhetes_label')} value={bilhetesValor} />
       case 'pendencias':
-        return <Linha key={campo} label={t('club_acerto_card.pendencias_label')} value={pendenciasValor} />
+        return <Linha key={campo} label={t('club_acerto_card.pendencias_label')} value={pendenciasDisplay} />
       case 'multa':
         if (!multaLive) return null
         return <Linha key={campo} label={t('club_acerto_card.multa_label', { pct: fmtPct(multaLive.pct) })} value={multaLive.valor} />

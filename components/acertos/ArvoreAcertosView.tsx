@@ -651,7 +651,16 @@ function NoFaixa({ path, raiz, onVerCompleto, onRecalcular, onRecalcularLiga, on
       const d = l.detalheZerado
       return (
         <Faixa titulo={l.acerto.club_name} meta={l.acerto.club_external_id} tag="Sem movimento essa semana">
-          {d && <Fig k="Pendências / Antecipação" v={fmt(d.pendenciasAntecipacao)} className={cor(d.pendenciasAntecipacao)} />}
+          {d && (() => {
+            // Mesmo ajuste do ClubAcertoCard: a Multa já vem embutida dentro
+            // de pendenciasAntecipacao (buscarSaldoArrastado soma ela no
+            // saldo corrido) — tira ela daqui já que aparece na linha
+            // própria logo abaixo, senão o mesmo valor parece contado 2x
+            // (achado no All American: Pendências -112,77 + Multa -2,21,
+            // quando a Pendência "pura" é -110,56; o Total já soma certo).
+            const pendenciasDisplay = d.multa ? d.pendenciasAntecipacao - d.multa.valor : d.pendenciasAntecipacao
+            return <Fig k="Pendências / Antecipação" v={fmt(pendenciasDisplay)} className={cor(pendenciasDisplay)} />
+          })()}
           {d?.multa && <Fig k={`Multa Atraso Acerto (${d.multa.pct}%)`} v={fmt(d.multa.valor)} className={cor(d.multa.valor)} />}
           {d && Math.abs(d.security) > 0.005 && <Fig k="Segurança" v={fmt(d.security)} className={cor(d.security)} />}
           {d && Math.abs(d.dividasTotal) > 0.005 && <Fig k="Dívidas / Acordos" v={fmt(d.dividasTotal)} className={cor(d.dividasTotal)} />}
