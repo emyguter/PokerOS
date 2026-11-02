@@ -210,14 +210,20 @@ confirmada (ver Conciliação), dobrando o valor. Corrigido com `.in('origem', [
 (débito, clube fez algo ilegal) ou Reembolso (crédito, clube sofreu um golpe), com a categoria do
 incidente (Bot, Collusion, Chip Dumping, Multi-Accounting, Prohibited Jurisdiction, VPN, Other —
 lista fixa em `CATEGORIAS_SEGURANCA`, ampliável) só como referência interna. Grava em `lancamentos`
-com `origem = 'seguranca'` e `tipo` = `seguranca_bloqueio`/`seguranca_reembolso`, então entra no
-Acerto do clube normalmente (mesma regra de qualquer lançamento que não seja Caução) e aparece no
+com `origem = 'seguranca'` e `tipo` = `seguranca_bloqueio`/`seguranca_reembolso`, e aparece no
 extrato do clube (`/extrato`) como "Bloqueio da Segurança"/"Reembolso da Segurança" — sem a
 categoria específica, que fica só nas telas internas (Segurança, Relatório de Lançamentos). Suporte,
 Financeiro e Segurança podem editar/apagar um lançamento já feito (`EditarLancamentoModal`,
 reaproveitado nas três telas — pra Segurança ele troca o Tipo/Natureza genéricos pelos mesmos
 campos Ação + Categoria da tela de Segurança, mantendo Bloqueio/Reembolso sempre coerente com
 débito/crédito).
+
+Bloqueio/Reembolso **não** entra mais no Acerto como lançamento avulso da semana em que foi
+datado (comportamento antigo) — pedido do Cássio: "ele aparece até dar o reembolso sim... no
+total, nao como um plus". Agora soma direto no saldo arrastado (`buscarSaldoArrastado`, igual
+Pendências/Antecipação) e continua pesando no Total de Pendências de toda semana seguinte até um
+Reembolso de valor suficiente cobrir, em vez de valer só pra semana em que foi lançado. Fica de
+fora da sequência de Multa por atraso de Acerto (Bloqueio de Segurança não é Acerto atrasado).
 
 **Bug: `acertos.club_id` sempre nulo:** `calcularAcerto` gravava `club_id` a partir de
 `import_rows.club_id` — campo que a `harmonizar-import` nunca preenche (só grava
