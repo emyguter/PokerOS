@@ -187,28 +187,28 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
     if (!valorNum || valorNum <= 0) { setError('Informe um valor válido.'); return }
     if (acertoObrigatorio && !acertoId) { setError(t('pagamentos.qual_acerto_obrigatorio')); return }
 
-    // Lançamento do Suporte (qualquer tipo) fácil de lançar duplicado sem
-    // querer — mesmo clube+tipo+valor+data já lançado por outra pessoa do
-    // time (achado pelo Cássio no 7 Eleven: uma Antecipação de 1.500,20 foi
-    // lançada pelo Suporte e, minutos depois, de novo pelo Financeiro —
-    // "a gente só pede ter UM lancamento, nao podemos ter 2, nitidamente
-    // está duplicando", dobrou a Pendências/Antecipação do card). Antes só
-    // cobria Caução (que pula direto pra fila da Genia) — generalizado pra
-    // qualquer tipo, mesma lógica.
-    if (origem === 'suporte') {
-      setError(null)
-      const { data: existentes } = await supabase
-        .from('lancamentos')
-        .select('id')
-        .eq('clube_id', clubeId)
-        .eq('tipo', tipo)
-        .eq('valor', valorNum)
-        .eq('data_lancamento', data)
-        .limit(1)
-      if ((existentes ?? []).length > 0 && !confirmandoDuplicata) {
-        setConfirmandoDuplicata(true)
-        return
-      }
+    // Lançamento (qualquer tipo) fácil de lançar duplicado sem querer —
+    // mesmo clube+tipo+valor+data já lançado por outra pessoa do MESMO lado
+    // (achado pelo Cássio no 7 Eleven: uma Antecipação de 1.500,20 foi
+    // lançada duas vezes, dobrou a Pendências/Antecipação do card). Só
+    // compara contra o próprio lado (mesma origem) — Suporte e Financeiro
+    // (Genia) são esperados lançar o mesmo valor cada um do seu lado pra
+    // formar o par de Conciliação (tentarConciliarAoLancar), isso nunca é
+    // duplicata. Antes só cobria Caução e só do lado Suporte — generalizado
+    // pra qualquer tipo e pros dois lados, mesma lógica.
+    setError(null)
+    const { data: existentes } = await supabase
+      .from('lancamentos')
+      .select('id')
+      .eq('clube_id', clubeId)
+      .eq('tipo', tipo)
+      .eq('valor', valorNum)
+      .eq('data_lancamento', data)
+      .eq('origem', origem)
+      .limit(1)
+    if ((existentes ?? []).length > 0 && !confirmandoDuplicata) {
+      setConfirmandoDuplicata(true)
+      return
     }
     await criar(valorNum)
   }
