@@ -169,6 +169,16 @@ export function corrigirValorCrypto(valor: number, pct: number): number {
   return Math.round((valor / (1 + pct / 100)) * 100) / 100
 }
 
+// Inverso de corrigirValorCrypto: um Pagamento marcado pago_crypto chegou já
+// descontado do %, então pra comparar com a Dívida original (sem desconto) e
+// checar se o Acerto foi quitado é preciso "regrossar" esse valor de volta.
+// Sem isso, a Pendência fica presa em exatamente o valor do desconto (achado
+// no Arena do Baralho: pagou 2.432,05 via crypto de uma dívida de 2.505,01,
+// sobrava 72,96 de Pendência — exatamente os 3% de rebate do clube).
+export function regrossarValorCrypto(valor: number, pct: number): number {
+  return Math.round(valor * (1 + pct / 100) * 100) / 100
+}
+
 // Segurança (cadastro do clube) + total de Dívidas/Acordos em aberto (já com
 // multa se atrasada) de um lote de clubes — as duas peças que faltam pra
 // completar calcularTotalAcerto e que cada tela buscava (ou não buscava)

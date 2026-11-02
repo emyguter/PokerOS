@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { propagarParaSuperagentes } from "@/lib/rateio-agentes";
 import { marcarDividasPagasComRake, getFaixasMultaDeClubes, percentualMulta, diasDeAtraso as diasDeAtrasoDivida, type FaixaMulta } from "@/lib/dividas";
+import { regrossarValorCrypto } from "@/lib/relatorio-acerto";
 
 export interface ClubSettings {
   id: string;
@@ -732,17 +733,26 @@ export async function clubesComDiferencaQuitada(clubIds: string[], periodEnd: st
   if (porClube.size === 0) return quitados;
 
   const acertoIds = [...porClube.values()].map((v) => v.acertoId);
+  const acertoIdParaClube = new Map([...porClube].map(([clubId, v]) => [v.acertoId, clubId]));
   // Só o lado Suporte, não o par da Genia — senão dobra o Valor Pago (mesma
   // regra usada em toda soma de Pagamento/Envio no resto do app).
-  const { data: pagamentosData } = await supabase
-    .from("lancamentos")
-    .select("acerto_id, natureza, valor")
-    .in("acerto_id", acertoIds)
-    .eq("tipo", "pagamento")
-    .eq("origem", "suporte");
+  const [{ data: pagamentosData }, { data: clubsCryptoData }] = await Promise.all([
+    supabase
+      .from("lancamentos")
+      .select("acerto_id, natureza, valor, pago_crypto")
+      .in("acerto_id", acertoIds)
+      .eq("tipo", "pagamento")
+      .eq("origem", "suporte"),
+    supabase.from("clubs").select("id, crypto_rebate_pct").in("id", clubIds),
+  ]);
+  const pctCryptoPorClube = new Map((clubsCryptoData ?? []).map((c) => [c.id as string, (c.crypto_rebate_pct as number | null) ?? 0]));
   const pagoPorAcerto = new Map<string, number>();
-  for (const p of (pagamentosData ?? []) as { acerto_id: string; natureza: "credito" | "debito"; valor: number }[]) {
-    pagoPorAcerto.set(p.acerto_id, (pagoPorAcerto.get(p.acerto_id) ?? 0) + (p.natureza === "credito" ? p.valor : -p.valor));
+  for (const p of (pagamentosData ?? []) as { acerto_id: string; natureza: "credito" | "debito"; valor: number; pago_crypto: boolean | null }[]) {
+    // Pagamento via crypto chega já com o desconto aplicado — regrossa pelo %
+    // do clube antes de comparar com a Dívida original (sem desconto).
+    const pct = acertoIdParaClube.has(p.acerto_id) ? pctCryptoPorClube.get(acertoIdParaClube.get(p.acerto_id)!) ?? 0 : 0;
+    const valor = p.pago_crypto && pct ? regrossarValorCrypto(p.valor, pct) : p.valor;
+    pagoPorAcerto.set(p.acerto_id, (pagoPorAcerto.get(p.acerto_id) ?? 0) + (p.natureza === "credito" ? valor : -valor));
   }
   for (const [clubId, { acertoId, valorAcerto }] of porClube) {
     const pago = pagoPorAcerto.get(acertoId) ?? 0;
@@ -948,14 +958,22 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
   // preserva o mesmo fallback de antes: erro buscando Multa não pode
   // derrubar o saldo arrastado (o valor sem multa nenhuma, que já é o
   // principal) do lote inteiro.
-  const [{ data: pagamentosData }, { data: antecipData }, faixasPorClube] = await Promise.all([
-    supabase.from("lancamentos").select("acerto_id, natureza, valor").in("acerto_id", todosAcertoIds).eq("tipo", "pagamento").eq("origem", "suporte"),
+  const acertoIdParaClube = new Map([...porClube].flatMap(([clubId, periodos]) => periodos.map((r) => [r.acertoId, clubId] as const)));
+  const [{ data: pagamentosData }, { data: antecipData }, faixasPorClube, { data: clubsCryptoData }] = await Promise.all([
+    supabase.from("lancamentos").select("acerto_id, natureza, valor, pago_crypto").in("acerto_id", todosAcertoIds).eq("tipo", "pagamento").eq("origem", "suporte"),
     supabase.from("lancamentos").select("clube_id, natureza, valor, data_lancamento").in("clube_id", clubIdsComHistorico).eq("tipo", "antecipacao").eq("origem", "suporte").not("conciliado_com", "is", null),
     getFaixasMultaDeClubes(clubIdsComHistorico).catch(() => new Map<string, FaixaMulta[]>()),
+    supabase.from("clubs").select("id, crypto_rebate_pct").in("id", clubIdsComHistorico),
   ]);
+  const pctCryptoPorClube = new Map((clubsCryptoData ?? []).map((c) => [c.id as string, (c.crypto_rebate_pct as number | null) ?? 0]));
   const pagoPorAcerto = new Map<string, number>();
-  for (const p of (pagamentosData ?? []) as { acerto_id: string; natureza: "credito" | "debito"; valor: number }[]) {
-    pagoPorAcerto.set(p.acerto_id, (pagoPorAcerto.get(p.acerto_id) ?? 0) + (p.natureza === "credito" ? p.valor : -p.valor));
+  for (const p of (pagamentosData ?? []) as { acerto_id: string; natureza: "credito" | "debito"; valor: number; pago_crypto: boolean | null }[]) {
+    // Mesma regra de regrossar crypto usada em clubesComDiferencaQuitada —
+    // aqui também, senão o saldo arrastado nunca zera, só o "desconto" fica
+    // eternamente pendente.
+    const pct = acertoIdParaClube.has(p.acerto_id) ? pctCryptoPorClube.get(acertoIdParaClube.get(p.acerto_id)!) ?? 0 : 0;
+    const valor = p.pago_crypto && pct ? regrossarValorCrypto(p.valor, pct) : p.valor;
+    pagoPorAcerto.set(p.acerto_id, (pagoPorAcerto.get(p.acerto_id) ?? 0) + (p.natureza === "credito" ? valor : -valor));
   }
   const antecipPorClube = new Map<string, { natureza: "credito" | "debito"; valor: number; data: string }[]>();
   for (const r of (antecipData ?? []) as { clube_id: string; natureza: "credito" | "debito"; valor: number; data_lancamento: string }[]) {
