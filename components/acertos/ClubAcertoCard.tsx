@@ -153,6 +153,14 @@ async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd
       // o valor se a data cair dentro da janela dessa semana (achado no
       // CHIP COIN: pagamento que fechou a semana anterior "vazando" pra cá).
       .neq('tipo', 'pagamento')
+      // Bloqueio/Reembolso de Segurança agora carrega em Pendências/
+      // Antecipação (buscarSaldoArrastado, semana após semana até dar
+      // Reembolso) em vez de aparecer só como lançamento avulso na semana
+      // em que foi datado — contar aqui de novo dobraria o valor na semana
+      // original (pedido do Cássio: "ele aparece até dar o reembolso
+      // sim... no total, nao como um plus").
+      .neq('tipo', 'seguranca_bloqueio')
+      .neq('tipo', 'seguranca_reembolso')
       // Só conta no Acerto depois de Liberado (pedido do Cássio) — antes
       // disso é só um lançamento pendente na tela de Lançamento.
       .eq('liberado', true)
@@ -287,6 +295,11 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       // aqui de novo dobra o valor quando a data cai dentro da janela dessa
       // semana (ver mesmo comentário em buscarExtrasClube acima).
       .neq('tipo', 'pagamento')
+      // Mesmo motivo de buscarExtrasClube acima: Bloqueio/Reembolso de
+      // Segurança agora carrega em Pendências/Antecipação, não aparece mais
+      // avulso aqui.
+      .neq('tipo', 'seguranca_bloqueio')
+      .neq('tipo', 'seguranca_reembolso')
       // Só conta no Acerto depois de Liberado (pedido do Cássio) — antes
       // disso é só um lançamento pendente na tela de Lançamento.
       .eq('liberado', true)

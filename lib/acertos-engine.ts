@@ -882,10 +882,37 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
   const mapa = new Map<string, { total: number; multa: number; pct: number }>();
   if (clubIds.length === 0 || !periodEnd) return mapa;
 
-  const { data: acertosData } = await supabase
-    .from("acertos")
-    .select("id, club_id, valor_acerto, indicacao_valor, bilhetes, rollover_sem_multa, imports(period_start, period_end)")
-    .in("club_id", clubIds);
+  // Bloqueio de Segurança (débito, "o clube fez algo ilegal") pesa no saldo
+  // igual uma Diferença não paga, até um Reembolso (crédito, "o clube
+  // sofreu um golpe") cobrir — e continua carregando de semana em semana,
+  // não só na semana em que foi lançado (achado pelo Cássio: "ele aparece
+  // até dar o reembolso sim... no total, nao como um plus" — antes só
+  // aparecia como linha avulsa de "Lançamentos do período" na semana exata
+  // em que foi datado, sem carregar). Soma simples de tudo até `periodEnd`
+  // (sem a janela de própria/deslocada da Antecipação — não tem Acerto
+  // nenhum pra "quitar", é só um saldo corrido) e fica FORA da sequência de
+  // Multa por atraso de Acerto (não é a mesma coisa: um Bloqueio de
+  // Segurança não é um Acerto atrasado).
+  const [{ data: acertosData }, { data: segurancaData }] = await Promise.all([
+    supabase
+      .from("acertos")
+      .select("id, club_id, valor_acerto, indicacao_valor, bilhetes, rollover_sem_multa, imports(period_start, period_end)")
+      .in("club_id", clubIds),
+    supabase
+      .from("lancamentos")
+      .select("clube_id, natureza, valor")
+      .in("clube_id", clubIds)
+      .in("tipo", ["seguranca_bloqueio", "seguranca_reembolso"])
+      .eq("origem", "seguranca")
+      .eq("liberado", true)
+      .lte("data_lancamento", periodEnd),
+  ]);
+  const segurancaNetPorClube = new Map<string, number>();
+  for (const s of (segurancaData ?? []) as { clube_id: string; natureza: "credito" | "debito"; valor: number }[]) {
+    const delta = s.natureza === "credito" ? s.valor : -s.valor;
+    segurancaNetPorClube.set(s.clube_id, (segurancaNetPorClube.get(s.clube_id) ?? 0) + delta);
+  }
+
   type AcertoComPeriodo = { id: string; club_id: string | null; valor_acerto: number; indicacao_valor: number | null; bilhetes: number | null; rollover_sem_multa: boolean | null; imports: { period_start: string; period_end: string } | { period_start: string; period_end: string }[] | null };
   type PeriodoClube = { acertoId: string; valorAcerto: number; start: string; end: string; semMulta: boolean };
   const porClube = new Map<string, PeriodoClube[]>();
@@ -901,7 +928,13 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
     lista.push({ acertoId: a.id, valorAcerto: a.valor_acerto + (a.indicacao_valor ?? 0) + (a.bilhetes ?? 0), start: imp.period_start, end: imp.period_end, semMulta: !!a.rollover_sem_multa });
     porClube.set(a.club_id, lista);
   }
-  if (porClube.size === 0) return mapa;
+  if (porClube.size === 0) {
+    // Sem Acerto nenhum, mas pode ter Bloqueio de Segurança mesmo assim.
+    for (const [clubId, net] of segurancaNetPorClube) {
+      if (Math.abs(net) > 0.005) mapa.set(clubId, { total: net, multa: 0, pct: 0 });
+    }
+    return mapa;
+  }
 
   const clubIdsComHistorico = [...porClube.keys()];
   const todosAcertoIds = [...porClube.values()].flatMap((l) => l.map((r) => r.acertoId));
@@ -1004,7 +1037,15 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
       multaFinal = sequenciaPrincipal * (pctFinal / 100);
       saldo += multaFinal - sequenciaMultaCobrada;
     }
+    // Bloqueio de Segurança entra por fora da sequência de Multa (não é
+    // Acerto atrasado) — soma direto no saldo final.
+    saldo += segurancaNetPorClube.get(clubId) ?? 0;
     if (Math.abs(saldo) > 0.005) mapa.set(clubId, { total: saldo, multa: multaFinal, pct: pctFinal });
+  }
+  // Clube sem nenhum Acerto no histórico (não entrou no laço acima) mas com
+  // Bloqueio de Segurança mesmo assim.
+  for (const [clubId, net] of segurancaNetPorClube) {
+    if (!porClube.has(clubId) && Math.abs(net) > 0.005) mapa.set(clubId, { total: net, multa: 0, pct: 0 });
   }
   return mapa;
 }
