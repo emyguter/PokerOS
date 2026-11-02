@@ -12,6 +12,14 @@ export interface LinhaAcertoPendenteSemana {
   clubName: string
   status: StatusStoploss
   acerto: number
+  // true = o Acerto (valor_acerto puro, antes de Pago/Diferença) é negativo
+  // — pedido do Cássio: "precisamos colocar o sinal ou diferenciar por cor
+  // se o acerto é positivo ou negativo". Separado de `direcao` (que é sobre
+  // a Diferença, já com o Pago descontado) porque os dois sinais podem
+  // divergir — um Acerto negativo pago parcialmente ainda mostra Diferença
+  // negativa, mas um Acerto positivo nunca devia aparecer vermelho só
+  // porque a Diferença ficou negativa por outro motivo.
+  acertoNegativo: boolean
   pago: number
   diferenca: number
   // Sinal de verdade da Diferença: 'clube_deve' (negativa, pode receber
@@ -75,6 +83,7 @@ export async function buscarAcertosPendentesDaSemana(): Promise<LinhaAcertoPende
         clubName: p.club_name,
         status: clubId ? statusPorClube.get(clubId) ?? 'ativo' : 'ativo',
         acerto: Math.abs(p.valor_acerto),
+        acertoNegativo: p.valor_acerto < 0,
         pago: Math.abs(p.valor_pago),
         diferenca: Math.abs(p.diferenca),
         direcao: (p.diferenca < 0 ? 'clube_deve' : 'liga_deve') as DirecaoDiferenca,

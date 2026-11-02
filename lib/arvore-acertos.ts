@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { buscarMeusAcertos, type LinhaMeuAcerto } from './meus-acertos'
-import { buscarPendenciasEAntecipacaoAoVivo, buscarMultaAtual } from './acertos-engine'
+import { buscarPendenciasEAntecipacaoAoVivo, buscarSaldoArrastado } from './acertos-engine'
 import { calcularTotalAcerto, buscarSecurityEDividasPorClube } from './relatorio-acerto'
 
 // ─── Árvore de Acertos: Liga → Clube → Super Agente → Agente → Jogador ────
@@ -114,15 +114,18 @@ async function buscarClubesZerados(
 
   const clubIds = clubes.map((c) => c.id)
   const rakeTotalZero = new Map<string, number>()
-  const [extrasPorClube, pendenciasPorClube, multaPorClube] = await Promise.all([
+  // buscarSaldoArrastado calculado uma vez só e reaproveitado pelas duas
+  // coisas que precisam dele (Pendências via arrastadoPreCalculado, e a
+  // linha de Multa aqui embaixo) — antes cada um rodava o próprio, dobrando
+  // o trabalho mais pesado da tela (histórico de Acertos de cada clube
+  // desde sempre) pra cada clube "sem movimento" da Árvore inteira (achado
+  // pelo Cássio: "porque o resumo de acerto tem demorado tanto pra
+  // carregar", logo depois dessa mudança ter entrado).
+  const [extrasPorClube, arrastadoPorClube] = await Promise.all([
     buscarSecurityEDividasPorClube(clubIds, periodoFim, rakeTotalZero),
-    buscarPendenciasEAntecipacaoAoVivo(clubIds, periodoFim, periodoFim),
-    // Só pra expor o % vigente + R$ da Multa como linha própria em
-    // detalheZerado — o valor dela já está embutido dentro de
-    // pendenciasPorClube (buscarSaldoArrastado soma ela no saldo corrido),
-    // igual já documentado em ClubAcertoCard.
-    buscarMultaAtual(clubIds, periodoFim),
+    buscarSaldoArrastado(clubIds, periodoFim),
   ])
+  const pendenciasPorClube = await buscarPendenciasEAntecipacaoAoVivo(clubIds, periodoFim, periodoFim, arrastadoPorClube)
 
   return clubes.map((c) => {
     const extras = extrasPorClube.get(c.id)
@@ -162,7 +165,12 @@ async function buscarClubesZerados(
       zerado: true,
       detalheZerado: {
         pendenciasAntecipacao: pendencias,
-        multa: multaPorClube.get(c.id) ?? null,
+        // Mesmo critério de buscarMultaAtual (daqui tirado): só mostra a
+        // linha quando a Multa pesa de verdade no saldo.
+        multa: (() => {
+          const dados = arrastadoPorClube.get(c.id)
+          return dados && Math.abs(dados.multa) > 0.005 ? { valor: dados.multa, pct: dados.pct } : null
+        })(),
         security,
         dividasTotal,
       },
