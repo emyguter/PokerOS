@@ -187,15 +187,21 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
     if (!valorNum || valorNum <= 0) { setError('Informe um valor válido.'); return }
     if (acertoObrigatorio && !acertoId) { setError(t('pagamentos.qual_acerto_obrigatorio')); return }
 
-    // Caução do Suporte pula direto pra fila da Genia — fácil de lançar
-    // duplicado sem querer, então avisa antes se já existe algo igual.
-    if (origem === 'suporte' && tipo === 'caucao') {
+    // Lançamento do Suporte (qualquer tipo) fácil de lançar duplicado sem
+    // querer — mesmo clube+tipo+valor+data já lançado por outra pessoa do
+    // time (achado pelo Cássio no 7 Eleven: uma Antecipação de 1.500,20 foi
+    // lançada pelo Suporte e, minutos depois, de novo pelo Financeiro —
+    // "a gente só pede ter UM lancamento, nao podemos ter 2, nitidamente
+    // está duplicando", dobrou a Pendências/Antecipação do card). Antes só
+    // cobria Caução (que pula direto pra fila da Genia) — generalizado pra
+    // qualquer tipo, mesma lógica.
+    if (origem === 'suporte') {
       setError(null)
       const { data: existentes } = await supabase
         .from('lancamentos')
         .select('id')
         .eq('clube_id', clubeId)
-        .eq('tipo', 'caucao')
+        .eq('tipo', tipo)
         .eq('valor', valorNum)
         .eq('data_lancamento', data)
         .limit(1)
@@ -362,8 +368,8 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
 
         {confirmandoDuplicata && (
           <div className="p-3 bg-alert/10 border border-alert/30 rounded-lg text-sm space-y-2">
-            <p className="text-alert font-medium">{t('lancamento.caucao_duplicata_titulo')}</p>
-            <p className="text-gray-400 text-xs">{t('lancamento.caucao_duplicata_desc')}</p>
+            <p className="text-alert font-medium">{t('lancamento.lancamento_duplicata_titulo')}</p>
+            <p className="text-gray-400 text-xs">{t('lancamento.lancamento_duplicata_desc')}</p>
           </div>
         )}
 
