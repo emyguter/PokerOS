@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { calcularTotalAcerto, buscarSecurityEDividasPorClube } from './relatorio-acerto'
+import { calcularTotalAcerto, buscarSecurityEDividasPorClube, regrossarValorCrypto } from './relatorio-acerto'
 import { diaSeguinte, maisDias, diaAnterior, clubesComDiferencaQuitada, buscarRakebackAgentesPorClube } from './acertos-engine'
 
 export type TipoEnvio = 'pagamento' | 'antecipacao'
@@ -48,6 +48,7 @@ export interface AcertoPagamento {
 interface AcertoRow {
   id: string
   import_id: string
+  club_id?: string | null
   club_external_id: string
   club_name: string
   valor_acerto: number
@@ -89,7 +90,7 @@ interface LancamentoBrutoRow {
 // + Valor Pago (confirmado pelo Cássio) — Valor do Acerto já vem negativo
 // quando o clube deve, então o Envio (positivo, crédito) soma por cima até
 // zerar; usar subtração dobrava a dívida em vez de quitar.
-export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow[]): AcertoPagamento[] {
+export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow[], pctCryptoPorClube: Map<string, number> = new Map()): AcertoPagamento[] {
   const enviosPorAcerto = new Map<string, EnvioPagamento[]>()
   for (const p of pagamentos) {
     const lista = enviosPorAcerto.get(p.acerto_id) ?? []
@@ -105,7 +106,12 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
 
   return acertos.map((a) => {
     const envios = enviosPorAcerto.get(a.id) ?? []
-    const valor_pago = envios.reduce((s, e) => s + e.valor_assinado, 0)
+    const pct = a.club_id ? pctCryptoPorClube.get(a.club_id) ?? 0 : 0
+    // Envio itemizado continua mostrando o valor real enviado
+    // (valor_assinado, com desconto); só a conta de Valor Pago/Diferença
+    // regrossa o Envio em crypto, senão a Diferença nunca zera — fica
+    // presa em exatamente o valor do desconto (achado no Arena do Baralho).
+    const valor_pago = envios.reduce((s, e) => s + (e.pago_crypto && pct ? regrossarValorCrypto(e.valor_assinado, pct) : e.valor_assinado), 0)
     return {
       acerto_id: a.id,
       club_id: null,
@@ -305,9 +311,10 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
     valorAcertoCompletoPorRow(lista, periodStart, periodEnd),
     buscarAntecipacaoEnvios(clubIds, periodStart, periodEnd),
     buscarCaucaoDoPeriodo(clubIds, periodStart, periodEnd),
-    clubIds.length > 0 ? supabase.from('clubs').select('id, projeto').in('id', clubIds) : Promise.resolve({ data: [] }),
+    clubIds.length > 0 ? supabase.from('clubs').select('id, projeto, crypto_rebate_pct').in('id', clubIds) : Promise.resolve({ data: [] }),
   ])
   const projetoPorClube = new Map((clubesData ?? []).map((c) => [c.id as string, c.projeto as string | null]))
+  const pctCryptoPorClube = new Map((clubesData ?? []).map((c) => [c.id as string, (c.crypto_rebate_pct as number | null) ?? 0]))
   const caucaoPorClube = caucaoLancadaPorClube(caucaoRows)
 
   const listaCompleta: AcertoRow[] = lista.map((a) => ({ ...a, valor_acerto: valorAcertoPorId.get(a.id) ?? a.valor_acerto }))
@@ -319,7 +326,7 @@ export async function buscarPagamentosPorImport(importId: string): Promise<Acert
     ...converterParaEnvios(antecipacaoRows, acertoIdPorClube, 'antecipacao'),
   ].sort((a, b) => a.data_lancamento.localeCompare(b.data_lancamento))
 
-  const resultado = agregarPagamentos(listaCompleta, pagamentos)
+  const resultado = agregarPagamentos(listaCompleta, pagamentos, pctCryptoPorClube)
   return resultado.map((r) => {
     const clubId = clubIdPorAcertoId.get(r.acerto_id)
     return {
@@ -502,9 +509,10 @@ export async function buscarPagamentosPorPeriodo(periodoInicio: string, periodoF
     valorAcertoCompletoPorRow(lista, periodoInicio, periodoFim),
     buscarAntecipacaoEnvios(clubIds, periodoInicio, periodoFim),
     buscarCaucaoDoPeriodo(clubIds, periodoInicio, periodoFim),
-    clubIds.length > 0 ? supabase.from('clubs').select('id, projeto').in('id', clubIds) : Promise.resolve({ data: [] }),
+    clubIds.length > 0 ? supabase.from('clubs').select('id, projeto, crypto_rebate_pct').in('id', clubIds) : Promise.resolve({ data: [] }),
   ])
   const projetoPorClube = new Map((clubesData ?? []).map((c) => [c.id as string, c.projeto as string | null]))
+  const pctCryptoPorClube = new Map((clubesData ?? []).map((c) => [c.id as string, (c.crypto_rebate_pct as number | null) ?? 0]))
   const caucaoPorClube = caucaoLancadaPorClube(caucaoRows)
 
   const listaCompleta: AcertoRow[] = lista.map((a) => ({ ...a, valor_acerto: valorAcertoPorId.get(a.id) ?? a.valor_acerto }))
@@ -516,7 +524,7 @@ export async function buscarPagamentosPorPeriodo(periodoInicio: string, periodoF
     ...converterParaEnvios(antecipacaoRows, acertoIdPorClube, 'antecipacao'),
   ].sort((a, b) => a.data_lancamento.localeCompare(b.data_lancamento))
 
-  const resultado = agregarPagamentos(listaCompleta, pagamentos)
+  const resultado = agregarPagamentos(listaCompleta, pagamentos, pctCryptoPorClube)
   return resultado.map((r) => {
     const clubId = clubIdPorAcertoId.get(r.acerto_id)
     return {
