@@ -156,7 +156,7 @@ export function RelatorioAcertosPendentes() {
                       <td className="px-4 py-3 text-gray-400">{l.clubExternalId}</td>
                       <td className="px-4 py-3 text-white">{l.clubName}</td>
                       <td className="px-4 py-3"><StatusBadge status={l.status} /></td>
-                      <td className="px-4 py-3 text-right text-gray-300">{fmt(l.acerto)}</td>
+                      <td className={`px-4 py-3 text-right font-medium ${l.acertoNegativo ? 'text-alert' : 'text-blue-400'}`}>{fmt(l.acertoNegativo ? -l.acerto : l.acerto)}</td>
                       <td className="px-4 py-3 text-right text-gray-300">{fmt(l.pago)}</td>
                       <td className={`px-4 py-3 text-right font-medium ${l.direcao === 'liga_deve' ? 'text-blue-400' : 'text-alert'}`}>{fmt(l.direcao === 'liga_deve' ? l.diferenca : -l.diferenca)}</td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
