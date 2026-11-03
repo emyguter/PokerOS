@@ -12,8 +12,15 @@ describe('acharColunasTaxa', () => {
   sub[31] = 'Taxa (jogos PPSR)'; sub[32] = 'Taxa (jogos não PPSR)'; sub[33] = 'Buy-in de SPINUP'
   sub[43] = 'Taxa do Jackpot'; sub[44] = 'Prêmios Jackpot'
 
-  it('pega só as 4 colunas de Taxa (sem Jackpot/SPINUP/total)', () => {
-    expect(acharColunasTaxa(sub, 27, 46)).toEqual([29, 30, 31, 32])
+  it('prefere a coluna "Taxa" simples (subtotal pronto) quando ela existe', () => {
+    expect(acharColunasTaxa(sub, 27, 46)).toEqual([28])
+  })
+
+  it('cai pras 4 colunas granulares quando não tem "Taxa" simples (achado no Sul Home Game: relatório só com a quebra PPST/PPSR)', () => {
+    const subSemTaxaSimples: string[] = []
+    subSemTaxaSimples[27] = 'Geral'; subSemTaxaSimples[29] = 'Taxa (jogos PPST)'; subSemTaxaSimples[30] = 'Taxa (jogos não PPST)'
+    subSemTaxaSimples[31] = 'Taxa (jogos PPSR)'; subSemTaxaSimples[32] = 'Taxa (jogos não PPSR)'
+    expect(acharColunasTaxa(subSemTaxaSimples, 27, 46)).toEqual([29, 30, 31, 32])
   })
 
   it('não acha nada fora do bloco', () => {
