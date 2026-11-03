@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { buscarImportsComAcerto, buscarPagamentosPorImport } from './pagamentos'
+import { buscarImportsComAcerto, buscarPagamentosPorImport, buscarPagamentosPorPeriodo, type PeriodoPagamento } from './pagamentos'
 
 export type StatusStoploss = 'ativo' | '50%' | 'bloqueado'
 
@@ -48,23 +48,43 @@ async function statusStoplossPorClube(clubIds: string[]): Promise<Map<string, St
   return mapa
 }
 
-// "Acertos Pendentes da Semana": Acerto da semana MAIS RECENTE já calculada
-// que ainda não fechou em zero (clube deve OU a Liga deve ao clube e não
-// pagou tudo) — mesma fonte de verdade do Controle de Pagamentos
+// "Acertos Pendentes da Semana": Acerto de uma semana já calculada que
+// ainda não fechou em zero (clube deve OU a Liga deve ao clube e não pagou
+// tudo) — mesma fonte de verdade do Controle de Pagamentos
 // (lib/pagamentos.ts), só filtrando quem ainda tem Diferença e ordenando do
 // menor pro maior. Os dois sentidos aparecem aqui (pedido do Cássio: "a
 // diferença, seja crédito ou débito, da semana anterior deve constar na
 // semana seguinte") — `direcao` diz pra UI qual ação de Rollover oferecer.
-export async function buscarAcertosPendentesDaSemana(): Promise<LinhaAcertoPendenteSemana[]> {
-  const imports = await buscarImportsComAcerto()
-  if (imports.length === 0) return []
-  const importId = imports[0].id
-  const periodoFim = imports[0].period_end
+// `periodo`: sem informar, cai na semana MAIS RECENTE (comportamento de
+// sempre). Com `{inicio, fim}` (ver buscarPeriodosComAcerto), mostra a
+// semana escolhida — pedido do Cássio: "precisamos la na tela de acertos
+// pendentes, de um filtro pra separar o acerto por semana, assim o usuario
+// pode escolher a semana que vai dar rollover" (antes só dava pra ver/
+// rollover a semana mais recente, mesmo com Pendências de semanas
+// anteriores ainda em aberto escondidas no Atrasados/Inadimplentes).
+export async function buscarAcertosPendentesDaSemana(periodo?: PeriodoPagamento): Promise<LinhaAcertoPendenteSemana[]> {
+  let periodoFim: string
+  let importIds: string[]
+  let pagamentos: Awaited<ReturnType<typeof buscarPagamentosPorPeriodo>>
 
-  const [pagamentos, { data: acertosClub }] = await Promise.all([
-    buscarPagamentosPorImport(importId),
-    supabase.from('acertos').select('id, club_id').eq('import_id', importId),
-  ])
+  if (periodo) {
+    periodoFim = periodo.fim
+    const [{ data: importsData }, p] = await Promise.all([
+      supabase.from('imports').select('id').eq('period_end', periodo.fim),
+      buscarPagamentosPorPeriodo(periodo.inicio, periodo.fim),
+    ])
+    importIds = (importsData ?? []).map((i) => i.id as string)
+    pagamentos = p
+  } else {
+    const imports = await buscarImportsComAcerto()
+    if (imports.length === 0) return []
+    importIds = [imports[0].id]
+    periodoFim = imports[0].period_end
+    pagamentos = await buscarPagamentosPorImport(imports[0].id)
+  }
+  if (importIds.length === 0) return []
+
+  const { data: acertosClub } = await supabase.from('acertos').select('id, club_id').in('import_id', importIds)
   const clubIdPorAcertoId = new Map(
     ((acertosClub ?? []) as { id: string; club_id: string | null }[]).map((a) => [a.id, a.club_id])
   )

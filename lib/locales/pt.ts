@@ -106,6 +106,7 @@ export const pt = {
     conciliacao_bloqueado_desc: 'Tem {n} lançamento(s) sem bater entre Suporte e Financeiro. Corrija na Conciliação antes de ver quem está devendo.',
     ir_para_conciliacao: 'Ir para Conciliação',
     semana_titulo: 'Acertos Pendentes da Semana',
+    semana_select: 'Semana',
     atrasados_titulo: 'Atrasados (até 8 semanas)',
     inadimplentes_titulo: 'Inadimplentes (mais de 8 semanas)',
     historico_titulo: 'Histórico de Acertos Pendentes',
