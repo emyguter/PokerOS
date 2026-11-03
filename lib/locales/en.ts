@@ -108,6 +108,7 @@ export const en: typeof pt = {
     conciliacao_bloqueado_desc: 'There are {n} entries not matching between Support and Finance. Fix them in Reconciliation before seeing who owes.',
     ir_para_conciliacao: 'Go to Reconciliation',
     semana_titulo: 'Pending Settlements This Week',
+    semana_select: 'Week',
     atrasados_titulo: 'Late (up to 8 weeks)',
     inadimplentes_titulo: 'Delinquent (over 8 weeks)',
     historico_titulo: 'Pending Settlements History',

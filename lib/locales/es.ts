@@ -108,6 +108,7 @@ export const es: typeof pt = {
     conciliacao_bloqueado_desc: 'Hay {n} movimiento(s) sin coincidir entre Soporte y Finanzas. Corrígelo en Conciliación antes de ver quién debe.',
     ir_para_conciliacao: 'Ir a Conciliación',
     semana_titulo: 'Liquidaciones Pendientes de la Semana',
+    semana_select: 'Semana',
     atrasados_titulo: 'Atrasados (hasta 8 semanas)',
     inadimplentes_titulo: 'Morosos (más de 8 semanas)',
     historico_titulo: 'Historial de Liquidaciones Pendientes',

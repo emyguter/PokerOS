@@ -6,13 +6,17 @@ import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
 import { useConciliacao } from '@/components/lancamento/useConciliacao'
 import { ConfirmModal } from '@/components/ConfirmModal'
-import { rolloverAcerto } from '@/lib/pagamentos'
+import { rolloverAcerto, buscarPeriodosComAcerto, type PeriodoPagamento } from '@/lib/pagamentos'
 import { getFaixasMultaDoClube, diasDeAtraso, valorComMulta, type FaixaMulta } from '@/lib/dividas'
 import {
   buscarAcertosPendentesDaSemana, buscarInadimplencia,
   type LinhaAcertoPendenteSemana, type InadimplenciaResultado,
 } from '@/lib/acertos-pendentes'
 import { fmt, StatusBadge, TabelaInadimplencia } from './AcertosPendentesShared'
+
+function formatPeriodoLabel(p: PeriodoPagamento) {
+  return `${p.inicio} → ${p.fim}`
+}
 
 export function RelatorioAcertosPendentes() {
   const { t } = useI18n()
@@ -31,22 +35,40 @@ export function RelatorioAcertosPendentes() {
   const [faixasMulta, setFaixasMulta] = useState<FaixaMulta[]>([])
   const [clubeFiltro, setClubeFiltro] = useState('')
   const [projetoFiltro, setProjetoFiltro] = useState('')
+  // Pedido do Cássio: "precisamos la na tela de acertos pendentes, de um
+  // filtro pra separar o acerto por semana, assim o usuario pode escolher a
+  // semana que vai dar rollover" — mesmo padrão de seletor já usado em
+  // Controle de Pagamentos (ver ControlePagamentosView.tsx,
+  // buscarPeriodosComAcerto). Sem período escolhido ainda (lista carregando)
+  // cai no comportamento de sempre: semana mais recente.
+  const [periodos, setPeriodos] = useState<PeriodoPagamento[]>([])
+  const [periodoFim, setPeriodoFim] = useState('')
 
   const totalPendencias = pendGenia.length + pendSuporte.length
   const conciliacaoZerada = !loadingConciliacao && totalPendencias === 0
 
+  useEffect(() => {
+    buscarPeriodosComAcerto().then((lista) => {
+      setPeriodos(lista)
+      if (lista[0]) setPeriodoFim(lista[0].fim)
+    })
+  }, [])
+
+  const periodoSelecionado = useMemo(() => periodos.find((p) => p.fim === periodoFim) ?? null, [periodos, periodoFim])
+
   const carregar = useCallback(() => {
     setLoading(true); setError(null)
-    return Promise.all([buscarAcertosPendentesDaSemana(), buscarInadimplencia()])
+    return Promise.all([buscarAcertosPendentesDaSemana(periodoSelecionado ?? undefined), buscarInadimplencia()])
       .then(([s, i]) => { setSemana(s); setInadimplencia(i) })
       .catch((e) => setError(errMsg(e)))
       .finally(() => setLoading(false))
-  }, [])
+  }, [periodoSelecionado])
 
   useEffect(() => {
     if (!conciliacaoZerada) return
+    if (periodos.length > 0 && !periodoSelecionado) return
     carregar()
-  }, [conciliacaoZerada, carregar])
+  }, [conciliacaoZerada, periodos.length, periodoSelecionado, carregar])
 
   function abrirRollover(l: LinhaAcertoPendenteSemana) {
     setConfirmarRollover(l); setErroRollover(null); setFaixasMulta([])
@@ -121,6 +143,13 @@ export function RelatorioAcertosPendentes() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-white">{t('acertos_pendentes.semana_titulo')}</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1.5">{t('acertos_pendentes.semana_select')}</label>
+            <select value={periodoFim} onChange={(e) => setPeriodoFim(e.target.value)} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gold/50">
+              {periodos.length === 0 && <option value="">{t('pagamentos.nenhum_import')}</option>}
+              {periodos.map((p) => <option key={p.fim} value={p.fim}>{formatPeriodoLabel(p)}</option>)}
+            </select>
+          </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">{t('stoploss.clube')}</label>
             <input type="text" value={clubeFiltro} onChange={(e) => setClubeFiltro(e.target.value)} placeholder={t('acertos.buscar_placeholder')} className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gold/50" />
