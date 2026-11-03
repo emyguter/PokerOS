@@ -16,11 +16,25 @@ export const COLUNAS_TAXA_RAKE = [
   "Taxa (jogos não PPSR)",
 ] as const;
 
+// A própria coluna "Taxa" do relatório já é esse subtotal pronto (soma das
+// 4 granulares) — é exatamente o que a planilha manual do Cássio usa (ver
+// comentário acima). Prioridade sobre as 4 granulares: mais robusta (1 nome
+// fixo em vez de 4), e cobre os relatórios que só trazem "Taxa" sem a
+// quebra por tipo de jogo (achado numa semana do Sul Home Game onde a
+// detecção das 4 colunas falhava — sem nenhuma bater, caía no fallback de
+// somar o bloco inteiro, "puxando" Geral + Jackpot junto, confirmado pelo
+// Cássio: "Ele está puxando da coluna Geral e o correto é da Taxa").
+const COLUNA_TAXA_SIMPLES = "Taxa";
+
 // Índices das colunas de Taxa na linha de sub-cabeçalho, procurando só
 // dentro do bloco [inicioBloco, fimBloco) — "Ganhos do clube". Vazio quando
-// o relatório não traz essa quebra (quem chama cai no comportamento antigo).
+// o relatório não traz nem "Taxa" nem a quebra granular (quem chama cai no
+// comportamento antigo de somar o bloco inteiro).
 export function acharColunasTaxa(subHeader: unknown[], inicioBloco: number, fimBloco: number): number[] {
   if (inicioBloco < 0) return [];
+  for (let c = inicioBloco; c < fimBloco; c++) {
+    if (String(subHeader[c] ?? "").trim() === COLUNA_TAXA_SIMPLES) return [c];
+  }
   const idxs: number[] = [];
   for (let c = inicioBloco; c < fimBloco; c++) {
     const v = String(subHeader[c] ?? "").trim();
