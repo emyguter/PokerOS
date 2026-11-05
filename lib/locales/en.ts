@@ -120,6 +120,7 @@ export const en: typeof pt = {
     nenhum_atrasado: 'No club late (up to 8 weeks).',
     nenhum_inadimplente: 'No club delinquent (over 8 weeks).',
     rollover: 'Rollover',
+    rollover_feito: 'Rollover',
     title_rollover: "Rollover — waives the fine for this delay (negotiated with the club). The Difference already carries over to the next Settlement on its own either way.",
     confirm_rollover_desc: "Waive the fine for {nome} on the {valor} pending this week? The amount still carries over normally to next week — only the automatic fine for this delay is skipped.",
     multa_seria_cobrada_desc: 'Without waiving it, the automatic fine for this delay would be {valor}.',

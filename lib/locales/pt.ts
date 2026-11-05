@@ -118,6 +118,7 @@ export const pt = {
     nenhum_atrasado: 'Nenhum clube atrasado (até 8 semanas).',
     nenhum_inadimplente: 'Nenhum clube inadimplente (mais de 8 semanas).',
     rollover: 'Rollover',
+    rollover_feito: 'Rollover',
     title_rollover: 'Rollover — isenta esse atraso de multa (negociado com o clube). A Diferença já carrega sozinha pro próximo Acerto de qualquer jeito.',
     confirm_rollover_desc: 'Isentar {nome} de multa nos {valor} pendentes dessa semana? O valor continua carregando normalmente pra próxima semana — só a multa automática desse atraso fica de fora.',
     multa_seria_cobrada_desc: 'Sem isentar, a multa automática desse atraso ficaria em {valor}.',

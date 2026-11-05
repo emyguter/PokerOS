@@ -34,6 +34,13 @@ export interface LinhaAcertoPendenteSemana {
   // tabela na tela (pedido do Cássio: busca por clube + filtro por
   // projeto), não entra em cálculo nenhum.
   projeto: string | null
+  // true = Rollover já foi clicado nesse Acerto (ver rolloverAcerto em
+  // lib/pagamentos.ts) — a Diferença continua pendente normalmente (carrega
+  // pra próxima semana sozinha), só a multa automática desse atraso fica
+  // isenta. UI mostra "Rollover ✅" em verde pra avisar que já foi feito
+  // (pedido do Cássio: "seria melhor que... ele deixar 'Rollover ✅' e em
+  // verde pra gente saber q já foi feito").
+  rolloverSemMulta: boolean
 }
 
 // Bloqueado tem prioridade sobre 50% (um clube pode ter os dois marcados ao
@@ -84,9 +91,12 @@ export async function buscarAcertosPendentesDaSemana(periodo?: PeriodoPagamento)
   }
   if (importIds.length === 0) return []
 
-  const { data: acertosClub } = await supabase.from('acertos').select('id, club_id').in('import_id', importIds)
+  const { data: acertosClub } = await supabase.from('acertos').select('id, club_id, rollover_sem_multa').in('import_id', importIds)
   const clubIdPorAcertoId = new Map(
-    ((acertosClub ?? []) as { id: string; club_id: string | null }[]).map((a) => [a.id, a.club_id])
+    ((acertosClub ?? []) as { id: string; club_id: string | null; rollover_sem_multa: boolean | null }[]).map((a) => [a.id, a.club_id])
+  )
+  const rolloverPorAcertoId = new Map(
+    ((acertosClub ?? []) as { id: string; club_id: string | null; rollover_sem_multa: boolean | null }[]).map((a) => [a.id, !!a.rollover_sem_multa])
   )
 
   const pendentes = pagamentos.filter((p) => Math.abs(p.diferenca) > 0.005)
@@ -109,6 +119,7 @@ export async function buscarAcertosPendentesDaSemana(periodo?: PeriodoPagamento)
         direcao: (p.diferenca < 0 ? 'clube_deve' : 'liga_deve') as DirecaoDiferenca,
         periodoFim,
         projeto: p.projeto,
+        rolloverSemMulta: rolloverPorAcertoId.get(p.acerto_id) ?? false,
       }
     })
     .sort((a, b) => a.diferenca - b.diferenca)

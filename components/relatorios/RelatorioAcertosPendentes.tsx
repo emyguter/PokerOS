@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, Loader2, RotateCcw } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Loader2, RotateCcw } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { errMsg } from '@/lib/errors'
 import { useConciliacao } from '@/components/lancamento/useConciliacao'
@@ -190,15 +190,21 @@ export function RelatorioAcertosPendentes() {
                       <td className={`px-4 py-3 text-right font-medium ${l.direcao === 'liga_deve' ? 'text-blue-400' : 'text-alert'}`}>{fmt(l.direcao === 'liga_deve' ? l.diferenca : -l.diferenca)}</td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         {l.clubId && l.direcao === 'clube_deve' && (
-                          <button
-                            type="button"
-                            onClick={() => abrirRollover(l)}
-                            disabled={fazendoRollover === l.acertoId}
-                            title={t('acertos_pendentes.title_rollover')}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 border border-gold/30 text-gold rounded-lg text-xs font-medium hover:bg-gold/10 disabled:opacity-50 transition-colors ml-auto"
-                          >
-                            {fazendoRollover === l.acertoId ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}{t('acertos_pendentes.rollover')}
-                          </button>
+                          l.rolloverSemMulta ? (
+                            <span className="flex items-center gap-1.5 justify-end text-xs font-medium text-success">
+                              <CheckCircle2 size={13} />{t('acertos_pendentes.rollover_feito')}
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => abrirRollover(l)}
+                              disabled={fazendoRollover === l.acertoId}
+                              title={t('acertos_pendentes.title_rollover')}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 border border-gold/30 text-gold rounded-lg text-xs font-medium hover:bg-gold/10 disabled:opacity-50 transition-colors ml-auto"
+                            >
+                              {fazendoRollover === l.acertoId ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}{t('acertos_pendentes.rollover')}
+                            </button>
+                          )
                         )}
                       </td>
                     </tr>
