@@ -237,7 +237,7 @@ export async function criarDivida(form: DividaForm): Promise<string> {
 // Só dá pra editar Valor/Juros/Parcelas/Data enquanto NENHUMA parcela desse
 // Acordo tiver sido paga ainda — depois disso os termos travam, pra não
 // bagunçar o histórico de quem já pagou parte (confirmado pelo Cássio).
-// Descrição e Pagar com Rake continuam editáveis sempre.
+// Descrição continua editável sempre.
 export async function podeEditarTermosDivida(dividaId: string): Promise<boolean> {
   const { data } = await supabase.from('divida_parcelas').select('id').eq('divida_id', dividaId).eq('pago', true).limit(1)
   return (data ?? []).length === 0
@@ -245,7 +245,14 @@ export async function podeEditarTermosDivida(dividaId: string): Promise<boolean>
 
 export async function atualizarDivida(dividaId: string, form: DividaForm): Promise<void> {
   const podeTermos = await podeEditarTermosDivida(dividaId)
-  const patch: Record<string, unknown> = { descricao: form.descricao, pago_com_rake: form.pago_com_rake }
+  const patch: Record<string, unknown> = { descricao: form.descricao }
+  // Pagar com Rake de um Acordo só é decidido na criação, nunca depois —
+  // pedido do Cássio: "eu não altero Acordo... se for mudar, vou ter que
+  // fechar esse acordo e abrir um novo" (interromperEcriarFilho já cobre
+  // isso). Pra Dívida Simples continua editável a qualquer momento (sem Acordo
+  // de termos pra travar, desconto por Rakeback pode ser ligado/desligado
+  // com o tempo).
+  if (form.tipo === 'simples') patch.pago_com_rake = form.pago_com_rake
   if (podeTermos) {
     Object.assign(patch, {
       valor_integral: form.valor_integral, pagamento_minimo: form.pagamento_minimo, quantidade_parcelas: form.quantidade_parcelas,
@@ -311,9 +318,39 @@ export async function marcarParcelaPaga(parcelaId: string, valorPago: number): P
   if (error) throw error
 }
 
-export async function atualizarParcelaPagoComRake(parcelaId: string, pagoComRake: boolean): Promise<void> {
-  const { error } = await supabase.from('divida_parcelas').update({ pago_com_rake: pagoComRake }).eq('id', parcelaId)
-  if (error) throw error
+// Parcela de Acordo SEM "Pagar com Rake" (ex: EVIDENCE POKER) não tem botão
+// de "Marcar como paga" manual — o valor dela já entra toda semana no Total
+// do Acerto do clube (getDividasAcertoDoClube), com a multa certa calculada
+// contra o vencimento (não depende de ninguém digitar uma data). Quando o
+// Acerto do clube fica quitado (Diferença zerada — ver
+// clubesComDiferencaQuitada em lib/acertos-engine.ts, que chama isso daqui),
+// essas parcelas já contadas nele são marcadas pagas automaticamente —
+// pedido do Cássio: "marcar como paga sempre que o Acerto for pago, se não
+// for pago já vai cobrar o juros do Acerto, ou seja, não precisa do
+// manual". `pago_com_rake` continua tratado à parte por
+// marcarDividasPagasComRake (quitado na hora, não espera o Acerto ser
+// pago — é a própria dedução do Rake que paga). Marca o valor CRU da
+// parcela (sem recalcular multa aqui) — a multa já foi cobrada de verdade
+// no Acerto.
+export async function marcarDividasNaoRakeQuandoAcertoQuitado(clubeId: string, periodoFim: string): Promise<void> {
+  const { data: dividas } = await supabase
+    .from('dividas')
+    .select('id, pago_com_rake')
+    .eq('clube_id', clubeId).eq('status', 'ativo').eq('tipo', 'acordo').not('quantidade_parcelas', 'is', null)
+  for (const d of (dividas ?? []) as { id: string; pago_com_rake: boolean }[]) {
+    if (d.pago_com_rake) continue
+    const { data: parcelas } = await supabase
+      .from('divida_parcelas')
+      .select('id, valor')
+      .eq('divida_id', d.id).eq('pago', false).lte('vencimento', periodoFim)
+    for (const p of (parcelas ?? []) as { id: string; valor: number }[]) {
+      try { await marcarParcelaPaga(p.id, p.valor) } catch { /* segue pras outras parcelas */ }
+    }
+    const { data: todas } = await supabase.from('divida_parcelas').select('pago').eq('divida_id', d.id)
+    if ((todas ?? []).length > 0 && (todas ?? []).every((t) => (t as { pago: boolean }).pago)) {
+      try { await atualizarStatusDivida(d.id, 'quitado') } catch { /* segue */ }
+    }
+  }
 }
 
 export async function atualizarStatusDivida(dividaId: string, status: StatusDivida): Promise<void> {

@@ -18,8 +18,10 @@ interface Props {
   // criação normal.
   editing?: DividaRow | null
   // Só relevante em edição: false trava Valor/Juros/Parcelas/Data porque já
-  // tem parcela paga (ver podeEditarTermosDivida) — Descrição e Pagar com
-  // Rake continuam editáveis sempre.
+  // tem parcela paga (ver podeEditarTermosDivida) — Descrição continua
+  // editável sempre. Pagar com Rake de Acordo trava à parte (ver
+  // pagoComRakeTravado abaixo), assim que o Acordo existe, com ou sem
+  // parcela paga.
   podeEditarTermos?: boolean
 }
 
@@ -71,6 +73,13 @@ export function DividaModal({ open, clubes, onClose, onSave, saving, error, edit
   // (confirmado pelo Cássio: "se for pagar com rake, não haverá parcela").
   const semCronograma = tipo === 'acordo' && pagoComRake
   const travado = tipo === 'acordo' && !podeEditarTermos
+  // Pagar com Rake de um Acordo só é decidido na criação, nunca depois —
+  // pedido do Cássio: "eu não altero Acordo... se for mudar, vou ter que
+  // fechar esse acordo e abrir um novo" (ver interromperEcriarFilho).
+  // Diferente de `travado` (que destrava de novo se nenhuma parcela foi
+  // paga ainda), esse aqui já trava assim que o Acordo existe, mesmo sem
+  // parcela nenhuma paga.
+  const pagoComRakeTravado = tipo === 'acordo' && !!editing
   // Dívida Simples com Pagar com Rake ligado pode descontar aos poucos (só
   // um % do Rake por semana) em vez de tudo de uma vez — % Rakeback vazio
   // continua com o comportamento de sempre (desconta o Valor Integral
@@ -162,8 +171,11 @@ export function DividaModal({ open, clubes, onClose, onSave, saving, error, edit
             </div>
 
             <div className="space-y-2">
-              <label className="flex items-center gap-3 cursor-pointer w-fit">
-                <div onClick={() => setPagoComRake(!pagoComRake)} className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${pagoComRake ? 'bg-gold' : 'bg-white/10'}`}>
+              <label className={`flex items-center gap-3 w-fit ${pagoComRakeTravado ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                <div
+                  onClick={() => !pagoComRakeTravado && setPagoComRake(!pagoComRake)}
+                  className={`w-10 h-6 rounded-full transition-colors relative ${pagoComRakeTravado ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${pagoComRake ? 'bg-gold' : 'bg-white/10'}`}
+                >
                   <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${pagoComRake ? 'translate-x-5' : 'translate-x-1'}`} />
                 </div>
                 <span className="text-sm text-gray-300">{t('divida_modal.pagar_com_rake')}</span>
@@ -171,6 +183,7 @@ export function DividaModal({ open, clubes, onClose, onSave, saving, error, edit
               <p className="text-xs text-gray-500">
                 {tipo === 'acordo' ? t('divida_modal.pagar_com_rake_desc_acordo') : t('divida_modal.pagar_com_rake_desc_simples')}
               </p>
+              {pagoComRakeTravado && <p className="text-xs text-gray-600">{t('divida_modal.pagar_com_rake_travado_aviso')}</p>}
             </div>
 
             {simplesComRake && (

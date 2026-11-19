@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { propagarParaSuperagentes } from "@/lib/rateio-agentes";
-import { marcarDividasPagasComRake, getFaixasMultaDeClubes, percentualMulta, diasDeAtraso as diasDeAtrasoDivida, type FaixaMulta } from "@/lib/dividas";
+import { marcarDividasPagasComRake, marcarDividasNaoRakeQuandoAcertoQuitado, getFaixasMultaDeClubes, percentualMulta, diasDeAtraso as diasDeAtrasoDivida, type FaixaMulta } from "@/lib/dividas";
 import { regrossarValorCrypto } from "@/lib/relatorio-acerto";
 
 export interface ClubSettings {
@@ -861,6 +861,28 @@ export async function clubesComDiferencaQuitada(clubIds: string[], periodEnd: st
     if (naoQuitado) quitados.delete(clubId);
   }
   return quitados;
+}
+
+// Chamado depois que um Pagamento (origem Suporte, que é o único lado que
+// conta pra quitação — ver comentário acima) é lançado contra um Acerto —
+// se isso deixou a Diferença daquele Acerto quitada, marca como pagas as
+// parcelas de Acordo (sem "Pagar com Rake") que já tinham entrado no Total
+// desse Acerto, sem precisar de ninguém clicar "Marcar como paga" (ver
+// marcarDividasNaoRakeQuandoAcertoQuitado em lib/dividas.ts) — pedido do
+// Cássio: "marcar como paga sempre que o Acerto for pago, se não for pago
+// já vai cobrar o juros do Acerto, ou seja, não precisa do manual". Best-
+// effort: o Pagamento já foi salvo com sucesso antes disso rodar.
+export async function marcarDividasSeAcertoQuitado(acertoId: string): Promise<void> {
+  const { data: acerto } = await supabase.from("acertos").select("club_id, imports(period_end)").eq("id", acertoId).maybeSingle();
+  type AcertoComImport = { club_id: string | null; imports: { period_end: string } | { period_end: string }[] | null };
+  const a = acerto as unknown as AcertoComImport | null;
+  const clubId = a?.club_id;
+  const imp = a ? (Array.isArray(a.imports) ? a.imports[0] : a.imports) : null;
+  const periodEnd = imp?.period_end;
+  if (!clubId || !periodEnd) return;
+  const quitados = await clubesComDiferencaQuitada([clubId], periodEnd);
+  if (!quitados.has(clubId)) return;
+  await marcarDividasNaoRakeQuandoAcertoQuitado(clubId, periodEnd);
 }
 
 // Pendências/Antecipação = lançamentos de Antecipação do Suporte já

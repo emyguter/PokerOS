@@ -8,7 +8,7 @@ import { desvincularConciliacao } from '@/lib/lancamentos'
 import { tentarConciliarAoLancar } from './useConciliacao'
 import { corrigirValorCrypto } from '@/lib/relatorio-acerto'
 import { valorAcertoCompletoPorRow, type AcertoCompletoRow } from '@/lib/pagamentos'
-import { buscarPendenciasEAntecipacaoAoVivo } from '@/lib/acertos-engine'
+import { buscarPendenciasEAntecipacaoAoVivo, marcarDividasSeAcertoQuitado } from '@/lib/acertos-engine'
 import { BuscaSelect } from '@/components/BuscaSelect'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import { TIPOS, ehTipoSeguranca, aguardandoConfirmacao } from './ExtratoView'
@@ -245,6 +245,17 @@ export function LancarForm({ origem = 'suporte', onCreated }: { origem?: 'suport
       if (criado?.id) {
         try {
           await tentarConciliarAoLancar({ id: criado.id, clube_id: clubeId, tipo, natureza, valor: valorNum, data_lancamento: data, origem })
+        } catch { /* best-effort */ }
+      }
+      // Pagamento do Suporte (o lado que conta pra quitação, ver
+      // clubesComDiferencaQuitada) pode ter acabado de quitar a Diferença do
+      // Acerto — se sim, marca como pagas sozinhas as parcelas de Acordo sem
+      // "Pagar com Rake" já contadas nele, sem precisar de "Marcar como
+      // paga" manual (pedido do Cássio). Best-effort, mesma lógica do bloco
+      // acima.
+      if (origem === 'suporte' && tipo === 'pagamento' && ehPagamentoComAcerto && acertoId) {
+        try {
+          await marcarDividasSeAcertoQuitado(acertoId)
         } catch { /* best-effort */ }
       }
       setValor('')

@@ -145,17 +145,37 @@ export function ArvoreAcertosView() {
     setPath(novo)
     carregarFilhos(novo, periodoFiltro)
   }
-  function mudarPeriodo(fim: string) {
+  async function mudarPeriodo(fim: string) {
     setPeriodoFiltro(fim)
-    setPath([])
-    setBusca('')
     // Zera `raiz` antes de recarregar — sem isso, a lista da semana ANTERIOR
     // continuava visível e clicável durante o fetch (`loading && !raiz` só
     // bloqueia no carregamento inicial), deixando clicar num clube com os
     // dados de period_start/period_end ainda da semana de antes (achado:
     // trocar a semana e clicar rápido no clube abria o Acerto errado).
     setRaiz(null)
-    load(fim)
+    const idxClube = path.findIndex((p) => p.tipo === 'clube')
+    if (idxClube === -1) {
+      // Não tava dentro de nenhum clube — comportamento de sempre, volta pra raiz.
+      setPath([])
+      setBusca('')
+      load(fim)
+      return
+    }
+    // Troca de semana enquanto um clube está aberto: mantém ele aberto, só
+    // atualiza pra semana nova (em vez de resetar a navegação pra raiz, que
+    // derrubava o clube que estava sendo acompanhado) — pedido do Cássio:
+    // "pode falar para ele... quando a gente altera a semana, para
+    // acompanhar o desenvolvimento de um clube só, [antes] a semana lá em
+    // cima está trocada, mas ele não atualizou". Super Agente/Agente/Jogador
+    // mais fundo no path não são preservados — cada semana pode ter um
+    // rateio diferente, então volta só até o nível do clube.
+    const clubeAntigo = path[idxClube] as PathEntry & { tipo: 'clube' }
+    const clubeId = clubeAntigo.ref.acerto.club_id
+    const novaRaiz = await load(fim)
+    const clubeAtualizado = clubeId && novaRaiz ? acharClubeNaArvore(novaRaiz, clubeId) : null
+    const novoPath = clubeAtualizado ? [...path.slice(0, idxClube), { tipo: 'clube' as const, ref: clubeAtualizado }] : []
+    setPath(novoPath)
+    carregarFilhos(novoPath, fim)
   }
 
   // ── calcular/recalcular ──────────────────────────────────────────────
