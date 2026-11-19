@@ -994,15 +994,27 @@ export async function buscarMultaAtual(clubIds: string[], periodEnd: string): Pr
 // real do clube (1 semana → 2%, 2 semanas → 10%) e a planilha dele: 251,90
 // → (semana 1, 2%) 256,94 → (+34,52 de Acerto novo) 291,46 → (semana 2,
 // 10%) 320,61 → (semana 3, ainda 10%, sem Acerto novo) 352,67.
-function avancarSemanasMulta(totalAtual: number, sequenciaDesde: string, de: string, ate: string, faixas: FaixaMulta[]): number {
+//
+// Retorna também `baseAntesDaUltimaSemana` (o total ANTES da última
+// multiplicação aplicada) — pedido do Cássio vendo o card do DM Poker Team:
+// "nas Pendências precisa ser o NOVO valor de dívida, aí na Multa os 10%, e
+// no novo valor tudo somado" — ou seja, Pendências tem que mostrar a dívida
+// JÁ carregada (320,61, "esse cara aqui passa a ser a dívida"), não o
+// principal cru original (286,42), e a linha de Multa mostra só o
+// incremento da ÚLTIMA semana (32,06), não a multa acumulada de todas as
+// semanas — o Total continua o mesmo de qualquer jeito (352,67).
+function avancarSemanasMulta(totalAtual: number, sequenciaDesde: string, de: string, ate: string, faixas: FaixaMulta[]): { total: number; baseAntesDaUltimaSemana: number; teveMulta: boolean } {
   let total = totalAtual;
+  let baseAntesDaUltimaSemana = totalAtual;
+  let teveMulta = false;
   let semana = maisDias(de, 7);
   while (semana <= ate) {
+    baseAntesDaUltimaSemana = total;
     const pct = percentualMulta(diasDeAtrasoDivida(sequenciaDesde, new Date(semana + "T00:00:00")), faixas);
-    if (pct > 0) total *= 1 + pct / 100;
+    if (pct > 0) { total *= 1 + pct / 100; teveMulta = true; }
     semana = maisDias(semana, 7);
   }
-  return total;
+  return { total, baseAntesDaUltimaSemana, teveMulta };
 }
 export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promise<Map<string, { total: number; multa: number; pct: number }>> {
   const mapa = new Map<string, { total: number; multa: number; pct: number }>();
@@ -1133,12 +1145,17 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
     // novo — ver avancarSemanasMulta acima. `sequenciaTotalComMulta` carrega
     // esse composto; `sequenciaUltimaSemana` marca até onde já foi
     // processado, pra `avancarSemanasMulta` só compor as semanas que faltam
-    // (sem repetir as que já entraram no total).
+    // (sem repetir as que já entraram no total). `sequenciaBaseUltimaSemana`
+    // guarda o total ANTES da última multiplicação aplicada — pedido do
+    // Cássio: Pendências mostra esse "novo valor de dívida" já carregado, e
+    // a linha de Multa mostra só o incremento da ÚLTIMA semana (não a multa
+    // acumulada de todas as semanas), somando os dois pro mesmo Total de
+    // sempre (ver multaFinal abaixo).
     let saldo = 0;
     let sequenciaDesde: string | null = null;
     let sequenciaUltimaSemana: string | null = null;
-    let sequenciaPrincipal = 0;
     let sequenciaTotalComMulta = 0;
+    let sequenciaBaseUltimaSemana = 0;
     let sequenciaSemMulta = false;
     for (const p of periodos) {
       const pago = pagoPorAcerto.get(p.acertoId) ?? 0;
@@ -1157,22 +1174,23 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
       saldo += resto;
       if (sequenciaDesde !== null) {
         if (!sequenciaSemMulta && faixas.length > 0) {
-          const totalAntes = sequenciaTotalComMulta;
-          sequenciaTotalComMulta = avancarSemanasMulta(sequenciaTotalComMulta, sequenciaDesde, sequenciaUltimaSemana!, p.end, faixas);
-          saldo += sequenciaTotalComMulta - totalAntes;
+          const { total, baseAntesDaUltimaSemana, teveMulta } = avancarSemanasMulta(sequenciaTotalComMulta, sequenciaDesde, sequenciaUltimaSemana!, p.end, faixas);
+          saldo += total - sequenciaTotalComMulta;
+          sequenciaTotalComMulta = total;
+          if (teveMulta) sequenciaBaseUltimaSemana = baseAntesDaUltimaSemana;
         }
         sequenciaUltimaSemana = p.end;
-        sequenciaPrincipal += resto;
         sequenciaTotalComMulta += resto;
+        sequenciaBaseUltimaSemana += resto;
       }
       if (saldo < -0.005) {
-        if (sequenciaDesde === null) { sequenciaDesde = p.end; sequenciaUltimaSemana = p.end; sequenciaPrincipal = resto; sequenciaTotalComMulta = resto; sequenciaSemMulta = false; }
+        if (sequenciaDesde === null) { sequenciaDesde = p.end; sequenciaUltimaSemana = p.end; sequenciaTotalComMulta = resto; sequenciaBaseUltimaSemana = resto; sequenciaSemMulta = false; }
         if (p.semMulta) sequenciaSemMulta = true;
       } else {
         sequenciaDesde = null;
         sequenciaUltimaSemana = null;
-        sequenciaPrincipal = 0;
         sequenciaTotalComMulta = 0;
+        sequenciaBaseUltimaSemana = 0;
         sequenciaSemMulta = false;
       }
       quitadoDiretoAnterior = quitadoDireto;
@@ -1184,15 +1202,17 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
     // semanas, o card da própria semana em que a multa começou já pulava
     // direto pra faixa mais alta, porque "hoje" tinha avançado muito mais
     // que a semana do card). `multaFinal`/`pctFinal` ficam guardados pra
-    // expor em buscarMultaAtual (linha própria no card).
+    // expor em buscarMultaAtual (linha própria no card) — `multaFinal` é só
+    // o incremento da última semana (ver comentário acima).
     let multaFinal = 0;
     let pctFinal = 0;
     if (sequenciaDesde !== null && !sequenciaSemMulta && faixas.length > 0) {
-      const totalAntes = sequenciaTotalComMulta;
-      sequenciaTotalComMulta = avancarSemanasMulta(sequenciaTotalComMulta, sequenciaDesde, sequenciaUltimaSemana!, periodEnd, faixas);
-      saldo += sequenciaTotalComMulta - totalAntes;
+      const { total, baseAntesDaUltimaSemana, teveMulta } = avancarSemanasMulta(sequenciaTotalComMulta, sequenciaDesde, sequenciaUltimaSemana!, periodEnd, faixas);
+      saldo += total - sequenciaTotalComMulta;
+      sequenciaTotalComMulta = total;
+      if (teveMulta) sequenciaBaseUltimaSemana = baseAntesDaUltimaSemana;
       pctFinal = percentualMulta(diasDeAtrasoDivida(sequenciaDesde, new Date(periodEnd + "T00:00:00")), faixas);
-      multaFinal = sequenciaTotalComMulta - sequenciaPrincipal;
+      multaFinal = sequenciaTotalComMulta - sequenciaBaseUltimaSemana;
     }
     // Bloqueio de Segurança entra por fora da sequência de Multa (não é
     // Acerto atrasado) — soma direto no saldo final.
