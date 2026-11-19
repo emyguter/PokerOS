@@ -7,9 +7,9 @@ import { useI18n } from '@/lib/i18n'
 import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import {
   getDividas, getParcelas, criarDivida, atualizarDivida, podeEditarTermosDivida, interromperEcriarFilho,
-  atualizarStatusDivida, excluirDivida, getFaixasMultaDoClube,
-  diasDeAtraso, valorComMulta, percentualMulta,
-  type DividaRow, type DividaForm, type ParcelaRow, type FaixaMulta,
+  atualizarStatusDivida, excluirDivida,
+  diasDeAtraso,
+  type DividaRow, type DividaForm, type ParcelaRow,
 } from '@/lib/dividas'
 import { DividaModal } from './DividaModal'
 import { InterromperAcordoModal } from './InterromperAcordoModal'
@@ -37,7 +37,6 @@ export function DividasView() {
   const [loading, setLoading] = useState(true)
   const [selecionada, setSelecionada] = useState<DividaRow | null>(null)
   const [parcelas, setParcelas] = useState<ParcelaRow[]>([])
-  const [faixasMulta, setFaixasMulta] = useState<FaixaMulta[]>([])
   const [podeEditarTermos, setPodeEditarTermos] = useState(true)
   const [loadingDetalhe, setLoadingDetalhe] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
@@ -61,13 +60,11 @@ export function DividasView() {
   async function abrirDetalhe(d: DividaRow) {
     setSelecionada(d)
     setLoadingDetalhe(true)
-    const [ps, faixas, podeTermos] = await Promise.all([
+    const [ps, podeTermos] = await Promise.all([
       d.tipo === 'acordo' ? getParcelas(d.id) : Promise.resolve([]),
-      getFaixasMultaDoClube(d.clube_id),
       podeEditarTermosDivida(d.id),
     ])
     setParcelas(ps)
-    setFaixasMulta(faixas)
     setPodeEditarTermos(podeTermos)
     setLoadingDetalhe(false)
   }
@@ -251,13 +248,13 @@ export function DividasView() {
               ) : (
                 <div className="space-y-2">
                   <p className="text-xs text-gray-500">{t('dividas_view.pagar_com_rake')}: {selecionada.pago_com_rake ? t('dividas_view.pagar_com_rake_sim') : t('dividas_view.pagar_com_rake_nao')}</p>
-                  {faixasMulta.length === 0 && (
-                    <p className="text-xs text-gray-500 italic">{t('dividas_view.sem_regra_multa')}</p>
-                  )}
                   {parcelas.map((p) => {
+                    // Só registra se a parcela está paga ou em atraso — sem
+                    // multa aqui (pedido do Cássio: "retire as multas
+                    // daqui, vamos apenas registrar as parcelas se estao
+                    // pagas ou em atraso e só"). A multa de verdade já é
+                    // cobrada no Acerto do clube (buscarSaldoArrastado).
                     const atraso = !p.pago ? diasDeAtraso(p.vencimento) : 0
-                    const pct = atraso > 0 ? percentualMulta(atraso, faixasMulta) : 0
-                    const valorComPenalidade = atraso > 0 ? valorComMulta(p.valor, atraso, faixasMulta) : p.valor
                     return (
                       <div key={p.id} className={`rounded-lg border p-3 flex items-center justify-between gap-3 ${p.pago ? 'border-white/10 bg-surface2' : atraso > 0 ? 'border-alert/30 bg-alert/5' : 'border-white/10 bg-surface2'}`}>
                         <div>
@@ -265,7 +262,7 @@ export function DividasView() {
                           {p.pago ? (
                             <p className="text-xs text-success flex items-center gap-1 mt-0.5"><CheckCircle2 size={12} />{t('dividas_view.pago_valor', { valor: fmt(p.valor_pago ?? p.valor) })}</p>
                           ) : atraso > 0 ? (
-                            <p className="text-xs text-alert flex items-center gap-1 mt-0.5"><AlertTriangle size={12} />{t('dividas_view.atraso', { n: atraso })}{pct > 0 ? t('dividas_view.multa_pct', { pct }) : ''} — {fmt(valorComPenalidade)}</p>
+                            <p className="text-xs text-alert flex items-center gap-1 mt-0.5"><AlertTriangle size={12} />{t('dividas_view.atraso', { n: atraso })} — {fmt(p.valor)}</p>
                           ) : (
                             <p className="text-xs text-gray-500 mt-0.5">{t('dividas_view.em_aberto', { valor: fmt(p.valor) })}</p>
                           )}
