@@ -454,7 +454,6 @@ export const pt = {
     pago_em: 'Pago em {data}: {valor}',
     em_aberto_sem_multa: 'Em aberto — {valor} (quita de uma vez no próximo Acerto, sem multa)',
     sem_regra_multa: 'Esse clube não tem Regra de Multa de Acerto vinculada — parcelas atrasadas não recebem multa.',
-    quita_automatico_aviso: 'Sem "Pagar com Rake": a parcela entra toda semana no Acerto e quita sozinha quando a Diferença daquele Acerto for paga — sem precisar marcar nada aqui.',
     parcela_vence: 'Parcela {n} — vence {data}',
     pago_valor: 'Pago: {valor}',
     atraso: '{n} dia(s) de atraso', multa_pct: ' · +{pct}% de multa',

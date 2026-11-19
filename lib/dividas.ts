@@ -374,11 +374,6 @@ export async function atualizarSaldoRestanteDivida(dividaId: string, saldoApos: 
   if (error) throw error
 }
 
-export async function atualizarDividaPagoComRake(dividaId: string, pagoComRake: boolean): Promise<void> {
-  const { error } = await supabase.from('dividas').update({ pago_com_rake: pagoComRake }).eq('id', dividaId)
-  if (error) throw error
-}
-
 export async function excluirDivida(dividaId: string): Promise<void> {
   const { error } = await supabase.from('dividas').delete().eq('id', dividaId)
   if (error) throw error
