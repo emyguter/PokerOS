@@ -979,6 +979,31 @@ export async function buscarMultaAtual(clubIds: string[], periodEnd: string): Pr
 // dele (ex: buscarClubesZerados, que monta Pendências E Multa a partir do
 // mesmo cálculo) poder rodar só uma vez e reaproveitar — ver
 // arrastadoPreCalculado em buscarPendenciasAntecipacao acima.
+//
+// Multa por atraso: anda a sequência de atraso SEMANA A SEMANA entre a
+// última semana já processada (`de`, exclusive) e `ate` (inclusive),
+// compondo a cada semana a % vigente NAQUELA semana sobre o total corrente
+// — mesmo em semanas sem Acerto novo (clube "sem movimento" por várias
+// semanas seguidas, ver DM Poker Team abaixo). Achado pelo Cássio com
+// planilha de referência pro DM Poker Team: a multa não é um desconto único
+// quando a faixa muda — ela recompõe TODA semana que o atraso continua,
+// mesmo semanas seguidas na MESMA faixa (2 semanas de atraso a 10%: compõe
+// 10% na semana 2 E de novo na semana 3, não só uma vez quando entrou na
+// faixa) — "ele vai recobrar a cada semana, vai carregando" (confirmado:
+// "a cada semana" / "eh eh eh"). Conferido célula a célula contra a Regra
+// real do clube (1 semana → 2%, 2 semanas → 10%) e a planilha dele: 251,90
+// → (semana 1, 2%) 256,94 → (+34,52 de Acerto novo) 291,46 → (semana 2,
+// 10%) 320,61 → (semana 3, ainda 10%, sem Acerto novo) 352,67.
+function avancarSemanasMulta(totalAtual: number, sequenciaDesde: string, de: string, ate: string, faixas: FaixaMulta[]): number {
+  let total = totalAtual;
+  let semana = maisDias(de, 7);
+  while (semana <= ate) {
+    const pct = percentualMulta(diasDeAtrasoDivida(sequenciaDesde, new Date(semana + "T00:00:00")), faixas);
+    if (pct > 0) total *= 1 + pct / 100;
+    semana = maisDias(semana, 7);
+  }
+  return total;
+}
 export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string): Promise<Map<string, { total: number; multa: number; pct: number }>> {
   const mapa = new Map<string, { total: number; multa: number; pct: number }>();
   if (clubIds.length === 0 || !periodEnd) return mapa;
@@ -1102,22 +1127,18 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
     // "trava" (some) quando o saldo total volta a zero/positivo — igual
     // aluguel: "atrasou 1 semana, 2%... atrasou 2, 10%... pagou, zerou".
     //
-    // Quando a faixa SOBE (mais semanas de atraso, % maior), a nova % incide
-    // sobre a dívida JÁ com a multa anterior embutida, não sobre o principal
-    // cru de novo — achado pelo Cássio no DM Poker Team, com planilha de
-    // referência: dívida de 300, 2% vira 306 (300 × 1,02); na semana
-    // seguinte, com a faixa subindo pra 10%, o certo é 306 × 1,10 = 336,60
-    // ("esse cara aqui passa a ser a dívida, e aí eu cobro dez disso") — e
-    // NÃO 300 × 1,10 = 330 (pegar o principal original de novo, que é o que
-    // o motor fazia antes). `sequenciaTotalComMulta` carrega esse composto;
-    // `sequenciaPctAtual` guarda a última % já embutida nele, pra só compor
-    // de novo quando a faixa realmente sobe (continua "não acumula, maior
-    // substitui" — ficar numa faixa que não mudou não recompõe toda semana).
+    // A cada semana de atraso (mesmo semanas seguidas na MESMA faixa, mesmo
+    // semanas sem Acerto novo), a % vigente incide sobre a dívida JÁ com a
+    // multa das semanas anteriores embutida, nunca sobre o principal cru de
+    // novo — ver avancarSemanasMulta acima. `sequenciaTotalComMulta` carrega
+    // esse composto; `sequenciaUltimaSemana` marca até onde já foi
+    // processado, pra `avancarSemanasMulta` só compor as semanas que faltam
+    // (sem repetir as que já entraram no total).
     let saldo = 0;
     let sequenciaDesde: string | null = null;
+    let sequenciaUltimaSemana: string | null = null;
     let sequenciaPrincipal = 0;
     let sequenciaTotalComMulta = 0;
-    let sequenciaPctAtual = 0;
     let sequenciaSemMulta = false;
     for (const p of periodos) {
       const pago = pagoPorAcerto.get(p.acertoId) ?? 0;
@@ -1134,47 +1155,43 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
       }
       const resto = restoDireto + deslocada + propria;
       saldo += resto;
-      if (sequenciaDesde !== null) { sequenciaPrincipal += resto; sequenciaTotalComMulta += resto; }
-      if (saldo < -0.005) {
-        if (sequenciaDesde === null) { sequenciaDesde = p.end; sequenciaPrincipal = resto; sequenciaTotalComMulta = resto; sequenciaPctAtual = 0; sequenciaSemMulta = false; }
-        if (p.semMulta) sequenciaSemMulta = true;
+      if (sequenciaDesde !== null) {
         if (!sequenciaSemMulta && faixas.length > 0) {
-          const pctAgora = percentualMulta(diasDeAtrasoDivida(sequenciaDesde, new Date(p.end + "T00:00:00")), faixas);
-          if (pctAgora !== sequenciaPctAtual) {
-            const totalAntes = sequenciaTotalComMulta;
-            sequenciaTotalComMulta = totalAntes * (1 + pctAgora / 100);
-            saldo += sequenciaTotalComMulta - totalAntes;
-            sequenciaPctAtual = pctAgora;
-          }
+          const totalAntes = sequenciaTotalComMulta;
+          sequenciaTotalComMulta = avancarSemanasMulta(sequenciaTotalComMulta, sequenciaDesde, sequenciaUltimaSemana!, p.end, faixas);
+          saldo += sequenciaTotalComMulta - totalAntes;
         }
+        sequenciaUltimaSemana = p.end;
+        sequenciaPrincipal += resto;
+        sequenciaTotalComMulta += resto;
+      }
+      if (saldo < -0.005) {
+        if (sequenciaDesde === null) { sequenciaDesde = p.end; sequenciaUltimaSemana = p.end; sequenciaPrincipal = resto; sequenciaTotalComMulta = resto; sequenciaSemMulta = false; }
+        if (p.semMulta) sequenciaSemMulta = true;
       } else {
         sequenciaDesde = null;
+        sequenciaUltimaSemana = null;
         sequenciaPrincipal = 0;
         sequenciaTotalComMulta = 0;
-        sequenciaPctAtual = 0;
         sequenciaSemMulta = false;
       }
       quitadoDiretoAnterior = quitadoDireto;
     }
     // Sequência ainda em aberto no fim do período pedido (nunca foi coberta
-    // por nenhum período seguinte): atualiza a multa mais uma vez contra
+    // por nenhum período seguinte): anda as semanas que faltam até
     // `periodEnd` — o fim da SEMANA sendo exibida, não a data de hoje de
     // verdade (achado pelo Cássio no DM Poker Team: sem Acerto novo há
     // semanas, o card da própria semana em que a multa começou já pulava
     // direto pra faixa mais alta, porque "hoje" tinha avançado muito mais
-    // que a semana do card). A multa fica "congelada" na faixa que valia no
-    // fim daquela semana — mesma lógica já usada pros períodos anteriores no
-    // loop acima (`p.end` em vez de "agora"). `multaFinal`/`pctFinal` ficam
-    // guardados pra expor em buscarMultaAtual (linha própria no card).
+    // que a semana do card). `multaFinal`/`pctFinal` ficam guardados pra
+    // expor em buscarMultaAtual (linha própria no card).
     let multaFinal = 0;
     let pctFinal = 0;
     if (sequenciaDesde !== null && !sequenciaSemMulta && faixas.length > 0) {
+      const totalAntes = sequenciaTotalComMulta;
+      sequenciaTotalComMulta = avancarSemanasMulta(sequenciaTotalComMulta, sequenciaDesde, sequenciaUltimaSemana!, periodEnd, faixas);
+      saldo += sequenciaTotalComMulta - totalAntes;
       pctFinal = percentualMulta(diasDeAtrasoDivida(sequenciaDesde, new Date(periodEnd + "T00:00:00")), faixas);
-      if (pctFinal !== sequenciaPctAtual) {
-        const totalAntes = sequenciaTotalComMulta;
-        sequenciaTotalComMulta = totalAntes * (1 + pctFinal / 100);
-        saldo += sequenciaTotalComMulta - totalAntes;
-      }
       multaFinal = sequenciaTotalComMulta - sequenciaPrincipal;
     }
     // Bloqueio de Segurança entra por fora da sequência de Multa (não é
