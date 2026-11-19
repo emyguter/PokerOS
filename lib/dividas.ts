@@ -237,7 +237,7 @@ export async function criarDivida(form: DividaForm): Promise<string> {
 // Só dá pra editar Valor/Juros/Parcelas/Data enquanto NENHUMA parcela desse
 // Acordo tiver sido paga ainda — depois disso os termos travam, pra não
 // bagunçar o histórico de quem já pagou parte (confirmado pelo Cássio).
-// Descrição e Pagar com Rake continuam editáveis sempre.
+// Descrição continua editável sempre.
 export async function podeEditarTermosDivida(dividaId: string): Promise<boolean> {
   const { data } = await supabase.from('divida_parcelas').select('id').eq('divida_id', dividaId).eq('pago', true).limit(1)
   return (data ?? []).length === 0
@@ -245,7 +245,14 @@ export async function podeEditarTermosDivida(dividaId: string): Promise<boolean>
 
 export async function atualizarDivida(dividaId: string, form: DividaForm): Promise<void> {
   const podeTermos = await podeEditarTermosDivida(dividaId)
-  const patch: Record<string, unknown> = { descricao: form.descricao, pago_com_rake: form.pago_com_rake }
+  const patch: Record<string, unknown> = { descricao: form.descricao }
+  // Pagar com Rake de um Acordo só é decidido na criação, nunca depois —
+  // pedido do Cássio: "eu não altero Acordo... se for mudar, vou ter que
+  // fechar esse acordo e abrir um novo" (interromperEcriarFilho já cobre
+  // isso). Pra Dívida Simples continua editável a qualquer momento (sem Acordo
+  // de termos pra travar, desconto por Rakeback pode ser ligado/desligado
+  // com o tempo).
+  if (form.tipo === 'simples') patch.pago_com_rake = form.pago_com_rake
   if (podeTermos) {
     Object.assign(patch, {
       valor_integral: form.valor_integral, pagamento_minimo: form.pagamento_minimo, quantidade_parcelas: form.quantidade_parcelas,
@@ -308,11 +315,6 @@ export async function marcarParcelaPaga(parcelaId: string, valorPago: number): P
     .from('divida_parcelas')
     .update({ pago: true, pago_em: new Date().toISOString(), valor_pago: valorPago })
     .eq('id', parcelaId)
-  if (error) throw error
-}
-
-export async function atualizarParcelaPagoComRake(parcelaId: string, pagoComRake: boolean): Promise<void> {
-  const { error } = await supabase.from('divida_parcelas').update({ pago_com_rake: pagoComRake }).eq('id', parcelaId)
   if (error) throw error
 }
 
