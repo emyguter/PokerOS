@@ -59,7 +59,7 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
 
   let query = supabase
     .from('acertos')
-    .select('id, club_id, club_name, club_external_id, settlement_type, valor_acerto, rake_mtt, rake_cash, rake_total, player_result, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, taxa_cash_pct_aplicada, fee_mtt_pct_aplicado, rebate_calculado, bilhetes, indicacao_valor, cotacao, import_id, imports(period_start, period_end), clubs(league_id, leagues(name))')
+    .select('id, club_id, club_name, club_external_id, settlement_type, valor_acerto, rake_mtt, rake_cash, rake_total, player_result, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, taxa_cash_pct_aplicada, fee_mtt_pct_aplicado, rebate_calculado, bilhetes, indicacao_valor, cotacao, dividas_valor, import_id, imports(period_start, period_end), clubs(league_id, leagues(name))')
     .in('import_id', importIds)
   if (clubeIdsVisiveis) query = query.in('club_id', clubeIdsVisiveis)
   const { data, error } = await query
@@ -136,7 +136,11 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
         security: extras?.security ?? 0,
         indicacaoValor: a.indicacao_valor,
         lancamentosLiquido: a.club_id ? lancPorClube.get(a.club_id) ?? 0 : 0,
-        dividasTotal: extras?.dividasTotal ?? 0,
+        // Lido direto da coluna gravada (AcertoCard.dividas_valor), não de
+        // `extras.dividasTotal` (ao vivo) — mesma troca de ClubAcertoCard/
+        // valorAcertoCompletoPorRow: a essa altura o item já foi marcado
+        // pago/quitado no momento do cálculo (ver marcarDividasQuitadas).
+        dividasTotal: a.dividas_valor,
         rakebackAgentes: a.club_id ? rakebackAgentesPorChave.get(`${a.club_id}:${a.import_id}`) ?? 0 : 0,
       })
       return {

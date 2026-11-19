@@ -42,6 +42,11 @@ export interface AcertoCard {
   // Acertos calculados antes dessa coluna existir (cai pro valor ao vivo de
   // clubs.cotacao como fallback, ver totalConvertido abaixo).
   cotacao: number | null
+  // Dívida/Acordo já embutido nesse Acerto no momento do cálculo (ver
+  // acertosComExtras em lib/acertos-engine.ts) — usado no Total em vez de
+  // somar `dividasItens` ao vivo, que a essa altura já está marcado pago/
+  // quitado (ver getDividasAcertoDoClube) e não aparece mais na consulta.
+  dividas_valor: number
 }
 
 interface Props {
@@ -106,12 +111,12 @@ interface AcertoGrupoRow {
   rebate_calculado: number
   valor_acerto: number
   cotacao: number | null
+  dividas_valor: number
 }
 
 interface ExtrasClube {
   security: number
   lancamentos: LancamentoCard[]
-  dividasItens: ItemDividaAcerto[]
   pendenciasAntecipacao: number
 }
 
@@ -146,8 +151,8 @@ function Linha({ label, value, editable, onCommit }: { label: string; value: num
   )
 }
 
-async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd: string, rakeTotal: number): Promise<ExtrasClube> {
-  const [{ data: clubeData }, { data: lancData }, dividasItens, pendenciasPorClube] = await Promise.all([
+async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd: string): Promise<ExtrasClube> {
+  const [{ data: clubeData }, { data: lancData }, pendenciasPorClube] = await Promise.all([
     supabase.from('clubs').select('security').eq('id', clubeId).maybeSingle(),
     supabase
       .from('lancamentos')
@@ -174,13 +179,11 @@ async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd
       .eq('liberado', true)
       .gte('data_lancamento', periodStart)
       .lte('data_lancamento', periodEnd || periodStart),
-    getDividasAcertoDoClube(clubeId, periodEnd || periodStart, rakeTotal),
     buscarPendenciasEAntecipacaoAoVivo([clubeId], periodStart, periodEnd || periodStart),
   ])
   return {
     security: (clubeData?.security as number | null) ?? 0,
     lancamentos: (lancData ?? []) as LancamentoCard[],
-    dividasItens,
     pendenciasAntecipacao: pendenciasPorClube.get(clubeId) ?? 0,
   }
 }
@@ -443,14 +446,14 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       const [{ data }, { data: clubesData }] = await Promise.all([
         supabase
           .from('acertos')
-          .select('club_id, club_name, import_id, rake_mtt, rake_cash, rake_total, player_result, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, bilhetes, indicacao_valor, rebate_calculado, valor_acerto, cotacao')
+          .select('club_id, club_name, import_id, rake_mtt, rake_cash, rake_total, player_result, fee_calculado, fee_mtt_valor, fee_cash_valor, fee_operacional_valor, fee_spinup_valor, taxa_liga_valor, bilhetes, indicacao_valor, rebate_calculado, valor_acerto, cotacao, dividas_valor')
           .in('club_id', idsGrupo)
           .in('import_id', importIds),
         supabase.from('clubs').select('id, moeda_conversao, cotacao').in('id', idsGrupo),
       ])
       const linhas = (data ?? []) as AcertoGrupoRow[]
       const [extras, rakebackAgentes] = await Promise.all([
-        Promise.all(linhas.map(async (r) => [r.club_id, await buscarExtrasClube(r.club_id, periodStart, periodEnd, r.rake_total)] as const)),
+        Promise.all(linhas.map(async (r) => [r.club_id, await buscarExtrasClube(r.club_id, periodStart, periodEnd)] as const)),
         buscarRakebackAgentesPorClube(linhas.map((r) => ({ clubeId: r.club_id, importId: r.import_id }))),
       ])
       if (cancelado) return
@@ -511,7 +514,13 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
 
   const rebateDisplay = -rebateCalculado
   const lancamentosLiquido = lancamentosDisplay.reduce((s, l) => s + (l.natureza === 'credito' ? l.valor : -l.valor), 0)
-  const dividasTotal = dividasDisplay.reduce((s, d) => s + d.valor, 0)
+  // Vem da coluna gravada no cálculo do Acerto (ver AcertoCard.dividas_valor),
+  // não de `dividasDisplay` (lista ao vivo) — a essa altura os itens já
+  // foram marcados pagos/quitados (ver marcarDividasQuitadas), então a
+  // consulta ao vivo já não os encontra mais; `dividasDisplay` continua
+  // existindo só pra mostrar a quebra "Acordo · parcela N" enquanto o item
+  // ainda estiver pendente (ver renderCampo, case 'dividas_acordos').
+  const dividasTotal = acerto.dividas_valor
   // Soma ao vivo (% cadastrado hoje × rake atual de quem foi indicado, ver
   // indicacoesDetalhe acima) — achado pelo Cássio (CranberryFields): a linha
   // "Indicação" aparecia certa no card, mas o Total continuava usando
@@ -538,7 +547,9 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         if (!r) return { id, nome: nomeCadastro, ligaNome: ligaDoMembro, total: 0, totalConvertido: 0 }
         const extras = extrasPorClube.get(r.club_id)
         const lancLiquido = (extras?.lancamentos ?? []).reduce((s, l) => s + (l.natureza === 'credito' ? l.valor : -l.valor), 0)
-        const dividasT = (extras?.dividasItens ?? []).reduce((s, d) => s + d.valor, 0)
+        // Mesma troca de dividasTotal acima: lê a coluna gravada do membro
+        // (r.dividas_valor), não `extras.dividasItens` ao vivo.
+        const dividasT = r.dividas_valor
         // Indicação ao vivo (indicacaoLive) só existe pro PRÓPRIO clube do
         // card (indicacoesDetalhe busca só pra acerto.club_id) — pros demais
         // membros do grupo, cai pra r.indicacao_valor (foto do último
