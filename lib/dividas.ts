@@ -130,7 +130,7 @@ export interface DividaRow {
   rakeback_pct: number | null
   // Quanto ainda falta pra quitar — só relevante quando rakeback_pct não é
   // null. Começa igual a valor_integral, cai a cada semana que desconta
-  // (ver marcarDividasPagasComRake), chega a zero = Dívida quitada sozinha.
+  // (ver marcarDividasQuitadas), chega a zero = Dívida quitada sozinha.
   saldo_restante: number | null
   // Renegociação: aponta pro Acordo que foi interrompido pra dar origem a
   // esse (ver interromperEcriarFilho) — null pra dívida que nasceu do zero.
@@ -318,41 +318,17 @@ export async function marcarParcelaPaga(parcelaId: string, valorPago: number): P
   if (error) throw error
 }
 
-// Parcela de Acordo SEM "Pagar com Rake" (ex: EVIDENCE POKER) não tem botão
-// de "Marcar como paga" manual — o valor dela já entra toda semana no Total
-// do Acerto do clube (getDividasAcertoDoClube), com a multa certa calculada
-// contra o vencimento (não depende de ninguém digitar uma data). Quando o
-// Acerto do clube fica quitado (Diferença zerada — ver
-// clubesComDiferencaQuitada em lib/acertos-engine.ts, que chama isso daqui),
-// essas parcelas já contadas nele são marcadas pagas automaticamente —
-// pedido do Cássio: "marcar como paga sempre que o Acerto for pago, se não
-// for pago já vai cobrar o juros do Acerto, ou seja, não precisa do
-// manual". `pago_com_rake` continua tratado à parte por
-// marcarDividasPagasComRake (quitado na hora, não espera o Acerto ser
-// pago — é a própria dedução do Rake que paga). Marca o valor CRU da
-// parcela (sem recalcular multa aqui) — a multa já foi cobrada de verdade
-// no Acerto.
-export async function marcarDividasNaoRakeQuandoAcertoQuitado(clubeId: string, periodoFim: string): Promise<void> {
-  const { data: dividas } = await supabase
-    .from('dividas')
-    .select('id, pago_com_rake')
-    .eq('clube_id', clubeId).eq('status', 'ativo').eq('tipo', 'acordo').not('quantidade_parcelas', 'is', null)
-  for (const d of (dividas ?? []) as { id: string; pago_com_rake: boolean }[]) {
-    if (d.pago_com_rake) continue
-    const { data: parcelas } = await supabase
-      .from('divida_parcelas')
-      .select('id, valor')
-      .eq('divida_id', d.id).eq('pago', false).lte('vencimento', periodoFim)
-    for (const p of (parcelas ?? []) as { id: string; valor: number }[]) {
-      try { await marcarParcelaPaga(p.id, p.valor) } catch { /* segue pras outras parcelas */ }
-    }
-    const { data: todas } = await supabase.from('divida_parcelas').select('pago').eq('divida_id', d.id)
-    if ((todas ?? []).length > 0 && (todas ?? []).every((t) => (t as { pago: boolean }).pago)) {
-      try { await atualizarStatusDivida(d.id, 'quitado') } catch { /* segue */ }
-    }
-  }
-}
-
+// Parcela de Acordo, COM ou SEM "Pagar com Rake" (ex: EVIDENCE POKER), não
+// tem mais botão de "Marcar como paga" manual nem espera o Acerto ser pago
+// de verdade depois — o valor dela já entra no Acerto do clube embutido em
+// `acertos.dividas_valor` e é marcada paga NA HORA do cálculo (ver
+// marcarDividasQuitadas, chamado por processarAcertos), não quando o
+// Pagamento do Acerto é lançado — isso evitava um descompasso: um Pagamento
+// que já incluía a parcela virava "Antecipação" de sobra, porque o valor do
+// Acerto recalculado ao vivo na hora do Pagamento não incluía mais a
+// parcela que acabara de ser marcada paga como efeito colateral desse mesmo
+// Pagamento (achado no caso EVIDENCE POKER). Marca o valor CRU da parcela
+// (sem multa — multa fica só no motor do Acerto).
 export async function atualizarStatusDivida(dividaId: string, status: StatusDivida): Promise<void> {
   const patch: Record<string, unknown> = { status }
   if (status === 'quitado') patch.quitado_em = new Date().toISOString()
@@ -455,37 +431,47 @@ export async function getFaixasMultaDeClubes(clubIds: string[]): Promise<Map<str
 export interface ItemDividaAcerto {
   descricao: string
   valor: number
-  // Pra marcar como paga sozinha quando o Acerto for processado (ver
-  // marcarDividasPagasComRake, chamado por processarAcertos) — 'simples' e
-  // 'acordo_rake' marcam a Dívida inteira (status quitado, de uma vez só),
-  // 'parcela' marca só aquela Parcela do cronograma (só quando `autoQuita`
-  // for true — ver comentário em getDividasAcertoDoClube), 'simples_rakeback'
-  // atualiza saldo_restante (e só quita quando ele chega a zero).
+  // Pra marcar como paga sozinha quando o Acerto for processado/calculado
+  // (ver marcarDividasQuitadas, chamado por processarAcertos, na mesma hora
+  // em que o valor é embutido no Acerto — não espera o Pagamento de verdade
+  // acontecer depois) — 'simples' e 'acordo_rake' marcam a Dívida inteira
+  // (status quitado, de uma vez só), 'parcela' marca só aquela Parcela do
+  // cronograma, 'simples_rakeback' atualiza saldo_restante (e só quita
+  // quando ele chega a zero).
   origem:
     | { tipo: 'simples'; dividaId: string }
     | { tipo: 'acordo_rake'; dividaId: string }
-    | { tipo: 'parcela'; parcelaId: string; autoQuita: boolean }
+    | { tipo: 'parcela'; parcelaId: string }
     | { tipo: 'simples_rakeback'; dividaId: string; saldoApos: number }
 }
 
-// Dívida/Acordo desse clube que entra no card de Acerto. Simples ativa
-// (valor cheio, some assim que marcada quitada) e Acordo SEM cronograma de
+// Dívida/Acordo desse clube que entra no Acerto. Simples ativa (valor
+// cheio, some assim que marcada quitada) e Acordo SEM cronograma de
 // parcelas (quantidade_parcelas null — nasceu com Pagar com Rake ligado
 // direto, sem parcelamento) só entram quando marcados "Pagar com Rake"
 // (pago_com_rake) — sem vencimento nenhum pra filtrar, sem isso entrariam
 // toda semana pra sempre. Parcelas de Acordo COM cronograma são diferentes:
 // entram sempre que vencidas até o fim do período (inclui atrasadas de
-// períodos anteriores, com multa se o clube tiver Regra de Multa vinculada),
-// COM ou SEM "Pagar com Rake" — a Diferença da semana precisa refletir que
-// aquele valor já é devido, mesmo quando a cobrança de verdade vai ser feita
-// por fora, não descontada do Rake (pedido do Cássio, achado no caso
-// EVIDENCE POKER: "não vai mexer no rake, mas vai mexer no acerto"). O que
-// "Pagar com Rake" (na Dívida E na Parcela, os dois) decide é só se
-// marcarDividasPagasComRake marca essa parcela como paga sozinha ao
-// processar o Acerto — sem isso, ela continua "não paga" e some da lista só
-// quando alguém marcar como paga na tela de Dívidas e Acordos. Atraso
-// calculado em relação ao FIM DO PERÍODO, não "hoje" — um Acerto já fechado
-// não pode mudar de valor se reaberto numa data futura.
+// períodos anteriores), COM ou SEM "Pagar com Rake" — a Diferença da semana
+// precisa refletir que aquele valor já é devido, mesmo quando a cobrança de
+// verdade vai ser feita por fora, não descontada do Rake (pedido do Cássio,
+// achado no caso EVIDENCE POKER: "não vai mexer no rake, mas vai mexer no
+// acerto"). Sem multa aqui — multa de atraso fica só no motor do Acerto
+// (buscarSaldoArrastado em lib/acertos-engine.ts), não mais por parcela
+// (pedido do Cássio: "retire as multas daqui"); embutir uma parcela já
+// com multa própria dentro de um Acerto que por sua vez também carrega
+// multa composta semana a semana cobraria em dobro o mesmo atraso.
+// Todo item que aparece aqui (de qualquer um dos 4 tipos) é embutido no
+// Acerto (`acertos.dividas_valor`) e marcado quitado NA HORA do cálculo,
+// não quando o Pagamento do Acerto é lançado depois (ver
+// marcarDividasQuitadas, chamado por processarAcertos) — "Pagar com Rake"
+// só decide se o valor sai de fato do Rake (simples/acordo sem cronograma)
+// ou é cobrado por fora (parcela sem Pagar com Rake); nos dois casos o
+// item já conta no Acerto e já é considerado resolvido daquele período em
+// diante (pedido do Cássio: "o acerto tem que vir já com a parcela
+// embutida em todos os lugares que ele aparece"). Atraso calculado em
+// relação ao FIM DO PERÍODO, não "hoje" — um Acerto já fechado não pode
+// mudar de valor se reaberto numa data futura.
 //
 // Dívida Simples com rakeback_pct preenchido foge desse "tudo de uma vez":
 // desconta só rakeback_pct% do rakeTotal dessa semana, até zerar
@@ -498,13 +484,9 @@ export interface ItemDividaAcerto {
 // coisa (achado pelo Cássio: uma Dívida cadastrada como "Calote" aparecendo
 // assim, literalmente, na linha do Acerto).
 export async function getDividasAcertoDoClube(clubeId: string, periodoFim: string, rakeTotal: number): Promise<ItemDividaAcerto[]> {
-  const [{ data: dividas }, faixas] = await Promise.all([
-    supabase.from('dividas').select('id, tipo, valor_integral, descricao, quantidade_parcelas, pago_com_rake, rakeback_pct, saldo_restante, pagamento_minimo').eq('clube_id', clubeId).eq('status', 'ativo'),
-    getFaixasMultaDoClube(clubeId),
-  ])
+  const { data: dividas } = await supabase.from('dividas').select('id, tipo, valor_integral, descricao, quantidade_parcelas, pago_com_rake, rakeback_pct, saldo_restante, pagamento_minimo').eq('clube_id', clubeId).eq('status', 'ativo')
 
   const itens: ItemDividaAcerto[] = []
-  const hoje = new Date(periodoFim + 'T00:00:00')
   for (const d of (dividas ?? []) as { id: string; tipo: TipoDivida; valor_integral: number; descricao: string | null; quantidade_parcelas: number | null; pago_com_rake: boolean; rakeback_pct: number | null; saldo_restante: number | null; pagamento_minimo: number | null }[]) {
     if (d.tipo === 'simples' && d.rakeback_pct != null) {
       if (!d.pago_com_rake) continue
@@ -542,9 +524,7 @@ export async function getDividasAcertoDoClube(clubeId: string, periodoFim: strin
       .eq('pago', false)
       .lte('vencimento', periodoFim)
     for (const p of (parcelas ?? []) as { id: string; numero: number; valor: number; vencimento: string; pago_com_rake: boolean }[]) {
-      const atraso = diasDeAtraso(p.vencimento, hoje)
-      const valor = atraso > 0 ? valorComMulta(p.valor, atraso, faixas) : p.valor
-      itens.push({ descricao: `Acordo · parcela ${p.numero}`, valor, origem: { tipo: 'parcela', parcelaId: p.id, autoQuita: d.pago_com_rake && p.pago_com_rake } })
+      itens.push({ descricao: `Acordo · parcela ${p.numero}`, valor: p.valor, origem: { tipo: 'parcela', parcelaId: p.id } })
     }
   }
   return itens
@@ -579,12 +559,16 @@ export async function getMultaAplicadaDoClube(clubeId: string, periodoFim: strin
 }
 
 // Roda junto com processarAcertos, depois que o Acerto de cada clube desse
-// import já foi criado — a Dívida/parcela marcada "Pagar com Rake" acabou de
-// ter seu valor descontado (calcularTotalAcerto soma esses itens), então
-// marca como paga agora, pra não descontar de novo no próximo import. Erro
-// numa Dívida específica não derruba as outras nem o processamento do
-// import (os Acertos em si já foram salvos com sucesso antes disso rodar).
-export async function marcarDividasPagasComRake(clubIds: string[], periodoFim: string, rakeTotalPorClube: Map<string, number>): Promise<void> {
+// import já foi criado com o valor de cada item já embutido em
+// `acertos.dividas_valor` (ver acertosComExtras) — marca AGORA todo item
+// retornado por getDividasAcertoDoClube como resolvido (parcela paga, Dívida/
+// Acordo quitado, ou saldo de rakeback abatido), unconditional — uma vez
+// embutido no Acerto, o item já conta como "entregue" daquele período em
+// diante, não espera o Pagamento de verdade do Acerto acontecer depois (ver
+// comentário em getDividasAcertoDoClube/ItemDividaAcerto). Erro numa Dívida
+// específica não derruba as outras nem o processamento do import (os
+// Acertos em si já foram salvos com sucesso antes disso rodar).
+export async function marcarDividasQuitadas(clubIds: string[], periodoFim: string, rakeTotalPorClube: Map<string, number>): Promise<void> {
   if (!periodoFim) return
   for (const clubeId of clubIds) {
     let itens: ItemDividaAcerto[]
@@ -592,11 +576,7 @@ export async function marcarDividasPagasComRake(clubIds: string[], periodoFim: s
     catch { continue }
     for (const item of itens) {
       try {
-        // parcela sem `autoQuita` (Pagar com Rake desligado, na Dívida ou na
-        // Parcela) entrou na lista só pra contar no Total — não é descontada
-        // do Rake de verdade, então não pode marcar como paga sozinha; segue
-        // "não paga" até alguém confirmar na tela de Dívidas e Acordos.
-        if (item.origem.tipo === 'parcela') { if (item.origem.autoQuita) await marcarParcelaPaga(item.origem.parcelaId, item.valor) }
+        if (item.origem.tipo === 'parcela') await marcarParcelaPaga(item.origem.parcelaId, item.valor)
         else if (item.origem.tipo === 'simples_rakeback') await atualizarSaldoRestanteDivida(item.origem.dividaId, item.origem.saldoApos)
         else await atualizarStatusDivida(item.origem.dividaId, 'quitado')
       } catch { /* segue pros outros itens */ }

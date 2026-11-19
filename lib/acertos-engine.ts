@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { propagarParaSuperagentes } from "@/lib/rateio-agentes";
-import { marcarDividasPagasComRake, marcarDividasNaoRakeQuandoAcertoQuitado, getFaixasMultaDeClubes, percentualMulta, diasDeAtraso as diasDeAtrasoDivida, type FaixaMulta } from "@/lib/dividas";
+import { marcarDividasQuitadas, getDividasAcertoDoClube, getFaixasMultaDeClubes, percentualMulta, diasDeAtraso as diasDeAtrasoDivida, type FaixaMulta } from "@/lib/dividas";
 import { regrossarValorCrypto } from "@/lib/relatorio-acerto";
 
 export interface ClubSettings {
@@ -863,28 +863,6 @@ export async function clubesComDiferencaQuitada(clubIds: string[], periodEnd: st
   return quitados;
 }
 
-// Chamado depois que um Pagamento (origem Suporte, que é o único lado que
-// conta pra quitação — ver comentário acima) é lançado contra um Acerto —
-// se isso deixou a Diferença daquele Acerto quitada, marca como pagas as
-// parcelas de Acordo (sem "Pagar com Rake") que já tinham entrado no Total
-// desse Acerto, sem precisar de ninguém clicar "Marcar como paga" (ver
-// marcarDividasNaoRakeQuandoAcertoQuitado em lib/dividas.ts) — pedido do
-// Cássio: "marcar como paga sempre que o Acerto for pago, se não for pago
-// já vai cobrar o juros do Acerto, ou seja, não precisa do manual". Best-
-// effort: o Pagamento já foi salvo com sucesso antes disso rodar.
-export async function marcarDividasSeAcertoQuitado(acertoId: string): Promise<void> {
-  const { data: acerto } = await supabase.from("acertos").select("club_id, imports(period_end)").eq("id", acertoId).maybeSingle();
-  type AcertoComImport = { club_id: string | null; imports: { period_end: string } | { period_end: string }[] | null };
-  const a = acerto as unknown as AcertoComImport | null;
-  const clubId = a?.club_id;
-  const imp = a ? (Array.isArray(a.imports) ? a.imports[0] : a.imports) : null;
-  const periodEnd = imp?.period_end;
-  if (!clubId || !periodEnd) return;
-  const quitados = await clubesComDiferencaQuitada([clubId], periodEnd);
-  if (!quitados.has(clubId)) return;
-  await marcarDividasNaoRakeQuandoAcertoQuitado(clubId, periodEnd);
-}
-
 // Pendências/Antecipação = lançamentos de Antecipação do Suporte já
 // conciliados (conciliado_com preenchido = já casou com o par da Genia) —
 // confirmado com o Cássio. Soma só o lado Suporte (o real) e não o par da
@@ -1551,11 +1529,29 @@ export async function processarAcertos(importId: string, overridesEpoca?: Set<st
       indicacaoValorPorClube.set(i.club_id, (indicacaoValorPorClube.get(i.club_id) ?? 0) + valor);
     }
 
+    // Dívida/Acordo (parcela, Dívida Simples, Acordo sem cronograma, saldo
+    // de Rakeback) que entra nesse Acerto — embutido AGORA em
+    // `acertos.dividas_valor`, igual Bilhetes/Indicação acima, pra todo
+    // lugar que lê o Acerto já vir com o valor certo, sem recalcular ao
+    // vivo depois (pedido do Cássio: "o acerto tem que vir já com a
+    // parcela embutida em todos os lugares que ele aparece" — ver comentário
+    // em getDividasAcertoDoClube). marcarDividasQuitadas (mais abaixo) marca
+    // cada item retornado aqui como resolvido, na mesma hora.
+    const periodoFimAcerto = importInfo?.period_end || importInfo?.period_start || "";
+    const dividasValorPorClube = new Map<string, number>();
+    await Promise.all(clubIdsResolvidos.map(async (clubeId) => {
+      try {
+        const itens = await getDividasAcertoDoClube(clubeId, periodoFimAcerto, rakeTotalPorClube.get(clubeId) ?? 0);
+        dividasValorPorClube.set(clubeId, itens.reduce((s, i) => s + i.valor, 0));
+      } catch { /* best-effort, sem dívida nesse clube */ }
+    }));
+
     const acertosComExtras = acertos.map((a) => ({
       ...a,
       bilhetes: bilhetesPorClube.get(a.club_external_id) ?? 0,
       pendencias_antecipacao: a.club_id ? pendenciasPorClube.get(a.club_id) ?? 0 : 0,
       indicacao_valor: a.club_id ? indicacaoValorPorClube.get(a.club_id) ?? 0 : 0,
+      dividas_valor: a.club_id ? dividasValorPorClube.get(a.club_id) ?? 0 : 0,
     }));
 
     // Recalcular precisa ser UPDATE por clube, não "apaga tudo e insere de
@@ -1596,16 +1592,13 @@ export async function processarAcertos(importId: string, overridesEpoca?: Set<st
       await supabase.from("acertos").delete().in("id", idsOrfaos);
     }
 
-    // Dívida/parcela marcada "Pagar com Rake" acabou de ter seu valor
-    // descontado deste período (calcularTotalAcerto, chamado por quem exibe
-    // o Acerto) — marca como paga agora, senão desconta de novo no próximo
-    // import. Best-effort: os Acertos já foram salvos com sucesso acima,
-    // isso não pode derrubar o processamento do import.
+    // Cada item já embutido em `acertos.dividas_valor` acima — marca agora
+    // como resolvido (parcela paga, Dívida/Acordo quitado, saldo de
+    // Rakeback abatido), senão conta de novo no próximo import. Best-effort:
+    // os Acertos já foram salvos com sucesso acima, isso não pode derrubar o
+    // processamento do import.
     try {
-      const rakeTotalPorClube = new Map(
-        acertosComExtras.filter((a) => a.club_id).map((a) => [a.club_id as string, a.rake_total])
-      );
-      await marcarDividasPagasComRake(clubIdsResolvidos, importInfo?.period_end || importInfo?.period_start || "", rakeTotalPorClube);
+      await marcarDividasQuitadas(clubIdsResolvidos, periodoFimAcerto, rakeTotalPorClube);
     } catch { /* best-effort */ }
 
     const semRegra = acertos.filter((a) => a.status === "sem_regra").length;

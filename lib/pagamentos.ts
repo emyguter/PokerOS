@@ -59,6 +59,12 @@ export interface AcertoCompletoRow extends AcertoRow {
   bilhetes: number
   indicacao_valor: number
   rake_total: number
+  // Dívida/Acordo já embutido no Acerto no momento do cálculo (ver
+  // acertosComExtras em lib/acertos-engine.ts) — lido direto da coluna
+  // gravada, não recalculado ao vivo: o item já foi marcado pago/quitado
+  // nesse exato momento (marcarDividasQuitadas), então uma nova consulta a
+  // getDividasAcertoDoClube não o encontraria mais.
+  dividas_valor: number
 }
 
 interface PagamentoRow {
@@ -193,7 +199,7 @@ export async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], peri
       security: extras?.security ?? 0,
       indicacaoValor: a.indicacao_valor,
       lancamentosLiquido: a.club_id ? extraPorClube.get(a.club_id) ?? 0 : 0,
-      dividasTotal: extras?.dividasTotal ?? 0,
+      dividasTotal: a.dividas_valor ?? 0,
       rakebackAgentes: a.club_id ? rakebackAgentesPorChave.get(`${a.club_id}:${a.import_id}`) ?? 0 : 0,
     }))
   }
@@ -284,7 +290,7 @@ function converterParaEnvios(rows: LancamentoBrutoRow[], acertoIdPorClube: Map<s
 export async function buscarPagamentosPorImport(importId: string): Promise<AcertoPagamento[]> {
   const { data: acertos } = await supabase
     .from('acertos')
-    .select('id, import_id, club_id, club_external_id, club_name, valor_acerto, bilhetes, indicacao_valor, rake_total')
+    .select('id, import_id, club_id, club_external_id, club_name, valor_acerto, bilhetes, indicacao_valor, rake_total, dividas_valor')
     .eq('import_id', importId)
     .order('club_name')
 
@@ -485,7 +491,7 @@ export async function buscarPagamentosPorPeriodo(periodoInicio: string, periodoF
 
   const { data: acertos } = await supabase
     .from('acertos')
-    .select('id, import_id, club_id, club_external_id, club_name, valor_acerto, bilhetes, indicacao_valor, rake_total')
+    .select('id, import_id, club_id, club_external_id, club_name, valor_acerto, bilhetes, indicacao_valor, rake_total, dividas_valor')
     .in('import_id', importIds)
     .order('club_name')
 
