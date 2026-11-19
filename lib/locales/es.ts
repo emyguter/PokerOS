@@ -120,6 +120,7 @@ export const es: typeof pt = {
     nenhum_atrasado: 'Ningún club atrasado (hasta 8 semanas).',
     nenhum_inadimplente: 'Ningún club moroso (más de 8 semanas).',
     rollover: 'Rollover',
+    rollover_feito: 'Rollover',
     title_rollover: 'Rollover — exime la multa de este atraso (negociado con el club). La Diferencia ya se traslada sola a la próxima Liquidación de todos modos.',
     confirm_rollover_desc: '¿Eximir a {nome} de la multa sobre los {valor} pendientes esta semana? El valor sigue trasladándose normalmente a la próxima semana — solo la multa automática de este atraso queda afuera.',
     multa_seria_cobrada_desc: 'Sin eximirla, la multa automática de este atraso sería de {valor}.',

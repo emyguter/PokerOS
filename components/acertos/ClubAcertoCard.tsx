@@ -27,6 +27,14 @@ export interface AcertoCard {
   fee_spinup_valor: number
   taxa_liga_valor: number
   taxa_cash_pct_aplicada: number | null
+  // % de Fee MTT de verdade aplicada nesse Acerto (gravada no cálculo, ver
+  // lib/acertos-engine.ts) — em taxa_dinamica a Fee vem de Regra (SE/ENTÃO),
+  // não do cadastro fixo do clube (club.fee_mtt_pct fica null), então mostrar
+  // o % lendo o cadastro ao vivo (como a linha de Taxa Cash fazia antes desse
+  // campo existir) sempre dava "0,00%" mesmo com Fee de verdade cobrada
+  // (achado no caso LS HS club: Fee MTT mostrando 0,00% com ~15% cobrado de
+  // verdade). Mesmo padrão que taxa_cash_pct_aplicada já resolvia.
+  fee_mtt_pct_aplicado: number | null
   rebate_calculado: number
   bilhetes: number
   indicacao_valor: number
@@ -653,7 +661,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           </div>
         )
       case 'taxa_mtt':
-        return <Linha key={campo} label={t('club_acerto_card.taxa_mtt_label', { pct: fmtPct(club?.fee_mtt_pct ?? null) })} value={-feeMttValor} />
+        return <Linha key={campo} label={t('club_acerto_card.taxa_mtt_label', { pct: fmtPct(acerto.fee_mtt_pct_aplicado) })} value={-feeMttValor} />
       case 'wtr4':
         return (
           <div key={campo} className="flex items-center justify-between py-1.5 px-3 text-sm">

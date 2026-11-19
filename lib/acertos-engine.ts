@@ -1097,16 +1097,27 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
     // Total, mas sobrava troco, porque o Pagamento só batia contra o valor
     // puro do Acerto — a multa nunca era "quitável". Confirmado pelo
     // Cássio/proxy: pagar o Total (com multa) tem que zerar tudo. Por isso
-    // a multa entra no `saldo` corrido igual um lançamento (ajustada pra
-    // cima/baixo conforme a faixa muda, sem dobrar — "não acumula, maior
-    // substitui"), e some sozinha quando um Pagamento/Antecipação cobre o
-    // saldo. Sequência negativa "trava" (some) quando o saldo total volta a
-    // zero/positivo — igual aluguel: "atrasou 1 semana, 2%... atrasou 2,
-    // 10%... pagou, zerou".
+    // a multa entra no `saldo` corrido igual um lançamento, e some sozinha
+    // quando um Pagamento/Antecipação cobre o saldo. Sequência negativa
+    // "trava" (some) quando o saldo total volta a zero/positivo — igual
+    // aluguel: "atrasou 1 semana, 2%... atrasou 2, 10%... pagou, zerou".
+    //
+    // Quando a faixa SOBE (mais semanas de atraso, % maior), a nova % incide
+    // sobre a dívida JÁ com a multa anterior embutida, não sobre o principal
+    // cru de novo — achado pelo Cássio no DM Poker Team, com planilha de
+    // referência: dívida de 300, 2% vira 306 (300 × 1,02); na semana
+    // seguinte, com a faixa subindo pra 10%, o certo é 306 × 1,10 = 336,60
+    // ("esse cara aqui passa a ser a dívida, e aí eu cobro dez disso") — e
+    // NÃO 300 × 1,10 = 330 (pegar o principal original de novo, que é o que
+    // o motor fazia antes). `sequenciaTotalComMulta` carrega esse composto;
+    // `sequenciaPctAtual` guarda a última % já embutida nele, pra só compor
+    // de novo quando a faixa realmente sobe (continua "não acumula, maior
+    // substitui" — ficar numa faixa que não mudou não recompõe toda semana).
     let saldo = 0;
     let sequenciaDesde: string | null = null;
     let sequenciaPrincipal = 0;
-    let sequenciaMultaCobrada = 0;
+    let sequenciaTotalComMulta = 0;
+    let sequenciaPctAtual = 0;
     let sequenciaSemMulta = false;
     for (const p of periodos) {
       const pago = pagoPorAcerto.get(p.acertoId) ?? 0;
@@ -1123,19 +1134,24 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
       }
       const resto = restoDireto + deslocada + propria;
       saldo += resto;
-      if (sequenciaDesde !== null) sequenciaPrincipal += resto;
+      if (sequenciaDesde !== null) { sequenciaPrincipal += resto; sequenciaTotalComMulta += resto; }
       if (saldo < -0.005) {
-        if (sequenciaDesde === null) { sequenciaDesde = p.end; sequenciaPrincipal = resto; sequenciaMultaCobrada = 0; sequenciaSemMulta = false; }
+        if (sequenciaDesde === null) { sequenciaDesde = p.end; sequenciaPrincipal = resto; sequenciaTotalComMulta = resto; sequenciaPctAtual = 0; sequenciaSemMulta = false; }
         if (p.semMulta) sequenciaSemMulta = true;
         if (!sequenciaSemMulta && faixas.length > 0) {
-          const multaAlvo = sequenciaPrincipal * (percentualMulta(diasDeAtrasoDivida(sequenciaDesde, new Date(p.end + "T00:00:00")), faixas) / 100);
-          saldo += multaAlvo - sequenciaMultaCobrada;
-          sequenciaMultaCobrada = multaAlvo;
+          const pctAgora = percentualMulta(diasDeAtrasoDivida(sequenciaDesde, new Date(p.end + "T00:00:00")), faixas);
+          if (pctAgora !== sequenciaPctAtual) {
+            const totalAntes = sequenciaTotalComMulta;
+            sequenciaTotalComMulta = totalAntes * (1 + pctAgora / 100);
+            saldo += sequenciaTotalComMulta - totalAntes;
+            sequenciaPctAtual = pctAgora;
+          }
         }
       } else {
         sequenciaDesde = null;
         sequenciaPrincipal = 0;
-        sequenciaMultaCobrada = 0;
+        sequenciaTotalComMulta = 0;
+        sequenciaPctAtual = 0;
         sequenciaSemMulta = false;
       }
       quitadoDiretoAnterior = quitadoDireto;
@@ -1154,8 +1170,12 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
     let pctFinal = 0;
     if (sequenciaDesde !== null && !sequenciaSemMulta && faixas.length > 0) {
       pctFinal = percentualMulta(diasDeAtrasoDivida(sequenciaDesde, new Date(periodEnd + "T00:00:00")), faixas);
-      multaFinal = sequenciaPrincipal * (pctFinal / 100);
-      saldo += multaFinal - sequenciaMultaCobrada;
+      if (pctFinal !== sequenciaPctAtual) {
+        const totalAntes = sequenciaTotalComMulta;
+        sequenciaTotalComMulta = totalAntes * (1 + pctFinal / 100);
+        saldo += sequenciaTotalComMulta - totalAntes;
+      }
+      multaFinal = sequenciaTotalComMulta - sequenciaPrincipal;
     }
     // Bloqueio de Segurança entra por fora da sequência de Multa (não é
     // Acerto atrasado) — soma direto no saldo final.
