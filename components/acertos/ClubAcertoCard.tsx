@@ -774,18 +774,42 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
             ))}
           </div>
         ) : null
-      case 'dividas_acordos':
-        return dividasDisplay.length > 0 ? (
-          <div key={campo} className="py-1">
-            <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">{t('club_acerto_card.dividas_acordos_titulo')}</p>
-            {dividasDisplay.map((d, i) => (
-              <div key={i} className="flex items-center justify-between py-1 px-3 text-sm">
-                <span className="text-gray-400">{d.descricao}</span>
-                <span className="text-alert font-medium">−{fmt(d.valor)}</span>
+      case 'dividas_acordos': {
+        // Item ainda pendente (não baixado/quitado) aparece itemizado, igual
+        // sempre foi. Mas uma vez que o item é embutido no Acerto e marcado
+        // quitado NA HORA do cálculo (ver marcarDividasQuitadas), a consulta
+        // ao vivo (dividasDisplay) não o encontra mais — sem isso a linha
+        // sumia inteira do card, mesmo com o valor ainda entrando no Total
+        // (achado pelo Cássio, semanas 10/08 e 17/08 do EVIDENCE POKER:
+        // "cade as parcelas?"). Cai pro total gravado (dividasTotal, ver
+        // acima) como uma linha só, sem itemizar, já que não tem mais como
+        // saber qual parcela específica era depois de paga.
+        if (dividasDisplay.length > 0) {
+          return (
+            <div key={campo} className="py-1">
+              <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">{t('club_acerto_card.dividas_acordos_titulo')}</p>
+              {dividasDisplay.map((d, i) => (
+                <div key={i} className="flex items-center justify-between py-1 px-3 text-sm">
+                  <span className="text-gray-400">{d.descricao}</span>
+                  <span className="text-alert font-medium">−{fmt(d.valor)}</span>
+                </div>
+              ))}
+            </div>
+          )
+        }
+        if (Math.abs(dividasTotal) > 0.005) {
+          return (
+            <div key={campo} className="py-1">
+              <p className="px-3 pt-1.5 pb-0.5 text-[11px] uppercase tracking-wide text-gray-500">{t('club_acerto_card.dividas_acordos_titulo')}</p>
+              <div className="flex items-center justify-between py-1 px-3 text-sm">
+                <span className="text-gray-400">{t('club_acerto_card.dividas_acordos_embutido')}</span>
+                <span className="text-alert font-medium">−{fmt(dividasTotal)}</span>
               </div>
-            ))}
-          </div>
-        ) : null
+            </div>
+          )
+        }
+        return null
+      }
       default:
         return null
     }

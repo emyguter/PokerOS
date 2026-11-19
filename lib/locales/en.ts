@@ -425,6 +425,7 @@ export const en: typeof pt = {
     indicacao_label: 'Referral ({pct}%) {nome}',
     lancamentos_periodo_titulo: 'Period entries',
     dividas_acordos_titulo: 'Debts / Agreements',
+    dividas_acordos_embutido: 'Debt/Agreement (already accounted for in this Settlement)',
     total_clube: 'Total {nome}',
     acerto_por_clube_vinculado: 'Settlement by linked club',
     acerto_rs: 'Settlement {nome} [{liga}]',
