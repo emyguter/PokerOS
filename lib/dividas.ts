@@ -318,6 +318,41 @@ export async function marcarParcelaPaga(parcelaId: string, valorPago: number): P
   if (error) throw error
 }
 
+// Parcela de Acordo SEM "Pagar com Rake" (ex: EVIDENCE POKER) não tem botão
+// de "Marcar como paga" manual — o valor dela já entra toda semana no Total
+// do Acerto do clube (getDividasAcertoDoClube), com a multa certa calculada
+// contra o vencimento (não depende de ninguém digitar uma data). Quando o
+// Acerto do clube fica quitado (Diferença zerada — ver
+// clubesComDiferencaQuitada em lib/acertos-engine.ts, que chama isso daqui),
+// essas parcelas já contadas nele são marcadas pagas automaticamente —
+// pedido do Cássio: "marcar como paga sempre que o Acerto for pago, se não
+// for pago já vai cobrar o juros do Acerto, ou seja, não precisa do
+// manual". `pago_com_rake` continua tratado à parte por
+// marcarDividasPagasComRake (quitado na hora, não espera o Acerto ser
+// pago — é a própria dedução do Rake que paga). Marca o valor CRU da
+// parcela (sem recalcular multa aqui) — a multa já foi cobrada de verdade
+// no Acerto.
+export async function marcarDividasNaoRakeQuandoAcertoQuitado(clubeId: string, periodoFim: string): Promise<void> {
+  const { data: dividas } = await supabase
+    .from('dividas')
+    .select('id, pago_com_rake')
+    .eq('clube_id', clubeId).eq('status', 'ativo').eq('tipo', 'acordo').not('quantidade_parcelas', 'is', null)
+  for (const d of (dividas ?? []) as { id: string; pago_com_rake: boolean }[]) {
+    if (d.pago_com_rake) continue
+    const { data: parcelas } = await supabase
+      .from('divida_parcelas')
+      .select('id, valor')
+      .eq('divida_id', d.id).eq('pago', false).lte('vencimento', periodoFim)
+    for (const p of (parcelas ?? []) as { id: string; valor: number }[]) {
+      try { await marcarParcelaPaga(p.id, p.valor) } catch { /* segue pras outras parcelas */ }
+    }
+    const { data: todas } = await supabase.from('divida_parcelas').select('pago').eq('divida_id', d.id)
+    if ((todas ?? []).length > 0 && (todas ?? []).every((t) => (t as { pago: boolean }).pago)) {
+      try { await atualizarStatusDivida(d.id, 'quitado') } catch { /* segue */ }
+    }
+  }
+}
+
 export async function atualizarStatusDivida(dividaId: string, status: StatusDivida): Promise<void> {
   const patch: Record<string, unknown> = { status }
   if (status === 'quitado') patch.quitado_em = new Date().toISOString()
