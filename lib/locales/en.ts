@@ -456,7 +456,6 @@ export const en: typeof pt = {
     pago_em: 'Paid on {data}: {valor}',
     em_aberto_sem_multa: 'Open — {valor} (paid off all at once on the next Settlement, no fine)',
     sem_regra_multa: "This club has no Settlement Fine Rule linked — late installments don't get a fine.",
-    quita_automatico_aviso: "Without \"Pay with Rake\": the installment enters the Settlement every week and pays itself off once that Settlement's Difference is paid — no need to mark anything here.",
     parcela_vence: 'Installment {n} — due {data}',
     pago_valor: 'Paid: {valor}',
     atraso: '{n} day(s) late', multa_pct: ' · +{pct}% fine',

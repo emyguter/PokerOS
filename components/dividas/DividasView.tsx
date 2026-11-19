@@ -8,7 +8,6 @@ import { ConfirmDelete } from '@/components/cadastro/ConfirmDelete'
 import {
   getDividas, getParcelas, criarDivida, atualizarDivida, podeEditarTermosDivida, interromperEcriarFilho,
   atualizarStatusDivida, excluirDivida, getFaixasMultaDoClube,
-  atualizarDividaPagoComRake,
   diasDeAtraso, valorComMulta, percentualMulta,
   type DividaRow, type DividaForm, type ParcelaRow, type FaixaMulta,
 } from '@/lib/dividas'
@@ -112,14 +111,6 @@ export function DividasView() {
     await atualizarStatusDivida(selecionada.id, 'quitado')
     await load()
     setSelecionada((s) => (s ? { ...s, status: 'quitado' } : s))
-  }
-
-  async function handleTogglePagoComRake() {
-    if (!selecionada) return
-    const novo = !selecionada.pago_com_rake
-    await atualizarDividaPagoComRake(selecionada.id, novo)
-    await load()
-    setSelecionada((s) => (s ? { ...s, pago_com_rake: novo } : s))
   }
 
   async function handleExcluir() {
@@ -236,12 +227,10 @@ export function DividasView() {
                       </button>
                     )}
                   </div>
-                  <label className="flex items-center gap-3 cursor-pointer w-fit">
-                    <div onClick={handleTogglePagoComRake} className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${selecionada.pago_com_rake ? 'bg-gold' : 'bg-white/10'}`}>
-                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${selecionada.pago_com_rake ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                    </div>
-                    <span className="text-xs text-gray-400">{t('dividas_view.pagar_com_rake')}</span>
-                  </label>
+                  {/* Pagar com Rake só se decide na criação, igual Acordo
+                      (pedido do Cássio) — aqui é só leitura; pra mudar, edita
+                      a Dívida (Pencil) e muda lá, ou recria. */}
+                  <p className="text-xs text-gray-500">{t('dividas_view.pagar_com_rake')}: {selecionada.pago_com_rake ? t('dividas_view.pagar_com_rake_sim') : t('dividas_view.pagar_com_rake_nao')}</p>
                 </div>
               ) : semCronograma ? (
                 <div className="rounded-lg border border-white/10 bg-surface2 p-4 space-y-3">
@@ -262,14 +251,6 @@ export function DividasView() {
               ) : (
                 <div className="space-y-2">
                   <p className="text-xs text-gray-500">{t('dividas_view.pagar_com_rake')}: {selecionada.pago_com_rake ? t('dividas_view.pagar_com_rake_sim') : t('dividas_view.pagar_com_rake_nao')}</p>
-                  {!selecionada.pago_com_rake && (
-                    // Pedido do Cássio: "marcar como paga sempre que o
-                    // Acerto for pago... não precisa do manual" — sem
-                    // "Pagar com Rake", a parcela entra toda semana no Total
-                    // do Acerto (com a multa certa) e é marcada paga sozinha
-                    // quando a Diferença daquele Acerto quitar.
-                    <p className="text-xs text-gray-600">{t('dividas_view.quita_automatico_aviso')}</p>
-                  )}
                   {faixasMulta.length === 0 && (
                     <p className="text-xs text-gray-500 italic">{t('dividas_view.sem_regra_multa')}</p>
                   )}

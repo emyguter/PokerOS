@@ -456,7 +456,6 @@ export const es: typeof pt = {
     pago_em: 'Pagado el {data}: {valor}',
     em_aberto_sem_multa: 'Abierto — {valor} (se salda de una vez en la próxima Liquidación, sin multa)',
     sem_regra_multa: 'Este club no tiene Regla de Multa de Liquidación vinculada — las cuotas atrasadas no reciben multa.',
-    quita_automatico_aviso: 'Sin "Pagar con Rake": la cuota entra cada semana en la Liquidación y se salda sola cuando se pague la Diferencia de esa Liquidación — sin necesidad de marcar nada aquí.',
     parcela_vence: 'Cuota {n} — vence el {data}',
     pago_valor: 'Pagado: {valor}',
     atraso: '{n} día(s) de atraso', multa_pct: ' · +{pct}% de multa',
