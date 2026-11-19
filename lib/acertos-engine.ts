@@ -1374,7 +1374,7 @@ export async function processarAcertos(importId: string, overridesEpoca?: Set<st
     // anterior ANTES de rodar calcularAcerto de novo aqui embaixo.
     const { data: acertosExistentes } = await supabase
       .from("acertos")
-      .select("id, club_external_id, fee_mtt_pct_aplicado, taxa_cash_pct_aplicada, taxa_op_pct_aplicado, spinup_pct_aplicado, rebate_pct_aplicado, taxa_liga_pct_aplicada")
+      .select("id, club_external_id, fee_mtt_pct_aplicado, taxa_cash_pct_aplicada, taxa_op_pct_aplicado, spinup_pct_aplicado, rebate_pct_aplicado, taxa_liga_pct_aplicada, dividas_valor")
       .eq("import_id", importId);
     const idExistentePorClube = new Map(
       ((acertosExistentes ?? []) as { id: string; club_external_id: string }[]).map((a) => [a.club_external_id, a.id])
@@ -1536,7 +1536,17 @@ export async function processarAcertos(importId: string, overridesEpoca?: Set<st
     // vivo depois (pedido do Cássio: "o acerto tem que vir já com a
     // parcela embutida em todos os lugares que ele aparece" — ver comentário
     // em getDividasAcertoDoClube). marcarDividasQuitadas (mais abaixo) marca
-    // cada item retornado aqui como resolvido, na mesma hora.
+    // cada item retornado aqui como resolvido, na mesma hora — por isso essa
+    // consulta SÓ enxerga o que ainda não foi embutido/marcado antes. Um
+    // Recalcular (não é o primeiro cálculo desse import) soma esse valor em
+    // cima do `dividas_valor` que a linha JÁ tinha (snapshotExistentePorExtId,
+    // buscado lá em cima), nunca substitui — senão o segundo Recalcular
+    // consultava de novo, já não achava mais nada (os itens da primeira vez
+    // já estavam marcados pagos) e ZERAVA o valor que tinha acabado de
+    // embutir. Achado pelo Cássio: "ele não pode se perder, uma vez que ele
+    // marcou lá que a dívida está paga, ele não pode tirar daqui" (semana
+    // 17/08, viu o Acerto perder ~R$6.780 de dívida já embutida ao clicar
+    // Recalcular de novo).
     const periodoFimAcerto = importInfo?.period_end || importInfo?.period_start || "";
     const dividasValorPorClube = new Map<string, number>();
     await Promise.all(clubIdsResolvidos.map(async (clubeId) => {
@@ -1551,7 +1561,7 @@ export async function processarAcertos(importId: string, overridesEpoca?: Set<st
       bilhetes: bilhetesPorClube.get(a.club_external_id) ?? 0,
       pendencias_antecipacao: a.club_id ? pendenciasPorClube.get(a.club_id) ?? 0 : 0,
       indicacao_valor: a.club_id ? indicacaoValorPorClube.get(a.club_id) ?? 0 : 0,
-      dividas_valor: a.club_id ? dividasValorPorClube.get(a.club_id) ?? 0 : 0,
+      dividas_valor: (snapshotExistentePorExtId.get(a.club_external_id)?.dividas_valor ?? 0) + (a.club_id ? dividasValorPorClube.get(a.club_id) ?? 0 : 0),
     }));
 
     // Recalcular precisa ser UPDATE por clube, não "apaga tudo e insere de
