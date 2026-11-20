@@ -1179,6 +1179,14 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
           sequenciaTotalComMulta = total;
           if (teveMulta) sequenciaBaseUltimaSemana = baseAntesDaUltimaSemana;
         }
+        // Rollover isenta só a passagem de multa que nasce DESSE período em
+        // diante (a próxima) — reseta aqui depois de consumida, não deixa
+        // "pegar" pro resto da sequência. Sem isso, uma vez isento (p.semMulta
+        // de QUALQUER período da sequência), o clube nunca mais pagava multa
+        // enquanto a mesma dívida continuasse em aberto, mesmo em semanas sem
+        // Rollover nenhum (achado pelo Cássio: "o rollover deve ser somente
+        // para a semana em questão").
+        sequenciaSemMulta = false;
         sequenciaUltimaSemana = p.end;
         sequenciaTotalComMulta += resto;
         sequenciaBaseUltimaSemana += resto;
