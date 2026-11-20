@@ -197,6 +197,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const [pendenciasLive, setPendenciasLive] = useState(0)
   const [multaLive, setMultaLive] = useState<{ valor: number; pct: number } | null>(null)
   const [rakebackAgentesLive, setRakebackAgentesLive] = useState(0)
+  const [teveCryptoNoPeriodo, setTeveCryptoNoPeriodo] = useState(false)
   const [layout, setLayout] = useState<CampoResolvido[]>(() => resolverLayout(null))
   // Clube Vinculado (mesmo clube em outra plataforma, ex: ClubGG + Sul HG) —
   // esse card ("Common Settlement / Acerto Geral") é o único lugar que soma
@@ -377,6 +378,27 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
     if (!acerto.club_id) return
     getLayoutDoClube(acerto.club_id).then(setLayout)
   }, [acerto.club_id])
+
+  useEffect(() => {
+    // "Acerto com Crypto" só faz sentido como referência quando ESSE Acerto
+    // específico já teve de fato um Pagamento marcado "Pagar com Crypto" —
+    // antes disso era exibido sempre que o clube tinha % de Crypto Rebate
+    // cadastrado, mesmo sem nenhum pagamento em crypto ter acontecido naquela
+    // semana, dando a entender (errado) que o desconto já vale (achado pelo
+    // Cássio: "parece que ele esta usando o valor do cripto, mesmo quando não
+    // houve pagamento"). Só o lado Suporte conta, mesma regra usada em todo
+    // pagamento/envio do resto do app.
+    setTeveCryptoNoPeriodo(false)
+    supabase
+      .from('lancamentos')
+      .select('id')
+      .eq('acerto_id', acerto.id)
+      .eq('tipo', 'pagamento')
+      .eq('origem', 'suporte')
+      .eq('pago_crypto', true)
+      .limit(1)
+      .then(({ data }) => setTeveCryptoNoPeriodo((data ?? []).length > 0))
+  }, [acerto.id])
 
   useEffect(() => {
     const clubeId = acerto.club_id
@@ -621,8 +643,10 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   // Total corrigido pela mesma fórmula do "Total Crypto Rebate"/"Pagar com
   // Crypto" (corrigirValorCrypto: valor ÷ (1 + %)), e "Desconto" é a
   // diferença entre os dois. Só aparece quando o clube tem % de Crypto
-  // Rebate cadastrado — qualquer tipo de cobrança, não só Weekly USD.
-  const totalComCrypto = club?.crypto_rebate_pct ? corrigirValorCrypto(total, club.crypto_rebate_pct) : null
+  // Rebate cadastrado E esse Acerto já teve de fato um Pagamento em crypto
+  // (teveCryptoNoPeriodo) — sem pagamento nenhum em crypto, o valor cheio
+  // (sem desconto) é o que vale, não mostra a linha de referência.
+  const totalComCrypto = club?.crypto_rebate_pct && teveCryptoNoPeriodo ? corrigirValorCrypto(total, club.crypto_rebate_pct) : null
   const descontoCrypto = totalComCrypto != null ? total - totalComCrypto : null
 
   // Segunda linha de Total convertido — mesmo formato da planilha de
@@ -828,8 +852,9 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         </div>
 
         <div className="overflow-y-auto flex-1 divide-y divide-white/10">
-          {/* Taxa MTT/Taxa Cash não podem ficar ocultas num clube taxa_dinamica,
-              mesmo que a Regra de Layout (compartilhada entre clubes de tipos
+          {/* Taxa MTT/Taxa Cash não podem ficar ocultas num clube taxa_dinamica
+              QUANDO essa taxa está de fato sendo cobrada (valor ≠ 0), mesmo
+              que a Regra de Layout (compartilhada entre clubes de tipos
               diferentes, ex: "Órion Layout") tenha marcado invisível — são a
               ÚNICA linha que mostra a taxa de verdade cobrada desse clube (%
               cadastrado, ex: 7%). "Taxa da Liga" nunca vira fallback delas em
@@ -838,9 +863,20 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
               lugar nenhum do card (achado pelo Cássio no CAZZINO: "segue com
               erro na taxa, deveria vir o cadastrado 7%" — o layout compartilhado
               com clubes taxa_fixa_variavel escondia as duas, e pra esses outros
-              tipos tudo bem esconder, só taxa_dinamica depende delas). */}
+              tipos tudo bem esconder, só taxa_dinamica depende delas). Quando a
+              taxa está genuinamente zerada (clube cobra só por Taxa
+              Operacional, por exemplo) não tem nada "escondido" pra forçar —
+              respeita o Layout de verdade (achado pelo Cássio no 4 Naipes
+              Poker: Layout próprio desmarcou as duas de propósito, só a
+              Operacional cobra, forçar as duas zeradas de volta não fazia
+              sentido nenhum). */}
           {layout
-            .map((c) => (acerto.settlement_type === 'taxa_dinamica' && (c.campo === 'taxa_mtt' || c.campo === 'taxa_cash') ? { ...c, visivel: true } : c))
+            .map((c) => {
+              if (acerto.settlement_type !== 'taxa_dinamica') return c
+              if (c.campo === 'taxa_mtt' && feeMttValor !== 0) return { ...c, visivel: true }
+              if (c.campo === 'taxa_cash' && feeCashValor !== 0) return { ...c, visivel: true }
+              return c
+            })
             .filter((c) => c.visivel)
             .map((c) => renderCampo(c.campo))}
 
