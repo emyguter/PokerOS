@@ -197,7 +197,6 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   const [pendenciasLive, setPendenciasLive] = useState(0)
   const [multaLive, setMultaLive] = useState<{ valor: number; pct: number } | null>(null)
   const [rakebackAgentesLive, setRakebackAgentesLive] = useState(0)
-  const [teveCryptoNoPeriodo, setTeveCryptoNoPeriodo] = useState(false)
   const [layout, setLayout] = useState<CampoResolvido[]>(() => resolverLayout(null))
   // Clube Vinculado (mesmo clube em outra plataforma, ex: ClubGG + Sul HG) —
   // esse card ("Common Settlement / Acerto Geral") é o único lugar que soma
@@ -379,26 +378,6 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
     getLayoutDoClube(acerto.club_id).then(setLayout)
   }, [acerto.club_id])
 
-  useEffect(() => {
-    // "Acerto com Crypto" só faz sentido como referência quando ESSE Acerto
-    // específico já teve de fato um Pagamento marcado "Pagar com Crypto" —
-    // antes disso era exibido sempre que o clube tinha % de Crypto Rebate
-    // cadastrado, mesmo sem nenhum pagamento em crypto ter acontecido naquela
-    // semana, dando a entender (errado) que o desconto já vale (achado pelo
-    // Cássio: "parece que ele esta usando o valor do cripto, mesmo quando não
-    // houve pagamento"). Só o lado Suporte conta, mesma regra usada em todo
-    // pagamento/envio do resto do app.
-    setTeveCryptoNoPeriodo(false)
-    supabase
-      .from('lancamentos')
-      .select('id')
-      .eq('acerto_id', acerto.id)
-      .eq('tipo', 'pagamento')
-      .eq('origem', 'suporte')
-      .eq('pago_crypto', true)
-      .limit(1)
-      .then(({ data }) => setTeveCryptoNoPeriodo((data ?? []).length > 0))
-  }, [acerto.id])
 
   useEffect(() => {
     const clubeId = acerto.club_id
@@ -643,10 +622,13 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   // Total corrigido pela mesma fórmula do "Total Crypto Rebate"/"Pagar com
   // Crypto" (corrigirValorCrypto: valor ÷ (1 + %)), e "Desconto" é a
   // diferença entre os dois. Só aparece quando o clube tem % de Crypto
-  // Rebate cadastrado E esse Acerto já teve de fato um Pagamento em crypto
-  // (teveCryptoNoPeriodo) — sem pagamento nenhum em crypto, o valor cheio
-  // (sem desconto) é o que vale, não mostra a linha de referência.
-  const totalComCrypto = club?.crypto_rebate_pct && teveCryptoNoPeriodo ? corrigirValorCrypto(total, club.crypto_rebate_pct) : null
+  // Rebate cadastrado — qualquer tipo de cobrança, não só Weekly USD. É só
+  // uma referência/preview de quanto seria se o Suporte decidisse pagar essa
+  // semana via crypto, útil mesmo ANTES de qualquer pagamento acontecer —
+  // revertida a tentativa de só mostrar com pagamento já feito (Cássio: "cade
+  // o valor se fosse pagar com crypto?", achado no CranberryFields — a
+  // referência sumia justamente quando mais se precisa dela, pra decidir).
+  const totalComCrypto = club?.crypto_rebate_pct ? corrigirValorCrypto(total, club.crypto_rebate_pct) : null
   const descontoCrypto = totalComCrypto != null ? total - totalComCrypto : null
 
   // Segunda linha de Total convertido — mesmo formato da planilha de
