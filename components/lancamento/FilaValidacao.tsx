@@ -53,8 +53,15 @@ export function FilaValidacao({ refreshKey }: { refreshKey?: number } = {}) {
       // Caução só vira saldo do clube quando a Genia confirma — antes disso
       // é só uma promessa registrada pelo Suporte. O efeito no Stoploss Atual
       // (Caução × Ratio) é recalculado ao vivo a partir de caucao_atual —
-      // não precisa somar nada aqui, só atualizar a Caução.
-      if (p.tipo === 'caucao') {
+      // não precisa somar nada aqui, só atualizar a Caução. Só o lado Suporte
+      // mexe no saldo de verdade — se a Genia também lançou o próprio
+      // registro do mesmo saque/depósito (pedido do Cássio: "mesmo
+      // procedimento do pagamento, bater o que as duas áreas lançaram"), esse
+      // lado da Genia é só o espelho/conferência dela, Validar nele só muda o
+      // status, sem mexer em `caucao_atual` de novo — achado pelo Cássio:
+      // lançar o mesmo saque pelos dois lados e validar os dois descontava em
+      // dobro, deixando a Caução negativa à toa (Club Particular).
+      if (p.tipo === 'caucao' && p.origem === 'suporte') {
         const atual = p.clubs?.caucao_atual ?? 0
         const delta = p.natureza === 'credito' ? p.valor : -p.valor
         const { error: clubErr } = await supabase.from('clubs').update({ caucao_atual: atual + delta }).eq('id', p.clube_id)

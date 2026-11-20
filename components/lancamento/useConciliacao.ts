@@ -54,12 +54,22 @@ function hojeMenos(dias: number) {
   return d.toISOString().slice(0, 10)
 }
 
-// Tipos que nunca formam par Suporte×Genia por esse mecanismo — Caução tem
-// fluxo próprio de mão única (Validar, ver FilaValidacao.tsx) e Bônus/
+// Tipos que nunca formam par Suporte×Genia por esse mecanismo — Bônus/
 // Promoção/Outro vão direto pro "Liberar para Acerto" (ver TIPOS_LIBERAVEIS
-// em lib/lancamentos.ts). Mesma lista usada no filtro de carga da tela de
-// Conciliação (`load` abaixo) e em tentarConciliarAoLancar.
-const TIPOS_SEM_CONCILIACAO = ['caucao', 'bonus', 'promocao', 'outro']
+// em lib/lancamentos.ts), sem lado nenhum do outro pra casar. Caução passou
+// a usar esse mesmo mecanismo (pedido do Cássio, achado no Club Particular:
+// "era pra ele seguir o mesmo procedimento dos pagamento, bater o que as
+// duas áreas lançaram e lançar somente uma vez" — antes, Suporte e Genia
+// lançavam CADA UM o próprio registro do mesmo saque/depósito, sem nenhum
+// vínculo entre os dois, e cada "Validar" (FilaValidacao.tsx) descontava de
+// novo em cima de `caucao_atual`, dobrando o valor). Agora o segundo
+// lançamento concilia com o primeiro automaticamente (mesma regra de
+// clube+tipo+natureza+valor/janela de dias já usada por Pagamento/
+// Antecipação) — só o lado Suporte mexe em `caucao_atual` de verdade (ver
+// FilaValidacao.tsx), o da Genia fica só como a própria conferência dela.
+// Mesma lista usada no filtro de carga da tela de Conciliação (`load`
+// abaixo) e em tentarConciliarAoLancar.
+const TIPOS_SEM_CONCILIACAO = ['bonus', 'promocao', 'outro']
 
 type EntradaMinima = Pick<Entrada, 'id' | 'clube_id' | 'tipo' | 'natureza' | 'valor'>
 
@@ -166,15 +176,6 @@ export function useConciliacao() {
       let query = supabase
         .from('lancamentos')
         .select('id, tipo, natureza, valor, descricao, data_lancamento, origem, status, clube_id, conciliado_com, clubs(name)')
-        // Caução não usa esse tipo de Conciliação (par Suporte×Genia) — ela
-        // tem o próprio fluxo de mão única: Suporte lança, entra direto em
-        // "em_validacao" (LancarForm), e a Genia confirma clicando Validar
-        // na Fila de Validação (FilaValidacao.tsx), que atualiza
-        // clubs.caucao_atual na hora. Nunca existe um segundo lançamento
-        // (origem 'genia') pra parear — incluir Caução aqui faria ela
-        // aparecer pra sempre como "Falta Financeiro", mesmo depois de já
-        // validada (Validar não seta conciliado_com).
-        .neq('tipo', 'caucao')
         // Bônus/Promoção/Outro não passam por Conciliação — vão direto pro
         // fluxo "Liberar para Acerto" (ver TIPOS_LIBERAVEIS em
         // lib/lancamentos.ts) e só aparecem no Extrato do clube depois de

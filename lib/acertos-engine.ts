@@ -1031,7 +1031,7 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
   // nenhum pra "quitar", é só um saldo corrido) e fica FORA da sequência de
   // Multa por atraso de Acerto (não é a mesma coisa: um Bloqueio de
   // Segurança não é um Acerto atrasado).
-  const [{ data: acertosData }, { data: segurancaData }] = await Promise.all([
+  const [{ data: acertosData }, { data: segurancaData }, { data: periodoAtualData }] = await Promise.all([
     supabase
       .from("acertos")
       .select("id, import_id, club_id, valor_acerto, indicacao_valor, bilhetes, rollover_sem_multa, imports(period_start, period_end)")
@@ -1044,11 +1044,41 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
       .eq("origem", "seguranca")
       .eq("liberado", true)
       .lte("data_lancamento", periodEnd),
+    supabase.from("imports").select("period_start").eq("period_end", periodEnd).limit(1),
   ]);
   const segurancaNetPorClube = new Map<string, number>();
   for (const s of (segurancaData ?? []) as { clube_id: string; natureza: "credito" | "debito"; valor: number }[]) {
     const delta = s.natureza === "credito" ? s.valor : -s.valor;
     segurancaNetPorClube.set(s.clube_id, (segurancaNetPorClube.get(s.clube_id) ?? 0) + delta);
+  }
+  // Um Reembolso sem Bloqueio nenhum pra cobrir (saldo líquido positivo) não
+  // pode continuar entrando de novo em TODA semana seguinte pra sempre —
+  // achado pelo Cássio no Pádel Casa: um Reembolso de R$50 datado em 11/08
+  // (sem Bloqueio correspondente) aparecia nas Pendências da semana 10-16/08
+  // (certo, é a semana dele) E TAMBÉM na semana seguinte 17-23/08 ("joga
+  // estes 50 pila pra outra semana também... como se não respeitasse a
+  // data"). Um Bloqueio (saldo líquido negativo) continua certo carregando
+  // pra sempre até ser coberto — só o excedente POSITIVO (que já "entrou"
+  // de verdade no Total da própria semana em que aconteceu) não deve se
+  // repetir depois. Resolvido comparando com o mesmo saldo líquido calculado
+  // só até o início desta semana (`segurancaAntesPorClube`): o que exceder
+  // zero ali já foi "consumido" nessa semana que passou, então não entra de
+  // novo agora — `saldo líquido até hoje − max(0, saldo líquido até antes)`.
+  const periodStartAtual = (periodoAtualData ?? [])[0]?.period_start as string | undefined;
+  const segurancaAntesPorClube = new Map<string, number>();
+  if (periodStartAtual) {
+    const { data: segurancaAntesData } = await supabase
+      .from("lancamentos")
+      .select("clube_id, natureza, valor")
+      .in("clube_id", clubIds)
+      .in("tipo", ["seguranca_bloqueio", "seguranca_reembolso"])
+      .eq("origem", "seguranca")
+      .eq("liberado", true)
+      .lt("data_lancamento", periodStartAtual);
+    for (const s of (segurancaAntesData ?? []) as { clube_id: string; natureza: "credito" | "debito"; valor: number }[]) {
+      const delta = s.natureza === "credito" ? s.valor : -s.valor;
+      segurancaAntesPorClube.set(s.clube_id, (segurancaAntesPorClube.get(s.clube_id) ?? 0) + delta);
+    }
   }
 
   type AcertoComPeriodo = { id: string; import_id: string; club_id: string | null; valor_acerto: number; indicacao_valor: number | null; bilhetes: number | null; rollover_sem_multa: boolean | null; imports: { period_start: string; period_end: string } | { period_start: string; period_end: string }[] | null };
@@ -1179,6 +1209,14 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
           sequenciaTotalComMulta = total;
           if (teveMulta) sequenciaBaseUltimaSemana = baseAntesDaUltimaSemana;
         }
+        // Rollover isenta só a passagem de multa que nasce DESSE período em
+        // diante (a próxima) — reseta aqui depois de consumida, não deixa
+        // "pegar" pro resto da sequência. Sem isso, uma vez isento (p.semMulta
+        // de QUALQUER período da sequência), o clube nunca mais pagava multa
+        // enquanto a mesma dívida continuasse em aberto, mesmo em semanas sem
+        // Rollover nenhum (achado pelo Cássio: "o rollover deve ser somente
+        // para a semana em questão").
+        sequenciaSemMulta = false;
         sequenciaUltimaSemana = p.end;
         sequenciaTotalComMulta += resto;
         sequenciaBaseUltimaSemana += resto;
@@ -1215,14 +1253,21 @@ export async function buscarSaldoArrastado(clubIds: string[], periodEnd: string)
       multaFinal = sequenciaTotalComMulta - sequenciaBaseUltimaSemana;
     }
     // Bloqueio de Segurança entra por fora da sequência de Multa (não é
-    // Acerto atrasado) — soma direto no saldo final.
-    saldo += segurancaNetPorClube.get(clubId) ?? 0;
+    // Acerto atrasado) — soma direto no saldo final. Só a parte NEGATIVA
+    // (Bloqueio ainda não coberto) do que já estava em aberto antes desta
+    // semana carrega pra cá — um excedente positivo de semana(s) anterior(es)
+    // (Reembolso sem Bloqueio, ou Reembolso maior que o Bloqueio) já contou
+    // na própria semana em que aconteceu, não de novo agora.
+    const segurancaContribuicao = (segurancaNetPorClube.get(clubId) ?? 0) - Math.max(0, segurancaAntesPorClube.get(clubId) ?? 0);
+    saldo += segurancaContribuicao;
     if (Math.abs(saldo) > 0.005) mapa.set(clubId, { total: saldo, multa: multaFinal, pct: pctFinal });
   }
   // Clube sem nenhum Acerto no histórico (não entrou no laço acima) mas com
   // Bloqueio de Segurança mesmo assim.
-  for (const [clubId, net] of segurancaNetPorClube) {
-    if (!porClube.has(clubId) && Math.abs(net) > 0.005) mapa.set(clubId, { total: net, multa: 0, pct: 0 });
+  for (const [clubId, netTotal] of segurancaNetPorClube) {
+    if (porClube.has(clubId)) continue
+    const net = netTotal - Math.max(0, segurancaAntesPorClube.get(clubId) ?? 0);
+    if (Math.abs(net) > 0.005) mapa.set(clubId, { total: net, multa: 0, pct: 0 });
   }
   return mapa;
 }
