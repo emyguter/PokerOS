@@ -641,21 +641,26 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   // Cássio: "mas quando calculou foi com qual valor?"). Cai pro valor ao
   // vivo só em Acertos antigos, calculados antes dessa coluna existir.
   //
-  // Converte só o `totalProprio` (o próprio clube), NUNCA o `total`
-  // agrupado — achado no caso CAZZINO/Believe Poker 3: CAZZINO cadastrado
-  // em USD com Believe Poker 3 (vinculado, em BRL) somava os dois crus no
-  // `total` combinado, e essa linha convertia essa soma já misturada pela
-  // cotação do CAZZINO, dando um valor absurdo (R$16.241,70 num Acerto de
-  // poucos reais). Confirmado pelo Cássio com o card do Believe Poker 3
-  // como referência do "ideal": o lado vinculado nem tenta converter o
-  // Total combinado, só mostra ele cru — a conversão é sempre uma conta
-  // isolada do PRÓPRIO clube, nunca atravessa o vínculo.
+  // Quando agrupado, converte o `total` JÁ combinado (Total {clube} + Acerto
+  // R$ de cada vinculado, ver totaisPorMembro acima) — mesmo formato da
+  // planilha de referência do Cássio, que soma Royal Star + Royal All Star
+  // em sol e SÓ DEPOIS converte pra dólar (Total PEN 1.919,08 → Total USD
+  // 548,31). Antes convertia só o `totalProprio` (antes de somar o
+  // vinculado), dando 794,58 em vez de 548,31 (achado pelo Cássio: "não
+  // entendi o total... na minha conta era pra dar 1919,08"). Isso só é
+  // seguro agora porque `total` já é combinado numa moeda comum de verdade
+  // (ver fix de totalConvertido em totaisPorMembro acima, que parou de
+  // misturar moeda — achado no mesmo caso Royal Star/Royal All Star); antes
+  // dessa correção, converter o `total` aqui teria o mesmo bug do caso
+  // CAZZINO/Believe Poker 3 original (somava USD cru com BRL cru e
+  // convertia a mistura, R$16.241,70 absurdo). Quando NÃO agrupado,
+  // continua convertendo `totalProprio` (mesmo valor de `total` nesse caso).
   // Cotação agora é "1 {moeda do clube} vale quantos {moeda_conversao}"
   // (pedido do Cássio) — multiplica em vez de dividir. Valores já
   // cadastrados antes dessa mudança foram migrados (ver migration), o
   // resultado final continua o mesmo de sempre.
   const cotacaoUsada = acerto.cotacao ?? club?.cotacao ?? null
-  const totalConvertido = club?.moeda_conversao && cotacaoUsada ? totalProprio * cotacaoUsada : null
+  const totalConvertido = club?.moeda_conversao && cotacaoUsada ? (agrupado ? total : totalProprio) * cotacaoUsada : null
 
   // O layout (Regra vinculada ao clube) só decide QUAIS linhas aparecem e em
   // que ordem — o Total sempre soma tudo, igual já funciona no Liberar para
