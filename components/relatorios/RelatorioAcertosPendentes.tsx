@@ -43,6 +43,11 @@ export function RelatorioAcertosPendentes() {
   // cai no comportamento de sempre: semana mais recente.
   const [periodos, setPeriodos] = useState<PeriodoPagamento[]>([])
   const [periodoFim, setPeriodoFim] = useState('')
+  // Pedido do Cássio: "retirar dos acertos pendentes aqueles que não estão
+  // pendentes, ou melhor, coloca um check box pro usuario escolher se ele
+  // quer ver todos ou somente os pendentes" — default continua só os
+  // pendentes (comportamento de sempre).
+  const [mostrarTodos, setMostrarTodos] = useState(false)
 
   const totalPendencias = pendGenia.length + pendSuporte.length
   const conciliacaoZerada = !loadingConciliacao && totalPendencias === 0
@@ -58,11 +63,11 @@ export function RelatorioAcertosPendentes() {
 
   const carregar = useCallback(() => {
     setLoading(true); setError(null)
-    return Promise.all([buscarAcertosPendentesDaSemana(periodoSelecionado ?? undefined), buscarInadimplencia()])
+    return Promise.all([buscarAcertosPendentesDaSemana(periodoSelecionado ?? undefined, !mostrarTodos), buscarInadimplencia()])
       .then(([s, i]) => { setSemana(s); setInadimplencia(i) })
       .catch((e) => setError(errMsg(e)))
       .finally(() => setLoading(false))
-  }, [periodoSelecionado])
+  }, [periodoSelecionado, mostrarTodos])
 
   useEffect(() => {
     if (!conciliacaoZerada) return
@@ -160,6 +165,12 @@ export function RelatorioAcertosPendentes() {
               <option value="">{t('stoploss.todos_projetos')}</option>
               {projetosDisponiveis.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
+          </div>
+          <div className="flex items-end pb-2.5">
+            <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input type="checkbox" checked={mostrarTodos} onChange={(e) => setMostrarTodos(e.target.checked)} className="accent-gold" />
+              {t('acertos_pendentes.mostrar_todos')}
+            </label>
           </div>
         </div>
         <div className="rounded-xl border border-white/10 overflow-hidden">

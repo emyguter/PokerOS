@@ -107,6 +107,7 @@ export const pt = {
     ir_para_conciliacao: 'Ir para Conciliação',
     semana_titulo: 'Acertos Pendentes da Semana',
     semana_select: 'Semana',
+    mostrar_todos: 'Mostrar todos (não só os pendentes)',
     atrasados_titulo: 'Atrasados (até 8 semanas)',
     inadimplentes_titulo: 'Inadimplentes (mais de 8 semanas)',
     historico_titulo: 'Histórico de Acertos Pendentes',

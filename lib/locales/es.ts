@@ -109,6 +109,7 @@ export const es: typeof pt = {
     ir_para_conciliacao: 'Ir a Conciliación',
     semana_titulo: 'Liquidaciones Pendientes de la Semana',
     semana_select: 'Semana',
+    mostrar_todos: 'Mostrar todos (no solo los pendientes)',
     atrasados_titulo: 'Atrasados (hasta 8 semanas)',
     inadimplentes_titulo: 'Morosos (más de 8 semanas)',
     historico_titulo: 'Historial de Liquidaciones Pendientes',

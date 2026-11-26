@@ -69,7 +69,12 @@ async function statusStoplossPorClube(clubIds: string[]): Promise<Map<string, St
 // pode escolher a semana que vai dar rollover" (antes só dava pra ver/
 // rollover a semana mais recente, mesmo com Pendências de semanas
 // anteriores ainda em aberto escondidas no Atrasados/Inadimplentes).
-export async function buscarAcertosPendentesDaSemana(periodo?: PeriodoPagamento): Promise<LinhaAcertoPendenteSemana[]> {
+// `somentePendentes` (default true, comportamento de sempre) filtra só quem
+// ainda tem Diferença de verdade (> 1 centavo) — false mostra a semana
+// inteira, pendente ou não (pedido do Cássio: "retirar dos acertos
+// pendentes aqueles que não estão pendentes, ou melhor, coloca um check box
+// pro usuario escolher se ele quer ver todos ou somente os pendentes").
+export async function buscarAcertosPendentesDaSemana(periodo?: PeriodoPagamento, somentePendentes: boolean = true): Promise<LinhaAcertoPendenteSemana[]> {
   let periodoFim: string
   let importIds: string[]
   let pagamentos: Awaited<ReturnType<typeof buscarPagamentosPorPeriodo>>
@@ -99,7 +104,7 @@ export async function buscarAcertosPendentesDaSemana(periodo?: PeriodoPagamento)
     ((acertosClub ?? []) as { id: string; club_id: string | null; rollover_sem_multa: boolean | null }[]).map((a) => [a.id, !!a.rollover_sem_multa])
   )
 
-  const pendentes = pagamentos.filter((p) => Math.abs(p.diferenca) > 0.005)
+  const pendentes = somentePendentes ? pagamentos.filter((p) => Math.abs(p.diferenca) > 0.005) : pagamentos
   const clubIds = [...new Set(pendentes.map((p) => clubIdPorAcertoId.get(p.acerto_id)).filter((id): id is string => !!id))]
   const statusPorClube = await statusStoplossPorClube(clubIds)
 
