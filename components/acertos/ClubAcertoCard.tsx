@@ -166,14 +166,6 @@ async function buscarExtrasClube(clubeId: string, periodStart: string, periodEnd
       // o valor se a data cair dentro da janela dessa semana (achado no
       // CHIP COIN: pagamento que fechou a semana anterior "vazando" pra cá).
       .neq('tipo', 'pagamento')
-      // Bloqueio/Reembolso de Segurança agora carrega em Pendências/
-      // Antecipação (buscarSaldoArrastado, semana após semana até dar
-      // Reembolso) em vez de aparecer só como lançamento avulso na semana
-      // em que foi datado — contar aqui de novo dobraria o valor na semana
-      // original (pedido do Cássio: "ele aparece até dar o reembolso
-      // sim... no total, nao como um plus").
-      .neq('tipo', 'seguranca_bloqueio')
-      .neq('tipo', 'seguranca_reembolso')
       // Só conta no Acerto depois de Liberado (pedido do Cássio) — antes
       // disso é só um lançamento pendente na tela de Lançamento.
       .eq('liberado', true)
@@ -306,11 +298,6 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
       // aqui de novo dobra o valor quando a data cai dentro da janela dessa
       // semana (ver mesmo comentário em buscarExtrasClube acima).
       .neq('tipo', 'pagamento')
-      // Mesmo motivo de buscarExtrasClube acima: Bloqueio/Reembolso de
-      // Segurança agora carrega em Pendências/Antecipação, não aparece mais
-      // avulso aqui.
-      .neq('tipo', 'seguranca_bloqueio')
-      .neq('tipo', 'seguranca_reembolso')
       // Só conta no Acerto depois de Liberado (pedido do Cássio) — antes
       // disso é só um lançamento pendente na tela de Lançamento.
       .eq('liberado', true)
@@ -565,12 +552,25 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
           dividasTotal: dividasT,
           rakebackAgentes: rakebackAgentesGrupo.get(`${r.club_id}:${r.import_id}`) ?? 0,
         })
-        // Converte pra uma moeda comum (BRL) ANTES de somar no grupo — achado
-        // no caso CAZZINO (USD) + Believe Poker 3 (BRL): sem isso, o Total
-        // combinado somava dólar cru com real cru (confirmado pelo Cássio:
-        // "precisaria ver a cotação, e calcular a soma do acerto cazzino em
-        // real e então somar com believe"). Membro sem "Converter para"
-        // cadastrado (a maioria) já está em BRL, `total` entra sem alteração.
+        // Converte pra uma moeda comum (a moeda NATIVA do clube que abriu o
+        // card) ANTES de somar no grupo — achado no caso CAZZINO (USD) +
+        // Believe Poker 3 (BRL): sem isso, o Total combinado somava dólar cru
+        // com real cru (confirmado pelo Cássio: "precisaria ver a cotação, e
+        // calcular a soma do acerto cazzino em real e então somar com
+        // believe"). Membro sem "Converter para" cadastrado (a maioria) já
+        // está na moeda do grupo, `total` entra sem alteração.
+        //
+        // O PRÓPRIO clube do card NUNCA converte aqui, mesmo com "Converter
+        // para" cadastrado — esse campo é só pra linha pessoal "Total
+        // {moeda}" dele (ver totalConvertido mais abaixo), sem relação
+        // nenhuma com o agrupamento; a moeda nativa dele (`total`, cru) É a
+        // moeda comum do grupo por definição. Achado no caso Royal Star
+        // (PEN, "Converter para" USD pra linha pessoal) + Royal All Star
+        // (USD, "Converter para" PEN pra entrar no grupo): aplicar a
+        // conversão pessoal do Royal Star também aqui somava USD (794,58)
+        // com PEN (-861,73) — Total -67,16 em vez de ~1.919 (confirmado pelo
+        // Cássio com a planilha de referência: "não entendi o total... era
+        // pra dar 1919,08").
         const moeda = moedaPorClube.get(id)
         const cotacaoMembro = r.cotacao ?? moeda?.cotacao ?? null
         // Cotação agora é "1 {moeda do clube} vale quantos {moeda_conversao}"
@@ -578,7 +578,7 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         // multiplica em vez de dividir. Clubes já cadastrados antes dessa
         // mudança tiveram o valor migrado (ver migration), então continua
         // dando o mesmo resultado de sempre.
-        const totalConvertido = moeda?.moeda_conversao && cotacaoMembro ? total * cotacaoMembro : total
+        const totalConvertido = id !== acerto.club_id && moeda?.moeda_conversao && cotacaoMembro ? total * cotacaoMembro : total
         return { id, nome: r.club_name, ligaNome: ligaDoMembro, total, totalConvertido }
       })
     : []
@@ -641,21 +641,26 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
   // Cássio: "mas quando calculou foi com qual valor?"). Cai pro valor ao
   // vivo só em Acertos antigos, calculados antes dessa coluna existir.
   //
-  // Converte só o `totalProprio` (o próprio clube), NUNCA o `total`
-  // agrupado — achado no caso CAZZINO/Believe Poker 3: CAZZINO cadastrado
-  // em USD com Believe Poker 3 (vinculado, em BRL) somava os dois crus no
-  // `total` combinado, e essa linha convertia essa soma já misturada pela
-  // cotação do CAZZINO, dando um valor absurdo (R$16.241,70 num Acerto de
-  // poucos reais). Confirmado pelo Cássio com o card do Believe Poker 3
-  // como referência do "ideal": o lado vinculado nem tenta converter o
-  // Total combinado, só mostra ele cru — a conversão é sempre uma conta
-  // isolada do PRÓPRIO clube, nunca atravessa o vínculo.
+  // Quando agrupado, converte o `total` JÁ combinado (Total {clube} + Acerto
+  // R$ de cada vinculado, ver totaisPorMembro acima) — mesmo formato da
+  // planilha de referência do Cássio, que soma Royal Star + Royal All Star
+  // em sol e SÓ DEPOIS converte pra dólar (Total PEN 1.919,08 → Total USD
+  // 548,31). Antes convertia só o `totalProprio` (antes de somar o
+  // vinculado), dando 794,58 em vez de 548,31 (achado pelo Cássio: "não
+  // entendi o total... na minha conta era pra dar 1919,08"). Isso só é
+  // seguro agora porque `total` já é combinado numa moeda comum de verdade
+  // (ver fix de totalConvertido em totaisPorMembro acima, que parou de
+  // misturar moeda — achado no mesmo caso Royal Star/Royal All Star); antes
+  // dessa correção, converter o `total` aqui teria o mesmo bug do caso
+  // CAZZINO/Believe Poker 3 original (somava USD cru com BRL cru e
+  // convertia a mistura, R$16.241,70 absurdo). Quando NÃO agrupado,
+  // continua convertendo `totalProprio` (mesmo valor de `total` nesse caso).
   // Cotação agora é "1 {moeda do clube} vale quantos {moeda_conversao}"
   // (pedido do Cássio) — multiplica em vez de dividir. Valores já
   // cadastrados antes dessa mudança foram migrados (ver migration), o
   // resultado final continua o mesmo de sempre.
   const cotacaoUsada = acerto.cotacao ?? club?.cotacao ?? null
-  const totalConvertido = club?.moeda_conversao && cotacaoUsada ? totalProprio * cotacaoUsada : null
+  const totalConvertido = club?.moeda_conversao && cotacaoUsada ? (agrupado ? total : totalProprio) * cotacaoUsada : null
 
   // O layout (Regra vinculada ao clube) só decide QUAIS linhas aparecem e em
   // que ordem — o Total sempre soma tudo, igual já funciona no Liberar para

@@ -109,6 +109,7 @@ export const en: typeof pt = {
     ir_para_conciliacao: 'Go to Reconciliation',
     semana_titulo: 'Pending Settlements This Week',
     semana_select: 'Week',
+    mostrar_todos: 'Show all (not just pending)',
     atrasados_titulo: 'Late (up to 8 weeks)',
     inadimplentes_titulo: 'Delinquent (over 8 weeks)',
     historico_titulo: 'Pending Settlements History',
