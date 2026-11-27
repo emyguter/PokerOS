@@ -1854,7 +1854,16 @@ export async function buscarAcertoComoAgente(agenteId: string, periodEnd: string
     supabase.from("agentes").select("nome").eq("id", agenteId).maybeSingle(),
   ]);
 
-  const linhas: AcertoComoAgenteLinha[] = (rows ?? []).map((r) => ({
+  // clube_id nulo = import duplicado/incompleto que nunca resolveu o clube
+  // de verdade (achado no caso ticarlos/Sul Home Game: duas linhas pro
+  // mesmo agente na mesma semana, uma certa com "Sul Home Game" e 75% de
+  // rakeback, outra órfã — clube_id/clube_nome nulos, rakeback 0,00% — de um
+  // import "parcial" extra sem nenhum Acerto de clube de verdade atrelado,
+  // só Ganhos/Perdas cru sem rakeback nenhum aplicado). Contar essa linha
+  // dobrava a perda do agente sem nenhuma proteção de %, derrubando o Total
+  // bem mais fundo do que o cenário real (achado pelo usuário: "-5k + 2k =
+  // 3k e não -7k"). Entra só o que de fato resolveu um clube.
+  const linhas: AcertoComoAgenteLinha[] = (rows ?? []).filter((r) => r.clube_id).map((r) => ({
     clubeId: r.clube_id,
     clubeNome: r.clube_nome,
     rakeTotal: r.rake_total,

@@ -839,33 +839,13 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
         </div>
 
         <div className="overflow-y-auto flex-1 divide-y divide-white/10">
-          {/* Taxa MTT/Taxa Cash não podem ficar ocultas num clube taxa_dinamica
-              QUANDO essa taxa está de fato sendo cobrada (valor ≠ 0), mesmo
-              que a Regra de Layout (compartilhada entre clubes de tipos
-              diferentes, ex: "Órion Layout") tenha marcado invisível — são a
-              ÚNICA linha que mostra a taxa de verdade cobrada desse clube (%
-              cadastrado, ex: 7%). "Taxa da Liga" nunca vira fallback delas em
-              taxa_dinamica (ver case 'taxa_liga' abaixo — já vem itemizado
-              aqui), então escondê-las cobra a taxa mas não mostra nada em
-              lugar nenhum do card (achado pelo Cássio no CAZZINO: "segue com
-              erro na taxa, deveria vir o cadastrado 7%" — o layout compartilhado
-              com clubes taxa_fixa_variavel escondia as duas, e pra esses outros
-              tipos tudo bem esconder, só taxa_dinamica depende delas). Quando a
-              taxa está genuinamente zerada (clube cobra só por Taxa
-              Operacional, por exemplo) não tem nada "escondido" pra forçar —
-              respeita o Layout de verdade (achado pelo Cássio no 4 Naipes
-              Poker: Layout próprio desmarcou as duas de propósito, só a
-              Operacional cobra, forçar as duas zeradas de volta não fazia
-              sentido nenhum). */}
-          {layout
-            .map((c) => {
-              if (acerto.settlement_type !== 'taxa_dinamica') return c
-              if (c.campo === 'taxa_mtt' && feeMttValor !== 0) return { ...c, visivel: true }
-              if (c.campo === 'taxa_cash' && feeCashValor !== 0) return { ...c, visivel: true }
-              return c
-            })
-            .filter((c) => c.visivel)
-            .map((c) => renderCampo(c.campo))}
+          {/* Sem exceção nenhuma pra Taxa MTT/Taxa Cash: o Layout da Regra do
+              clube é quem decide, igual qualquer outro campo — marcado pra
+              mostrar, mostra; senão, não (pedido do usuário: "não entendo
+              essa parte de FORÇAR... é só respeitar o layout"). Um clube que
+              precisa ver essas taxas (caso CAZZINO) resolve configurando o
+              próprio Layout da Regra, não com uma exceção no código. */}
+          {layout.filter((c) => c.visivel).map((c) => renderCampo(c.campo))}
 
           {agrupado && (
             <>

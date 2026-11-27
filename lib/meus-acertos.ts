@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { buscarSecurityEDividasPorClube, calcularTotalAcerto } from './relatorio-acerto'
-import { buscarPendenciasEAntecipacaoAoVivo, buscarRakebackAgentesPorClube } from './acertos-engine'
+import { buscarPendenciasEAntecipacaoAoVivo, buscarRakebackAgentesPorClube, buscarAcertoComoAgente } from './acertos-engine'
 import type { AcertoCard } from '@/components/acertos/ClubAcertoCard'
 
 export interface LinhaMeuAcerto {
@@ -93,7 +93,7 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
     if (a.club_id) periodStartPorClube.set(a.club_id, a.imports?.period_start ?? periodoFim)
   }
 
-  const [extrasPorClube, rakebackAgentesPorChave, { data: lancData }, ...mapasPendencias] = await Promise.all([
+  const [extrasPorClube, rakebackAgentesPorChave, { data: lancData }, { data: clubesVinculoData }, { data: membrosData }, ...mapasPendencias] = await Promise.all([
     buscarSecurityEDividasPorClube(clubIds, periodoFim, rakeTotalPorClube),
     buscarRakebackAgentesPorClube(linhasBase.filter((a) => a.club_id).map((a) => ({ clubeId: a.club_id as string, importId: a.import_id }))),
     supabase
@@ -111,6 +111,12 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
       // disso é só um lançamento pendente na tela de Lançamento.
       .eq('liberado', true)
       .lte('data_lancamento', periodoFim),
+    // Vínculo de Acerto (clube vinculado) e Agente vinculado de cada clube
+    // dessa semana — ver comentário mais abaixo (achado no Club Particular:
+    // "o valor total mostra somente o total do clube e não o total final,
+    // tem q aparecer sempre o final").
+    supabase.from('clubs').select('id, vinculo_acerto_grupo_id, agente_vinculado_id').in('id', clubIds),
+    supabase.from('clubs').select('id, moeda_conversao, cotacao, vinculo_acerto_grupo_id').in('vinculo_acerto_grupo_id', clubIds),
     ...[...gruposPorImport.values()].map((g) => buscarPendenciasEAntecipacaoAoVivo(g.clubIds, g.periodStart, g.periodEnd)),
   ])
   const lancPorClube = new Map<string, number>()
@@ -127,22 +133,76 @@ export async function buscarMeusAcertos(periodoFim: string, clubeIdsVisiveis: st
   const pendenciasPorClube = new Map<string, number>()
   for (const mapa of mapasPendencias) for (const [id, v] of mapa) pendenciasPorClube.set(id, v)
 
+  const totalProprioPorClube = new Map<string, number>()
+  for (const a of linhasBase) {
+    if (!a.club_id || totalProprioPorClube.has(a.club_id)) continue
+    const extras = extrasPorClube.get(a.club_id)
+    totalProprioPorClube.set(a.club_id, calcularTotalAcerto(a.valor_acerto, {
+      bilhetes: a.bilhetes,
+      pendenciasAntecipacao: pendenciasPorClube.get(a.club_id) ?? 0,
+      security: extras?.security ?? 0,
+      indicacaoValor: a.indicacao_valor,
+      lancamentosLiquido: lancPorClube.get(a.club_id) ?? 0,
+      // Lido direto da coluna gravada (AcertoCard.dividas_valor), não de
+      // `extras.dividasTotal` (ao vivo) — mesma troca de ClubAcertoCard/
+      // valorAcertoCompletoPorRow: a essa altura o item já foi marcado
+      // pago/quitado no momento do cálculo (ver marcarDividasQuitadas).
+      dividasTotal: a.dividas_valor,
+      rakebackAgentes: rakebackAgentesPorChave.get(`${a.club_id}:${a.import_id}`) ?? 0,
+    }))
+  }
+
+  // Acerto por clube vinculado (grupo de moedas) — mesma regra do
+  // ClubAcertoCard (e do mesmo fix feito em valorAcertoCompletoPorRow,
+  // lib/pagamentos.ts): o Total do clube "líder" soma o próprio (cru, na
+  // moeda nativa dele) + o de cada vinculado JÁ convertido pra essa moeda
+  // (usando a cotação cadastrada em CADA vinculado, nunca a do líder — ela é
+  // só pra linha pessoal "Total {moeda}" dele). Vinculado sem Acerto nessa
+  // semana entra com total 0 (zero-fill), mesmo comportamento do card.
+  const membrosPorLeader = new Map<string, { id: string; moeda_conversao: string | null; cotacao: number | null }[]>()
+  for (const m of (membrosData ?? []) as { id: string; moeda_conversao: string | null; cotacao: number | null; vinculo_acerto_grupo_id: string }[]) {
+    const lista = membrosPorLeader.get(m.vinculo_acerto_grupo_id) ?? []
+    lista.push({ id: m.id, moeda_conversao: m.moeda_conversao, cotacao: m.cotacao })
+    membrosPorLeader.set(m.vinculo_acerto_grupo_id, lista)
+  }
+  const grupoExtraPorClube = new Map<string, number>()
+  for (const [leaderId, membros] of membrosPorLeader) {
+    const extra = membros.reduce((s, m) => {
+      const totalMembro = totalProprioPorClube.get(m.id) ?? 0
+      return s + (m.moeda_conversao && m.cotacao ? totalMembro * m.cotacao : totalMembro)
+    }, 0)
+    grupoExtraPorClube.set(leaderId, Math.round(extra * 100) / 100)
+  }
+
+  // Acerto como Agente (clube que também é Agente/Super Agente vinculado em
+  // outro Clube/Liga, ver clubs.agente_vinculado_id) — mesma soma do
+  // ClubAcertoCard (`total + acertoComoAgente.total`), sempre fora do corpo
+  // do Acerto em si.
+  const agenteVinculadoPorClube = new Map(
+    ((clubesVinculoData ?? []) as { id: string; vinculo_acerto_grupo_id: string | null; agente_vinculado_id: string | null }[])
+      .filter((c) => c.agente_vinculado_id)
+      .map((c) => [c.id, c.agente_vinculado_id as string])
+  )
+  const agenteIdsUnicos = [...new Set(agenteVinculadoPorClube.values())]
+  const totalComoAgentePorAgenteId = new Map(
+    await Promise.all(agenteIdsUnicos.map(async (agenteId) => [agenteId, (await buscarAcertoComoAgente(agenteId, periodoFim)).total] as const))
+  )
+
   return linhasBase
     .map((a) => {
-      const extras = a.club_id ? extrasPorClube.get(a.club_id) : undefined
-      const valorFinal = calcularTotalAcerto(a.valor_acerto, {
+      const totalProprio = a.club_id ? totalProprioPorClube.get(a.club_id) ?? 0 : calcularTotalAcerto(a.valor_acerto, {
         bilhetes: a.bilhetes,
-        pendenciasAntecipacao: a.club_id ? pendenciasPorClube.get(a.club_id) ?? 0 : 0,
-        security: extras?.security ?? 0,
+        pendenciasAntecipacao: 0,
+        security: 0,
         indicacaoValor: a.indicacao_valor,
-        lancamentosLiquido: a.club_id ? lancPorClube.get(a.club_id) ?? 0 : 0,
-        // Lido direto da coluna gravada (AcertoCard.dividas_valor), não de
-        // `extras.dividasTotal` (ao vivo) — mesma troca de ClubAcertoCard/
-        // valorAcertoCompletoPorRow: a essa altura o item já foi marcado
-        // pago/quitado no momento do cálculo (ver marcarDividasQuitadas).
+        lancamentosLiquido: 0,
         dividasTotal: a.dividas_valor,
-        rakebackAgentes: a.club_id ? rakebackAgentesPorChave.get(`${a.club_id}:${a.import_id}`) ?? 0 : 0,
+        rakebackAgentes: 0,
       })
+      const grupoExtra = a.club_id ? grupoExtraPorClube.get(a.club_id) ?? 0 : 0
+      const agenteId = a.club_id ? agenteVinculadoPorClube.get(a.club_id) : undefined
+      const agenteExtra = agenteId ? totalComoAgentePorAgenteId.get(agenteId) ?? 0 : 0
+      const valorFinal = Math.round((totalProprio + grupoExtra + agenteExtra) * 100) / 100
       return {
         acerto: a,
         importId: a.import_id,
