@@ -21,6 +21,18 @@ interface AcertoAgenteRow {
 
 const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
+interface AgenteAgregado {
+  agente_id: string
+  agente_nome: string
+  rake_total: number
+  player_result: number
+  valor_rakeback: number
+  clubes: Map<string, { clube_nome: string; rake_total: number; player_result: number; rakeback_pct: number; valor_rakeback: number }>
+}
+interface AgenteArvore extends AgenteAgregado {
+  children: AgenteArvore[]
+}
+
 function formatPeriodo(p: PeriodoAcerto): string {
   const fmtD = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
   return `${fmtD(p.inicio)} → ${fmtD(p.fim)}`
@@ -38,6 +50,7 @@ export function AgentesAcertosView({ agenteIdFixo, modo }: { agenteIdFixo?: stri
   const { t } = useI18n()
   const [rows, setRows] = useState<AcertoAgenteRow[]>([])
   const [superagenteIds, setSuperagenteIds] = useState<Set<string>>(new Set())
+  const [paiPorAgente, setPaiPorAgente] = useState<Map<string, string | null>>(new Map())
   const [loading, setLoading] = useState(true)
   const [periodos, setPeriodos] = useState<PeriodoAcerto[]>([])
   const [periodoFiltro, setPeriodoFiltro] = useState('')
@@ -118,10 +131,12 @@ export function AgentesAcertosView({ agenteIdFixo, modo }: { agenteIdFixo?: stri
           .select('id, agente_id, agente_nome, clube_id, clube_nome, rake_total, player_result, rakeback_pct, valor_rakeback, imports(period_start, period_end)')
           .in('import_id', importIds)
           .order('agente_nome'),
-        modo ? supabase.from('agentes').select('superagente_id').not('superagente_id', 'is', null) : Promise.resolve({ data: [] }),
-      ]).then(([{ data }, { data: superIds }]) => {
+        modo ? supabase.from('agentes').select('id, superagente_id') : Promise.resolve({ data: [] }),
+      ]).then(([{ data }, { data: agentesInfo }]) => {
         setRows((data ?? []) as unknown as AcertoAgenteRow[])
-        setSuperagenteIds(new Set((superIds ?? []).map((s) => s.superagente_id as string)))
+        const info = (agentesInfo ?? []) as { id: string; superagente_id: string | null }[]
+        setSuperagenteIds(new Set(info.filter((a) => a.superagente_id).map((a) => a.superagente_id as string)))
+        setPaiPorAgente(new Map(info.map((a) => [a.id, a.superagente_id])))
         setLoading(false)
       })
     })
@@ -143,10 +158,7 @@ export function AgentesAcertosView({ agenteIdFixo, modo }: { agenteIdFixo?: stri
   }, [rows, modo, superagenteIds, agenteIdFixo, dataInicio, dataFim, busca, clubeFiltro])
 
   const porAgente = useMemo(() => {
-    const mapa = new Map<string, {
-      agente_id: string; agente_nome: string; rake_total: number; player_result: number; valor_rakeback: number
-      clubes: Map<string, { clube_nome: string; rake_total: number; player_result: number; rakeback_pct: number; valor_rakeback: number }>
-    }>()
+    const mapa = new Map<string, AgenteAgregado>()
     for (const r of filtradas) {
       const ag = mapa.get(r.agente_id) ?? { agente_id: r.agente_id, agente_nome: r.agente_nome, rake_total: 0, player_result: 0, valor_rakeback: 0, clubes: new Map() }
       ag.rake_total += r.rake_total
@@ -160,8 +172,28 @@ export function AgentesAcertosView({ agenteIdFixo, modo }: { agenteIdFixo?: stri
       ag.clubes.set(chaveClube, cl)
       mapa.set(r.agente_id, ag)
     }
-    return [...mapa.values()].sort((a, b) => b.valor_rakeback - a.valor_rakeback)
+    return [...mapa.values()]
   }, [filtradas, t])
+
+  // jejelindinho é Agente do Super Agente "TT/LP/Stars Poker" e, ao mesmo
+  // tempo, Super Agente de "Ladraodeficha84" — uma cadeia de 3 níveis. A
+  // lista achatada mostrava os dois como cards soltos no mesmo nível, com os
+  // mesmos números (repasse), parecendo duplicata (Cássio: "nesse caso tá
+  // dobrando o valor dele" / Emy: "se aparecesse tem que ser embaixo do
+  // Stars Poker"). Agora aninha: todo agente cujo pai também esteja nesta
+  // lista vira filho do card do pai, em vez de irmão solto.
+  const arvore = useMemo(() => {
+    const porId = new Map<string, AgenteArvore>(porAgente.map((a) => [a.agente_id, { ...a, children: [] }]))
+    const raizes: AgenteArvore[] = []
+    for (const node of porId.values()) {
+      const paiId = paiPorAgente.get(node.agente_id) ?? null
+      const pai = paiId && paiId !== node.agente_id ? porId.get(paiId) : undefined
+      if (pai) pai.children.push(node); else raizes.push(node)
+    }
+    const ordenar = (lista: AgenteArvore[]): AgenteArvore[] =>
+      [...lista].sort((a, b) => b.valor_rakeback - a.valor_rakeback).map((n) => ({ ...n, children: ordenar(n.children) }))
+    return ordenar(raizes)
+  }, [porAgente, paiPorAgente])
 
   const totalGeral = porAgente.reduce((s, a) => s + a.valor_rakeback, 0)
 
@@ -237,64 +269,81 @@ export function AgentesAcertosView({ agenteIdFixo, modo }: { agenteIdFixo?: stri
 
       {loading ? (
         <div className="rounded-xl border border-white/10 p-6 text-center text-gray-500 text-sm">{t('common.carregando')}</div>
-      ) : porAgente.length === 0 ? (
+      ) : arvore.length === 0 ? (
         <div className="rounded-xl border border-white/10 p-8 text-center">
           <p className="text-gray-500 text-sm">{t('agentes_acertos_view.nenhum_acerto_desc')}</p>
         </div>
       ) : (
         <div className="rounded-xl border border-white/10 overflow-hidden divide-y divide-white/5">
-          {porAgente.map((a) => {
-            const aberto = expandido.has(a.agente_id)
-            return (
-              <div key={a.agente_id}>
-                <button
-                  type="button"
-                  onClick={() => toggle(a.agente_id)}
-                  className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors text-left"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {aberto ? <ChevronUp size={14} className="text-gray-500 shrink-0" /> : <ChevronDown size={14} className="text-gray-500 shrink-0" />}
-                    <div className="min-w-0">
-                      <p className="text-gold text-sm truncate">{a.agente_nome}</p>
-                      <p className="text-gray-500 text-xs mt-0.5">
-                        {t(a.clubes.size === 1 ? 'agentes_acertos_view.clubes_count_singular' : 'agentes_acertos_view.clubes_count_plural', { n: a.clubes.size })}
-                        {' · '}{t('agentes_acertos_view.col_rake')} {fmt(a.rake_total)}
-                        {' · '}{t('agentes_acertos_view.col_ganhos')} {fmt(a.player_result)}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-success text-base font-semibold shrink-0">{fmt(a.valor_rakeback)}</p>
-                </button>
-                {aberto && (
-                  <div className="overflow-x-auto bg-surface2">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-[11px] uppercase tracking-wide text-gray-500">
-                          <th className="text-left pl-10 py-2 font-medium">{t('agentes_acertos_view.col_clube')}</th>
-                          <th className="text-right py-2 font-medium">{t('agentes_acertos_view.col_rake')}</th>
-                          <th className="text-right py-2 font-medium">{t('agentes_acertos_view.col_ganhos')}</th>
-                          <th className="text-right py-2 font-medium">{t('agentes_acertos_view.col_pct_rb')}</th>
-                          <th className="text-right py-2 pr-4 font-medium">{t('agentes_acertos_view.col_rb')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[...a.clubes.values()].map((c) => (
-                          <tr key={c.clube_nome} className="border-t border-white/5">
-                            <td className="pl-10 py-2 text-gray-300">{c.clube_nome}</td>
-                            <td className="text-right py-2 text-white">{fmt(c.rake_total)}</td>
-                            <td className={`text-right py-2 ${c.player_result >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(c.player_result)}</td>
-                            <td className="text-right py-2 text-gray-500">{fmt(c.rakeback_pct)}%</td>
-                            <td className="text-right py-2 pr-4 text-success">{fmt(c.valor_rakeback)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          {arvore.map((a) => <AgenteNodeCard key={a.agente_id} node={a} depth={0} expandido={expandido} toggle={toggle} t={t} />)}
         </div>
+      )}
+    </div>
+  )
+}
+
+function AgenteNodeCard({ node, depth, expandido, toggle, t }: {
+  node: AgenteArvore
+  depth: number
+  expandido: Set<string>
+  toggle: (id: string) => void
+  t: ReturnType<typeof useI18n>['t']
+}) {
+  const aberto = expandido.has(node.agente_id)
+  return (
+    <div className={depth > 0 ? 'border-l-2 border-gold/20 ml-4' : undefined}>
+      <button
+        type="button"
+        onClick={() => toggle(node.agente_id)}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors text-left"
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          {aberto ? <ChevronUp size={14} className="text-gray-500 shrink-0" /> : <ChevronDown size={14} className="text-gray-500 shrink-0" />}
+          <div className="min-w-0">
+            <p className="text-gold text-sm truncate">{node.agente_nome}</p>
+            <p className="text-gray-500 text-xs mt-0.5">
+              {t(node.clubes.size === 1 ? 'agentes_acertos_view.clubes_count_singular' : 'agentes_acertos_view.clubes_count_plural', { n: node.clubes.size })}
+              {' · '}{t('agentes_acertos_view.col_rake')} {fmt(node.rake_total)}
+              {' · '}{t('agentes_acertos_view.col_ganhos')} {fmt(node.player_result)}
+            </p>
+          </div>
+        </div>
+        <p className="text-success text-base font-semibold shrink-0">{fmt(node.valor_rakeback)}</p>
+      </button>
+      {aberto && (
+        <>
+          <div className="overflow-x-auto bg-surface2">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[11px] uppercase tracking-wide text-gray-500">
+                  <th className="text-left pl-10 py-2 font-medium">{t('agentes_acertos_view.col_clube')}</th>
+                  <th className="text-right py-2 font-medium">{t('agentes_acertos_view.col_rake')}</th>
+                  <th className="text-right py-2 font-medium">{t('agentes_acertos_view.col_ganhos')}</th>
+                  <th className="text-right py-2 font-medium">{t('agentes_acertos_view.col_pct_rb')}</th>
+                  <th className="text-right py-2 pr-4 font-medium">{t('agentes_acertos_view.col_rb')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...node.clubes.values()].map((c) => (
+                  <tr key={c.clube_nome} className="border-t border-white/5">
+                    <td className="pl-10 py-2 text-gray-300">{c.clube_nome}</td>
+                    <td className="text-right py-2 text-white">{fmt(c.rake_total)}</td>
+                    <td className={`text-right py-2 ${c.player_result >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(c.player_result)}</td>
+                    <td className="text-right py-2 text-gray-500">{fmt(c.rakeback_pct)}%</td>
+                    <td className="text-right py-2 pr-4 text-success">{fmt(c.valor_rakeback)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {node.children.length > 0 && (
+            <div className="bg-surface2 divide-y divide-white/5 pb-1">
+              {node.children.map((filho) => (
+                <AgenteNodeCard key={filho.agente_id} node={filho} depth={depth + 1} expandido={expandido} toggle={toggle} t={t} />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   )
