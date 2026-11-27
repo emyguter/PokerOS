@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { calcularTotalAcerto, buscarSecurityEDividasPorClube, regrossarValorCrypto } from './relatorio-acerto'
-import { diaSeguinte, maisDias, diaAnterior, clubesComDiferencaQuitada, buscarRakebackAgentesPorClube } from './acertos-engine'
+import { diaSeguinte, maisDias, diaAnterior, clubesComDiferencaQuitada, buscarRakebackAgentesPorClube, buscarSaldoArrastado } from './acertos-engine'
 
 export type TipoEnvio = 'pagamento' | 'antecipacao'
 
@@ -139,12 +139,21 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
 // calcularTotalAcerto): Bilhetes, Segurança, Taxa A-A Home Game, Indicação,
 // Lançamentos do período (Bônus/Promoção/Outro) e Dívidas/Acordos entram
 // todos — confirmado pelo Cássio, nada pode ficar de fora, senão a Diferença
-// de Cobrança/Controle de Pagamentos fica errada. Antecipação FICA DE FORA
-// daqui de propósito — vira Envio itemizado (ver buscarAntecipacaoEnvios
+// de Cobrança/Controle de Pagamentos fica errada.
+//
+// Pendências/Antecipação entra só a parte ARRASTADA de períodos ANTERIORES
+// (buscarSaldoArrastado, mesma função que ClubAcertoCard/Meus Acertos usam —
+// achado: "este valor de acerto não está somando as pendencias e
+// antecipações, tem que buscar o valor final do acerto", card mostrando
+// R$420,80 numa semana que já carregava dívida de semanas antes sem
+// multa/saldo nenhum aparecendo aqui). A Antecipação do PRÓPRIO período fica
+// de fora de propósito — vira Envio itemizado (ver buscarAntecipacaoEnvios
 // abaixo), não escondida dentro de "Valor do Acerto" — mesma lógica de "o
 // que devia" vs "o que já foi adiantado" que a coluna Valor Pago já usa pra
-// Envio de verdade. Caução também fica de fora, mas por outro motivo: não é
-// Envio nenhum, é só referência (ver buscarCaucaoDoPeriodo).
+// Envio de verdade; somar a parte arrastada de novo aqui não dobra nada, é
+// exatamente a parte que nenhum Envio dessa tela cobre. Caução também fica
+// de fora, mas por outro motivo: não é Envio nenhum, é só referência (ver
+// buscarCaucaoDoPeriodo).
 // `extraPorClube` (Bônus+Promoção+Outro, já somado aqui dentro de Valor do
 // Acerto) é devolvido separado só pra UI mostrar como referência na coluna
 // "Extra" (pedido do Cássio) — não é somado de novo em nada.
@@ -159,7 +168,7 @@ export async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], peri
   const clubIds = [...new Set(lista.map((a) => a.club_id).filter((id): id is string => !!id))]
   const rakeTotalPorClube = new Map(lista.filter((a) => a.club_id).map((a) => [a.club_id as string, a.rake_total]))
 
-  const [{ data: lancamentosData }, extrasPorClube, rakebackAgentesPorChave] = await Promise.all([
+  const [{ data: lancamentosData }, extrasPorClube, rakebackAgentesPorChave, arrastadoPorClube] = await Promise.all([
     clubIds.length > 0 && periodStart
       ? supabase
           .from('lancamentos')
@@ -183,6 +192,7 @@ export async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], peri
       : Promise.resolve({ data: [] as { clube_id: string; natureza: 'credito' | 'debito'; valor: number }[] }),
     buscarSecurityEDividasPorClube(clubIds, periodEnd || periodStart, rakeTotalPorClube),
     buscarRakebackAgentesPorClube(lista.filter((a) => a.club_id).map((a) => ({ clubeId: a.club_id as string, importId: a.import_id }))),
+    buscarSaldoArrastado(clubIds, periodEnd || periodStart),
   ])
 
   const extraPorClube = new Map<string, number>()
@@ -195,7 +205,7 @@ export async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], peri
     const extras = a.club_id ? extrasPorClube.get(a.club_id) : undefined
     valorAcertoPorId.set(a.id, calcularTotalAcerto(a.valor_acerto, {
       bilhetes: a.bilhetes,
-      pendenciasAntecipacao: 0,
+      pendenciasAntecipacao: a.club_id ? arrastadoPorClube.get(a.club_id)?.total ?? 0 : 0,
       security: extras?.security ?? 0,
       indicacaoValor: a.indicacao_valor,
       lancamentosLiquido: a.club_id ? extraPorClube.get(a.club_id) ?? 0 : 0,
