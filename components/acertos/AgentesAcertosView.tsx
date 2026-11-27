@@ -144,6 +144,13 @@ export function AgentesAcertosView({ agenteIdFixo, modo }: { agenteIdFixo?: stri
 
   const filtradas = useMemo(() => {
     return rows.filter((r) => {
+      // clube_id nulo = import duplicado/incompleto que nunca resolveu o
+      // clube de verdade (mesmo critério já aplicado em
+      // buscarAcertoComoAgente, lib/acertos-engine.ts — achado no caso
+      // ticarlos/Sul Home Game: a linha "— sem clube —" é lixo de import
+      // órfão, não um agente de verdade sem clube; Cássio: "ele ta
+      // considerando os 2, como que faz?"). Nunca conta na tela de Agentes.
+      if (!r.clube_id) return false
       if (modo === 'super_agentes' && !superagenteIds.has(r.agente_id)) return false
       if (modo === 'agentes' && superagenteIds.has(r.agente_id)) return false
       if (agenteIdFixo) {
