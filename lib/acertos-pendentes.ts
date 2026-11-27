@@ -74,6 +74,17 @@ async function statusStoplossPorClube(clubIds: string[]): Promise<Map<string, St
 // inteira, pendente ou não (pedido do Cássio: "retirar dos acertos
 // pendentes aqueles que não estão pendentes, ou melhor, coloca um check box
 // pro usuario escolher se ele quer ver todos ou somente os pendentes").
+//
+// Acerto NEGATIVO (clube devia) que acabou pago A MAIS (Diferença virou
+// positiva, "liga_deve") não conta como pendente — foi pago e o que sobrou é
+// Antecipação pra semana seguinte, não uma dívida em aberto (pedido do
+// Cássio: "Estes casos em que o pagamento foi maior do que o valor do
+// acerto não precisam estar na lista, pois o acerto não está pendente. O
+// acerto foi pago e sobrou um valor como antecipação"). NÃO se aplica a
+// Acerto que já nasceu POSITIVO (a Liga devia ao clube desde o início) — esse
+// continua pendente até pagar de verdade, mesmo que a Diferença também seja
+// positiva (clarificado pelo Cássio: "os casos em que o acerto é positivo,
+// ou seja, em que a liga tem que pagar" continuam na lista).
 export async function buscarAcertosPendentesDaSemana(periodo?: PeriodoPagamento, somentePendentes: boolean = true): Promise<LinhaAcertoPendenteSemana[]> {
   let periodoFim: string
   let importIds: string[]
@@ -104,7 +115,9 @@ export async function buscarAcertosPendentesDaSemana(periodo?: PeriodoPagamento,
     ((acertosClub ?? []) as { id: string; club_id: string | null; rollover_sem_multa: boolean | null }[]).map((a) => [a.id, !!a.rollover_sem_multa])
   )
 
-  const pendentes = somentePendentes ? pagamentos.filter((p) => Math.abs(p.diferenca) > 0.005) : pagamentos
+  const pendentes = somentePendentes
+    ? pagamentos.filter((p) => Math.abs(p.diferenca) > 0.005 && !(p.valor_acerto < -0.005 && p.diferenca > 0.005))
+    : pagamentos
   const clubIds = [...new Set(pendentes.map((p) => clubIdPorAcertoId.get(p.acerto_id)).filter((id): id is string => !!id))]
   const statusPorClube = await statusStoplossPorClube(clubIds)
 
