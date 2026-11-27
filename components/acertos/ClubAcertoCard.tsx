@@ -840,13 +840,10 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
 
         <div className="overflow-y-auto flex-1 divide-y divide-white/10">
           {/* Taxa MTT/Taxa Cash não podem ficar ocultas num clube taxa_dinamica
-              QUANDO essa taxa está de fato sendo cobrada (valor ≠ 0), mesmo
-              que a Regra de Layout (compartilhada entre clubes de tipos
-              diferentes, ex: "Órion Layout") tenha marcado invisível — são a
-              ÚNICA linha que mostra a taxa de verdade cobrada desse clube (%
-              cadastrado, ex: 7%). "Taxa da Liga" nunca vira fallback delas em
-              taxa_dinamica (ver case 'taxa_liga' abaixo — já vem itemizado
-              aqui), então escondê-las cobra a taxa mas não mostra nada em
+              QUANDO essa taxa está de fato sendo cobrada (valor ≠ 0) E "Taxa
+              da Liga" (que, em taxa_dinamica, só mostra o fee_calculado real,
+              ver case 'taxa_liga' abaixo) também não está visível — sem
+              nenhuma das duas, a taxa fica cobrada mas sem mostrar nada em
               lugar nenhum do card (achado pelo Cássio no CAZZINO: "segue com
               erro na taxa, deveria vir o cadastrado 7%" — o layout compartilhado
               com clubes taxa_fixa_variavel escondia as duas, e pra esses outros
@@ -856,10 +853,19 @@ export function ClubAcertoCard({ acerto, ligaNome, periodStart, periodEnd, onClo
               respeita o Layout de verdade (achado pelo Cássio no 4 Naipes
               Poker: Layout próprio desmarcou as duas de propósito, só a
               Operacional cobra, forçar as duas zeradas de volta não fazia
-              sentido nenhum). */}
+              sentido nenhum).
+              Quando "Taxa da Liga" ESTÁ visível no Layout desse clube, ela já
+              mostra o mesmo valor total (fee_mtt_valor + fee_cash_valor) —
+              forçar Taxa MTT/Cash também duplicava a mesma taxa em 3 linhas
+              diferentes (achado pelo Cássio no LS HS club: "não sei o que são
+              essas 2 taxas aí no final... ainda com as taxas mtt e cash que
+              não estão no layout da regra" — o Layout dele desmarcou as duas
+              de propósito, só "Taxa da Liga" cobre). */}
           {layout
             .map((c) => {
               if (acerto.settlement_type !== 'taxa_dinamica') return c
+              const taxaLigaVisivel = layout.find((l) => l.campo === 'taxa_liga')?.visivel ?? false
+              if (taxaLigaVisivel) return c
               if (c.campo === 'taxa_mtt' && feeMttValor !== 0) return { ...c, visivel: true }
               if (c.campo === 'taxa_cash' && feeCashValor !== 0) return { ...c, visivel: true }
               return c
