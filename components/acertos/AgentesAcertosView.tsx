@@ -312,30 +312,38 @@ function AgenteNodeCard({ node, depth, expandido, toggle, t }: {
       </button>
       {aberto && (
         <>
-          <div className="overflow-x-auto bg-surface2">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[11px] uppercase tracking-wide text-gray-500">
-                  <th className="text-left pl-10 py-2 font-medium">{t('agentes_acertos_view.col_clube')}</th>
-                  <th className="text-right py-2 font-medium">{t('agentes_acertos_view.col_rake')}</th>
-                  <th className="text-right py-2 font-medium">{t('agentes_acertos_view.col_ganhos')}</th>
-                  <th className="text-right py-2 font-medium">{t('agentes_acertos_view.col_pct_rb')}</th>
-                  <th className="text-right py-2 pr-4 font-medium">{t('agentes_acertos_view.col_rb')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...node.clubes.values()].map((c) => (
-                  <tr key={c.clube_nome} className="border-t border-white/5">
-                    <td className="pl-10 py-2 text-gray-300">{c.clube_nome}</td>
-                    <td className="text-right py-2 text-white">{fmt(c.rake_total)}</td>
-                    <td className={`text-right py-2 ${c.player_result >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(c.player_result)}</td>
-                    <td className="text-right py-2 text-gray-500">{fmt(c.rakeback_pct)}%</td>
-                    <td className="text-right py-2 pr-4 text-success">{fmt(c.valor_rakeback)}</td>
+          {/* Clube table só na raiz: um agente aninhado (depth > 0) já tem seu
+          total exibido no próprio cabeçalho, e o detalhamento por clube
+          duplicaria a mesma linha que já aparece na tabela do pai via
+          repasse (achado no caso jejelindinho/Stars Poker: "Sul Home Game"
+          aparecia idêntico nos dois níveis — Emy: "ta duplicando a
+          informação"). */}
+          {depth === 0 && (
+            <div className="overflow-x-auto bg-surface2">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[11px] uppercase tracking-wide text-gray-500">
+                    <th className="text-left pl-10 py-2 font-medium">{t('agentes_acertos_view.col_clube')}</th>
+                    <th className="text-right py-2 font-medium">{t('agentes_acertos_view.col_rake')}</th>
+                    <th className="text-right py-2 font-medium">{t('agentes_acertos_view.col_ganhos')}</th>
+                    <th className="text-right py-2 font-medium">{t('agentes_acertos_view.col_pct_rb')}</th>
+                    <th className="text-right py-2 pr-4 font-medium">{t('agentes_acertos_view.col_rb')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {[...node.clubes.values()].map((c) => (
+                    <tr key={c.clube_nome} className="border-t border-white/5">
+                      <td className="pl-10 py-2 text-gray-300">{c.clube_nome}</td>
+                      <td className="text-right py-2 text-white">{fmt(c.rake_total)}</td>
+                      <td className={`text-right py-2 ${c.player_result >= 0 ? 'text-success' : 'text-alert'}`}>{fmt(c.player_result)}</td>
+                      <td className="text-right py-2 text-gray-500">{fmt(c.rakeback_pct)}%</td>
+                      <td className="text-right py-2 pr-4 text-success">{fmt(c.valor_rakeback)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           {node.children.length > 0 && (
             <div className="bg-surface2 divide-y divide-white/5 pb-1">
               {node.children.map((filho) => (
