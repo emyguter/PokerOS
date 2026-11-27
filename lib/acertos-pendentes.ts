@@ -239,7 +239,15 @@ async function buscarSaldosPorClube(range: RangeDatas = {}): Promise<Map<string,
   const clubIds = [...new Set(acertos.map((a) => a.club_id).filter((id): id is string => !!id))]
 
   const [{ data: enviosData }, { data: clubesData }] = await Promise.all([
-    supabase.from('lancamentos').select('acerto_id, natureza, valor').in('acerto_id', acertoIds).in('tipo', ['pagamento', 'antecipacao']),
+    // Só o lado Suporte, não o par da Genia — mesmo acerto_id, mesma regra já
+    // usada em toda soma de Pagamento/Antecipação no resto do app
+    // (agregarPagamentos, buscarPendenciasAntecipacao, buscarSaldoArrastado,
+    // clubesComDiferencaQuitada), que essa consulta tinha ficado de fora
+    // (achado no "Club 1!": Acerto pago certinho em 2 Pagamentos de 0,86 cada,
+    // com os dois lados Suporte/Genia lançados — "Total Pago" em Atrasados/
+    // Histórico de Acertos Pendentes não batia com o que o Lançamento do
+    // clube mostrava).
+    supabase.from('lancamentos').select('acerto_id, natureza, valor').in('acerto_id', acertoIds).in('tipo', ['pagamento', 'antecipacao']).eq('origem', 'suporte'),
     clubIds.length > 0 ? supabase.from('clubs').select('id, security, projeto').in('id', clubIds) : Promise.resolve({ data: [] as { id: string; security: number | null; projeto: string | null }[] }),
   ])
   const enviosPorAcerto = new Map<string, number>()
