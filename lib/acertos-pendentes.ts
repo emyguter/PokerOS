@@ -227,21 +227,33 @@ async function buscarSaldosPorClube(range: RangeDatas = {}): Promise<Map<string,
   const acertoIds = acertos.map((a) => a.id)
   const clubIds = [...new Set(acertos.map((a) => a.club_id).filter((id): id is string => !!id))]
 
-  const [{ data: enviosData }, { data: clubesData }] = await Promise.all([
-    // Só o lado Suporte, não o par da Genia — mesmo acerto_id, mesma regra já
-    // usada em toda soma de Pagamento/Antecipação no resto do app
-    // (agregarPagamentos, buscarPendenciasAntecipacao, buscarSaldoArrastado,
-    // clubesComDiferencaQuitada), que essa consulta tinha ficado de fora
-    // (achado no "Club 1!": Acerto pago certinho em 2 Pagamentos de 0,86 cada,
-    // com os dois lados Suporte/Genia lançados — "Total Pago" em Atrasados/
-    // Histórico de Acertos Pendentes não batia com o que o Lançamento do
-    // clube mostrava).
-    supabase.from('lancamentos').select('acerto_id, natureza, valor').in('acerto_id', acertoIds).in('tipo', ['pagamento', 'antecipacao']).eq('origem', 'suporte'),
+  // Esse relatório olha ~1 ano pra trás (SEMANAS_LOOKBACK), então acertoIds
+  // pode passar de 800+ UUIDs — um .in() só com tudo isso de uma vez gera
+  // uma URL grande o suficiente pra falhar (ou vir truncada) dependendo do
+  // proxy/CDN no meio do caminho. Quebra em lotes de 150 e junta o
+  // resultado (achado no "Club 1!": Acerto pago certinho em 2 Pagamentos de
+  // 0,86 cada, mas "Total Pago" continuava 0,00 em produção mesmo depois do
+  // fix do filtro de origem — o .in() sozinho, com os 800+ IDs do ano
+  // inteiro, nunca estava de fato devolvendo as linhas desse clube).
+  const LOTE_IDS = 150
+  const lotesAcertoIds: string[][] = []
+  for (let i = 0; i < acertoIds.length; i += LOTE_IDS) lotesAcertoIds.push(acertoIds.slice(i, i + LOTE_IDS))
+
+  const [enviosPorLote, { data: clubesData }] = await Promise.all([
+    Promise.all(lotesAcertoIds.map((lote) =>
+      // Só o lado Suporte, não o par da Genia — mesmo acerto_id, mesma regra
+      // já usada em toda soma de Pagamento/Antecipação no resto do app
+      // (agregarPagamentos, buscarPendenciasAntecipacao, buscarSaldoArrastado,
+      // clubesComDiferencaQuitada), que essa consulta tinha ficado de fora.
+      supabase.from('lancamentos').select('acerto_id, natureza, valor').in('acerto_id', lote).in('tipo', ['pagamento', 'antecipacao']).eq('origem', 'suporte')
+    )),
     clubIds.length > 0 ? supabase.from('clubs').select('id, security, projeto').in('id', clubIds) : Promise.resolve({ data: [] as { id: string; security: number | null; projeto: string | null }[] }),
   ])
   const enviosPorAcerto = new Map<string, number>()
-  for (const e of (enviosData ?? []) as { acerto_id: string; natureza: 'credito' | 'debito'; valor: number }[]) {
-    enviosPorAcerto.set(e.acerto_id, (enviosPorAcerto.get(e.acerto_id) ?? 0) + (e.natureza === 'credito' ? e.valor : -e.valor))
+  for (const { data } of enviosPorLote) {
+    for (const e of (data ?? []) as { acerto_id: string; natureza: 'credito' | 'debito'; valor: number }[]) {
+      enviosPorAcerto.set(e.acerto_id, (enviosPorAcerto.get(e.acerto_id) ?? 0) + (e.natureza === 'credito' ? e.valor : -e.valor))
+    }
   }
   const infoPorClube = new Map(((clubesData ?? []) as { id: string; security: number | null; projeto: string | null }[]).map((c) => [c.id, { security: c.security ?? 0, projeto: c.projeto ?? null }]))
 
