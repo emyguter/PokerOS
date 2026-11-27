@@ -55,13 +55,14 @@ async function statusStoplossPorClube(clubIds: string[]): Promise<Map<string, St
   return mapa
 }
 
-// "Acertos Pendentes da Semana": Acerto de uma semana já calculada que
-// ainda não fechou em zero (clube deve OU a Liga deve ao clube e não pagou
-// tudo) — mesma fonte de verdade do Controle de Pagamentos
-// (lib/pagamentos.ts), só filtrando quem ainda tem Diferença e ordenando do
-// menor pro maior. Os dois sentidos aparecem aqui (pedido do Cássio: "a
-// diferença, seja crédito ou débito, da semana anterior deve constar na
-// semana seguinte") — `direcao` diz pra UI qual ação de Rollover oferecer.
+// "Acertos Pendentes da Semana": só o que o CLUBE ainda deve pra gente
+// (Diferença negativa) — mesma fonte de verdade do Controle de Pagamentos
+// (lib/pagamentos.ts), só filtrando quem ainda deve e ordenando do menor
+// pro maior. Caso a Liga deva pro clube (Diferença positiva) NUNCA entra
+// aqui, pago ou não — clarificado pelo usuário depois de um vai-e-vem: "ali
+// é só o que tá pendente do clube pagar pra gente" (essa tela não é sobre
+// toda Diferença em aberto nos dois sentidos, é especificamente sobre
+// cobrança de clube).
 // `periodo`: sem informar, cai na semana MAIS RECENTE (comportamento de
 // sempre). Com `{inicio, fim}` (ver buscarPeriodosComAcerto), mostra a
 // semana escolhida — pedido do Cássio: "precisamos la na tela de acertos
@@ -70,21 +71,11 @@ async function statusStoplossPorClube(clubIds: string[]): Promise<Map<string, St
 // rollover a semana mais recente, mesmo com Pendências de semanas
 // anteriores ainda em aberto escondidas no Atrasados/Inadimplentes).
 // `somentePendentes` (default true, comportamento de sempre) filtra só quem
-// ainda tem Diferença de verdade (> 1 centavo) — false mostra a semana
-// inteira, pendente ou não (pedido do Cássio: "retirar dos acertos
-// pendentes aqueles que não estão pendentes, ou melhor, coloca um check box
-// pro usuario escolher se ele quer ver todos ou somente os pendentes").
-//
-// Acerto NEGATIVO (clube devia) que acabou pago A MAIS (Diferença virou
-// positiva, "liga_deve") não conta como pendente — foi pago e o que sobrou é
-// Antecipação pra semana seguinte, não uma dívida em aberto (pedido do
-// Cássio: "Estes casos em que o pagamento foi maior do que o valor do
-// acerto não precisam estar na lista, pois o acerto não está pendente. O
-// acerto foi pago e sobrou um valor como antecipação"). NÃO se aplica a
-// Acerto que já nasceu POSITIVO (a Liga devia ao clube desde o início) — esse
-// continua pendente até pagar de verdade, mesmo que a Diferença também seja
-// positiva (clarificado pelo Cássio: "os casos em que o acerto é positivo,
-// ou seja, em que a liga tem que pagar" continuam na lista).
+// ainda deve de verdade (> 1 centavo) — false mostra a semana inteira,
+// pendente ou não, nos dois sentidos (pedido do Cássio: "retirar dos
+// acertos pendentes aqueles que não estão pendentes, ou melhor, coloca um
+// check box pro usuario escolher se ele quer ver todos ou somente os
+// pendentes").
 export async function buscarAcertosPendentesDaSemana(periodo?: PeriodoPagamento, somentePendentes: boolean = true): Promise<LinhaAcertoPendenteSemana[]> {
   let periodoFim: string
   let importIds: string[]
@@ -115,9 +106,7 @@ export async function buscarAcertosPendentesDaSemana(periodo?: PeriodoPagamento,
     ((acertosClub ?? []) as { id: string; club_id: string | null; rollover_sem_multa: boolean | null }[]).map((a) => [a.id, !!a.rollover_sem_multa])
   )
 
-  const pendentes = somentePendentes
-    ? pagamentos.filter((p) => Math.abs(p.diferenca) > 0.005 && !(p.valor_acerto < -0.005 && p.diferenca > 0.005))
-    : pagamentos
+  const pendentes = somentePendentes ? pagamentos.filter((p) => p.diferenca < -0.005) : pagamentos
   const clubIds = [...new Set(pendentes.map((p) => clubIdPorAcertoId.get(p.acerto_id)).filter((id): id is string => !!id))]
   const statusPorClube = await statusStoplossPorClube(clubIds)
 
@@ -238,21 +227,33 @@ async function buscarSaldosPorClube(range: RangeDatas = {}): Promise<Map<string,
   const acertoIds = acertos.map((a) => a.id)
   const clubIds = [...new Set(acertos.map((a) => a.club_id).filter((id): id is string => !!id))]
 
-  const [{ data: enviosData }, { data: clubesData }] = await Promise.all([
-    // Só o lado Suporte, não o par da Genia — mesmo acerto_id, mesma regra já
-    // usada em toda soma de Pagamento/Antecipação no resto do app
-    // (agregarPagamentos, buscarPendenciasAntecipacao, buscarSaldoArrastado,
-    // clubesComDiferencaQuitada), que essa consulta tinha ficado de fora
-    // (achado no "Club 1!": Acerto pago certinho em 2 Pagamentos de 0,86 cada,
-    // com os dois lados Suporte/Genia lançados — "Total Pago" em Atrasados/
-    // Histórico de Acertos Pendentes não batia com o que o Lançamento do
-    // clube mostrava).
-    supabase.from('lancamentos').select('acerto_id, natureza, valor').in('acerto_id', acertoIds).in('tipo', ['pagamento', 'antecipacao']).eq('origem', 'suporte'),
+  // Esse relatório olha ~1 ano pra trás (SEMANAS_LOOKBACK), então acertoIds
+  // pode passar de 800+ UUIDs — um .in() só com tudo isso de uma vez gera
+  // uma URL grande o suficiente pra falhar (ou vir truncada) dependendo do
+  // proxy/CDN no meio do caminho. Quebra em lotes de 150 e junta o
+  // resultado (achado no "Club 1!": Acerto pago certinho em 2 Pagamentos de
+  // 0,86 cada, mas "Total Pago" continuava 0,00 em produção mesmo depois do
+  // fix do filtro de origem — o .in() sozinho, com os 800+ IDs do ano
+  // inteiro, nunca estava de fato devolvendo as linhas desse clube).
+  const LOTE_IDS = 150
+  const lotesAcertoIds: string[][] = []
+  for (let i = 0; i < acertoIds.length; i += LOTE_IDS) lotesAcertoIds.push(acertoIds.slice(i, i + LOTE_IDS))
+
+  const [enviosPorLote, { data: clubesData }] = await Promise.all([
+    Promise.all(lotesAcertoIds.map((lote) =>
+      // Só o lado Suporte, não o par da Genia — mesmo acerto_id, mesma regra
+      // já usada em toda soma de Pagamento/Antecipação no resto do app
+      // (agregarPagamentos, buscarPendenciasAntecipacao, buscarSaldoArrastado,
+      // clubesComDiferencaQuitada), que essa consulta tinha ficado de fora.
+      supabase.from('lancamentos').select('acerto_id, natureza, valor').in('acerto_id', lote).in('tipo', ['pagamento', 'antecipacao']).eq('origem', 'suporte')
+    )),
     clubIds.length > 0 ? supabase.from('clubs').select('id, security, projeto').in('id', clubIds) : Promise.resolve({ data: [] as { id: string; security: number | null; projeto: string | null }[] }),
   ])
   const enviosPorAcerto = new Map<string, number>()
-  for (const e of (enviosData ?? []) as { acerto_id: string; natureza: 'credito' | 'debito'; valor: number }[]) {
-    enviosPorAcerto.set(e.acerto_id, (enviosPorAcerto.get(e.acerto_id) ?? 0) + (e.natureza === 'credito' ? e.valor : -e.valor))
+  for (const { data } of enviosPorLote) {
+    for (const e of (data ?? []) as { acerto_id: string; natureza: 'credito' | 'debito'; valor: number }[]) {
+      enviosPorAcerto.set(e.acerto_id, (enviosPorAcerto.get(e.acerto_id) ?? 0) + (e.natureza === 'credito' ? e.valor : -e.valor))
+    }
   }
   const infoPorClube = new Map(((clubesData ?? []) as { id: string; security: number | null; projeto: string | null }[]).map((c) => [c.id, { security: c.security ?? 0, projeto: c.projeto ?? null }]))
 
