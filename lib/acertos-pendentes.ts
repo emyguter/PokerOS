@@ -56,13 +56,20 @@ async function statusStoplossPorClube(clubIds: string[]): Promise<Map<string, St
 }
 
 // "Acertos Pendentes da Semana": só o que o CLUBE ainda deve pra gente
-// (Diferença negativa) — mesma fonte de verdade do Controle de Pagamentos
-// (lib/pagamentos.ts), só filtrando quem ainda deve e ordenando do menor
-// pro maior. Caso a Liga deva pro clube (Diferença positiva) NUNCA entra
-// aqui, pago ou não — clarificado pelo usuário depois de um vai-e-vem: "ali
-// é só o que tá pendente do clube pagar pra gente" (essa tela não é sobre
-// toda Diferença em aberto nos dois sentidos, é especificamente sobre
-// cobrança de clube).
+// (Acerto negativo E Diferença negativa, os dois no MESMO sentido) — mesma
+// fonte de verdade do Controle de Pagamentos (lib/pagamentos.ts), só
+// filtrando quem ainda deve e ordenando do menor pro maior. Caso a Liga
+// deva pro clube (Acerto positivo) NUNCA entra aqui, pago ou não —
+// clarificado pelo usuário depois de um vai-e-vem: "ali é só o que tá
+// pendente do clube pagar pra gente" (essa tela não é sobre toda Diferença
+// em aberto nos dois sentidos, é especificamente sobre cobrança de clube).
+// Exige o Acerto TAMBÉM negativo (não só a Diferença) porque um Acerto
+// positivo pago com 1 centavo a mais vira Diferença levemente negativa só
+// por causa do arredondamento da própria Liga pagando a mais (achado nos
+// casos AK AMAKHA club 2/G G Poker: Acerto +420,80 pago 420,81, Diferença
+// -0,01) — isso não é o clube devendo nada, é sobra de centavo do nosso
+// próprio pagamento a mais (confirmado pelo usuário: "eles pagaram 1
+// centavo a mais, então eles não estão devendo nada").
 // `periodo`: sem informar, cai na semana MAIS RECENTE (comportamento de
 // sempre). Com `{inicio, fim}` (ver buscarPeriodosComAcerto), mostra a
 // semana escolhida — pedido do Cássio: "precisamos la na tela de acertos
@@ -106,7 +113,7 @@ export async function buscarAcertosPendentesDaSemana(periodo?: PeriodoPagamento,
     ((acertosClub ?? []) as { id: string; club_id: string | null; rollover_sem_multa: boolean | null }[]).map((a) => [a.id, !!a.rollover_sem_multa])
   )
 
-  const pendentes = somentePendentes ? pagamentos.filter((p) => p.diferenca < -0.005) : pagamentos
+  const pendentes = somentePendentes ? pagamentos.filter((p) => p.diferenca < -0.005 && p.valor_acerto < -0.005) : pagamentos
   const clubIds = [...new Set(pendentes.map((p) => clubIdPorAcertoId.get(p.acerto_id)).filter((id): id is string => !!id))]
   const statusPorClube = await statusStoplossPorClube(clubIds)
 
