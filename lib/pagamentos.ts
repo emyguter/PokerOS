@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { calcularTotalAcerto, buscarSecurityEDividasPorClube, regrossarValorCrypto } from './relatorio-acerto'
-import { diaSeguinte, maisDias, diaAnterior, clubesComDiferencaQuitada, buscarRakebackAgentesPorClube, buscarSaldoArrastado } from './acertos-engine'
+import { diaSeguinte, maisDias, diaAnterior, clubesComDiferencaQuitada, buscarRakebackAgentesPorClube, buscarSaldoArrastado, buscarAcertoComoAgente } from './acertos-engine'
 
 export type TipoEnvio = 'pagamento' | 'antecipacao'
 
@@ -164,9 +164,30 @@ export function agregarPagamentos(acertos: AcertoRow[], pagamentos: PagamentoRow
 // valor que o Controle de Pagamentos já mostra pro mesmo Acerto. Pedido do
 // Cássio: "se escolheu Pagamento, tem que constar exatamente o mesmo valor
 // do acerto, pra não ter problemas depois".
+//
+// Clube que também é (na vida real) um Agente/Super Agente vinculado em
+// outro Clube/Liga (ver clubs.agente_vinculado_id, mesmo caso do
+// ClubAcertoCard: "Total como Agente" somado no Total final, fora do corpo
+// do card) entra aqui também — achado no Agreste_poker: o card mostrava
+// Total -2.003,51 (Total do clube -1.914,01 + Total como Agente -89,50),
+// mas "Qual Acerto está sendo pago?" oferecia só -1.914,01, sem a parte de
+// Agente, quebrando o "tem que constar exatamente o mesmo valor" pedido.
 export async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], periodStart: string, periodEnd: string): Promise<{ valorAcertoPorId: Map<string, number>; extraPorClube: Map<string, number> }> {
   const clubIds = [...new Set(lista.map((a) => a.club_id).filter((id): id is string => !!id))]
   const rakeTotalPorClube = new Map(lista.filter((a) => a.club_id).map((a) => [a.club_id as string, a.rake_total]))
+
+  const { data: clubesAgenteData } = clubIds.length > 0
+    ? await supabase.from('clubs').select('id, agente_vinculado_id').in('id', clubIds)
+    : { data: [] as { id: string; agente_vinculado_id: string | null }[] }
+  const agenteVinculadoPorClube = new Map(
+    ((clubesAgenteData ?? []) as { id: string; agente_vinculado_id: string | null }[])
+      .filter((c) => c.agente_vinculado_id)
+      .map((c) => [c.id, c.agente_vinculado_id as string])
+  )
+  const agenteIdsUnicos = [...new Set(agenteVinculadoPorClube.values())]
+  const totalComoAgentePorAgenteId = new Map(
+    await Promise.all(agenteIdsUnicos.map(async (agenteId) => [agenteId, (await buscarAcertoComoAgente(agenteId, periodEnd || periodStart)).total] as const))
+  )
 
   const [{ data: lancamentosData }, extrasPorClube, rakebackAgentesPorChave, arrastadoPorClube] = await Promise.all([
     clubIds.length > 0 && periodStart
@@ -203,7 +224,7 @@ export async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], peri
   const valorAcertoPorId = new Map<string, number>()
   for (const a of lista) {
     const extras = a.club_id ? extrasPorClube.get(a.club_id) : undefined
-    valorAcertoPorId.set(a.id, calcularTotalAcerto(a.valor_acerto, {
+    const totalBase = calcularTotalAcerto(a.valor_acerto, {
       bilhetes: a.bilhetes,
       pendenciasAntecipacao: a.club_id ? arrastadoPorClube.get(a.club_id)?.total ?? 0 : 0,
       security: extras?.security ?? 0,
@@ -211,7 +232,13 @@ export async function valorAcertoCompletoPorRow(lista: AcertoCompletoRow[], peri
       lancamentosLiquido: a.club_id ? extraPorClube.get(a.club_id) ?? 0 : 0,
       dividasTotal: a.dividas_valor ?? 0,
       rakebackAgentes: a.club_id ? rakebackAgentesPorChave.get(`${a.club_id}:${a.import_id}`) ?? 0 : 0,
-    }))
+    })
+    // Total como Agente soma DEPOIS, fora de calcularTotalAcerto — mesmo
+    // formato do ClubAcertoCard (`total + acertoComoAgente.total`), nunca se
+    // mistura com o corpo do Acerto em si.
+    const agenteId = a.club_id ? agenteVinculadoPorClube.get(a.club_id) : undefined
+    const totalComoAgente = agenteId ? totalComoAgentePorAgenteId.get(agenteId) ?? 0 : 0
+    valorAcertoPorId.set(a.id, Math.round((totalBase + totalComoAgente) * 100) / 100)
   }
   return { valorAcertoPorId, extraPorClube }
 }
